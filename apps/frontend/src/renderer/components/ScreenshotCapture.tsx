@@ -13,7 +13,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Loader2, RefreshCw, Monitor, Frame, AlertCircle } from 'lucide-react';
+import { Loader2, RefreshCw, Monitor, Frame, AlertCircle, Info } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -30,6 +30,14 @@ interface ScreenshotCaptureProps {
   onCapture: (imageData: string) => void; // base64 encoded PNG
 }
 
+/**
+ * Get the appropriate paste keyboard shortcut based on platform
+ */
+const getPasteShortcut = (): string => {
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+  return isMac ? 'Cmd+V' : 'Ctrl+V';
+};
+
 export function ScreenshotCapture({ open, onOpenChange, onCapture }: ScreenshotCaptureProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const [sources, setSources] = useState<ScreenshotSource[]>([]);
@@ -37,6 +45,7 @@ export function ScreenshotCapture({ open, onOpenChange, onCapture }: ScreenshotC
   const [isLoading, setIsLoading] = useState(false);
   const [isCapturing, setIsCapturing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDevMode, setIsDevMode] = useState(false);
 
   /**
    * Fetch available screenshot sources
@@ -44,11 +53,19 @@ export function ScreenshotCapture({ open, onOpenChange, onCapture }: ScreenshotC
   const fetchSources = useCallback(async () => {
     setIsLoading(true);
     setError(null);
+    setIsDevMode(false);
+    setSelectedSource(null);
     try {
       const result = await window.electronAPI.getSources();
+
+      // Check if running in dev mode (screenshot capture unavailable)
+      if (result.devMode) {
+        setIsDevMode(true);
+        return;
+      }
+
       if (result.success && result.data) {
         setSources(result.data);
-        setSelectedSource(null);
       } else {
         setError(result.error || t('tasks:screenshot.errors.getSources'));
       }
@@ -58,7 +75,7 @@ export function ScreenshotCapture({ open, onOpenChange, onCapture }: ScreenshotC
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   // Fetch sources when dialog opens
   useEffect(() => {
@@ -112,8 +129,26 @@ export function ScreenshotCapture({ open, onOpenChange, onCapture }: ScreenshotC
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto">
+          {/* Dev Mode Info State */}
+          {isDevMode && (
+            <div className="flex items-start gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg mb-4">
+              <Info className="h-5 w-5 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" />
+              <div className="flex-1 space-y-2">
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                  {t('tasks:screenshot.devMode.title')}
+                </p>
+                <p className="text-sm text-amber-600 dark:text-amber-500">
+                  {t('tasks:screenshot.devMode.description')}
+                </p>
+                <p className="text-sm text-amber-600 dark:text-amber-500">
+                  {t('tasks:screenshot.devMode.hint', { shortcut: getPasteShortcut() })}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Error State */}
-          {error && (
+          {error && !isDevMode && (
             <div className="flex items-center gap-3 p-4 bg-destructive/10 border border-destructive/30 rounded-lg mb-4">
               <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0" />
               <div className="flex-1">
@@ -135,14 +170,14 @@ export function ScreenshotCapture({ open, onOpenChange, onCapture }: ScreenshotC
           )}
 
           {/* Loading State */}
-          {isLoading && sources.length === 0 && (
+          {isLoading && sources.length === 0 && !isDevMode && (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           )}
 
           {/* Sources Grid */}
-          {!isLoading && sources.length > 0 && (
+          {!isLoading && !isDevMode && sources.length > 0 && (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 p-1">
               {sources.map((source) => {
                 const isSelected = selectedSource === source.id;
@@ -230,7 +265,7 @@ export function ScreenshotCapture({ open, onOpenChange, onCapture }: ScreenshotC
           )}
 
           {/* Empty State */}
-          {!isLoading && sources.length === 0 && !error && (
+          {!isLoading && !isDevMode && sources.length === 0 && !error && (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Monitor className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-sm text-muted-foreground max-w-sm">
@@ -268,7 +303,7 @@ export function ScreenshotCapture({ open, onOpenChange, onCapture }: ScreenshotC
               variant="outline"
               size="icon"
               onClick={fetchSources}
-              disabled={isLoading || isCapturing}
+              disabled={isLoading || isCapturing || isDevMode}
               title={t('common:buttons.refresh')}
             >
               {isLoading ? (
@@ -279,7 +314,7 @@ export function ScreenshotCapture({ open, onOpenChange, onCapture }: ScreenshotC
             </Button>
             <Button
               onClick={handleCapture}
-              disabled={!selectedSource || isCapturing}
+              disabled={!selectedSource || isCapturing || isDevMode}
             >
               {isCapturing ? (
                 <>

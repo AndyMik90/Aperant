@@ -77,9 +77,23 @@
     "discard": "Abandonner",
     "switch": "Changer",
     "add": "Ajouter",
+    "apply": "Appliquer",
     "gotIt": "Compris",
     "continue": "Continuer",
-    "saving": "Enregistrement..."
+    "saving": "Enregistrement...",
+    "deleting": "Suppression..."
+  },
+  "actions": {
+    "save": "Enregistrer",
+    "apply": "Appliquer",
+    "delete": "Supprimer",
+    "settings": "Paramètres"
+  },
+  "os": {
+    "windows": "Windows",
+    "macos": "macOS",
+    "linux": "Linux",
+    "unknown": "Inconnu"
   },
   "labels": {
     "loading": "Chargement...",
@@ -91,7 +105,9 @@
     "noData": "Aucune donnée",
     "optional": "Optionnel",
     "required": "Requis",
-    "dismiss": "Ignorer"
+    "dismiss": "Ignorer",
+    "important": "Important",
+    "orphaned": "(orphelin)"
   },
   "selection": {
     "select": "Sélectionner",
@@ -120,6 +136,11 @@
     "failedToDeleteTaskWorktree": "Échec de la suppression du worktree de tâche : {{specName}}",
     "terminalWorktreeNotFound": "Worktree terminal introuvable : {{name}}",
     "failedToDeleteTerminalWorktree": "Échec de la suppression du worktree terminal : {{name}}"
+  },
+  "worktrees": {
+    "deleteSuccess": "Worktree '{{branch}}' supprimé avec succès",
+    "bulkDeleteSuccess": "{{count}} worktree supprimé avec succès",
+    "bulkDeleteSuccess_plural": "{{count}} worktrees supprimés avec succès"
   },
   "notification": {
     "accountSwitched": "Compte changé",
@@ -222,6 +243,12 @@
     "selectedCount": "{{count}} sélectionné(s)",
     "noResultsFound": "Aucun résultat trouvé",
     "reset": "Réinitialiser",
+    "sort": {
+      "label": "Trier",
+      "newest": "Plus récent",
+      "oldest": "Plus ancien",
+      "largest": "Plus grand"
+    },
     "pullRequests": "Pull Requests",
     "open": "ouvert",
     "selectPRToView": "Sélectionnez une pull request pour voir les détails",
@@ -265,6 +292,8 @@
     "newIssue": "{{count}} nouveau problème",
     "newIssue_plural": "{{count}} nouveaux problèmes",
     "reviewFailed": "Révision échouée",
+    "externalReviewDetected": "Révision externe détectée",
+    "reviewStartedExternally": "Cette révision a été lancée depuis une autre session",
     "description": "Description",
     "noDescription": "Aucune description fournie.",
     "followupReviewDetails": "Détails de la révision de suivi",
@@ -347,9 +376,10 @@
     "updatingBranch": "Mise à jour...",
     "branchUpdated": "Branche mise à jour",
     "branchUpdateFailed": "Échec de la mise à jour de la branche",
-    "loadingMore": "Chargement des PRs...",
-    "scrollForMore": "Défiler pour plus",
     "allPRsLoaded": "Tous les PRs chargés",
+    "maxPRsShown": "Affichage des 100 premières PRs",
+    "loadMore": "Charger plus",
+    "loadingMore": "Chargement...",
     "workflowsAwaitingApproval": "{{count}} workflow en attente d'approbation",
     "workflowsAwaitingApproval_plural": "{{count}} workflows en attente d'approbation",
     "blockedByWorkflows": "Bloqué",
@@ -391,6 +421,12 @@
     "failedLabel": "Échoué",
     "starting": "Démarrage..."
   },
+  "insights": {
+    "suggestedTask": "Tâche suggérée",
+    "creating": "Création...",
+    "taskCreated": "Tâche créée",
+    "createTask": "Créer une tâche"
+  },
   "ideation": {
     "converting": "Conversion...",
     "convertToTask": "Convertir en tâche Auto-Build",
@@ -418,7 +454,11 @@
     "authenticationAriaLabel": "Authentification : {{provider}}",
     "authenticationDetails": "Détails de l'authentification",
     "apiProfile": "Profil API",
+    "apiKey": "Clé API",
     "oauth": "OAuth",
+    "claudeCode": "Claude Code",
+    "claudeCodeSubscription": "Abonnement Claude Code",
+    "subscription": "Abonnement",
     "provider": "Fournisseur",
     "providerAnthropic": "Anthropic",
     "providerZai": "z.ai",
@@ -441,7 +481,20 @@
     "window5Hour": "Fenêtre de 5 heures",
     "window7Day": "Fenêtre de 7 jours",
     "window5HoursQuota": "Quota de 5 heures",
-    "windowMonthlyToolsQuota": "Quota mensuel d'outils"
+    "windowMonthlyToolsQuota": "Quota mensuel d'outils",
+    "otherAccounts": "Autres comptes",
+    "next": "Suivant",
+    "weeklyLimitReached": "Limite hebdomadaire atteinte",
+    "sessionLimitReached": "Limite de session atteinte",
+    "notAuthenticated": "Non authentifié",
+    "needsReauth": "Réauth requise",
+    "reauthRequired": "Ré-authentification requise",
+    "reauthRequiredDescription": "Votre session a expiré. Ré-authentifiez-vous pour voir l'utilisation et continuer à utiliser ce compte.",
+    "reauthButton": "Ré-authentifier",
+    "clickToOpenSettings": "Cliquez pour ouvrir les Paramètres →",
+    "sessionShort": "Utilisation session 5 heures",
+    "weeklyShort": "Utilisation hebdomadaire 7 jours",
+    "swap": "Changer"
   },
   "oauth": {
     "enterCode": "Saisie manuelle du code (secours)",
@@ -543,6 +596,49 @@
     "step3": "Cliquez sur « Authentifier » pour terminer la connexion",
     "footer": "Le compte sera disponible une fois l'authentification terminée."
   },
+  "roadmap": {
+    "taskCompleted": "Terminé",
+    "taskDeleted": "Supprimé",
+    "taskArchived": "Archivé",
+    "showMoreFeatures": "Afficher {{count}} fonctionnalité supplémentaire",
+    "showMoreFeatures_plural": "Afficher {{count}} fonctionnalités supplémentaires",
+    "showLessFeatures": "Afficher moins"
+  },
+  "roadmapGeneration": {
+    "progress": "Progression",
+    "elapsed": "Écoulé : {{time}}",
+    "stillWorking": "Toujours en cours...",
+    "stopping": "Arrêt...",
+    "stop": "Arrêter",
+    "stopTooltip": "Arrêter la génération",
+    "phases": {
+      "analyzing": {
+        "label": "Analyse",
+        "description": "Analyse de la structure et du code du projet..."
+      },
+      "discovering": {
+        "label": "Découverte",
+        "description": "Découverte du public cible et des besoins des utilisateurs..."
+      },
+      "generating": {
+        "label": "Génération",
+        "description": "Génération de la feuille de route des fonctionnalités..."
+      },
+      "complete": {
+        "label": "Terminé",
+        "description": "Génération de la feuille de route terminée !"
+      },
+      "error": {
+        "label": "Erreur",
+        "description": "La génération a échoué"
+      }
+    },
+    "steps": {
+      "analyze": "Analyser",
+      "discover": "Découvrir",
+      "generate": "Générer"
+    }
+  },
   "auth": {
     "failure": {
       "title": "Authentification requise",
@@ -556,6 +652,104 @@
       "taskAffected": "Tâche affectée",
       "technicalDetails": "Détails techniques",
       "goToSettings": "Aller aux paramètres"
+    }
+  },
+  "git": {
+    "branchGroups": {
+      "local": "Branches Locales",
+      "remote": "Branches Distantes"
+    },
+    "branchType": {
+      "local": "Locale",
+      "remote": "Distante"
+    }
+  },
+  "githubErrors": {
+    "rateLimitTitle": "Limite de débit GitHub atteinte",
+    "authTitle": "Authentification GitHub requise",
+    "permissionTitle": "Permission GitHub refusée",
+    "notFoundTitle": "Ressource GitHub introuvable",
+    "networkTitle": "Erreur de connexion GitHub",
+    "unknownTitle": "Erreur GitHub",
+    "rateLimitMessage": "Limite de débit de l'API GitHub atteinte. Veuillez patienter un moment avant de réessayer.",
+    "rateLimitMessageMinutes": "Limite de débit de l'API GitHub atteinte. Veuillez attendre {{minutes}} minute(s) avant de réessayer.",
+    "rateLimitMessageHours": "Limite de débit de l'API GitHub atteinte. La limite se réinitialise dans environ {{hours}} heure(s).",
+    "authMessage": "Échec de l'authentification GitHub. Veuillez vérifier votre jeton GitHub dans les Paramètres et réessayer.",
+    "permissionMessage": "Permission GitHub refusée. Votre jeton n'a peut-être pas les accès requis. Veuillez vérifier les permissions de votre jeton dans les Paramètres.",
+    "permissionMessageScopes": "Permission GitHub refusée. Votre jeton manque de permissions requises : {{scopes}}. Veuillez mettre à jour votre jeton GitHub dans les Paramètres.",
+    "notFoundMessage": "La ressource GitHub demandée est introuvable. Veuillez vérifier que le dépôt existe et que vous y avez accès.",
+    "networkMessage": "Impossible de se connecter à GitHub. Veuillez vérifier votre connexion Internet et réessayer.",
+    "unknownMessage": "Une erreur inattendue s'est produite lors de la communication avec GitHub. Veuillez réessayer.",
+    "resetsIn": "Réinitialisation dans {{time}}",
+    "countdownHoursMinutes": "{{hours}}h {{minutes}}m",
+    "countdownMinutesSeconds": "{{minutes}}m {{seconds}}s",
+    "rateLimitExpired": "La limite de débit a été réinitialisée. Vous pouvez réessayer maintenant.",
+    "requiredScopes": "Permissions requises"
+  },
+  "roadmapProgress": {
+    "elapsedTime": "Écoulé",
+    "lastActivity": "Dernière activité",
+    "staleWarning": "Aucune activité depuis un moment",
+    "staleWarningTooltip": "Cette tâche n'a eu aucune activité depuis {{minutes}} minutes",
+    "phases": {
+      "analyzing": {
+        "label": "Analyse",
+        "description": "Analyse de la structure du projet et du code..."
+      },
+      "discovering": {
+        "label": "Découverte",
+        "description": "Découverte du public cible et des besoins utilisateurs..."
+      },
+      "generating": {
+        "label": "Génération",
+        "description": "Génération de la feuille de route..."
+      },
+      "complete": {
+        "label": "Terminé",
+        "description": "Génération de la feuille de route terminée !"
+      },
+      "error": {
+        "label": "Erreur",
+        "description": "La génération a échoué"
+      }
+    },
+    "steps": {
+      "analyze": "Analyser",
+      "discover": "Découvrir",
+      "generate": "Générer"
+    },
+    "processing": "En cours",
+    "processActiveTooltip": "Le processus est en cours d'exécution",
+    "stopGeneration": "Arrêter la génération",
+    "stopping": "Arrêt...",
+    "progress": "Progression",
+    "lastActivityPrefix": "dernière activité",
+    "lastProgressUpdateTooltip": "Dernière mise à jour de progression reçue"
+  },
+  "prStatus": {
+    "ci": {
+      "success": "CI réussie",
+      "pending": "CI en attente",
+      "failure": "CI échouée",
+      "successTooltip": "Toutes les vérifications CI ont réussi",
+      "pendingTooltip": "Les vérifications CI sont en cours",
+      "failureTooltip": "Une ou plusieurs vérifications CI ont échoué"
+    },
+    "review": {
+      "approved": "Approuvée",
+      "changesRequested": "Modifications demandées",
+      "pending": "Révision en attente",
+      "approvedTooltip": "Cette PR a été approuvée",
+      "changesRequestedTooltip": "Des modifications ont été demandées sur cette PR",
+      "pendingTooltip": "En attente de révision"
+    },
+    "merge": {
+      "ready": "Prête à fusionner",
+      "blocked": "Fusion bloquée",
+      "conflict": "Conflits détectés",
+      "readyTooltip": "Cette PR est prête à être fusionnée",
+      "blockedTooltip": "Cette PR ne peut pas être fusionnée en raison de conditions bloquantes",
+      "conflictTooltip": "Cette PR a des conflits de fusion qui doivent être résolus"
     }
   }
 }

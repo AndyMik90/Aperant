@@ -60,7 +60,7 @@ const LOGIN_SUCCESS_PATTERN = /(?:Login successful|Successfully logged in|Logged
 export function extractClaudeSessionId(data: string): string | null {
   for (const pattern of CLAUDE_SESSION_PATTERNS) {
     const match = data.match(pattern);
-    if (match && match[1]) {
+    if (match?.[1]) {
       return match[1];
     }
   }
@@ -100,13 +100,66 @@ export function hasOAuthUrl(data: string): boolean {
 }
 
 /**
+ * Strip ANSI escape codes from a string
+ *
+ * Handles comprehensive escape sequences including:
+ * - CSI sequences: \x1b[...X (colors, cursor movement, SGR, etc.)
+ * - OSC sequences: \x1b]...BEL or \x1b]...ST (hyperlinks, window title, etc.)
+ *   - OSC 8 hyperlinks wrap text like: \x1b]8;;url\x07text\x1b]8;;\x07
+ *   - These are used by modern terminals to make emails/URLs clickable
+ * - DCS sequences: \x1bP...ST (device control)
+ * - Other single-character escape sequences
+ *
+ * This comprehensive stripping is critical for email extraction because terminals
+ * often wrap emails in OSC 8 hyperlink sequences, which would otherwise corrupt
+ * the email address during regex matching.
+ */
+// eslint-disable-next-line no-control-regex
+const ANSI_ESCAPE_PATTERNS = [
+  // CSI sequences: \x1b[ followed by optional private mode indicator (?, >, !),
+  // then parameters (numbers and semicolons), then a command letter
+  // Examples: \x1b[0m (reset), \x1b[1;32m (bold green), \x1b[?25h (show cursor)
+  /\x1b\[[?!>]?[0-9;]*[a-zA-Z]/g,
+
+  // OSC sequences: \x1b] followed by content, terminated by BEL (\x07) or ST (\x1b\\)
+  // Examples: \x1b]0;title\x07 (set window title), \x1b]8;;url\x07 (hyperlink)
+  // The [^\x07]* matches any chars except BEL, allowing nested content
+  /\x1b\][^\x07]*(?:\x07|\x1b\\)/g,
+
+  // DCS sequences: \x1bP followed by content, terminated by ST (\x1b\\)
+  // Used for device control strings (less common but should be handled)
+  /\x1bP[^\x1b]*\x1b\\/g,
+
+  // Single-character escapes: \x1b followed by specific characters
+  // Examples: \x1b= (keypad mode), \x1b> (normal keypad), \x1bM (reverse index)
+  /\x1b[=>ABCDEFGHIJKLMNOPQRSTUVWXYZ\\^_`abcdefghijklmnopqrstuvwxyz{|}~]/g,
+
+  // APC, PM, SOS sequences (Application Program Command, Privacy Message, Start of String)
+  // Format: \x1b_ or \x1b^ or \x1bX followed by content, terminated by ST
+  /\x1b[_X^][^\x1b]*\x1b\\/g,
+];
+
+function stripAnsi(str: string): string {
+  let result = str;
+  for (const pattern of ANSI_ESCAPE_PATTERNS) {
+    result = result.replace(pattern, '');
+  }
+  return result;
+}
+
+/**
  * Extract email from output
  * Tries multiple patterns to handle different output formats
+ * Automatically strips ANSI escape codes before matching
  */
 export function extractEmail(data: string): string | null {
+  // Strip ANSI escape codes - terminal output often contains formatting
+  // that can break regex matching (e.g., color codes within the email text)
+  const cleanData = stripAnsi(data);
+
   for (const pattern of EMAIL_PATTERNS) {
-    const match = data.match(pattern);
-    if (match && match[1]) {
+    const match = cleanData.match(pattern);
+    if (match?.[1]) {
       return match[1];
     }
   }

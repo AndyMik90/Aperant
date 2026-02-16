@@ -3,6 +3,11 @@
     "expand": "Agrandir le terminal",
     "collapse": "Reduire le terminal"
   },
+  "resume": {
+    "pending": "Reprise disponible",
+    "pendingTooltip": "Cliquez pour reprendre la session Claude précédente",
+    "resumeAllSessions": "Reprendre Tout"
+  },
   "auth": {
     "terminalTitle": "Auth: {{profileName}}",
     "maxTerminalsReached": "Impossible d'ouvrir le terminal d'auth: nombre maximum de terminaux atteint. Fermez un terminal d'abord."
@@ -34,8 +39,12 @@
     "openInIDE": "Ouvrir dans IDE",
     "maxReached": "Maximum de 12 worktrees terminal atteint",
     "alreadyExists": "Un worktree avec ce nom existe deja",
+    "searchPlaceholder": "Rechercher des worktrees...",
+    "noResults": "Aucun worktree trouvé",
     "deleteTitle": "Supprimer le Worktree?",
     "deleteDescription": "Ceci supprimera definitivement le worktree et sa branche. Les modifications non committées seront perdues.",
-    "detached": "(détaché)"
+    "detached": "(détaché)",
+    "remotePushFailed": "Suivi distant non configure",
+    "remotePushFailedDescription": "Le worktree a ete cree mais la branche n'a pas pu etre poussee vers le depot distant. Vous devrez peut-etre executer git push -u manuellement."
   }
 }

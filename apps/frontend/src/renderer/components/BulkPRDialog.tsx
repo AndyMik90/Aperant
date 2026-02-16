@@ -24,6 +24,7 @@ import { Checkbox } from './ui/checkbox';
 import { Progress } from './ui/progress';
 import { ScrollArea } from './ui/scroll-area';
 import type { Task, WorktreeCreatePRResult } from '../../shared/types';
+import { useTaskStore } from '../stores/task-store';
 
 /**
  * Check if an error message indicates a worktree-related issue (missing worktree, no branch, etc.)
@@ -154,6 +155,15 @@ export function BulkPRDialog({
               error: data.success ? undefined : (data.error || t('taskReview:pr.errors.unknown'))
             } : r
           ));
+
+          // Update task state in store with new status and prUrl (more efficient than reloading all tasks)
+          if (data.success && data.prUrl && !data.alreadyExists) {
+            const currentTask = tasks[i];
+            useTaskStore.getState().updateTask(currentTask.id, {
+              status: 'done',
+              metadata: { ...currentTask.metadata, prUrl: data.prUrl }
+            });
+          }
         } else {
           const errorMsg = prResult?.error || '';
           setTaskResults(prev => prev.map((r, idx) =>

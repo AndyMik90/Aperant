@@ -10,6 +10,8 @@ Key Features:
 - Skips re-reviewing bot commits
 - Implements "cooling off" period to prevent rapid re-reviews
 - Tracks reviewed commits to avoid duplicate reviews
+- In-progress tracking to prevent concurrent reviews
+- Stale review detection with automatic cleanup
 
 Usage:
     detector = BotDetector(bot_token="ghp_...")
@@ -20,13 +22,22 @@ Usage:
         print(f"Skipping PR: {reason}")
         return
 
+    # Mark review as started (prevents concurrent reviews)
+    detector.mark_review_started(pr_number)
+
+    # Perform review...
+
     # After successful review, mark as reviewed
     detector.mark_reviewed(pr_number, head_sha)
+
+    # Or if review failed:
+    detector.mark_review_finished(pr_number, success=False)
 """
 
 from __future__ import annotations
 
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -35,6 +46,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 from core.gh_executable import get_gh_executable
+
+logger = logging.getLogger(__name__)
 
 try:
     from .file_lock import FileLock, atomic_write
@@ -52,11 +65,15 @@ class BotDetectionState:
     # PR number -> last review timestamp (ISO format)
     last_review_times: dict[int, str] = field(default_factory=dict)
 
+    # PR number -> in-progress review start time (ISO format)
+    in_progress_reviews: dict[int, str] = field(default_factory=dict)
+
     def to_dict(self) -> dict:
         """Convert to dictionary for JSON serialization."""
         return {
             "reviewed_commits": self.reviewed_commits,
             "last_review_times": self.last_review_times,
+            "in_progress_reviews": self.in_progress_reviews,
         }
 
     @classmethod
@@ -65,6 +82,7 @@ class BotDetectionState:
         return cls(
             reviewed_commits=data.get("reviewed_commits", {}),
             last_review_times=data.get("last_review_times", {}),
+            in_progress_reviews=data.get("in_progress_reviews", {}),
         )
 
     def save(self, state_dir: Path) -> None:
@@ -101,10 +119,15 @@ class BotDetector:
         - 1-minute cooling off period between reviews of same PR (for testing)
         - Tracks reviewed commit SHAs to avoid duplicate reviews
         - Identifies bot user from token to skip bot-authored content
+        - In-progress tracking to prevent concurrent reviews
+        - Stale review detection (30-minute timeout)
     """
 
     # Cooling off period in minutes (reduced to 1 for testing large PRs)
     COOLING_OFF_MINUTES = 1
+
+    # Timeout for in-progress reviews in minutes (after this, review is considered stale/crashed)
+    IN_PROGRESS_TIMEOUT_MINUTES = 30
 
     def __init__(
         self,
@@ -298,6 +321,104 @@ class BotDetector:
         reviewed = self.state.reviewed_commits.get(str(pr_number), [])
         return commit_sha in reviewed
 
+    def is_review_in_progress(self, pr_number: int) -> tuple[bool, str]:
+        """
+        Check if a review is currently in progress for this PR.
+
+        Also detects stale reviews (started > IN_PROGRESS_TIMEOUT_MINUTES ago).
+
+        Args:
+            pr_number: The PR number
+
+        Returns:
+            Tuple of (is_in_progress, reason_message)
+        """
+        pr_key = str(pr_number)
+        start_time_str = self.state.in_progress_reviews.get(pr_key)
+
+        if not start_time_str:
+            return False, ""
+
+        try:
+            start_time = datetime.fromisoformat(start_time_str)
+            time_elapsed = datetime.now() - start_time
+
+            # Check if review is stale (timeout exceeded)
+            if time_elapsed > timedelta(minutes=self.IN_PROGRESS_TIMEOUT_MINUTES):
+                # Mark as stale and clear the in-progress state
+                print(
+                    f"[BotDetector] Review for PR #{pr_number} is stale "
+                    f"(started {int(time_elapsed.total_seconds() / 60)}m ago, "
+                    f"timeout: {self.IN_PROGRESS_TIMEOUT_MINUTES}m) - clearing in-progress state",
+                    file=sys.stderr,
+                )
+                self.mark_review_finished(pr_number, success=False)
+                return False, ""
+
+            # Review is actively in progress
+            minutes_elapsed = int(time_elapsed.total_seconds() / 60)
+            reason = f"Review already in progress (started {minutes_elapsed}m ago)"
+            print(f"[BotDetector] PR #{pr_number}: {reason}", file=sys.stderr)
+            return True, reason
+
+        except (ValueError, TypeError) as e:
+            print(
+                f"[BotDetector] Error parsing in-progress start time: {e}",
+                file=sys.stderr,
+            )
+            # Clear invalid state
+            self.mark_review_finished(pr_number, success=False)
+            return False, ""
+
+    def mark_review_started(self, pr_number: int) -> None:
+        """
+        Mark a review as started for this PR.
+
+        This should be called when beginning a review to prevent concurrent reviews.
+
+        Args:
+            pr_number: The PR number
+        """
+        pr_key = str(pr_number)
+
+        # Record start time
+        self.state.in_progress_reviews[pr_key] = datetime.now().isoformat()
+
+        # Save state
+        self.state.save(self.state_dir)
+
+        logger.info(f"[BotDetector] Marked PR #{pr_number} review as started")
+        print(f"[BotDetector] Started review for PR #{pr_number}", file=sys.stderr)
+
+    def mark_review_finished(self, pr_number: int, success: bool = True) -> None:
+        """
+        Mark a review as finished for this PR.
+
+        This clears the in-progress state. Should be called when review completes
+        (successfully or with error) or when detected as stale.
+
+        Args:
+            pr_number: The PR number
+            success: Whether the review completed successfully
+        """
+        pr_key = str(pr_number)
+
+        # Clear in-progress state
+        if pr_key in self.state.in_progress_reviews:
+            del self.state.in_progress_reviews[pr_key]
+
+            # Save state
+            self.state.save(self.state_dir)
+
+            status = "successfully" if success else "with error/timeout"
+            logger.info(
+                f"[BotDetector] Marked PR #{pr_number} review as finished ({status})"
+            )
+            print(
+                f"[BotDetector] Finished review for PR #{pr_number} ({status})",
+                file=sys.stderr,
+            )
+
     def should_skip_pr_review(
         self,
         pr_number: int,
@@ -332,13 +453,19 @@ class BotDetector:
                 print(f"[BotDetector] SKIP PR #{pr_number}: {reason}")
                 return True, reason
 
-        # Check 3: Are we in the cooling off period?
+        # Check 3: Is a review already in progress?
+        is_in_progress, reason = self.is_review_in_progress(pr_number)
+        if is_in_progress:
+            print(f"[BotDetector] SKIP PR #{pr_number}: {reason}")
+            return True, reason
+
+        # Check 4: Are we in the cooling off period?
         is_cooling, reason = self.is_within_cooling_off(pr_number)
         if is_cooling:
             print(f"[BotDetector] SKIP PR #{pr_number}: {reason}")
             return True, reason
 
-        # Check 4: Have we already reviewed this exact commit?
+        # Check 5: Have we already reviewed this exact commit?
         head_sha = self.get_last_commit_sha(commits) if commits else None
         if head_sha and self.has_reviewed_commit(pr_number, head_sha):
             reason = f"Already reviewed commit {head_sha[:8]}"
@@ -354,6 +481,7 @@ class BotDetector:
         Mark a PR as reviewed at a specific commit.
 
         This should be called after successfully posting a review.
+        Also clears the in-progress state.
 
         Args:
             pr_number: The PR number
@@ -371,10 +499,14 @@ class BotDetector:
         # Update last review time
         self.state.last_review_times[pr_key] = datetime.now().isoformat()
 
+        # Clear in-progress state
+        if pr_key in self.state.in_progress_reviews:
+            del self.state.in_progress_reviews[pr_key]
+
         # Save state
         self.state.save(self.state_dir)
 
-        print(
+        logger.info(
             f"[BotDetector] Marked PR #{pr_number} as reviewed at {commit_sha[:8]} "
             f"({len(self.state.reviewed_commits[pr_key])} total commits reviewed)"
         )
@@ -394,6 +526,9 @@ class BotDetector:
         if pr_key in self.state.last_review_times:
             del self.state.last_review_times[pr_key]
 
+        if pr_key in self.state.in_progress_reviews:
+            del self.state.in_progress_reviews[pr_key]
+
         self.state.save(self.state_dir)
 
         print(f"[BotDetector] Cleared state for PR #{pr_number}")
@@ -409,13 +544,16 @@ class BotDetector:
         total_reviews = sum(
             len(commits) for commits in self.state.reviewed_commits.values()
         )
+        in_progress_count = len(self.state.in_progress_reviews)
 
         return {
             "bot_username": self.bot_username,
             "review_own_prs": self.review_own_prs,
             "total_prs_tracked": total_prs,
             "total_reviews_performed": total_reviews,
+            "in_progress_reviews": in_progress_count,
             "cooling_off_minutes": self.COOLING_OFF_MINUTES,
+            "in_progress_timeout_minutes": self.IN_PROGRESS_TIMEOUT_MINUTES,
         }
 
     def cleanup_stale_prs(self, max_age_days: int = 30) -> int:
@@ -425,6 +563,9 @@ class BotDetector:
         This prevents unbounded growth of the state file by cleaning up
         entries for PRs that are likely closed/merged.
 
+        Also cleans up stale in-progress reviews (reviews that have been
+        in progress for longer than IN_PROGRESS_TIMEOUT_MINUTES).
+
         Args:
             max_age_days: Remove PRs not reviewed in this many days (default: 30)
 
@@ -432,8 +573,13 @@ class BotDetector:
             Number of PRs cleaned up
         """
         cutoff = datetime.now() - timedelta(days=max_age_days)
+        in_progress_cutoff = datetime.now() - timedelta(
+            minutes=self.IN_PROGRESS_TIMEOUT_MINUTES
+        )
         prs_to_remove: list[str] = []
+        stale_in_progress: list[str] = []
 
+        # Find stale reviewed PRs
         for pr_key, last_review_str in self.state.last_review_times.items():
             try:
                 last_review = datetime.fromisoformat(last_review_str)
@@ -443,18 +589,43 @@ class BotDetector:
                 # Invalid timestamp - mark for removal
                 prs_to_remove.append(pr_key)
 
+        # Find stale in-progress reviews
+        for pr_key, start_time_str in self.state.in_progress_reviews.items():
+            try:
+                start_time = datetime.fromisoformat(start_time_str)
+                if start_time < in_progress_cutoff:
+                    stale_in_progress.append(pr_key)
+            except (ValueError, TypeError):
+                # Invalid timestamp - mark for removal
+                stale_in_progress.append(pr_key)
+
         # Remove stale PRs
         for pr_key in prs_to_remove:
             if pr_key in self.state.reviewed_commits:
                 del self.state.reviewed_commits[pr_key]
             if pr_key in self.state.last_review_times:
                 del self.state.last_review_times[pr_key]
+            if pr_key in self.state.in_progress_reviews:
+                del self.state.in_progress_reviews[pr_key]
 
-        if prs_to_remove:
+        # Remove stale in-progress reviews
+        for pr_key in stale_in_progress:
+            if pr_key in self.state.in_progress_reviews:
+                del self.state.in_progress_reviews[pr_key]
+
+        total_cleaned = len(prs_to_remove) + len(stale_in_progress)
+
+        if total_cleaned > 0:
             self.state.save(self.state_dir)
-            print(
-                f"[BotDetector] Cleaned up {len(prs_to_remove)} stale PRs "
-                f"(older than {max_age_days} days)"
-            )
+            if prs_to_remove:
+                print(
+                    f"[BotDetector] Cleaned up {len(prs_to_remove)} stale PRs "
+                    f"(older than {max_age_days} days)"
+                )
+            if stale_in_progress:
+                print(
+                    f"[BotDetector] Cleaned up {len(stale_in_progress)} stale in-progress reviews "
+                    f"(older than {self.IN_PROGRESS_TIMEOUT_MINUTES} minutes)"
+                )
 
-        return len(prs_to_remove)
+        return total_cleaned

@@ -56,14 +56,10 @@ def _apply_qa_update(
         "ready_for_qa_revalidation": status == "fixes_applied",
     }
 
-    # Update plan status to match QA result
-    # This ensures the UI shows the correct column after QA
-    if status == "approved":
-        plan["status"] = "human_review"
-        plan["planStatus"] = "review"
-    elif status == "rejected":
-        plan["status"] = "human_review"
-        plan["planStatus"] = "review"
+    # NOTE: Do NOT write plan["status"] or plan["planStatus"] here.
+    # The frontend XState task state machine owns status transitions.
+    # Writing status here races with XState's persistPlanStatusAndReasonSync()
+    # and can clobber the reviewReason field, causing tasks to appear "incomplete".
 
     plan["last_updated"] = datetime.now(timezone.utc).isoformat()
 

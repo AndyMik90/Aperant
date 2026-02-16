@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Package,
 } from 'lucide-react';
+import { TaskOutcomeBadge } from './TaskOutcomeBadge';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -279,7 +280,13 @@ export function FeatureDetailPanel({
       </ScrollArea>
 
       {/* Actions */}
-      {feature.linkedSpecId ? (
+      {feature.taskOutcome ? (
+        <div className="shrink-0 p-4 border-t border-border">
+          <div className="flex items-center justify-center gap-2 py-2">
+            <TaskOutcomeBadge outcome={feature.taskOutcome} size="lg" />
+          </div>
+        </div>
+      ) : feature.linkedSpecId ? (
         <div className="shrink-0 p-4 border-t border-border">
           <Button className="w-full" onClick={() => onGoToTask(feature.linkedSpecId!)}>
             <ExternalLink className="h-4 w-4 mr-2" />

@@ -66,6 +66,16 @@ class TerminalBufferManager {
   }
 
   /**
+   * Atomically get and clear a terminal's buffer
+   * This prevents race conditions where data could be appended between get() and clear()
+   */
+  getAndClear(id: string): string {
+    const buffer = this.buffers.get(id) || '';
+    this.buffers.delete(id);
+    return buffer;
+  }
+
+  /**
    * Check if a terminal has a buffer
    */
   has(id: string): boolean {

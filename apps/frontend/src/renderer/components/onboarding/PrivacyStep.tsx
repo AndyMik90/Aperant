@@ -42,7 +42,7 @@ export function PrivacyStep({ onNext, onBack }: PrivacyStepProps) {
       } else {
         setError(t('onboarding:privacy.saveFailed', 'Failed to save privacy settings. Please try again.'));
       }
-    } catch (err) {
+    } catch (_err) {
       setError(t('onboarding:privacy.saveFailed', 'Failed to save privacy settings. Please try again.'));
     } finally {
       setIsSaving(false);

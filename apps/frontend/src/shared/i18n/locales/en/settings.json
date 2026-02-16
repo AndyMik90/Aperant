@@ -29,13 +29,9 @@
       "title": "Paths",
       "description": "CLI tools and framework paths"
     },
-    "integrations": {
-      "title": "Integrations",
-      "description": "API keys & Claude accounts"
-    },
-    "api-profiles": {
-      "title": "API Profiles",
-      "description": "Custom API endpoint profiles"
+    "accounts": {
+      "title": "Accounts",
+      "description": "Claude accounts & API endpoints"
     },
     "updates": {
       "title": "Updates",
@@ -48,6 +44,10 @@
     "debug": {
       "title": "Debug & Logs",
       "description": "Troubleshooting tools"
+    },
+    "terminal-fonts": {
+      "title": "Terminal Fonts",
+      "description": "Customize terminal font appearance"
     }
   },
   "apiProfiles": {
@@ -58,8 +58,8 @@
       "anthropic": "Anthropic",
       "openrouter": "OpenRouter",
       "groq": "Groq",
-      "glmGlobal": "GLM (Global)",
-      "glmChina": "GLM (China)"
+      "zaiGlobal": "z.AI (Global)",
+      "zaiChina": "z.AI (China)"
     },
     "fields": {
       "name": "Name",
@@ -107,7 +107,8 @@
       "defaultPlaceholder": "e.g., claude-sonnet-4-5-20250929",
       "haikuPlaceholder": "e.g., claude-haiku-4-5-20251001",
       "sonnetPlaceholder": "e.g., claude-sonnet-4-5-20250929",
-      "opusPlaceholder": "e.g., claude-opus-4-5-20251101"
+      "opusPlaceholder": "e.g., claude-opus-4-6",
+      "opus1mPlaceholder": "e.g., claude-opus-4-6 (1M context)"
     },
     "empty": {
       "title": "No API profiles configured",
@@ -185,6 +186,12 @@
     "comfortable": "Comfortable",
     "large": "Large"
   },
+  "logOrder": {
+    "label": "Log Order",
+    "description": "Choose how logs are displayed in the task detail view",
+    "chronological": "Chronological (oldest first)",
+    "reverseChronological": "Reverse-chronological (newest first)"
+  },
   "general": {
     "otherAgentSettings": "Other Agent Settings",
     "otherAgentSettingsDescription": "Additional agent configuration options",
@@ -208,6 +215,9 @@
     "githubCLIPath": "GitHub CLI Path",
     "githubCLIPathDescription": "Path to GitHub CLI (gh) executable (leave empty for auto-detection)",
     "githubCLIPathPlaceholder": "gh (default)",
+    "gitlabCLIPath": "GitLab CLI Path",
+    "gitlabCLIPathDescription": "Path to GitLab CLI (glab) executable (leave empty for auto-detection)",
+    "gitlabCLIPathPlaceholder": "glab (default)",
     "claudePath": "Claude CLI Path",
     "claudePathDescription": "Path to Claude CLI executable (leave empty for auto-detection)",
     "claudePathPlaceholder": "claude (default)",
@@ -241,9 +251,11 @@
   },
   "devtools": {
     "title": "Developer Tools",
-    "description": "Configure your preferred IDE and terminal for working with worktrees",
+    "description": "Configure your preferred IDE, terminal, and terminal font settings",
     "detecting": "Detecting installed tools...",
     "detectAgain": "Detect Again",
+    "tabTools": "Tools",
+    "tabTerminalFonts": "Terminal Fonts",
     "ide": {
       "label": "Preferred IDE",
       "description": "Auto Claude will open worktrees in this editor",
@@ -297,7 +309,10 @@
     "stableDowngradeAvailable": "Stable Version Available",
     "stableDowngradeDescription": "You're currently on a beta version. Since you've disabled beta updates, you can switch to the latest stable release.",
     "stableVersion": "Stable Version",
-    "downloadStableVersion": "Download Stable Version"
+    "downloadStableVersion": "Download Stable Version",
+    "readOnlyVolumeTitle": "Cannot Install from Disk Image",
+    "readOnlyVolumeDescription": "Auto Claude is running from a read-only disk image (DMG). Please drag the app to your Applications folder and relaunch it from there to install updates.",
+    "downloadError": "Failed to download update"
   },
   "notifications": {
     "title": "Notifications",
@@ -339,7 +354,15 @@
       "description": "GitHub issues sync",
       "integrationTitle": "GitHub Integration",
       "integrationDescription": "Connect to GitHub for issue tracking",
-      "syncDescription": "Sync with GitHub Issues"
+      "syncDescription": "Sync with GitHub Issues",
+      "defaultBranch": {
+        "label": "Default Branch",
+        "description": "Base branch for creating task worktrees",
+        "autoDetect": "Auto-detect (main/master)",
+        "searchPlaceholder": "Search branches...",
+        "noBranchesFound": "No branches found",
+        "selectedBranchHelp": "All new tasks will branch from {{branch}}"
+      }
     },
     "gitlab": {
       "title": "GitLab",
@@ -377,6 +400,10 @@
     "resetToProfileDefaults": "Reset to {{profile}} defaults",
     "customized": "Customized",
     "phaseConfigNote": "These settings will be used as defaults when creating new tasks with this profile. You can override them per-task in the task creation wizard.",
+    "adaptiveThinking": {
+      "badge": "Adaptive",
+      "tooltip": "Opus uses adaptive thinking — it dynamically decides how much to think within the budget cap set by the thinking level."
+    },
     "phases": {
       "spec": {
         "label": "Spec Creation",
@@ -412,6 +439,7 @@
     "description": "Manage Claude accounts and API keys",
     "claudeAccounts": "Claude Accounts",
     "claudeAccountsDescription": "Add multiple Claude subscriptions to automatically switch between them when you hit rate limits.",
+    "claudeAccountsWarning": "When authenticating, ensure you're logged into the correct Claude account in your browser. Each profile should use a different subscription.",
     "noAccountsYet": "No accounts configured yet",
     "default": "Default",
     "active": "Active",
@@ -443,6 +471,8 @@
     "weeklyThresholdDescription": "Switch when weekly usage reaches this level (recommended: 99%)",
     "reactiveRecovery": "Reactive Recovery",
     "reactiveDescription": "Auto-swap when unexpected rate limit is hit",
+    "autoSwitchOnAuthFailure": "Auto-switch on auth failure",
+    "autoSwitchOnAuthFailureDescription": "Automatically switch to another authenticated account when authentication fails",
     "apiKeys": "API Keys",
     "apiKeysInfo": "Keys set here are used as defaults. Individual projects can override these in their settings.",
     "openaiKey": "OpenAI API Key",
@@ -472,6 +502,127 @@
       "terminalErrorDescription": "Failed to create terminal: {{error}}",
       "authProcessFailed": "Authentication process failed to start",
       "authProcessFailedDescription": "The authentication terminal could not be created. Please try again or check the logs for more details."
+    },
+    "alerts": {
+      "profileCreatedAuthFailed": "Profile created but failed to prepare authentication: {{error}}",
+      "authPrepareFailed": "Failed to prepare authentication: {{error}}",
+      "authStartFailedMessage": "Failed to start authentication. Please try again."
+    }
+  },
+  "accounts": {
+    "title": "Accounts",
+    "description": "Manage Claude accounts and API endpoints",
+    "tabs": {
+      "claudeCode": "Claude Code",
+      "customEndpoints": "Custom Endpoints"
+    },
+    "claudeCode": {
+      "description": "Add multiple Claude subscriptions to automatically switch between them when you hit rate limits.",
+      "noAccountsYet": "No accounts configured yet",
+      "default": "Default",
+      "active": "Active",
+      "authenticated": "Authenticated",
+      "needsAuth": "Needs Auth",
+      "authenticate": "Authenticate",
+      "authenticating": "Authenticating...",
+      "setActive": "Set Active",
+      "manualTokenEntry": "Manual Token Entry",
+      "runSetupToken": "Run claude and type /login to authenticate",
+      "tokenPlaceholder": "sk-ant-oat01-...",
+      "emailPlaceholder": "Email (optional, for display)",
+      "saveToken": "Save Token",
+      "accountNamePlaceholder": "Account name (e.g., Work, Personal)"
+    },
+    "customEndpoints": {
+      "description": "Configure custom Anthropic-compatible API endpoints",
+      "addButton": "Add Profile",
+      "activeBadge": "Active",
+      "customModels": "Custom models: {{models}}",
+      "setActive": {
+        "label": "Set Active",
+        "loading": "Setting..."
+      },
+      "switchToOauth": {
+        "label": "Use Claude Code",
+        "loading": "Switching..."
+      },
+      "tooltips": {
+        "edit": "Edit profile",
+        "deleteActive": "Cannot delete active profile",
+        "deleteInactive": "Delete profile"
+      },
+      "empty": {
+        "title": "No Custom Endpoints",
+        "description": "Configure custom Anthropic-compatible API endpoints to use alternative providers.",
+        "action": "Add Profile"
+      },
+      "dialog": {
+        "deleteTitle": "Delete Profile",
+        "deleteDescription": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone.",
+        "cancel": "Cancel",
+        "delete": "Delete",
+        "deleting": "Deleting..."
+      }
+    },
+    "autoSwitching": {
+      "title": "Automatic Account Switching",
+      "description": "Automatically switch between accounts to avoid interruptions. Configure proactive monitoring to switch before hitting limits.",
+      "enableAutoSwitching": "Enable automatic switching",
+      "masterSwitch": "Master switch for all auto-swap features",
+      "proactiveMonitoring": "Proactive Monitoring",
+      "proactiveDescription": "Check usage regularly and swap before hitting limits",
+      "sessionThreshold": "Session usage threshold",
+      "sessionThresholdDescription": "Switch when session usage reaches this level (recommended: 95%)",
+      "weeklyThreshold": "Weekly usage threshold",
+      "weeklyThresholdDescription": "Switch when weekly usage reaches this level (recommended: 99%)",
+      "reactiveRecovery": "Reactive Recovery",
+      "reactiveDescription": "Auto-swap when unexpected rate limit is hit",
+      "autoSwitchOnAuthFailure": "Auto-switch on auth failure",
+      "autoSwitchOnAuthFailureDescription": "Automatically switch to another authenticated account when authentication fails"
+    },
+    "priority": {
+      "title": "Account Priority Order",
+      "description": "Drag to reorder. System will switch to the next available account in order.",
+      "noAccounts": "No accounts configured. Add accounts above to set priority.",
+      "noEmail": "No email",
+      "active": "Active",
+      "inUse": "In Use",
+      "next": "Next",
+      "unlimited": "Unlimited",
+      "unavailable": "Unavailable",
+      "typeOAuth": "OAuth",
+      "typeAPI": "API",
+      "payPerUse": "Pay-per-use",
+      "needsAuth": "Not authenticated",
+      "duplicateUsage": "Duplicate usage detected",
+      "duplicateUsageHint": "This profile has identical usage to another profile, suggesting they may be authenticated to the same Anthropic account. Re-authenticate with a different account to fix.",
+      "needsReauth": "Needs re-auth",
+      "needsReauthHint": "This profile's refresh token is invalid. Click to re-authenticate.",
+      "sessionUsage": "Session usage (5-hour window)",
+      "weeklyUsage": "Weekly usage (7-day window)",
+      "oauthSection": "Claude Accounts (cycle through first)",
+      "apiSection": "Fallback Endpoints (when all accounts exhausted)",
+      "tipTitle": "How priority works",
+      "tipDescription": "Claude accounts are included in your subscription and will be cycled through first. API endpoints charge per request and are used as fallbacks when all Claude accounts hit their limits.",
+      "status": {
+        "healthy": "Healthy",
+        "moderate": "Moderate",
+        "highUsage": "High usage",
+        "nearLimit": "Near limit",
+        "rateLimited": "Rate limited"
+      }
+    },
+    "toast": {
+      "loadProfilesFailed": "Failed to Load Profiles",
+      "addProfileFailed": "Failed to Add Profile",
+      "deleteProfileFailed": "Failed to Delete Profile",
+      "renameProfileFailed": "Failed to Rename Profile",
+      "setActiveProfileFailed": "Failed to Set Active Profile",
+      "tokenSaved": "Token Saved",
+      "tokenSavedDescription": "Your token has been saved successfully.",
+      "tokenSaveFailed": "Failed to Save Token",
+      "settingsUpdateFailed": "Failed to Update Settings",
+      "tryAgain": "Please try again."
     },
     "alerts": {
       "profileCreatedAuthFailed": "Profile created but failed to prepare authentication: {{error}}",
@@ -600,6 +751,147 @@
       "createAnthropicKey": "Create Anthropic API Key",
       "openai": "This looks like an OpenAI API. You'll need an API key.",
       "createOpenaiKey": "Create OpenAI API Key"
+    }
+  },
+  "terminalFonts": {
+    "title": "Terminal Fonts",
+    "description": "Customize terminal font appearance and behavior",
+    "configActions": "Configuration:",
+    "export": "Export JSON",
+    "import": "Import JSON",
+    "copy": "Copy to Clipboard",
+    "fontConfig": {
+      "title": "Font Configuration",
+      "description": "Customize font family, size, weight, line height, and letter spacing",
+      "fontFamily": "Font Family",
+      "fontFamilyDescription": "Primary monospace font for terminal text",
+      "selectFont": "Select a font...",
+      "searchFont": "Search fonts...",
+      "noFonts": "No fonts found",
+      "fontChain": "Font chain:",
+      "fontSize": "Font Size",
+      "fontSizeDescription": "Base font size in pixels (10-24px)",
+      "decreaseFontSize": "Decrease font size by {{step}}px",
+      "increaseFontSize": "Increase font size by {{step}}px",
+      "pixels": "pixels",
+      "fontWeight": "Font Weight",
+      "fontWeightDescription": "Font weight from 100 (thin) to 900 (black), in steps of 100",
+      "commonWeights": "Common: 400 (normal), 600 (semi-bold), 700 (bold)",
+      "decreaseFontWeight": "Decrease font weight by {{step}}",
+      "increaseFontWeight": "Increase font weight by {{step}}",
+      "lineHeight": "Line Height",
+      "lineHeightDescription": "Line height as a multiple of font size (1.0-2.0)",
+      "letterSpacing": "Letter Spacing",
+      "letterSpacingDescription": "Horizontal spacing between characters (-2 to 5px)"
+    },
+    "cursorConfig": {
+      "title": "Cursor Configuration",
+      "description": "Customize cursor style, blinking behavior, and accent color",
+      "cursorStyle": "Cursor Style",
+      "cursorStyleDescription": "Choose the appearance of the terminal cursor",
+      "selectStyle": "Select cursor style...",
+      "currentStyle": "Current:",
+      "styleBlock": "Block",
+      "styleBlockDescription": "Full block cursor",
+      "styleUnderline": "Underline",
+      "styleUnderlineDescription": "Underline cursor",
+      "styleBar": "Bar",
+      "styleBarDescription": "Vertical bar cursor",
+      "cursorBlink": "Cursor Blink",
+      "cursorBlinkDescription": "Enable or disable cursor blinking animation",
+      "blinkStatus": "Status:",
+      "enabled": "Enabled",
+      "disabled": "Disabled",
+      "cursorAccentColor": "Cursor Accent Color",
+      "cursorAccentColorDescription": "Choose the color of the terminal cursor",
+      "cursorColorLabel": "Cursor accent color",
+      "cursorColorDescription": "Current color: {{color}}",
+      "pickColor": "Click to pick a color",
+      "resetColor": "Reset to black",
+      "reset": "Reset",
+      "preview": "Preview:"
+    },
+    "performanceConfig": {
+      "title": "Performance Settings",
+      "description": "Adjust scrollback limit and other performance-related settings",
+      "presets": "Quick Presets",
+      "presetsDescription": "Common scrollback limits for different use cases",
+      "scrollback": "Scrollback Limit",
+      "scrollbackDescription": "Maximum number of lines to keep in terminal history",
+      "scrollbackPresets": "Quick Presets",
+      "presetMinimal": "Minimal",
+      "presetMinimalDescription": "Minimal history (1K lines)",
+      "presetStandard": "Standard",
+      "presetStandardDescription": "Standard history (10K lines)",
+      "presetExtended": "Extended",
+      "presetExtendedDescription": "Extended history (50K lines)",
+      "presetMaximum": "Maximum",
+      "presetMaximumDescription": "Maximum history (100K lines)",
+      "decreaseScrollback": "Decrease scrollback by {{step}}",
+      "increaseScrollback": "Increase scrollback by {{step}}",
+      "lines": "lines",
+      "kValue": "{{value}}K",
+      "scrollbackValue": "{{value}} lines"
+    },
+    "presets": {
+      "title": "Quick Presets",
+      "description": "Apply pre-configured terminal font settings or save your own",
+      "builtin": "Built-in Presets",
+      "builtinDescription": "Click to apply a pre-configured preset",
+      "vscode": "Consolas 14px, block cursor",
+      "vscodeName": "VS Code",
+      "intellij": "JetBrains Mono 13px, block cursor",
+      "intellijName": "IntelliJ IDEA",
+      "macos": "SF Mono 13px, block cursor",
+      "macosName": "macOS Terminal",
+      "ubuntu": "Ubuntu Mono 13px, block cursor",
+      "ubuntuName": "Ubuntu Terminal",
+      "reset": "Reset to Defaults",
+      "resetDescription": "Restore the default settings for your operating system",
+      "resetToOS": "Reset to {{os}} defaults",
+      "resetButton": "Reset to OS Default",
+      "custom": "Custom Presets",
+      "customDescription": "Save your current configuration as a custom preset",
+      "presetNamePlaceholder": "Preset name...",
+      "savePreset": "Save current configuration as a preset",
+      "applyPreset": "Apply this preset",
+      "deletePreset": "Delete this preset",
+      "noCustomPresets": "No custom presets yet. Save your current configuration to get started.",
+      "duplicateName": "A preset with this name already exists",
+      "saved": "Preset \"{{name}}\" saved",
+      "deleted": "Preset \"{{name}}\" deleted",
+      "unknownFont": "Unknown",
+      "applyFailed": "Failed to apply preset \"{{name}}\"",
+      "presetNameLabel": "Preset name",
+      "summary": "{{font}}, {{size}}px, {{cursor}} cursor"
+    },
+    "preview": {
+      "title": "Live Preview",
+      "description": "Preview your terminal settings in real-time (updates within 300ms)",
+      "ariaLabel": "Terminal font preview",
+      "infoText": "This preview updates within 300ms of any change to show how your settings will look in actual terminals."
+    },
+    "importExport": {
+      "exportSuccess": "Settings exported successfully",
+      "exportFailed": "Failed to export settings",
+      "importSuccess": "Settings imported successfully",
+      "importFailed": "Failed to import settings: Invalid JSON format",
+      "importFailedRange": "Failed to import settings: Values out of valid range",
+      "copySuccess": "Settings copied to clipboard",
+      "copyFailed": "Failed to copy to clipboard",
+      "fileTooLarge": "Import file too large (max 10KB)",
+      "readError": "Failed to read file"
+    },
+    "slider": {
+      "decrease": "Decrease {{label}} by {{step}}",
+      "increase": "Increase {{label}} by {{step}}",
+      "currentValue": "Current value: {{value}}"
+    }
+  },
+  "agents": {
+    "pr_template_filler": {
+      "label": "PR Template Filler",
+      "description": "AI-fills GitHub PR templates from code changes"
     }
   }
 }

@@ -19,7 +19,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X, Settings, ListPlus } from 'lucide-react';
+import { Plus, Inbox, Loader2, Eye, CheckCircle2, Archive, RefreshCw, GitPullRequest, X, Settings, ListPlus, ChevronLeft, ChevronRight, ChevronsRight, Lock, Unlock, Trash2 } from 'lucide-react';
 import { Checkbox } from './ui/checkbox';
 import { ScrollArea } from './ui/scroll-area';
 import { Button } from './ui/button';
@@ -29,11 +29,22 @@ import { SortableTaskCard } from './SortableTaskCard';
 import { QueueSettingsModal } from './QueueSettingsModal';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
-import { persistTaskStatus, forceCompleteTask, archiveTasks, useTaskStore } from '../stores/task-store';
+import { persistTaskStatus, forceCompleteTask, archiveTasks, deleteTasks, useTaskStore, isQueueAtCapacity, DEFAULT_MAX_PARALLEL_TASKS } from '../stores/task-store';
 import { updateProjectSettings, useProjectStore } from '../stores/project-store';
+import { useKanbanSettingsStore, DEFAULT_COLUMN_WIDTH, MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH, COLLAPSED_COLUMN_WIDTH_REM, MIN_COLUMN_WIDTH_REM, MAX_COLUMN_WIDTH_REM, BASE_FONT_SIZE, pxToRem } from '../stores/kanban-settings-store';
 import { useToast } from '../hooks/use-toast';
 import { WorktreeCleanupDialog } from './WorktreeCleanupDialog';
 import { BulkPRDialog } from './BulkPRDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert-dialog';
 import type { Task, TaskStatus, TaskOrderState } from '../../shared/types';
 
 // Type guard for valid drop column targets - preserves literal type from TASK_STATUS_COLUMNS
@@ -81,6 +92,17 @@ interface DroppableColumnProps {
   onSelectAll?: () => void;
   onDeselectAll?: () => void;
   onToggleSelect?: (taskId: string) => void;
+  // Collapse props
+  isCollapsed?: boolean;
+  onToggleCollapsed?: () => void;
+  // Resize props
+  columnWidth?: number;
+  isResizing?: boolean;
+  onResizeStart?: (startX: number) => void;
+  onResizeEnd?: () => void;
+  // Lock props
+  isLocked?: boolean;
+  onToggleLocked?: () => void;
 }
 
 /**
@@ -130,6 +152,14 @@ function droppableColumnPropsAreEqual(
   if (prevProps.onSelectAll !== nextProps.onSelectAll) return false;
   if (prevProps.onDeselectAll !== nextProps.onDeselectAll) return false;
   if (prevProps.onToggleSelect !== nextProps.onToggleSelect) return false;
+  if (prevProps.isCollapsed !== nextProps.isCollapsed) return false;
+  if (prevProps.onToggleCollapsed !== nextProps.onToggleCollapsed) return false;
+  if (prevProps.columnWidth !== nextProps.columnWidth) return false;
+  if (prevProps.isResizing !== nextProps.isResizing) return false;
+  if (prevProps.onResizeStart !== nextProps.onResizeStart) return false;
+  if (prevProps.onResizeEnd !== nextProps.onResizeEnd) return false;
+  if (prevProps.isLocked !== nextProps.isLocked) return false;
+  if (prevProps.onToggleLocked !== nextProps.onToggleLocked) return false;
 
   // Compare selection props
   const prevSelected = prevProps.selectedTaskIds;
@@ -200,18 +230,17 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
   }
 };
 
-const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, onArchiveAll, onQueueSettings, onQueueAll, maxParallelTasks, archivedCount, showArchived, onToggleArchived, selectedTaskIds, onSelectAll, onDeselectAll, onToggleSelect }: DroppableColumnProps) {
+const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, onArchiveAll, onQueueSettings, onQueueAll, maxParallelTasks, archivedCount, showArchived, onToggleArchived, selectedTaskIds, onSelectAll, onDeselectAll, onToggleSelect, isCollapsed, onToggleCollapsed, columnWidth, isResizing, onResizeStart, onResizeEnd, isLocked, onToggleLocked }: DroppableColumnProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const { setNodeRef } = useDroppable({
     id: status
   });
 
-  // Calculate selection state for human_review column
-  const isHumanReview = status === 'human_review';
-  const selectedCount = selectedTaskIds?.size ?? 0;
+  // Calculate selection state for this column
   const taskCount = tasks.length;
-  const isAllSelected = isHumanReview && taskCount > 0 && selectedCount === taskCount;
-  const isSomeSelected = isHumanReview && selectedCount > 0 && selectedCount < taskCount;
+  const columnSelectedCount = tasks.filter(t => selectedTaskIds?.has(t.id)).length;
+  const isAllSelected = taskCount > 0 && columnSelectedCount === taskCount;
+  const isSomeSelected = columnSelectedCount > 0 && columnSelectedCount < taskCount;
 
   // Determine checkbox checked state: true (all), 'indeterminate' (some), false (none)
   const selectAllCheckedState: boolean | 'indeterminate' = isAllSelected
@@ -250,7 +279,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
     return handlers;
   }, [tasks, onStatusChange]);
 
-  // Create stable onToggleSelect handlers for each task (only for human_review column)
+  // Create stable onToggleSelect handlers for each task (for bulk selection)
   const onToggleSelectHandlers = useMemo(() => {
     if (!onToggleSelect) return null;
     const handlers = new Map<string, () => void>();
@@ -298,21 +327,96 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
 
   const emptyState = getEmptyStateContent(status, t);
 
+  // Collapsed state: show narrow vertical strip with rotated title and task count
+  if (isCollapsed) {
+    return (
+      <div
+        ref={setNodeRef}
+        className={cn(
+          'flex flex-col rounded-xl border border-white/5 bg-linear-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200',
+          getColumnBorderColor(),
+          'border-t-2',
+          isOver && 'drop-zone-highlight'
+        )}
+        style={{ width: COLLAPSED_COLUMN_WIDTH_REM, minWidth: COLLAPSED_COLUMN_WIDTH_REM, maxWidth: COLLAPSED_COLUMN_WIDTH_REM }}
+      >
+        {/* Expand button at top */}
+        <div className="flex justify-center p-2 border-b border-white/5">
+          <Tooltip delayDuration={200}>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 hover:bg-primary/10 hover:text-primary transition-colors"
+                onClick={onToggleCollapsed}
+                aria-label={t('kanban.expandColumn')}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              {t('kanban.expandColumn')}
+            </TooltipContent>
+          </Tooltip>
+        </div>
+
+        {/* Rotated title and task count */}
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <div
+            className="flex items-center gap-2 whitespace-nowrap"
+            style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+          >
+            <span className="column-count-badge">
+              {tasks.length}
+            </span>
+            <h2 className="font-semibold text-sm text-foreground">
+              {t(TASK_STATUS_LABELS[status])}
+            </h2>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
-      ref={setNodeRef}
-      className={cn(
-        'flex min-w-72 max-w-[30rem] flex-1 flex-col rounded-xl border border-white/5 bg-linear-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200',
-        getColumnBorderColor(),
-        'border-t-2',
-        isOver && 'drop-zone-highlight'
-      )}
+      className="relative flex"
+      style={columnWidth ? { width: pxToRem(columnWidth), minWidth: MIN_COLUMN_WIDTH_REM, maxWidth: MAX_COLUMN_WIDTH_REM, flexShrink: 0 } : undefined}
     >
-      {/* Column header - enhanced styling */}
-      <div className="flex items-center justify-between p-4 border-b border-white/5">
+      <div
+        ref={setNodeRef}
+        className={cn(
+          'flex flex-1 flex-col rounded-xl border border-white/5 bg-linear-to-b from-secondary/30 to-transparent backdrop-blur-sm transition-all duration-200',
+          !columnWidth && 'min-w-80 max-w-[30rem]',
+          getColumnBorderColor(),
+          'border-t-2',
+          isOver && 'drop-zone-highlight'
+        )}
+      >
+        {/* Column header - enhanced styling */}
+        <div className="flex items-center justify-between p-4 border-b border-white/5">
         <div className="flex items-center gap-2.5">
-          {/* Select All checkbox for human_review column */}
-          {isHumanReview && onSelectAll && onDeselectAll && (
+          {/* Collapse button */}
+          {onToggleCollapsed && (
+            <Tooltip delayDuration={200}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 hover:bg-muted-foreground/10 hover:text-muted-foreground transition-colors"
+                  onClick={onToggleCollapsed}
+                  aria-label={t('kanban.collapseColumn')}
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {t('kanban.collapseColumn')}
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {/* Select All checkbox for column */}
+          {onSelectAll && onDeselectAll && (
             <Tooltip delayDuration={200}>
               <TooltipTrigger asChild>
                 <div className="flex items-center">
@@ -347,6 +451,31 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
           )}
         </div>
         <div className="flex items-center gap-1">
+          {/* Lock toggle button - available for all columns */}
+          {onToggleLocked && (
+            <Tooltip delayDuration={200}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    'h-7 w-7 transition-colors',
+                    isLocked
+                      ? 'text-amber-500 bg-amber-500/10 hover:bg-amber-500/20'
+                      : 'hover:bg-muted-foreground/10 hover:text-muted-foreground'
+                  )}
+                  onClick={onToggleLocked}
+                  aria-pressed={isLocked}
+                  aria-label={isLocked ? t('kanban.unlockColumn') : t('kanban.lockColumn')}
+                >
+                  {isLocked ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {isLocked ? t('kanban.unlockColumn') : t('kanban.lockColumn')}
+              </TooltipContent>
+            </Tooltip>
+          )}
           {status === 'backlog' && (
             <>
               {onQueueAll && tasks.length > 0 && (
@@ -468,6 +597,39 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
           </SortableContext>
         </ScrollArea>
       </div>
+      </div>
+
+      {/* Resize handle on right edge */}
+      {onResizeStart && onResizeEnd && (
+        <div
+          className={cn(
+            "absolute right-0 top-0 bottom-0 w-1 touch-none z-10",
+            "transition-colors duration-150",
+            isLocked
+              ? "cursor-not-allowed bg-transparent"
+              : "cursor-col-resize hover:bg-primary/40",
+            isResizing && !isLocked && "bg-primary/60"
+          )}
+          onMouseDown={(e) => {
+            e.preventDefault();
+            // Don't start resize if column is locked
+            if (isLocked) return;
+            onResizeStart(e.clientX);
+          }}
+          onTouchStart={(e) => {
+            e.preventDefault();
+            // Don't start resize if column is locked
+            if (isLocked) return;
+            if (e.touches.length > 0) {
+              onResizeStart(e.touches[0].clientX);
+            }
+          }}
+          title={isLocked ? t('kanban.columnLocked') : undefined}
+        >
+          {/* Wider invisible hit area for easier grabbing */}
+          <div className="absolute inset-y-0 -left-1 -right-1" />
+        </div>
+      )}
     </div>
   );
 }, droppableColumnPropsAreEqual);
@@ -482,10 +644,26 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   // Project store for queue settings
   const projects = useProjectStore((state) => state.projects);
 
+  // Kanban settings store for column preferences (collapse state, width, lock state)
+  const columnPreferences = useKanbanSettingsStore((state) => state.columnPreferences);
+  const loadKanbanPreferences = useKanbanSettingsStore((state) => state.loadPreferences);
+  const saveKanbanPreferences = useKanbanSettingsStore((state) => state.savePreferences);
+  const toggleColumnCollapsed = useKanbanSettingsStore((state) => state.toggleColumnCollapsed);
+  const setColumnCollapsed = useKanbanSettingsStore((state) => state.setColumnCollapsed);
+  const setColumnWidth = useKanbanSettingsStore((state) => state.setColumnWidth);
+  const toggleColumnLocked = useKanbanSettingsStore((state) => state.toggleColumnLocked);
+
+  // Column resize state
+  const [resizingColumn, setResizingColumn] = useState<typeof TASK_STATUS_COLUMNS[number] | null>(null);
+  const resizeStartX = useRef<number>(0);
+  const resizeStartWidth = useRef<number>(0);
+  // Capture projectId at resize start to avoid stale closure if project changes during resize
+  const resizeProjectIdRef = useRef<string | null>(null);
+
   // Get projectId from first task
   const projectId = tasks[0]?.projectId;
   const project = projectId ? projects.find((p) => p.id === projectId) : undefined;
-  const maxParallelTasks = project?.settings?.maxParallelTasks ?? 3;
+  const maxParallelTasks = project?.settings?.maxParallelTasks ?? DEFAULT_MAX_PARALLEL_TASKS;
 
   // Queue settings modal state
   const [showQueueSettings, setShowQueueSettings] = useState(false);
@@ -500,6 +678,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
   // Bulk PR dialog state
   const [bulkPRDialogOpen, setBulkPRDialogOpen] = useState(false);
+
+  // Delete confirmation dialog state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Worktree cleanup dialog state
   const [worktreeCleanupDialog, setWorktreeCleanupDialog] = useState<{
@@ -523,6 +705,14 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     tasks.filter(t => t.metadata?.archivedAt).length,
     [tasks]
   );
+
+  // Calculate collapsed column count for "Expand All" button
+  const collapsedColumnCount = useMemo(() => {
+    if (!columnPreferences) return 0;
+    return TASK_STATUS_COLUMNS.filter(
+      (status) => columnPreferences[status]?.isCollapsed
+    ).length;
+  }, [columnPreferences]);
 
   // Filter tasks based on archive status
   const filteredTasks = useMemo(() => {
@@ -612,16 +802,16 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     return grouped;
   }, [filteredTasks, taskOrder]);
 
-  // Prune stale IDs when tasks move out of human_review column
+  // Prune stale IDs when tasks are deleted or filtered out
   useEffect(() => {
-    const validIds = new Set(tasksByStatus.human_review.map(t => t.id));
+    const allTaskIds = new Set(filteredTasks.map(t => t.id));
     setSelectedTaskIds(prev => {
-      const filtered = new Set([...prev].filter(id => validIds.has(id)));
+      const filtered = new Set([...prev].filter(id => allTaskIds.has(id)));
       return filtered.size === prev.size ? prev : filtered;
     });
-  }, [tasksByStatus.human_review]);
+  }, [filteredTasks]);
 
-  // Selection callbacks for bulk actions (Human Review column)
+  // Selection callbacks for bulk actions (all columns)
   const toggleTaskSelection = useCallback((taskId: string) => {
     setSelectedTaskIds(prev => {
       const next = new Set(prev);
@@ -634,20 +824,27 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     });
   }, []);
 
-  const selectAllTasks = useCallback(() => {
-    const humanReviewTasks = tasksByStatus.human_review;
-    const allIds = new Set(humanReviewTasks.map(t => t.id));
-    setSelectedTaskIds(allIds);
-  }, [tasksByStatus.human_review]);
+  const selectAllTasks = useCallback((columnStatus?: typeof TASK_STATUS_COLUMNS[number]) => {
+    if (columnStatus) {
+      // Select all in specific column
+      const columnTasks = tasksByStatus[columnStatus] || [];
+      const columnIds = new Set(columnTasks.map((t: Task) => t.id));
+      setSelectedTaskIds(prev => new Set<string>([...prev, ...columnIds]));
+    } else {
+      // Select all across all columns
+      const allIds = new Set(filteredTasks.map(t => t.id));
+      setSelectedTaskIds(allIds);
+    }
+  }, [tasksByStatus, filteredTasks]);
 
   const deselectAllTasks = useCallback(() => {
     setSelectedTaskIds(new Set());
   }, []);
 
-  // Get selected task objects for the BulkPRDialog
+  // Get selected task objects for bulk actions
   const selectedTasks = useMemo(() => {
-    return tasksByStatus.human_review.filter(task => selectedTaskIds.has(task.id));
-  }, [tasksByStatus.human_review, selectedTaskIds]);
+    return filteredTasks.filter(task => selectedTaskIds.has(task.id));
+  }, [filteredTasks, selectedTaskIds]);
 
   // Handle opening the bulk PR dialog
   const handleOpenBulkPRDialog = useCallback(() => {
@@ -660,6 +857,43 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const handleBulkPRComplete = useCallback(() => {
     deselectAllTasks();
   }, [deselectAllTasks]);
+
+  // Handle opening delete confirmation dialog
+  const handleOpenDeleteConfirm = useCallback(() => {
+    if (selectedTaskIds.size > 0) {
+      setDeleteConfirmOpen(true);
+    }
+  }, [selectedTaskIds.size]);
+
+  // Handle confirmed bulk delete
+  const handleConfirmDelete = useCallback(async () => {
+    if (selectedTaskIds.size === 0) return;
+
+    setIsDeleting(true);
+    const taskIdsToDelete = Array.from(selectedTaskIds);
+    const result = await deleteTasks(taskIdsToDelete);
+
+    setIsDeleting(false);
+    setDeleteConfirmOpen(false);
+
+    if (result.success) {
+      toast({
+        title: t('kanban.deleteSuccess', { count: taskIdsToDelete.length }),
+      });
+      deselectAllTasks();
+    } else {
+      toast({
+        title: t('kanban.deleteError'),
+        description: result.error,
+        variant: 'destructive',
+      });
+      // Still clear selection for successfully deleted tasks
+      if (result.failedIds) {
+        const remainingIds = new Set(result.failedIds);
+        setSelectedTaskIds(remainingIds);
+      }
+    }
+  }, [selectedTaskIds, deselectAllTasks, toast, t]);
 
   const handleArchiveAll = async () => {
     // Get projectId from the first task (all tasks should have the same projectId)
@@ -713,8 +947,23 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
    * Handle status change with worktree cleanup dialog support
    * Consolidated handler that accepts an optional task object for the dialog title
    */
-  const handleStatusChange = async (taskId: string, newStatus: TaskStatus, providedTask?: Task) => {
+  const handleStatusChange = async (taskId: string, requestedStatus: TaskStatus, providedTask?: Task) => {
     const task = providedTask || tasks.find(t => t.id === taskId);
+    let newStatus = requestedStatus;
+
+    // ============================================
+    // QUEUE SYSTEM: Enforce parallel task limit
+    // Called from both the dropdown menu and the drag-and-drop handler.
+    // Excludes the task itself from the count to handle re-entry (e.g., redundant
+    // status change or race with auto-promotion). processQueue auto-promotion
+    // calls persistTaskStatus directly, never this function.
+    // ============================================
+    if (newStatus === 'in_progress' && isQueueAtCapacity(taskId)) {
+      console.log('[Queue] In Progress full, redirecting task to Queue');
+      newStatus = 'queue';
+    }
+
+    const oldStatus = task?.status;
     const result = await persistTaskStatus(taskId, newStatus);
 
     if (!result.success) {
@@ -737,6 +986,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         });
       }
     }
+    // Note: queue auto-promotion when a task leaves in_progress is handled by the
+    // useEffect task status change listener (registerTaskStatusChangeListener), so
+    // no explicit processQueue() call is needed here.
   };
 
   /**
@@ -932,6 +1184,128 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   }, [projectId, loadTaskOrder]);
 
+  // Load kanban column preferences on mount and when project changes
+  useEffect(() => {
+    if (projectId) {
+      loadKanbanPreferences(projectId);
+    }
+  }, [projectId, loadKanbanPreferences]);
+
+  // Create a callback to toggle collapsed state and save to storage
+  const handleToggleColumnCollapsed = useCallback((status: typeof TASK_STATUS_COLUMNS[number]) => {
+    // Capture projectId at function start to avoid stale closure in setTimeout
+    const currentProjectId = projectId;
+    toggleColumnCollapsed(status);
+    // Save preferences after toggling
+    if (currentProjectId) {
+      // Use setTimeout to ensure state is updated before saving
+      setTimeout(() => {
+        saveKanbanPreferences(currentProjectId);
+      }, 0);
+    }
+  }, [toggleColumnCollapsed, saveKanbanPreferences, projectId]);
+
+  // Create a callback to expand all collapsed columns and save to storage
+  const handleExpandAll = useCallback(() => {
+    // Capture projectId at function start to avoid stale closure in setTimeout
+    const currentProjectId = projectId;
+    // Expand all collapsed columns
+    for (const status of TASK_STATUS_COLUMNS) {
+      if (columnPreferences?.[status]?.isCollapsed) {
+        setColumnCollapsed(status, false);
+      }
+    }
+    // Save preferences after expanding
+    if (currentProjectId) {
+      setTimeout(() => {
+        saveKanbanPreferences(currentProjectId);
+      }, 0);
+    }
+  }, [columnPreferences, setColumnCollapsed, saveKanbanPreferences, projectId]);
+
+  // Create a callback to toggle locked state and save to storage
+  const handleToggleColumnLocked = useCallback((status: typeof TASK_STATUS_COLUMNS[number]) => {
+    // Capture projectId at function start to avoid stale closure in setTimeout
+    const currentProjectId = projectId;
+    toggleColumnLocked(status);
+    // Save preferences after toggling
+    if (currentProjectId) {
+      // Use setTimeout to ensure state is updated before saving
+      setTimeout(() => {
+        saveKanbanPreferences(currentProjectId);
+      }, 0);
+    }
+  }, [toggleColumnLocked, saveKanbanPreferences, projectId]);
+
+  // Resize handlers for column width adjustment
+  const handleResizeStart = useCallback((status: typeof TASK_STATUS_COLUMNS[number], startX: number) => {
+    const currentWidth = columnPreferences?.[status]?.width ?? DEFAULT_COLUMN_WIDTH;
+    resizeStartX.current = startX;
+    resizeStartWidth.current = currentWidth;
+    // Capture projectId at resize start to ensure we save to the correct project
+    resizeProjectIdRef.current = projectId ?? null;
+    setResizingColumn(status);
+  }, [columnPreferences, projectId]);
+
+  const handleResizeMove = useCallback((clientX: number) => {
+    if (!resizingColumn) return;
+
+    const scaleFactor = parseFloat(getComputedStyle(document.documentElement).fontSize) / BASE_FONT_SIZE;
+    const deltaX = (clientX - resizeStartX.current) / scaleFactor;
+    const newWidth = Math.max(MIN_COLUMN_WIDTH, Math.min(MAX_COLUMN_WIDTH, resizeStartWidth.current + deltaX));
+    setColumnWidth(resizingColumn, newWidth);
+  }, [resizingColumn, setColumnWidth]);
+
+  const handleResizeEnd = useCallback(() => {
+    // Use the projectId captured at resize start to avoid saving to wrong project
+    const savedProjectId = resizeProjectIdRef.current;
+    if (resizingColumn && savedProjectId) {
+      saveKanbanPreferences(savedProjectId);
+    }
+    setResizingColumn(null);
+    resizeProjectIdRef.current = null;
+  }, [resizingColumn, saveKanbanPreferences]);
+
+  // Document-level event listeners for resize dragging
+  useEffect(() => {
+    if (!resizingColumn) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      handleResizeMove(e.clientX);
+    };
+
+    const handleMouseUp = () => {
+      handleResizeEnd();
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 0) return;
+      handleResizeMove(e.touches[0].clientX);
+    };
+
+    const handleTouchEnd = () => {
+      handleResizeEnd();
+    };
+
+    // Prevent text selection and set resize cursor during drag
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+
+    return () => {
+      document.body.style.userSelect = '';
+      document.body.style.cursor = '';
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [resizingColumn, handleResizeMove, handleResizeEnd]);
+
   // Clean up stale task IDs from order when tasks change (e.g., after deletion)
   // This ensures the persisted order doesn't contain IDs for deleted tasks
   useEffect(() => {
@@ -1046,57 +1420,45 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
     if (!newStatus || newStatus === oldStatus) return;
 
-    // ============================================
-    // QUEUE SYSTEM: Enforce parallel task limit
-    // ============================================
-    if (newStatus === 'in_progress') {
-      // Get CURRENT state from store directly to avoid stale prop/memo issues during rapid dragging
-      const currentTasks = useTaskStore.getState().tasks;
-      const inProgressCount = currentTasks.filter((t) =>
-        t.status === 'in_progress' && !t.metadata?.archivedAt
-      ).length;
-
-      // If limit reached, move to queue instead
-      if (inProgressCount >= maxParallelTasks) {
-        // Only bypass the capacity check if coming from queue AND queue is NOT being processed
-        // This prevents race condition where both auto-promotion and manual drag exceed the limit
-        const isAutoPromotionInProgress = oldStatus === 'queue' && isProcessingQueueRef.current;
-
-        if (!isAutoPromotionInProgress) {
-          console.log(`[Queue] In Progress full (${inProgressCount}/${maxParallelTasks}), moving task to Queue`);
-          newStatus = 'queue';
-        }
-      }
-    }
-
-    // Persist status change to file and update local state
-    // Use handleStatusChange to properly handle worktree cleanup dialog
+    // Persist status change via handleStatusChange which enforces queue capacity,
+    // handles worktree cleanup dialogs, and calls processQueue() when a task
+    // leaves in_progress.
     await handleStatusChange(activeTaskId, newStatus, task);
-
-    // ============================================
-    // QUEUE SYSTEM: Auto-process queue when slot opens
-    // ============================================
-    if (oldStatus === 'in_progress' && newStatus !== 'in_progress') {
-      // A task left In Progress - check if we can promote from queue
-      await processQueue();
-    }
   };
 
   return (
     <div className="flex h-full flex-col">
-      {/* Kanban header with refresh button */}
-      {onRefresh && (
-        <div className="flex items-center justify-end px-6 pt-4 pb-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            className="gap-2 text-muted-foreground hover:text-foreground"
-          >
-            <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-            {isRefreshing ? t('common:buttons.refreshing') : t('tasks:refreshTasks')}
-          </Button>
+      {/* Kanban header with refresh button and expand all */}
+      {(onRefresh || collapsedColumnCount >= 3) && (
+        <div className="flex items-center justify-between px-6 pt-4 pb-2">
+          <div className="flex items-center gap-2">
+            {/* Expand All button - appears when 3+ columns are collapsed */}
+            {collapsedColumnCount >= 3 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExpandAll}
+                className="gap-2 text-muted-foreground hover:text-foreground"
+              >
+                <ChevronsRight className="h-4 w-4" />
+                {t('tasks:kanban.expandAll')}
+              </Button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            {onRefresh && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onRefresh}
+                disabled={isRefreshing}
+                className="gap-2 text-muted-foreground hover:text-foreground"
+              >
+                <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
+                {isRefreshing ? t('common:buttons.refreshing') : t('tasks:refreshTasks')}
+              </Button>
+            )}
+          </div>
         </div>
       )}
       {/* Kanban columns */}
@@ -1129,10 +1491,18 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               archivedCount={status === 'done' ? archivedCount : undefined}
               showArchived={status === 'done' ? showArchived : undefined}
               onToggleArchived={status === 'done' ? toggleShowArchived : undefined}
-              selectedTaskIds={status === 'human_review' ? selectedTaskIds : undefined}
-              onSelectAll={status === 'human_review' ? selectAllTasks : undefined}
-              onDeselectAll={status === 'human_review' ? deselectAllTasks : undefined}
-              onToggleSelect={status === 'human_review' ? toggleTaskSelection : undefined}
+              selectedTaskIds={selectedTaskIds}
+              onSelectAll={() => selectAllTasks(status)}
+              onDeselectAll={deselectAllTasks}
+              onToggleSelect={toggleTaskSelection}
+              isCollapsed={columnPreferences?.[status]?.isCollapsed}
+              onToggleCollapsed={() => handleToggleColumnCollapsed(status)}
+              columnWidth={columnPreferences?.[status]?.width}
+              isResizing={resizingColumn === status}
+              onResizeStart={(startX) => handleResizeStart(status, startX)}
+              onResizeEnd={handleResizeEnd}
+              isLocked={columnPreferences?.[status]?.isLocked}
+              onToggleLocked={() => handleToggleColumnLocked(status)}
             />
           ))}
         </div>
@@ -1166,6 +1536,15 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
             <Button
               variant="ghost"
               size="sm"
+              className="gap-2 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={handleOpenDeleteConfirm}
+            >
+              <Trash2 className="h-4 w-4" />
+              {t('kanban.deleteSelected')}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
               className="gap-2 text-muted-foreground hover:text-foreground"
               onClick={deselectAllTasks}
             >
@@ -1175,6 +1554,64 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
           </div>
         </div>
       )}
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent className="sm:max-w-[500px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="h-5 w-5" />
+              {t('kanban.deleteConfirmTitle')}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t('kanban.deleteConfirmDescription')}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {/* Task List Preview */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium">{t('kanban.tasksToDelete')}</label>
+            <ScrollArea className="h-32 rounded-md border border-border p-2">
+              <div className="space-y-1">
+                {selectedTasks.map((task, idx) => (
+                  <div
+                    key={task.id}
+                    className="flex items-center gap-2 text-sm py-1 px-2 rounded hover:bg-muted/50"
+                  >
+                    <span className="text-muted-foreground">{idx + 1}.</span>
+                    <span className="truncate">{task.title}</span>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </div>
+
+          {/* Warning message */}
+          <p className="text-sm text-destructive">
+            {t('kanban.deleteWarning')}
+          </p>
+
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>
+              {t('common:buttons.cancel')}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  {t('common:buttons.deleting')}
+                </>
+              ) : (
+                t('kanban.deleteConfirmButton', { count: selectedTaskIds.size })
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Worktree cleanup confirmation dialog */}
       <WorktreeCleanupDialog

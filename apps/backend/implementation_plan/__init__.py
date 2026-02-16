@@ -25,9 +25,8 @@ Package Structure:
 - factories.py: Factory functions for creating different plan types
 """
 
-# Export all public types and functions for backwards compatibility
+# Export all public types and functions
 from .enums import (
-    ChunkStatus,  # Backwards compatibility
     PhaseType,
     SubtaskStatus,
     VerificationType,
@@ -40,7 +39,7 @@ from .factories import (
 )
 from .phase import Phase
 from .plan import ImplementationPlan
-from .subtask import Chunk, Subtask  # Chunk is backwards compatibility alias
+from .subtask import Subtask
 from .verification import Verification
 
 __all__ = [
@@ -58,7 +57,4 @@ __all__ = [
     "create_feature_plan",
     "create_investigation_plan",
     "create_refactor_plan",
-    # Backwards compatibility
-    "Chunk",
-    "ChunkStatus",
 ]

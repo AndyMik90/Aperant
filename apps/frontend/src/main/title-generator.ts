@@ -1,16 +1,15 @@
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { existsSync, readFileSync } from 'fs';
 import { spawn } from 'child_process';
-import { app } from 'electron';
-
-// ESM-compatible __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 import { EventEmitter } from 'events';
-import { detectRateLimit, createSDKRateLimitInfo, getProfileEnv } from './rate-limit-detector';
+import { detectRateLimit, createSDKRateLimitInfo, getBestAvailableProfileEnv } from './rate-limit-detector';
 import { parsePythonCommand, getValidatedPythonPath } from './python-detector';
-import { getConfiguredPythonPath } from './python-env-manager';
+import { pythonEnvManager, getConfiguredPythonPath } from './python-env-manager';
+import { getAPIProfileEnv } from './services/profile';
+import { getOAuthModeClearVars } from './agent/env-utils';
+import { getEffectiveSourcePath } from './updater/path-resolver';
+import { getSentryEnvForSubprocess, safeBreadcrumb, safeCaptureException } from './sentry';
+import { maskUserPaths } from '../shared/utils/sentry-privacy';
 
 /**
  * Debug logging - only logs when DEBUG=true or in development mode
@@ -65,18 +64,16 @@ export class TitleGenerator extends EventEmitter {
       return this.autoBuildSourcePath;
     }
 
-    const possiblePaths = [
-      // Apps structure: from out/main -> apps/backend
-      path.resolve(__dirname, '..', '..', '..', 'backend'),
-      path.resolve(app.getAppPath(), '..', 'backend'),
-      path.resolve(process.cwd(), 'apps', 'backend')
-    ];
-
-    for (const p of possiblePaths) {
-      if (existsSync(p) && existsSync(path.join(p, 'runners', 'spec_runner.py'))) {
-        return p;
-      }
+    // Use shared path resolver which handles:
+    // 1. User settings (autoBuildPath)
+    // 2. userData override (backend-source) for user-updated backend
+    // 3. Bundled backend (process.resourcesPath/backend)
+    // 4. Development paths
+    const effectivePath = getEffectiveSourcePath();
+    if (existsSync(effectivePath) && existsSync(path.join(effectivePath, 'runners', 'spec_runner.py'))) {
+      return effectivePath;
     }
+
     return null;
   }
 
@@ -129,8 +126,24 @@ export class TitleGenerator extends EventEmitter {
 
     if (!autoBuildSource) {
       debug('Auto-claude source path not found');
+      safeBreadcrumb({
+        category: 'title-generator',
+        message: 'Source path not found',
+        level: 'warning',
+        data: {
+          hasConfiguredPath: !!this.autoBuildSourcePath,
+          effectivePathExists: existsSync(getEffectiveSourcePath()),
+        },
+      });
       return null;
     }
+
+    safeBreadcrumb({
+      category: 'title-generator',
+      message: 'Source path resolved',
+      level: 'info',
+      data: { sourcePath: maskUserPaths(autoBuildSource) },
+    });
 
     const prompt = this.createTitlePrompt(description);
     const script = this.createGenerationScript(prompt);
@@ -142,21 +155,85 @@ export class TitleGenerator extends EventEmitter {
       hasOAuthToken: !!autoBuildEnv.CLAUDE_CODE_OAUTH_TOKEN
     });
 
-    // Get active Claude profile environment (CLAUDE_CONFIG_DIR if not default)
-    const profileEnv = getProfileEnv();
+    // Get active API profile environment variables (ANTHROPIC_* vars)
+    const apiProfileEnv = await getAPIProfileEnv();
+    const isApiProfileActive = Object.keys(apiProfileEnv).length > 0;
+
+    // Only get OAuth profile env if no API profile is active to avoid conflicts
+    let profileEnv: Record<string, string> = {};
+    if (!isApiProfileActive) {
+      // Use centralized function that automatically handles rate limits and capacity
+      const profileResult = getBestAvailableProfileEnv();
+      profileEnv = profileResult.env;
+
+      if (profileResult.wasSwapped) {
+        debug('Using alternative profile for title generation:', {
+          originalProfile: profileResult.originalProfile?.name,
+          selectedProfile: profileResult.profileName,
+          reason: profileResult.swapReason
+        });
+      }
+    }
+
+    // Get OAuth mode clearing vars (clears stale ANTHROPIC_* vars when in OAuth mode)
+    const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
+
+    // Debug: Log the final environment that will be used
+    // Note: profileEnv from getBestAvailableProfileEnv() already includes CLAUDE_CODE_OAUTH_TOKEN=''
+    // when CLAUDE_CONFIG_DIR is set, ensuring the subprocess uses the correct credentials
+    debug('Final subprocess environment:', {
+      profileEnvCLAUDE_CONFIG_DIR: profileEnv.CLAUDE_CONFIG_DIR,
+      profileEnvClearsOAuthToken: profileEnv.CLAUDE_CODE_OAUTH_TOKEN === ''
+    });
+
+    // Resolve Python path and check env readiness
+    const resolvedPythonPath = this.pythonPath;
+    const venvReady = pythonEnvManager.isEnvReady();
+
+    safeBreadcrumb({
+      category: 'title-generator',
+      message: 'Python path resolved',
+      level: 'info',
+      data: {
+        pythonPath: maskUserPaths(resolvedPythonPath),
+        venvReady,
+        isApiProfileActive,
+        hasOAuthEnv: !!profileEnv.CLAUDE_CONFIG_DIR,
+      },
+    });
+
+    // Guard: if Python env isn't ready, log and fall back gracefully
+    if (!venvReady) {
+      debug('Python environment not ready, skipping title generation');
+      safeBreadcrumb({
+        category: 'title-generator',
+        message: 'Python environment not ready - skipping title generation',
+        level: 'warning',
+      });
+      return null;
+    }
 
     return new Promise((resolve) => {
       // Parse Python command to handle space-separated commands like "py -3"
-      const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.pythonPath);
+      const [pythonCommand, pythonBaseArgs] = parsePythonCommand(resolvedPythonPath);
+
+      safeBreadcrumb({
+        category: 'title-generator',
+        message: 'Spawning process',
+        level: 'info',
+        data: { pythonCommand: maskUserPaths(pythonCommand) },
+      });
+
       const childProcess = spawn(pythonCommand, [...pythonBaseArgs, '-c', script], {
         cwd: autoBuildSource,
         env: {
-          ...process.env,
+          ...pythonEnvManager.getPythonEnv(), // Python environment including PYTHONPATH (fixes subprocess Python resolution)
+          ...getSentryEnvForSubprocess(), // Sentry config for subprocess error tracking
           ...autoBuildEnv,
-          ...profileEnv, // Include active Claude profile config
-          PYTHONUNBUFFERED: '1',
-          PYTHONIOENCODING: 'utf-8',
-          PYTHONUTF8: '1'
+          ...profileEnv, // Claude OAuth profile - includes CLAUDE_CONFIG_DIR and clears CLAUDE_CODE_OAUTH_TOKEN
+          ...apiProfileEnv, // API profile (ANTHROPIC_AUTH_TOKEN, ANTHROPIC_BASE_URL, etc.)
+          ...oauthModeClearVars, // Clear stale ANTHROPIC_* vars when in OAuth mode
+          PYTHONUNBUFFERED: '1', // Ensure stdout isn't buffered (critical for reading output before kill/timeout)
         }
       });
 
@@ -164,16 +241,31 @@ export class TitleGenerator extends EventEmitter {
       let errorOutput = '';
       const timeout = setTimeout(() => {
         console.warn('[TitleGenerator] Title generation timed out after 60s');
+        safeBreadcrumb({
+          category: 'title-generator',
+          message: 'Process timed out after 60s',
+          level: 'warning',
+        });
+        safeCaptureException(new Error('TitleGenerator: process timed out'), {
+          contexts: {
+            titleGenerator: {
+              pythonPath: maskUserPaths(resolvedPythonPath),
+              sourcePath: maskUserPaths(autoBuildSource),
+              venvReady,
+              stderrSnippet: maskUserPaths(errorOutput.substring(0, 500)),
+            },
+          },
+        });
         childProcess.kill();
         resolve(null);
       }, 60000); // 60 second timeout for SDK initialization + API call
 
       childProcess.stdout?.on('data', (data: Buffer) => {
-        output += data.toString();
+        output += data.toString('utf-8');
       });
 
       childProcess.stderr?.on('data', (data: Buffer) => {
-        errorOutput += data.toString();
+        errorOutput += data.toString('utf-8');
       });
 
       childProcess.on('exit', (code: number | null) => {
@@ -182,6 +274,11 @@ export class TitleGenerator extends EventEmitter {
         if (code === 0 && output.trim()) {
           const title = this.cleanTitle(output.trim());
           debug('Generated title:', title);
+          safeBreadcrumb({
+            category: 'title-generator',
+            message: 'Title generated successfully',
+            level: 'info',
+          });
           resolve(title);
         } else {
           // Check for rate limit
@@ -192,6 +289,16 @@ export class TitleGenerator extends EventEmitter {
               resetTime: rateLimitDetection.resetTime,
               limitType: rateLimitDetection.limitType,
               suggestedProfile: rateLimitDetection.suggestedProfile?.name
+            });
+
+            safeBreadcrumb({
+              category: 'title-generator',
+              message: 'Rate limit detected',
+              level: 'warning',
+              data: {
+                limitType: rateLimitDetection.limitType,
+                resetTime: rateLimitDetection.resetTime,
+              },
             });
 
             const rateLimitInfo = createSDKRateLimitInfo('title-generator', rateLimitDetection);
@@ -205,6 +312,24 @@ export class TitleGenerator extends EventEmitter {
             output: output.substring(0, 200),
             isRateLimited: rateLimitDetection.isRateLimited
           });
+
+          safeCaptureException(
+            new Error(`TitleGenerator: process exited with code ${code}`),
+            {
+              contexts: {
+                titleGenerator: {
+                  exitCode: code,
+                  pythonPath: maskUserPaths(resolvedPythonPath),
+                  sourcePath: maskUserPaths(autoBuildSource),
+                  venvReady,
+                  isRateLimited: rateLimitDetection.isRateLimited,
+                  isApiProfileActive,
+                  stderrSnippet: maskUserPaths(errorOutput.substring(0, 500)),
+                },
+              },
+            }
+          );
+
           resolve(null);
         }
       });
@@ -212,6 +337,16 @@ export class TitleGenerator extends EventEmitter {
       childProcess.on('error', (err) => {
         clearTimeout(timeout);
         console.warn('[TitleGenerator] Process error:', err.message);
+        safeCaptureException(err, {
+          contexts: {
+            titleGenerator: {
+              pythonPath: maskUserPaths(resolvedPythonPath),
+              sourcePath: maskUserPaths(autoBuildSource),
+              venvReady,
+              isApiProfileActive,
+            },
+          },
+        });
         resolve(null);
       });
     });

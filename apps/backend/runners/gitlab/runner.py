@@ -47,6 +47,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from core.io_utils import safe_print
 from models import GitLabRunnerConfig
 from orchestrator import GitLabOrchestrator, ProgressCallback
+from phase_config import sanitize_thinking_level
 
 
 def print_progress(callback: ProgressCallback) -> None:
@@ -61,10 +62,15 @@ def print_progress(callback: ProgressCallback) -> None:
 def get_config(args) -> GitLabRunnerConfig:
     """Build config from CLI args and environment."""
     token = args.token or os.environ.get("GITLAB_TOKEN", "")
-    project = args.project or os.environ.get("GITLAB_PROJECT", "")
     instance_url = args.instance or os.environ.get(
         "GITLAB_INSTANCE_URL", "https://gitlab.com"
     )
+
+    # Project detection priority:
+    # 1. Explicit --project flag (highest priority)
+    # 2. Auto-detect from .auto-claude/gitlab/config.json (primary for multi-project setups)
+    # 3. GITLAB_PROJECT env var (fallback only)
+    project = args.project  # Only use explicit CLI flag initially
 
     if not token:
         # Try to get from glab CLI
@@ -86,8 +92,8 @@ def get_config(args) -> GitLabRunnerConfig:
                     token = line.split("Token:")[-1].strip()
                     break
 
+    # Auto-detect from project config (takes priority over env var)
     if not project:
-        # Try to detect from .auto-claude/gitlab/config.json
         config_path = Path(args.project_dir) / ".auto-claude" / "gitlab" / "config.json"
         if config_path.exists():
             try:
@@ -99,6 +105,10 @@ def get_config(args) -> GitLabRunnerConfig:
                         token = data.get("token", "")
             except Exception as exc:
                 print(f"Warning: Failed to read GitLab config: {exc}", file=sys.stderr)
+
+    # Fall back to environment variable only if auto-detection failed
+    if not project:
+        project = os.environ.get("GITLAB_PROJECT", "")
 
     if not token:
         print(
@@ -277,8 +287,7 @@ def main():
         "--thinking-level",
         type=str,
         default="medium",
-        choices=["none", "low", "medium", "high"],
-        help="Thinking level for extended reasoning",
+        help="Thinking level for extended reasoning (low, medium, high)",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
@@ -295,6 +304,9 @@ def main():
     followup_parser.add_argument("mr_iid", type=int, help="MR IID to review")
 
     args = parser.parse_args()
+
+    # Validate and sanitize thinking level (handles legacy values like 'ultrathink')
+    args.thinking_level = sanitize_thinking_level(args.thinking_level)
 
     if not args.command:
         parser.print_help()

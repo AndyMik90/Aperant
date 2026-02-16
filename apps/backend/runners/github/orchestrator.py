@@ -395,9 +395,35 @@ class GitHubOrchestrator:
                     else:
                         # No existing review found, create skip result
                         return await self._create_skip_result(pr_number, skip_reason)
+                elif "Review already in progress" in skip_reason:
+                    # Return an in-progress result WITHOUT saving to disk
+                    # to avoid overwriting the partial result being written by the active review
+                    started_at = self.bot_detector.state.in_progress_reviews.get(
+                        str(pr_number)
+                    )
+                    safe_print(
+                        f"[BOT DETECTION] Review in progress for PR #{pr_number} "
+                        f"(started: {started_at})",
+                        flush=True,
+                    )
+                    return PRReviewResult(
+                        pr_number=pr_number,
+                        repo=self.config.repo,
+                        success=True,
+                        findings=[],
+                        summary="Review in progress",
+                        overall_status="in_progress",
+                        in_progress_since=started_at,
+                    )
                 else:
                     # For other skip reasons (bot-authored, cooling off), create a skip result
                     return await self._create_skip_result(pr_number, skip_reason)
+
+            # Mark review as started (prevents concurrent reviews)
+            self.bot_detector.mark_review_started(pr_number)
+            safe_print(
+                f"[BOT DETECTION] Marked PR #{pr_number} review as started", flush=True
+            )
 
             self._report_progress(
                 "analyzing", 30, "Running multi-pass review...", pr_number=pr_number
@@ -572,6 +598,13 @@ class GitHubOrchestrator:
         except Exception as e:
             import traceback
 
+            # Mark review as finished with error
+            self.bot_detector.mark_review_finished(pr_number, success=False)
+            safe_print(
+                f"[BOT DETECTION] Marked PR #{pr_number} review as finished (error)",
+                flush=True,
+            )
+
             # Log full exception details for debugging
             error_details = f"{type(e).__name__}: {e}"
             full_traceback = traceback.format_exc()
@@ -632,6 +665,13 @@ class GitHubOrchestrator:
             10,
             f"Gathering follow-up context for PR #{pr_number}...",
             pr_number=pr_number,
+        )
+
+        # Mark review as started (prevents concurrent reviews)
+        self.bot_detector.mark_review_started(pr_number)
+        safe_print(
+            f"[BOT DETECTION] Marked PR #{pr_number} follow-up review as started",
+            flush=True,
         )
 
         try:
@@ -956,6 +996,13 @@ class GitHubOrchestrator:
             return result
 
         except Exception as e:
+            # Mark review as finished with error
+            self.bot_detector.mark_review_finished(pr_number, success=False)
+            safe_print(
+                f"[BOT DETECTION] Marked PR #{pr_number} follow-up review as finished (error)",
+                flush=True,
+            )
+
             result = PRReviewResult(
                 pr_number=pr_number,
                 repo=self.config.repo,

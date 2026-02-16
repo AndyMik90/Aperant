@@ -16,9 +16,10 @@ import * as path from 'path';
 import { existsSync } from 'fs';
 import { spawn, ChildProcess } from 'child_process';
 import { OS, ShellType, PathConfig, ShellConfig, BinaryDirectories } from './types';
+import { getTaskkillExePath } from '../utils/windows-paths';
 
 // Re-export from paths.ts for backward compatibility
-export { getWindowsShellPaths } from './paths';
+export { getWindowsShellPaths, getOllamaExecutablePaths, getOllamaInstallCommand, getWhichCommand } from './paths';
 
 /**
  * Get the current operating system
@@ -243,7 +244,7 @@ function getWindowsShellConfig(preferredShell?: ShellType): ShellConfig {
 /**
  * Get Unix shell configuration
  */
-function getUnixShellConfig(preferredShell?: ShellType): ShellConfig {
+function getUnixShellConfig(_preferredShell?: ShellType): ShellConfig {
   const shellPath = process.env.SHELL || '/bin/zsh';
 
   return {
@@ -286,8 +287,8 @@ export function getNpxCommand(): string {
  * or environment variable expansion.
  */
 export function isSecurePath(candidatePath: string): boolean {
-  // Reject empty strings to maintain cross-platform consistency
-  if (!candidatePath) return false;
+  // Reject empty or whitespace-only strings to maintain cross-platform consistency with backend
+  if (!candidatePath || !candidatePath.trim()) return false;
 
   // Security validation: reject paths with dangerous patterns
   const dangerousPatterns = [
@@ -295,7 +296,7 @@ export function isSecurePath(candidatePath: string): boolean {
     /%[^%]+%/,                   // Windows environment variable expansion
     /\.\.\//,                    // Unix directory traversal
     /\.\.\\/,                    // Windows directory traversal
-    /[\r\n]/                     // Newlines (command injection)
+    /[\r\n\x00]/                 // Newlines (command injection), null bytes (path truncation)
   ];
 
   for (const pattern of dangerousPatterns) {
@@ -484,7 +485,7 @@ export function killProcessGracefully(
       try {
         if (isWindows()) {
           log('Running taskkill for PID:', pid);
-          spawn('taskkill', ['/pid', pid.toString(), '/f', '/t'], {
+          spawn(getTaskkillExePath(), ['/pid', pid.toString(), '/f', '/t'], {
             stdio: 'ignore',
             detached: true
           }).unref();

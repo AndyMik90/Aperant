@@ -42,6 +42,12 @@ if 'claude_code_sdk' not in sys.modules:
     sys.modules['claude_code_sdk'] = _create_sdk_mock()
     sys.modules['claude_code_sdk.types'] = MagicMock()
 
+# Pre-mock dotenv to prevent sys.exit() in cli.utils.import_dotenv
+# This is needed for CLI tests since cli.utils calls import_dotenv at module level
+if 'dotenv' not in sys.modules:
+    sys.modules['dotenv'] = MagicMock()
+    sys.modules['dotenv'].load_dotenv = MagicMock()
+
 # Add apps/backend directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
@@ -57,6 +63,7 @@ _POTENTIALLY_MOCKED_MODULES = [
     'claude_code_sdk.types',
     'claude_agent_sdk',
     'claude_agent_sdk.types',
+    'dotenv',
     'ui',
     'progress',
     'task_logger',
@@ -66,6 +73,13 @@ _POTENTIALLY_MOCKED_MODULES = [
     'review',
     'validate_spec',
     'graphiti_providers',
+    'agents.memory_manager',
+    'agents.base',
+    'core.error_utils',
+    'security.tool_input_validator',
+    'debug',
+    'prompts_pkg',
+    'prompts_pkg.project_context',
 ]
 
 # Store original module references at import time (before any mocking)
@@ -99,20 +113,26 @@ def pytest_runtest_setup(item):
 
     module_name = item.module.__name__
 
+    # Common mock sets - defined once to reduce duplication and maintenance burden
+    QA_REPORT_MOCKS = {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client'}
+    SDK_MOCKS = {'claude_code_sdk', 'claude_code_sdk.types', 'claude_agent_sdk', 'claude_agent_sdk.types'}
+
     # Map of which test modules mock which specific modules
     # Each test module should only preserve the mocks it installed
     module_mocks = {
-        'test_qa_criteria': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client'},
-        'test_qa_report': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client'},
-        'test_qa_report_iteration': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client'},
-        'test_qa_report_recurring': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client'},
-        'test_qa_report_project_detection': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client'},
-        'test_qa_report_manual_plan': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client'},
-        'test_qa_report_config': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client'},
-        'test_qa_loop': {'claude_code_sdk', 'claude_code_sdk.types', 'claude_agent_sdk', 'claude_agent_sdk.types'},
+        'test_qa_criteria': QA_REPORT_MOCKS,
+        'test_qa_report': QA_REPORT_MOCKS,
+        'test_qa_report_iteration': QA_REPORT_MOCKS,
+        'test_qa_report_recurring': QA_REPORT_MOCKS,
+        'test_qa_report_project_detection': QA_REPORT_MOCKS,
+        'test_qa_report_manual_plan': QA_REPORT_MOCKS,
+        'test_qa_report_config': QA_REPORT_MOCKS,
+        'test_qa_loop': SDK_MOCKS,
         'test_spec_pipeline': {'claude_code_sdk', 'claude_code_sdk.types', 'init', 'client', 'review', 'task_logger', 'ui', 'validate_spec'},
-        'test_spec_complexity': {'claude_code_sdk', 'claude_code_sdk.types', 'claude_agent_sdk', 'claude_agent_sdk.types'},
+        'test_spec_complexity': SDK_MOCKS,
         'test_spec_phases': {'claude_code_sdk', 'claude_code_sdk.types', 'claude_agent_sdk', 'graphiti_providers', 'validate_spec', 'client'},
+        'test_qa_fixer': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client', 'agents.memory_manager', 'agents.base', 'core.error_utils', 'security.tool_input_validator', 'debug'},
+        'test_qa_reviewer': {'claude_agent_sdk', 'ui', 'progress', 'task_logger', 'linear_updater', 'client', 'agents.memory_manager', 'agents.base', 'core.error_utils', 'security.tool_input_validator', 'debug', 'prompts_pkg', 'prompts_pkg.project_context'},
     }
 
     # Get the mocks that the current test module needs to preserve
@@ -145,16 +165,19 @@ def pytest_runtest_setup(item):
             if qa_module in sys.modules:
                 try:
                     importlib.reload(sys.modules[qa_module])
-                except Exception:
-                    pass  # Some modules may fail to reload due to circular imports
+                except Exception as e:
+                    # Log reload failures - circular imports are expected but other errors should be visible
+                    import warnings
+                    warnings.warn(f'Failed to reload {qa_module}: {e}')
         # Reload review module chain
         for review_module in ['review.state', 'review.formatters', 'review']:
             if review_module in sys.modules:
                 try:
                     importlib.reload(sys.modules[review_module])
-                except Exception:
-                    # Module reload may fail if dependencies aren't loaded; safe to ignore
-                    pass
+                except Exception as e:
+                    # Log reload failures - some modules may fail if dependencies aren't loaded
+                    import warnings
+                    warnings.warn(f'Failed to reload {review_module}: {e}')
 
 
 # =============================================================================
@@ -246,6 +269,132 @@ def spec_dir(temp_dir: Path) -> Path:
     spec_path = temp_dir / "spec"
     spec_path.mkdir(parents=True)
     return spec_path
+
+
+# =============================================================================
+# WORKSPACE COMMAND TEST FIXTURES
+# =============================================================================
+
+# Constants for workspace tests
+TEST_SPEC_NAME = "001-test-spec"
+TEST_SPEC_BRANCH = f"auto-claude/{TEST_SPEC_NAME}"
+
+
+@pytest.fixture
+def mock_project_dir(temp_git_repo: Path) -> Path:
+    """Create a mock project directory with git repo."""
+    return temp_git_repo
+
+
+@pytest.fixture
+def mock_worktree_path(temp_git_repo: Path) -> Path:
+    """Create a mock worktree path."""
+    worktree_path = temp_git_repo / ".worktrees" / TEST_SPEC_NAME
+    worktree_path.mkdir(parents=True, exist_ok=True)
+    return worktree_path
+
+
+@pytest.fixture
+def workspace_spec_dir(temp_git_repo: Path) -> Path:
+    """Create a spec directory inside .auto-claude/specs/ for workspace tests."""
+    spec_dir = temp_git_repo / ".auto-claude" / "specs" / TEST_SPEC_NAME
+    spec_dir.mkdir(parents=True, exist_ok=True)
+    return spec_dir
+
+
+@pytest.fixture
+def with_spec_branch(temp_git_repo: Path) -> Generator[Path, None, None]:
+    """Create a temp git repo with a spec branch.
+
+    Note: temp_git_repo already provides an initialized repo with initial commit,
+    so we only need to create the spec branch and add changes.
+    """
+    # Create spec branch
+    subprocess.run(
+        ["git", "checkout", "-b", TEST_SPEC_BRANCH],
+        cwd=temp_git_repo,
+        capture_output=True,
+        check=True,
+    )
+
+    # Add a change on spec branch
+    (temp_git_repo / "test.txt").write_text("test content")
+    subprocess.run(
+        ["git", "add", "test.txt"],
+        cwd=temp_git_repo,
+        capture_output=True,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "Test commit"],
+        cwd=temp_git_repo,
+        capture_output=True,
+        check=True,
+    )
+
+    # Go back to main
+    subprocess.run(
+        ["git", "checkout", "main"],
+        cwd=temp_git_repo,
+        capture_output=True,
+        check=True,
+    )
+
+    yield temp_git_repo
+
+
+@pytest.fixture
+def with_conflicting_branches(temp_git_repo: Path) -> Generator[Path, None, None]:
+    """Create temp git repo with conflicting branches for merge testing.
+
+    Note: temp_git_repo already provides an initialized repo with initial commit,
+    so we only need to create branches with conflicting changes.
+    """
+    # Create spec branch
+    subprocess.run(
+        ["git", "checkout", "-b", TEST_SPEC_BRANCH],
+        cwd=temp_git_repo,
+        capture_output=True,
+        check=True,
+    )
+
+    # Add a file on spec branch
+    (temp_git_repo / "conflict.txt").write_text("spec branch content")
+    subprocess.run(
+        ["git", "add", "conflict.txt"],
+        cwd=temp_git_repo,
+        capture_output=True,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "Spec change"],
+        cwd=temp_git_repo,
+        capture_output=True,
+        check=True,
+    )
+
+    # Go back to main and make conflicting change
+    subprocess.run(
+        ["git", "checkout", "main"],
+        cwd=temp_git_repo,
+        capture_output=True,
+        check=True,
+    )
+    (temp_git_repo / "conflict.txt").write_text("main branch content")
+    subprocess.run(
+        ["git", "add", "conflict.txt"],
+        cwd=temp_git_repo,
+        capture_output=True,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "Main change"],
+        cwd=temp_git_repo,
+        capture_output=True,
+        check=True,
+    )
+
+    yield temp_git_repo
 
 
 # =============================================================================
@@ -630,16 +779,15 @@ def mock_run_agent_fn():
             phase_name: str = None,
         ) -> tuple[bool, str]:
             nonlocal call_count
+            call_count += 1
             if side_effect is not None:
-                if call_count < len(side_effect):
-                    result = side_effect[call_count]
-                    call_count += 1
+                if call_count <= len(side_effect):
+                    result = side_effect[call_count - 1]
                     return result
                 # Fallback to last result if more calls than expected
                 return side_effect[-1]
             return (success, output)
 
-        _mock_agent.call_count = 0
         return _mock_agent
 
     return _create_mock
@@ -695,6 +843,202 @@ def mock_ui_module():
     ui.info = MagicMock(return_value="")
     ui.highlight = MagicMock(return_value="")
     return ui
+
+
+@pytest.fixture
+def mock_ui_icons():
+    """
+    Mock UI Icons class for CLI input handler tests.
+
+    Provides the complete Icons class with Unicode and ASCII fallbacks.
+    Mirrors the structure in apps/backend/ui/icons.py.
+
+    Usage:
+        def test_something(mock_ui_icons):
+            Icons = mock_ui_icons
+            assert Icons.SUCCESS == ("✓", "[OK]")
+    """
+    class MockIcons:
+        """Mock Icons class - complete with all icons used by the codebase."""
+        # Status icons
+        SUCCESS = ("✓", "[OK]")
+        ERROR = ("✗", "[X]")
+        WARNING = ("⚠", "[!]")
+        INFO = ("ℹ", "[i]")
+        PENDING = ("○", "[ ]")
+        IN_PROGRESS = ("◐", "[.]")
+        COMPLETE = ("●", "[*]")
+        BLOCKED = ("⊘", "[B]")
+
+        # Action icons
+        PLAY = ("▶", ">")
+        PAUSE = ("⏸", "||")
+        STOP = ("⏹", "[]")
+        SKIP = ("⏭", ">>")
+
+        # Navigation
+        ARROW_RIGHT = ("→", "->")
+        ARROW_DOWN = ("↓", "v")
+        ARROW_UP = ("↑", "^")
+        POINTER = ("❯", ">")
+        BULLET = ("•", "*")
+
+        # Objects
+        FOLDER = ("📁", "[D]")
+        FILE = ("📄", "[F]")
+        GEAR = ("⚙", "[*]")
+        SEARCH = ("🔍", "[?]")
+        BRANCH = ("🌿", "[BR]")
+        COMMIT = ("◉", "(@)")
+        LIGHTNING = ("⚡", "!")
+        LINK = ("🔗", "[L]")
+
+        # Progress
+        SUBTASK = ("▣", "#")
+        PHASE = ("◆", "*")
+        WORKER = ("⚡", "W")
+        SESSION = ("▸", ">")
+
+        # Menu
+        EDIT = ("✏️", "[E]")
+        CLIPBOARD = ("📋", "[C]")
+        DOCUMENT = ("📄", "[D]")
+        DOOR = ("🚪", "[Q]")
+        SHIELD = ("🛡️", "[S]")
+
+        # Box drawing
+        BOX_TL = ("╔", "+")
+        BOX_TR = ("╗", "+")
+        BOX_BL = ("╚", "+")
+        BOX_BR = ("╝", "+")
+        BOX_H = ("═", "-")
+        BOX_V = ("║", "|")
+        BOX_ML = ("╠", "+")
+        BOX_MR = ("╣", "+")
+        BOX_TL_LIGHT = ("┌", "+")
+        BOX_TR_LIGHT = ("┐", "+")
+        BOX_BL_LIGHT = ("└", "+")
+        BOX_BR_LIGHT = ("┘", "+")
+        BOX_H_LIGHT = ("─", "-")
+        BOX_V_LIGHT = ("│", "|")
+        BOX_ML_LIGHT = ("├", "+")
+        BOX_MR_LIGHT = ("┤", "+")
+
+        # Progress bar
+        BAR_FULL = ("█", "=")
+        BAR_EMPTY = ("░", "-")
+        BAR_HALF = ("▌", "=")
+
+    return MockIcons
+
+
+@pytest.fixture
+def mock_ui_menu_option():
+    """
+    Mock UI MenuOption class for CLI tests.
+
+    Provides a simple MenuOption class for menu testing.
+
+    Usage:
+        def test_something(mock_ui_menu_option):
+            option = mock_ui_menu_option()("key", "Label")
+            assert option.key == "key"
+    """
+    class MockMenuOption:
+        """Mock MenuOption class."""
+        def __init__(self, key, label, icon=None, description=""):
+            self.key = key
+            self.label = label
+            self.icon = icon or ("", "")
+            self.description = description
+
+    return MockMenuOption
+
+
+@pytest.fixture
+def mock_ui_module_full(mock_ui_icons, mock_ui_menu_option):
+    """
+    Comprehensive mock UI module with all functions and classes.
+
+    Provides a complete mock of the ui module for CLI tests.
+    Includes Icons, MenuOption, and all UI functions.
+
+    Usage:
+        def test_something(mock_ui_module_full):
+            ui = mock_ui_module_full
+            assert ui.Icons.SUCCESS == ("✓", "[OK]")
+            assert ui.icon(ui.Icons.SUCCESS) == "✓"
+    """
+    from unittest.mock import MagicMock
+
+    Icons = mock_ui_icons
+    MenuOption = mock_ui_menu_option
+
+    def mock_icon(icon_tuple):
+        """Mock icon function."""
+        return icon_tuple[0] if icon_tuple else ""
+
+    def mock_bold(text):
+        """Mock bold function."""
+        return f"**{text}**"
+
+    def mock_muted(text):
+        """Mock muted function."""
+        return f"[{text}]"
+
+    def mock_box(content, width=70, style="heavy"):
+        """Mock box function."""
+        lines = ["┌" + "─" * (width - 2) + "┐"]
+        for line in content:
+            lines.append(f"│ {line} │")
+        lines.append("└" + "─" * (width - 2) + "┘")
+        return "\n".join(lines)
+
+    def mock_print_status(message, status="info"):
+        """Mock print_status function."""
+        print(f"[{status.upper()}] {message}")
+
+    def mock_select_menu(title, options, subtitle="", allow_quit=True):
+        """Mock select_menu function."""
+        return options[0].key if options else None
+
+    def mock_error(text):
+        """Mock error function."""
+        return f"ERROR: {text}"
+
+    def mock_success(text):
+        """Mock success function."""
+        return f"SUCCESS: {text}"
+
+    def mock_warning(text):
+        """Mock warning function."""
+        return f"WARNING: {text}"
+
+    def mock_info(text):
+        """Mock info function."""
+        return f"INFO: {text}"
+
+    def mock_highlight(text):
+        """Mock highlight function."""
+        return text
+
+    # Create mock ui module
+    mock_ui = MagicMock()
+    mock_ui.Icons = Icons
+    mock_ui.MenuOption = MenuOption
+    mock_ui.icon = mock_icon
+    mock_ui.bold = mock_bold
+    mock_ui.muted = mock_muted
+    mock_ui.box = mock_box
+    mock_ui.print_status = mock_print_status
+    mock_ui.select_menu = mock_select_menu
+    mock_ui.error = mock_error
+    mock_ui.success = mock_success
+    mock_ui.warning = mock_warning
+    mock_ui.info = mock_info
+    mock_ui.highlight = mock_highlight
+
+    return mock_ui
 
 
 @pytest.fixture
@@ -1141,3 +1485,125 @@ def temp_project(temp_git_repo: Path):
     )
 
     return temp_git_repo
+
+
+# =============================================================================
+# WORKTREE MANAGER FIXTURES - For GitLab/GitHub integration tests
+# =============================================================================
+
+@pytest.fixture
+def temp_project_dir(tmp_path):
+    """Create a temporary project directory with proper git setup.
+
+    IMPORTANT: This fixture properly isolates git operations by passing
+    a sanitized environment to subprocess.run calls, clearing git environment
+    variables that may be set by pre-commit hooks. Without this isolation,
+    git operations could affect the parent repository when tests run inside
+    a git worktree (e.g., during pre-commit validation).
+
+    See: https://git-scm.com/docs/git#_environment_variables
+    """
+    project_dir = tmp_path / "test-project"
+    project_dir.mkdir()
+
+    # Create a sanitized environment for git commands to prevent leaking
+    # into parent repos when running inside git worktrees (e.g., pre-commit)
+    git_env = os.environ.copy()
+    git_vars_to_clear = [
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    ]
+    for var in git_vars_to_clear:
+        git_env.pop(var, None)
+
+    # Set GIT_CEILING_DIRECTORIES to prevent git from discovering parent .git
+    git_env["GIT_CEILING_DIRECTORIES"] = str(tmp_path.parent)
+
+    # Initialize git repo
+    subprocess.run(
+        ["git", "init"],
+        cwd=project_dir,
+        capture_output=True,
+        check=True,
+        env=git_env,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test User"],
+        cwd=project_dir,
+        capture_output=True,
+        check=True,
+        env=git_env,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"],
+        cwd=project_dir,
+        capture_output=True,
+        check=True,
+        env=git_env,
+    )
+
+    # Disable GPG signing to prevent hangs in CI
+    subprocess.run(
+        ["git", "config", "commit.gpgsign", "false"],
+        cwd=project_dir,
+        capture_output=True,
+        check=True,
+        env=git_env,
+    )
+
+    # Create initial commit
+    readme = project_dir / "README.md"
+    readme.write_text("# Test Project\n")
+    subprocess.run(
+        ["git", "add", "README.md"],
+        cwd=project_dir,
+        capture_output=True,
+        check=True,
+        env=git_env,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "Initial commit"],
+        cwd=project_dir,
+        capture_output=True,
+        check=True,
+        env=git_env,
+    )
+
+    return project_dir
+
+
+@pytest.fixture
+def successful_agent_fn():
+    """
+    Reusable async agent function that returns success.
+
+    Replaces the duplicated async def agent_fn(*args, **kwargs): return (True, 'Success')
+    pattern that was copy-pasted 28 times across test_cli_build_commands.py.
+
+    Usage:
+        def test_something(mock_run_agent, successful_agent_fn):
+            mock_run_agent.side_effect = successful_agent_fn
+    """
+    async def _fn(*args, **kwargs):
+        return (True, 'Success')
+    return _fn
+
+
+@pytest.fixture
+def worktree_manager(temp_project_dir):
+    """Create a WorktreeManager instance."""
+    from core.worktree import WorktreeManager
+
+    # Create .auto-claude directories
+    auto_claude_dir = temp_project_dir / ".auto-claude"
+    auto_claude_dir.mkdir(exist_ok=True)
+    (auto_claude_dir / "specs").mkdir(exist_ok=True)
+    (auto_claude_dir / "worktrees" / "tasks").mkdir(parents=True, exist_ok=True)
+
+    return WorktreeManager(
+        project_dir=temp_project_dir,
+        base_branch="main",
+    )

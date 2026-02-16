@@ -181,7 +181,7 @@ function saveAutoFixConfig(project: Project, config: AutoFixConfig): void {
     thinking_level: config.thinkingLevel,
   };
 
-  fs.writeFileSync(configPath, JSON.stringify(updatedConfig, null, 2));
+  fs.writeFileSync(configPath, JSON.stringify(updatedConfig, null, 2), 'utf-8');
 }
 
 /**
@@ -422,7 +422,8 @@ async function startAutoFix(
       created_at: state.createdAt,
       updated_at: state.updatedAt,
       issue_url: sanitizedIssueUrl,
-    }, null, 2)
+    }, null, 2),
+    'utf-8'
   );
 
   sendProgress({ phase: 'creating_spec', issueNumber, progress: 70, message: 'Starting spec creation...' });
@@ -850,7 +851,7 @@ export function registerAutoFixHandlers(
             theme: b.theme ?? '',
           }));
 
-          fs.writeFileSync(tempFile, JSON.stringify(pythonBatches, null, 2));
+          fs.writeFileSync(tempFile, JSON.stringify(pythonBatches, null, 2), 'utf-8');
 
           // Comprehensive validation of GitHub module
           const validation = await validateGitHubModule(project);

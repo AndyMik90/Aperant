@@ -6,6 +6,7 @@ for multiple environment variables, and SDK environment variable passthrough
 for custom API endpoints.
 """
 
+import hashlib
 import json
 import logging
 import os
@@ -14,6 +15,7 @@ import subprocess
 from typing import TYPE_CHECKING
 
 from core.platform import (
+    get_where_exe_path,
     is_linux,
     is_macos,
     is_windows,
@@ -63,6 +65,48 @@ SDK_ENV_VARS = [
     # Profile's custom config directory (for multi-profile token storage)
     "CLAUDE_CONFIG_DIR",
 ]
+
+
+def _calculate_config_dir_hash(config_dir: str) -> str:
+    """
+    Calculate hash of config directory path for Keychain service name.
+
+    This MUST match the frontend's calculateConfigDirHash() in credential-utils.ts.
+    The frontend uses SHA256 hash of the config dir path, taking first 8 hex chars.
+
+    Args:
+        config_dir: Path to the config directory (should be absolute/expanded)
+
+    Returns:
+        8-character hex hash string (e.g., "d74c9506")
+    """
+    return hashlib.sha256(config_dir.encode()).hexdigest()[:8]
+
+
+def _get_keychain_service_name(config_dir: str | None = None) -> str:
+    """
+    Get the Keychain service name for credential storage.
+
+    This MUST match the frontend's getKeychainServiceName() in credential-utils.ts.
+    All profiles use hash-based keychain entries for isolation:
+    - Profile with configDir: "Claude Code-credentials-{hash}"
+    - No configDir (legacy/default): "Claude Code-credentials"
+
+    Args:
+        config_dir: Optional CLAUDE_CONFIG_DIR path. If provided, uses hash-based name.
+
+    Returns:
+        Keychain service name (e.g., "Claude Code-credentials-d74c9506")
+    """
+    if not config_dir:
+        return "Claude Code-credentials"
+
+    # Expand ~ to home directory (matching frontend normalization)
+    expanded_dir = os.path.expanduser(config_dir)
+
+    # Calculate hash and return hash-based service name
+    hash_suffix = _calculate_config_dir_hash(expanded_dir)
+    return f"Claude Code-credentials-{hash_suffix}"
 
 
 def is_encrypted_token(token: str | None) -> bool:
@@ -346,36 +390,50 @@ def _try_decrypt_token(token: str | None) -> str | None:
     return token
 
 
-def get_token_from_keychain() -> str | None:
+def get_token_from_keychain(config_dir: str | None = None) -> str | None:
     """
     Get authentication token from system credential store.
 
     Reads Claude Code credentials from:
-    - macOS: Keychain
+    - macOS: Keychain (uses hash-based service name if config_dir provided)
     - Windows: Credential Manager
     - Linux: Secret Service API (via dbus/secretstorage)
+
+    Args:
+        config_dir: Optional CLAUDE_CONFIG_DIR path for profile-specific credentials.
+                   When provided, reads from hash-based keychain entry matching
+                   the frontend's storage location.
 
     Returns:
         Token string if found, None otherwise
     """
     if is_macos():
-        return _get_token_from_macos_keychain()
+        return _get_token_from_macos_keychain(config_dir)
     elif is_windows():
-        return _get_token_from_windows_credential_files()
+        return _get_token_from_windows_credential_files(config_dir)
     else:
         # Linux: use secret-service API via DBus
-        return _get_token_from_linux_secret_service()
+        return _get_token_from_linux_secret_service(config_dir)
 
 
-def _get_token_from_macos_keychain() -> str | None:
-    """Get token from macOS Keychain."""
+def _get_token_from_macos_keychain(config_dir: str | None = None) -> str | None:
+    """Get token from macOS Keychain.
+
+    Args:
+        config_dir: Optional CLAUDE_CONFIG_DIR path. When provided, uses hash-based
+                   service name (e.g., "Claude Code-credentials-d74c9506") matching
+                   the frontend's credential storage location.
+    """
+    # Get the correct service name (hash-based if config_dir provided)
+    service_name = _get_keychain_service_name(config_dir)
+
     try:
         result = subprocess.run(
             [
                 "/usr/bin/security",
                 "find-generic-password",
                 "-s",
-                "Claude Code-credentials",
+                service_name,
                 "-w",
             ],
             capture_output=True,
@@ -384,6 +442,14 @@ def _get_token_from_macos_keychain() -> str | None:
         )
 
         if result.returncode != 0:
+            # If hash-based lookup fails and we have a config_dir, DON'T fall back
+            # to default service name - that would return the wrong profile's token.
+            # The config_dir was provided explicitly, so we should only use that.
+            if config_dir:
+                logger.debug(
+                    f"No keychain entry found for service '{service_name}' "
+                    f"(config_dir: {config_dir})"
+                )
             return None
 
         credentials_json = result.stdout.strip()
@@ -397,22 +463,51 @@ def _get_token_from_macos_keychain() -> str | None:
             return None
 
         # Validate token format (Claude OAuth tokens start with sk-ant-oat01-)
-        if not token.startswith("sk-ant-oat01-"):
+        # Also accept encrypted tokens (enc:) which will be decrypted later
+        if not (token.startswith("sk-ant-oat01-") or token.startswith("enc:")):
             return None
 
+        logger.debug(f"Found token in keychain service '{service_name}'")
         return token
 
     except (subprocess.TimeoutExpired, json.JSONDecodeError, KeyError, Exception):
         return None
 
 
-def _get_token_from_windows_credential_files() -> str | None:
+def _get_token_from_windows_credential_files(
+    config_dir: str | None = None,
+) -> str | None:
     """Get token from Windows credential files.
 
     Claude Code on Windows stores credentials in ~/.claude/.credentials.json
+    For custom profiles, uses the config_dir's .credentials.json file.
+
+    Args:
+        config_dir: Optional CLAUDE_CONFIG_DIR path for profile-specific credentials.
     """
     try:
-        # Claude Code stores credentials in ~/.claude/.credentials.json
+        # If config_dir is provided, read from that directory first
+        if config_dir:
+            expanded_dir = os.path.expanduser(config_dir)
+            profile_cred_paths = [
+                os.path.join(expanded_dir, ".credentials.json"),
+                os.path.join(expanded_dir, "credentials.json"),
+            ]
+            for cred_path in profile_cred_paths:
+                if os.path.exists(cred_path):
+                    with open(cred_path, encoding="utf-8") as f:
+                        data = json.load(f)
+                        token = data.get("claudeAiOauth", {}).get("accessToken")
+                        if token and (
+                            token.startswith("sk-ant-oat01-")
+                            or token.startswith("enc:")
+                        ):
+                            logger.debug(f"Found token in {cred_path}")
+                            return token
+            # If config_dir provided but no token found, don't fall back to default
+            return None
+
+        # Default Claude Code credential paths (no profile specified)
         cred_paths = [
             os.path.expandvars(r"%USERPROFILE%\.claude\.credentials.json"),
             os.path.expandvars(r"%USERPROFILE%\.claude\credentials.json"),
@@ -425,7 +520,9 @@ def _get_token_from_windows_credential_files() -> str | None:
                 with open(cred_path, encoding="utf-8") as f:
                     data = json.load(f)
                     token = data.get("claudeAiOauth", {}).get("accessToken")
-                    if token and token.startswith("sk-ant-oat01-"):
+                    if token and (
+                        token.startswith("sk-ant-oat01-") or token.startswith("enc:")
+                    ):
                         return token
 
         return None
@@ -434,7 +531,7 @@ def _get_token_from_windows_credential_files() -> str | None:
         return None
 
 
-def _get_token_from_linux_secret_service() -> str | None:
+def _get_token_from_linux_secret_service(config_dir: str | None = None) -> str | None:
     """Get token from Linux Secret Service API via DBus.
 
     Claude Code on Linux stores credentials in the Secret Service API
@@ -442,8 +539,11 @@ def _get_token_from_linux_secret_service() -> str | None:
     uses the secretstorage library which communicates via DBus.
 
     The credential is stored with:
-    - Label: "Claude Code-credentials"
+    - Label: "Claude Code-credentials" or "Claude Code-credentials-{hash}" for profiles
     - Attributes: {application: "claude-code"}
+
+    Args:
+        config_dir: Optional CLAUDE_CONFIG_DIR path for profile-specific credentials.
 
     Returns:
         Token string if found, None otherwise
@@ -451,6 +551,9 @@ def _get_token_from_linux_secret_service() -> str | None:
     if secretstorage is None:
         # secretstorage not installed, fall back to env var
         return None
+
+    # Get the correct service name (hash-based if config_dir provided)
+    target_label = _get_keychain_service_name(config_dir)
 
     try:
         # Get the default collection (typically "login" keyring)
@@ -476,10 +579,10 @@ def _get_token_from_linux_secret_service() -> str | None:
         items = collection.search_items({"application": "claude-code"})
 
         for item in items:
-            # Check if this is the Claude Code credentials item
+            # Check if this is the correct Claude Code credentials item
             label = item.get_label()
-            # Use exact match for "Claude Code-credentials" to avoid false positives
-            if label == "Claude Code-credentials":
+            # Use exact match for target label (profile-specific or default)
+            if label == target_label:
                 # Get the secret (stored as JSON string)
                 secret = item.get_secret()
                 if not secret:
@@ -492,10 +595,22 @@ def _get_token_from_linux_secret_service() -> str | None:
                     data = json.loads(secret)
                     token = data.get("claudeAiOauth", {}).get("accessToken")
 
-                    if token and token.startswith("sk-ant-oat01-"):
+                    if token and (
+                        token.startswith("sk-ant-oat01-") or token.startswith("enc:")
+                    ):
+                        logger.debug(
+                            f"Found token in secret service with label '{target_label}'"
+                        )
                         return token
                 except json.JSONDecodeError:
                     continue
+
+        # If config_dir was provided but no token found, don't fall back
+        if config_dir:
+            logger.debug(
+                f"No secret service entry found with label '{target_label}' "
+                f"(config_dir: {config_dir})"
+            )
 
         return None
 
@@ -579,24 +694,77 @@ def get_auth_token(config_dir: str | None = None) -> str | None:
     Returns:
         Token string if found, None otherwise
     """
+    _debug = os.environ.get("DEBUG", "").lower() in ("true", "1")
+
+    if _debug:
+        # Log which auth env vars are set (presence only, never values)
+        set_vars = [v for v in AUTH_TOKEN_ENV_VARS if os.environ.get(v)]
+        logger.info(
+            "[Auth] get_auth_token() called — config_dir param=%s, "
+            "env vars present: %s, CLAUDE_CONFIG_DIR env=%s",
+            repr(config_dir),
+            set_vars or "(none)",
+            "set" if os.environ.get("CLAUDE_CONFIG_DIR") else "unset",
+        )
+
     # First check environment variables (highest priority)
     for var in AUTH_TOKEN_ENV_VARS:
         token = os.environ.get(var)
         if token:
+            if _debug:
+                logger.info("[Auth] Token resolved from env var: %s", var)
             return _try_decrypt_token(token)
 
     # Check CLAUDE_CONFIG_DIR environment variable (profile's custom config directory)
     env_config_dir = os.environ.get("CLAUDE_CONFIG_DIR")
     effective_config_dir = config_dir or env_config_dir
 
-    # If a custom config directory is specified, read from there
+    # Debug: Log which config_dir is being used for credential resolution
+    if _debug and effective_config_dir:
+        service_name = _get_keychain_service_name(effective_config_dir)
+        logger.info(
+            "[Auth] Resolving credentials for profile config_dir: %s "
+            "(Keychain service: %s)",
+            effective_config_dir,
+            service_name,
+        )
+
+    # If a custom config directory is specified, read from there first
     if effective_config_dir:
+        # Try reading from .credentials.json file in the config directory
         token = _get_token_from_config_dir(effective_config_dir)
         if token:
+            if _debug:
+                logger.info(
+                    "[Auth] Token resolved from config dir file: %s",
+                    effective_config_dir,
+                )
             return _try_decrypt_token(token)
 
-    # Fallback to system credential store (default locations)
-    return _try_decrypt_token(get_token_from_keychain())
+        # Also try the system credential store with hash-based service name
+        # This is needed because macOS stores credentials in Keychain, not files
+        token = get_token_from_keychain(effective_config_dir)
+        if token:
+            if _debug:
+                logger.info("[Auth] Token resolved from Keychain (profile-specific)")
+            return _try_decrypt_token(token)
+
+        # If config_dir was explicitly provided, DON'T fall back to default keychain
+        # - that would return the wrong profile's token
+        logger.debug(
+            "No credentials found for config_dir '%s' in file or keychain",
+            effective_config_dir,
+        )
+        return None
+
+    # No config_dir specified - use default system credential store
+    keychain_token = get_token_from_keychain()
+    if _debug:
+        logger.info(
+            "[Auth] Token resolved from default Keychain: %s",
+            "found" if keychain_token else "not found",
+        )
+    return _try_decrypt_token(keychain_token)
 
 
 def get_auth_token_source(config_dir: str | None = None) -> str | None:
@@ -616,10 +784,20 @@ def get_auth_token_source(config_dir: str | None = None) -> str | None:
     # Check if token came from custom config directory (profile's configDir)
     env_config_dir = os.environ.get("CLAUDE_CONFIG_DIR")
     effective_config_dir = config_dir or env_config_dir
-    if effective_config_dir and _get_token_from_config_dir(effective_config_dir):
-        return "CLAUDE_CONFIG_DIR"
+    if effective_config_dir:
+        # Check file-based storage
+        if _get_token_from_config_dir(effective_config_dir):
+            return "CLAUDE_CONFIG_DIR"
+        # Check hash-based keychain entry for this profile
+        if get_token_from_keychain(effective_config_dir):
+            if is_macos():
+                return "macOS Keychain (profile)"
+            elif is_windows():
+                return "Windows Credential Files (profile)"
+            else:
+                return "Linux Secret Service (profile)"
 
-    # Check if token came from system credential store
+    # Check if token came from default system credential store
     if get_token_from_keychain():
         if is_macos():
             return "macOS Keychain"
@@ -706,9 +884,9 @@ def _find_git_bash_path() -> str | None:
 
     # Method 1: Use 'where' command to find git.exe
     try:
-        # Use where.exe explicitly for reliability
+        # Use full path to where.exe for reliability (works even when System32 isn't in PATH)
         result = subprocess.run(
-            ["where.exe", "git"],
+            [get_where_exe_path(), "git"],
             capture_output=True,
             text=True,
             timeout=5,
@@ -798,6 +976,75 @@ def get_sdk_env_vars() -> dict[str, str]:
     env["PYTHONPATH"] = ""
 
     return env
+
+
+def configure_sdk_authentication(config_dir: str | None = None) -> None:
+    """
+    Configure SDK authentication based on environment variables.
+
+    Supports two authentication modes:
+    - API Profile mode (ANTHROPIC_BASE_URL set): uses ANTHROPIC_AUTH_TOKEN
+    - OAuth mode (default): uses CLAUDE_CODE_OAUTH_TOKEN
+
+    In API profile mode, explicitly removes CLAUDE_CODE_OAUTH_TOKEN from the
+    environment because the SDK gives OAuth priority over API keys when both
+    are present.
+
+    Args:
+        config_dir: Optional profile config directory for per-profile Keychain
+                    lookup. When set, enables multi-profile token storage.
+
+    Raises:
+        ValueError: If required tokens are missing for the active mode.
+                   - API profile mode: requires ANTHROPIC_AUTH_TOKEN
+                   - OAuth mode: requires CLAUDE_CODE_OAUTH_TOKEN (from Keychain or env)
+    """
+    _debug = os.environ.get("DEBUG", "").lower() in ("true", "1")
+    api_profile_mode = bool(os.environ.get("ANTHROPIC_BASE_URL", "").strip())
+
+    if _debug:
+        logger.info(
+            "[Auth] configure_sdk_authentication() — mode=%s, config_dir=%s, "
+            "CLAUDE_CONFIG_DIR env=%s",
+            "api_profile" if api_profile_mode else "oauth",
+            repr(config_dir),
+            "set" if os.environ.get("CLAUDE_CONFIG_DIR") else "unset",
+        )
+
+    if api_profile_mode:
+        # API profile mode: ensure ANTHROPIC_AUTH_TOKEN is present
+        if not os.environ.get("ANTHROPIC_AUTH_TOKEN"):
+            raise ValueError(
+                "API profile mode active (ANTHROPIC_BASE_URL is set) "
+                "but ANTHROPIC_AUTH_TOKEN is not set"
+            )
+        # Explicitly remove CLAUDE_CODE_OAUTH_TOKEN so SDK uses ANTHROPIC_AUTH_TOKEN
+        # SDK gives OAuth priority over API keys when both are present
+        os.environ.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
+        logger.info("Using API profile authentication")
+    else:
+        # OAuth mode: require and validate OAuth token
+        # Get OAuth token - uses profile-specific Keychain lookup when config_dir is set
+        # This correctly reads from "Claude Code-credentials-{hash}" for non-default profiles
+        oauth_token = require_auth_token(config_dir)
+
+        # Validate token is not encrypted before passing to SDK
+        # Encrypted tokens (enc:...) should have been decrypted by require_auth_token()
+        # If we still have an encrypted token here, it means decryption failed or was skipped
+        validate_token_not_encrypted(oauth_token)
+
+        # Ensure SDK can access it via its expected env var
+        # This is required because the SDK doesn't know about per-profile Keychain naming
+        os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
+        logger.info("Using OAuth authentication")
+
+        if _debug:
+            logger.info(
+                "[Auth] SDK env check — CLAUDE_CONFIG_DIR=%s, "
+                "CLAUDE_CODE_OAUTH_TOKEN=%s",
+                "set" if os.environ.get("CLAUDE_CONFIG_DIR") else "unset",
+                "set" if os.environ.get("CLAUDE_CODE_OAUTH_TOKEN") else "unset",
+            )
 
 
 def ensure_claude_code_oauth_token() -> None:

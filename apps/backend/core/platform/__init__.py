@@ -371,7 +371,7 @@ def validate_cli_path(cli_path: str) -> bool:
     Returns:
         True if path is secure, False otherwise
     """
-    if not cli_path:
+    if not cli_path or not cli_path.strip():
         return False
 
     # Security validation: reject paths with shell metacharacters or other dangerous patterns
@@ -380,7 +380,7 @@ def validate_cli_path(cli_path: str) -> bool:
         r"%[^%]+%",  # Windows environment variable expansion
         r"\.\./",  # Unix directory traversal
         r"\.\.\\",  # Windows directory traversal
-        r"[\r\n]",  # Newlines (command injection)
+        r"[\r\n\x00]",  # Newlines (command injection), null bytes (path truncation)
     ]
 
     for pattern in dangerous_patterns:
@@ -428,6 +428,22 @@ def requires_shell(command: str) -> bool:
 
     _, ext = os.path.splitext(command)
     return ext.lower() in {".cmd", ".bat", ".ps1"}
+
+
+def get_where_exe_path() -> str:
+    """Get full path to where.exe on Windows.
+
+    Using the full path ensures where.exe works even when System32 isn't in PATH,
+    which can happen in restricted environments or when the app doesn't inherit
+    the full system PATH.
+
+    Returns:
+        Full path to where.exe (e.g., C:\\Windows\\System32\\where.exe)
+    """
+    system_root = os.environ.get(
+        "SystemRoot", os.environ.get("SYSTEMROOT", "C:\\Windows")
+    )
+    return os.path.join(system_root, "System32", "where.exe")
 
 
 def get_comspec_path() -> str:

@@ -7,6 +7,7 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from core.file_utils import write_json_atomic
 from debug import (
     debug,
     debug_detailed,
@@ -117,6 +118,9 @@ class DiscoveryPhase:
                 "discovery", True, [str(self.discovery_file)], [], 0
             )
 
+        # Provide intermediate progress status
+        print_status("Analyzing project...", "progress")
+
         errors = []
         for attempt in range(MAX_RETRIES):
             debug("roadmap_phase", f"Discovery attempt {attempt + 1}/{MAX_RETRIES}")
@@ -212,6 +216,146 @@ class FeaturesPhase:
         self.roadmap_file = output_dir / "roadmap.json"
         self.discovery_file = output_dir / "roadmap_discovery.json"
         self.project_index_file = output_dir / "project_index.json"
+        # Preserved features loaded ONCE before agent runs and overwrites the file
+        self._preserved_features: list[dict] = []
+
+    def _load_existing_features(self) -> list[dict]:
+        """Load features from existing roadmap that should be preserved.
+
+        Preserves features that meet any of these criteria:
+        - status is 'planned', 'in_progress', or 'done'
+        - has a linked_spec_id (converted to task)
+        - source.provider is 'internal' (user-added)
+
+        Returns:
+            List of feature dictionaries to preserve, empty list if no roadmap exists
+            or on error.
+        """
+        if not self.roadmap_file.exists():
+            debug("roadmap_phase", "No existing roadmap.json to load features from")
+            return []
+
+        try:
+            with open(self.roadmap_file, encoding="utf-8") as f:
+                data = json.load(f)
+
+            features = data.get("features", [])
+            preserved = []
+
+            for feature in features:
+                # Check if feature should be preserved
+                status = feature.get("status")
+                has_linked_spec = bool(feature.get("linked_spec_id"))
+                source = feature.get("source", {})
+                is_internal = (
+                    isinstance(source, dict) and source.get("provider") == "internal"
+                )
+
+                if status in ("planned", "in_progress", "done"):
+                    preserved.append(feature)
+                    debug_detailed(
+                        "roadmap_phase",
+                        f"Preserving feature due to status: {status}",
+                        feature_id=feature.get("id"),
+                    )
+                elif has_linked_spec:
+                    preserved.append(feature)
+                    debug_detailed(
+                        "roadmap_phase",
+                        "Preserving feature due to linked_spec_id",
+                        feature_id=feature.get("id"),
+                        linked_spec_id=feature.get("linked_spec_id"),
+                    )
+                elif is_internal:
+                    preserved.append(feature)
+                    debug_detailed(
+                        "roadmap_phase",
+                        "Preserving feature due to internal source",
+                        feature_id=feature.get("id"),
+                    )
+
+            debug(
+                "roadmap_phase",
+                f"Loaded {len(preserved)} features to preserve from existing roadmap",
+            )
+            return preserved
+
+        except json.JSONDecodeError as e:
+            debug_error(
+                "roadmap_phase",
+                "Failed to parse existing roadmap.json",
+                error=str(e),
+            )
+            return []
+        except (KeyError, TypeError) as e:
+            debug_error(
+                "roadmap_phase",
+                "Error reading features from roadmap.json",
+                error=str(e),
+            )
+            return []
+
+    def _merge_features(
+        self, new_features: list[dict], preserved: list[dict]
+    ) -> list[dict]:
+        """Merge new AI-generated features with preserved features.
+
+        Preserved features take priority - if a new feature has the same ID
+        as a preserved feature, the new feature is skipped. For features
+        without IDs, title-based deduplication is used as a fallback.
+
+        Args:
+            new_features: List of newly generated features from AI
+            preserved: List of features to preserve from existing roadmap
+
+        Returns:
+            Merged list with preserved features first, then non-conflicting new features
+        """
+        if not preserved:
+            debug("roadmap_phase", "No preserved features, returning new features only")
+            return new_features
+
+        preserved_ids = {f.get("id") for f in preserved if f.get("id")}
+        # Build normalized title set for fallback deduplication
+        preserved_titles = {
+            f.get("title", "").strip().lower() for f in preserved if f.get("title")
+        }
+
+        # Start with all preserved features
+        merged = list(preserved)
+        added_count = 0
+        skipped_count = 0
+
+        # Add new features that don't conflict with preserved ones
+        for feature in new_features:
+            feature_id = feature.get("id")
+            feature_title = feature.get("title", "").strip()
+            normalized_title = feature_title.lower()
+
+            if feature_id and feature_id in preserved_ids:
+                debug_detailed(
+                    "roadmap_phase",
+                    "Skipping duplicate feature (by ID)",
+                    feature_id=feature_id,
+                )
+                skipped_count += 1
+            elif normalized_title and normalized_title in preserved_titles:
+                # Title-based fallback deduplication for features without IDs
+                debug_detailed(
+                    "roadmap_phase",
+                    "Skipping duplicate feature (by title)",
+                    title=feature_title,
+                )
+                skipped_count += 1
+            else:
+                merged.append(feature)
+                added_count += 1
+
+        debug(
+            "roadmap_phase",
+            f"Merged features: {len(preserved)} preserved, {added_count} new added, {skipped_count} duplicates skipped",
+        )
+        return merged
 
     async def execute(self) -> RoadmapPhaseResult:
         """Generate and prioritize features for the roadmap."""
@@ -232,13 +376,20 @@ class FeaturesPhase:
             print_status("roadmap.json already exists", "success")
             return RoadmapPhaseResult("features", True, [str(self.roadmap_file)], [], 0)
 
+        # Load preserved features BEFORE the agent runs and overwrites the file
+        # This must happen once, before the retry loop, to capture the original state
+        self._preserved_features = self._load_existing_features()
+
         errors = []
         for attempt in range(MAX_RETRIES):
             debug("roadmap_phase", f"Features attempt {attempt + 1}/{MAX_RETRIES}")
-            print_status(
-                f"Running feature generation agent (attempt {attempt + 1})...",
-                "progress",
-            )
+            if attempt > 0:
+                print_status(
+                    f"Retrying feature generation (attempt {attempt + 1})...",
+                    "progress",
+                )
+
+            print_status("Generating features...", "progress")
 
             context = self._build_context()
             success, output = await self.agent_executor.run_agent(
@@ -247,6 +398,8 @@ class FeaturesPhase:
             )
 
             if success and self.roadmap_file.exists():
+                print_status("Prioritizing features...", "progress")
+                print_status("Creating roadmap file...", "progress")
                 validation_result = self._validate_features(attempt)
                 if validation_result is not None:
                     return validation_result
@@ -266,24 +419,56 @@ class FeaturesPhase:
         return RoadmapPhaseResult("features", False, [], errors, MAX_RETRIES)
 
     def _build_context(self) -> str:
-        """Build context string for the features agent."""
+        """Build context string for the features agent.
+
+        If there are preserved features from an existing roadmap, includes them
+        in the context so the AI agent can generate complementary features
+        without duplicating existing ones.
+        """
+        # Use the pre-loaded preserved features (loaded before agent ran)
+        # This ensures we use the original features even on retry attempts
+        # after the file has been overwritten by a failed attempt
+
+        # Build preserved features section if any exist
+        preserved_section = ""
+        if self._preserved_features:
+            preserved_ids = [f.get("id", "unknown") for f in self._preserved_features]
+            preserved_titles = [
+                f.get("title", "Untitled") for f in self._preserved_features
+            ]
+            preserved_info = "\n".join(
+                f"  - {fid}: {title}"
+                for fid, title in zip(preserved_ids, preserved_titles)
+            )
+            preserved_section = f"""
+**EXISTING FEATURES TO PRESERVE** (DO NOT regenerate these):
+The following {len(self._preserved_features)} features already exist and will be preserved.
+Generate NEW features that complement these, do not duplicate them:
+{preserved_info}
+
+"""
+
         return f"""
 **Discovery File**: {self.discovery_file}
 **Project Index**: {self.project_index_file}
 **Output File**: {self.roadmap_file}
-
+{preserved_section}
 Based on the discovery data:
 1. Generate features that address user pain points
 2. Prioritize using MoSCoW framework
 3. Organize into phases
 4. Create milestones
 5. Map dependencies
+{"6. Do NOT generate features with the same IDs as preserved features listed above" if self._preserved_features else ""}
 
 Output the complete roadmap to roadmap.json.
 """
 
     def _validate_features(self, attempt: int) -> RoadmapPhaseResult | None:
-        """Validate the roadmap features file.
+        """Validate the roadmap features file and merge preserved features.
+
+        After successful validation, merges any preserved features from the
+        previous roadmap into the final roadmap.json.
 
         Returns RoadmapPhaseResult if validation succeeds, None otherwise.
         """
@@ -314,11 +499,48 @@ Output the complete roadmap to roadmap.json.
             )
 
             if not missing and feature_count >= 3:
+                # Merge preserved features into the roadmap
+                # Use the pre-loaded preserved features (loaded before agent ran)
+                if self._preserved_features:
+                    new_features = data.get("features", [])
+                    merged_features = self._merge_features(
+                        new_features, self._preserved_features
+                    )
+                    data["features"] = merged_features
+
+                    # Write back the merged roadmap
+                    try:
+                        write_json_atomic(self.roadmap_file, data, indent=2)
+                        debug_success(
+                            "roadmap_phase",
+                            "Merged preserved features into roadmap.json",
+                            preserved_count=len(self._preserved_features),
+                            final_count=len(merged_features),
+                        )
+                        print_status(
+                            f"Merged {len(self._preserved_features)} preserved features",
+                            "success",
+                        )
+                    except OSError as e:
+                        # Write failed but the original AI-generated roadmap is still valid
+                        # Don't fail the whole phase - succeed without the merge
+                        preserved_count = len(self._preserved_features)
+                        debug_warning(
+                            "roadmap_phase",
+                            "Failed to write merged roadmap - proceeding with AI-generated version",
+                            error=str(e),
+                            preserved_features_lost=preserved_count,
+                        )
+                        print_status(
+                            f"Warning: {preserved_count} preserved features could not be saved (disk error: {e})",
+                            "warning",
+                        )
+
                 debug_success(
                     "roadmap_phase",
                     "Created valid roadmap.json",
                     attempt=attempt + 1,
-                    feature_count=feature_count,
+                    feature_count=len(data.get("features", [])),
                 )
                 print_status("Created valid roadmap.json", "success")
                 return RoadmapPhaseResult(

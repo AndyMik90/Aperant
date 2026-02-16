@@ -365,13 +365,18 @@ Use ONLY these values for the `type` field in phases:
 
 ### Verification Types
 
+**CRITICAL: ONLY these 6 verification types are valid. Any other type will cause validation failure.**
+
 | Type | When to Use | Format |
 |------|-------------|--------|
-| `command` | CLI verification | `{"type": "command", "command": "...", "expected": "..."}` |
+| `command` | CLI verification, running tests | `{"type": "command", "command": "...", "expected": "..."}` |
 | `api` | REST endpoint testing | `{"type": "api", "method": "GET/POST", "url": "...", "expected_status": 200}` |
 | `browser` | UI rendering checks | `{"type": "browser", "url": "...", "checks": [...]}` |
 | `e2e` | Full flow verification | `{"type": "e2e", "steps": [...]}` |
-| `manual` | Requires human judgment | `{"type": "manual", "instructions": "..."}` |
+| `manual` | Human judgment, code review | `{"type": "manual", "instructions": "..."}` |
+| `none` | No verification needed | `{"type": "none"}` |
+
+**DO NOT invent types like `code_review`, `component`, `test`, `lint`, `build`. Use `manual` for human review, `command` for running tests.**
 
 ### Special Subtask Types
 

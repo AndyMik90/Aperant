@@ -56,6 +56,8 @@ export interface ClaudeUsageSnapshot {
   profileId: string;
   /** Profile name for display */
   profileName: string;
+  /** Email address associated with the profile (from Keychain or profile data) */
+  profileEmail?: string;
   /** When this snapshot was captured */
   fetchedAt: Date;
   /** Which limit is closest to threshold ('session' or 'weekly') */
@@ -75,6 +77,58 @@ export interface ClaudeUsageSnapshot {
   weeklyUsageValue?: number;
   /** Weekly usage limit (total quota) */
   weeklyUsageLimit?: number;
+  /** True if profile has invalid refresh token and needs re-authentication */
+  needsReauthentication?: boolean;
+}
+
+/**
+ * Profile usage summary for multi-profile display
+ * Contains the essential data needed to rank and display profiles in the usage indicator
+ */
+export interface ProfileUsageSummary {
+  /** Profile ID */
+  profileId: string;
+  /** Profile name for display */
+  profileName: string;
+  /** Email address (from Keychain or profile) */
+  profileEmail?: string;
+  /** Session usage percentage (0-100) */
+  sessionPercent: number;
+  /** Weekly usage percentage (0-100) */
+  weeklyPercent: number;
+  /** ISO timestamp of when the session limit resets */
+  sessionResetTimestamp?: string;
+  /** ISO timestamp of when the weekly limit resets */
+  weeklyResetTimestamp?: string;
+  /** Whether this profile is authenticated */
+  isAuthenticated: boolean;
+  /** Whether this profile is currently rate limited */
+  isRateLimited: boolean;
+  /** Type of rate limit if limited */
+  rateLimitType?: 'session' | 'weekly';
+  /** Availability score (higher = more available, used for sorting) */
+  availabilityScore: number;
+  /** Whether this is the currently active profile */
+  isActive: boolean;
+  /** When this data was last fetched (ISO timestamp) */
+  lastFetchedAt?: string;
+  /** Error message if usage fetch failed */
+  fetchError?: string;
+  /** True if profile has invalid refresh token and needs re-authentication */
+  needsReauthentication?: boolean;
+}
+
+/**
+ * All profiles usage data for the usage indicator
+ * Emitted alongside the active profile's detailed snapshot
+ */
+export interface AllProfilesUsage {
+  /** Detailed snapshot for the active profile */
+  activeProfile: ClaudeUsageSnapshot;
+  /** Summary usage data for all profiles (sorted by availability, best first) */
+  allProfiles: ProfileUsageSummary[];
+  /** When this data was collected */
+  fetchedAt: Date;
 }
 
 /**
@@ -131,6 +185,16 @@ export interface ClaudeProfile {
    * This is NOT persisted, it's computed dynamically on each getSettings() call.
    */
   isAuthenticated?: boolean;
+  /**
+   * Subscription type from OAuth credentials (e.g., "max" for Claude Max subscription).
+   * Used to display "Max" vs "Pro" in the UI. Populated from Keychain credentials.
+   */
+  subscriptionType?: string;
+  /**
+   * Rate limit tier from OAuth credentials (e.g., "default_claude_max_20x").
+   * Indicates the user's rate limit tier level. Populated from Keychain credentials.
+   */
+  rateLimitTier?: string;
 }
 
 /**
@@ -167,6 +231,9 @@ export interface ClaudeAutoSwitchSettings {
   // Reactive recovery
   /** Whether to automatically switch on unexpected rate limit (vs. prompting user) */
   autoSwitchOnRateLimit: boolean;
+
+  /** Whether to automatically switch on authentication failure (vs. prompting user) */
+  autoSwitchOnAuthFailure: boolean;
 }
 
 export interface ClaudeAuthResult {
@@ -189,4 +256,37 @@ export interface TerminalProfileChangedEvent {
     /** Whether the session was successfully migrated to new profile */
     sessionMigrated?: boolean;
   }>;
+}
+
+// ============================================
+// Queue Routing Types (Rate Limit Recovery)
+// ============================================
+
+/**
+ * Reason for profile assignment to a task
+ */
+export type ProfileAssignmentReason = 'proactive' | 'reactive' | 'manual';
+
+/**
+ * Tracking of running tasks grouped by profile
+ */
+export interface RunningTasksByProfile {
+  /** Map of profileId → array of task IDs running on that profile */
+  byProfile: Record<string, string[]>;
+  /** Total number of running tasks across all profiles */
+  totalRunning: number;
+}
+
+/**
+ * Profile swap record for tracking history
+ */
+export interface ProfileSwapRecord {
+  fromProfileId: string;
+  fromProfileName: string;
+  toProfileId: string;
+  toProfileName: string;
+  swappedAt: string;
+  reason: 'capacity' | 'rate_limit' | 'manual' | 'recovery';
+  sessionId?: string;
+  sessionResumed: boolean;
 }

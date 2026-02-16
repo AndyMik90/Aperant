@@ -13,7 +13,7 @@ function createMockProcess() {
   return {
     stdout: { on: vi.fn() },
     stderr: { on: vi.fn() },
-    on: vi.fn((event: string, callback: any) => {
+    on: vi.fn((event: string, callback: (code: number) => void) => {
       if (event === 'exit') {
         // Simulate immediate exit with code 0
         setTimeout(() => callback(0), 10);
@@ -84,7 +84,12 @@ vi.mock('../services/profile', () => ({
 }));
 
 vi.mock('../rate-limit-detector', () => ({
-  getProfileEnv: vi.fn(() => ({})),
+  getBestAvailableProfileEnv: vi.fn(() => ({
+    env: {},
+    profileId: 'default',
+    profileName: 'Default',
+    wasSwapped: false
+  })),
   detectRateLimit: vi.fn(() => ({ isRateLimited: false })),
   createSDKRateLimitInfo: vi.fn(),
   detectAuthFailure: vi.fn(() => ({ isAuthFailure: false }))
@@ -178,6 +183,9 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
     delete process.env.ANTHROPIC_AUTH_TOKEN;
     delete process.env.ANTHROPIC_BASE_URL;
     delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+    // Clear CLI path env vars so tests use mocked getToolInfo
+    delete process.env.CLAUDE_CLI_PATH;
+    delete process.env.GITHUB_CLI_PATH;
 
     // Initialize components
     state = new AgentState();
@@ -284,8 +292,11 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
       vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue({});
 
       // Set OAuth token via getProfileEnv (existing flow)
-      vi.mocked(rateLimitDetector.getProfileEnv).mockReturnValue({
-        CLAUDE_CODE_OAUTH_TOKEN: 'oauth-token-123'
+      vi.mocked(rateLimitDetector.getBestAvailableProfileEnv).mockReturnValue({
+        env: { CLAUDE_CODE_OAUTH_TOKEN: 'oauth-token-123' },
+        profileId: 'default',
+        profileName: 'Default',
+        wasSwapped: false
       });
 
       await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
@@ -316,8 +327,11 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
       vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue({});
 
       // Set OAuth token
-      vi.mocked(rateLimitDetector.getProfileEnv).mockReturnValue({
-        CLAUDE_CODE_OAUTH_TOKEN: 'oauth-token-456'
+      vi.mocked(rateLimitDetector.getBestAvailableProfileEnv).mockReturnValue({
+        env: { CLAUDE_CODE_OAUTH_TOKEN: 'oauth-token-456' },
+        profileId: 'default',
+        profileName: 'Default',
+        wasSwapped: false
       });
 
       await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
@@ -340,8 +354,11 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
 
       // OAuth mode
       vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue({});
-      vi.mocked(rateLimitDetector.getProfileEnv).mockReturnValue({
-        CLAUDE_CODE_OAUTH_TOKEN: 'oauth-token-789'
+      vi.mocked(rateLimitDetector.getBestAvailableProfileEnv).mockReturnValue({
+        env: { CLAUDE_CODE_OAUTH_TOKEN: 'oauth-token-789' },
+        profileId: 'default',
+        profileName: 'Default',
+        wasSwapped: false
       });
 
       await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
@@ -495,7 +512,12 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
         ANTHROPIC_BASE_URL: 'https://api-profile.com'
       };
 
-      vi.mocked(rateLimitDetector.getProfileEnv).mockReturnValue(profileEnv);
+      vi.mocked(rateLimitDetector.getBestAvailableProfileEnv).mockReturnValue({
+        env: profileEnv,
+        profileId: 'default',
+        profileName: 'Default',
+        wasSwapped: false
+      });
       vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue(apiProfileEnv);
 
       await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], extraEnv, 'task-execution');
@@ -775,6 +797,129 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
       // Both should be set
       expect(envArg.CLAUDE_CLI_PATH).toBe('/opt/homebrew/bin/claude');
       expect(envArg.GITHUB_CLI_PATH).toBe('/opt/homebrew/bin/gh');
+    });
+  });
+
+  describe('CLAUDE_CONFIG_DIR Propagation', () => {
+    let originalEnv: NodeJS.ProcessEnv;
+
+    beforeEach(() => {
+      originalEnv = { ...process.env };
+      delete process.env.CLAUDE_CONFIG_DIR;
+    });
+
+    afterEach(() => {
+      process.env = originalEnv;
+    });
+
+    it('should propagate CLAUDE_CONFIG_DIR from profile env in OAuth mode', async () => {
+      // OAuth mode - no active API profile
+      vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue({});
+
+      // Profile provides CLAUDE_CONFIG_DIR (OAuth subscription profile)
+      vi.mocked(rateLimitDetector.getBestAvailableProfileEnv).mockReturnValue({
+        env: {
+          CLAUDE_CONFIG_DIR: '/home/user/.config/claude-profile-1',
+          CLAUDE_CODE_OAUTH_TOKEN: 'oauth-token-abc'
+        },
+        profileId: 'profile-1',
+        profileName: 'Profile 1',
+        wasSwapped: false
+      });
+
+      await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
+
+      expect(spawnCalls).toHaveLength(1);
+      const envArg = spawnCalls[0].options.env as Record<string, unknown>;
+
+      // CLAUDE_CONFIG_DIR should be present in spawn env
+      expect(envArg.CLAUDE_CONFIG_DIR).toBe('/home/user/.config/claude-profile-1');
+    });
+
+    it('should clear ANTHROPIC_API_KEY in OAuth mode with CLAUDE_CONFIG_DIR', async () => {
+      // Simulate stale ANTHROPIC_API_KEY in process.env
+      process.env.ANTHROPIC_API_KEY = 'sk-stale-key';
+
+      // OAuth mode - no active API profile
+      vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue({});
+
+      // Profile provides CLAUDE_CONFIG_DIR
+      vi.mocked(rateLimitDetector.getBestAvailableProfileEnv).mockReturnValue({
+        env: {
+          CLAUDE_CONFIG_DIR: '/home/user/.config/claude-profile-2',
+          CLAUDE_CODE_OAUTH_TOKEN: 'oauth-token-def'
+        },
+        profileId: 'profile-2',
+        profileName: 'Profile 2',
+        wasSwapped: false
+      });
+
+      await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
+
+      expect(spawnCalls).toHaveLength(1);
+      const envArg = spawnCalls[0].options.env as Record<string, unknown>;
+
+      // ANTHROPIC_API_KEY should be cleared (empty string) in OAuth mode
+      expect(envArg.ANTHROPIC_API_KEY).toBe('');
+      // CLAUDE_CONFIG_DIR should still be set
+      expect(envArg.CLAUDE_CONFIG_DIR).toBe('/home/user/.config/claude-profile-2');
+    });
+
+    it('should pass ANTHROPIC_* vars without CLAUDE_CONFIG_DIR interference in API profile mode', async () => {
+      // API Profile mode - active profile with custom endpoint
+      const mockApiProfileEnv = {
+        ANTHROPIC_AUTH_TOKEN: 'sk-api-profile-key',
+        ANTHROPIC_BASE_URL: 'https://custom-api.example.com',
+        ANTHROPIC_MODEL: 'claude-sonnet-4-5-20250929'
+      };
+      vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue(mockApiProfileEnv);
+
+      // Profile env without CLAUDE_CONFIG_DIR (API profile mode)
+      vi.mocked(rateLimitDetector.getBestAvailableProfileEnv).mockReturnValue({
+        env: {},
+        profileId: 'api-profile-1',
+        profileName: 'Custom API',
+        wasSwapped: false
+      });
+
+      await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
+
+      expect(spawnCalls).toHaveLength(1);
+      const envArg = spawnCalls[0].options.env as Record<string, unknown>;
+
+      // ANTHROPIC_* vars from API profile should be passed through
+      expect(envArg.ANTHROPIC_AUTH_TOKEN).toBe('sk-api-profile-key');
+      expect(envArg.ANTHROPIC_BASE_URL).toBe('https://custom-api.example.com');
+      expect(envArg.ANTHROPIC_MODEL).toBe('claude-sonnet-4-5-20250929');
+
+      // CLAUDE_CONFIG_DIR should NOT be present since profile didn't provide it
+      expect(envArg.CLAUDE_CONFIG_DIR).toBeUndefined();
+    });
+
+    it('should clear CLAUDE_CODE_OAUTH_TOKEN when CLAUDE_CONFIG_DIR is provided by profile', async () => {
+      // OAuth mode
+      vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue({});
+
+      // Profile provides CLAUDE_CONFIG_DIR - agent should use config dir for auth
+      vi.mocked(rateLimitDetector.getBestAvailableProfileEnv).mockReturnValue({
+        env: {
+          CLAUDE_CONFIG_DIR: '/home/user/.config/claude-profile-3',
+          CLAUDE_CODE_OAUTH_TOKEN: 'oauth-token-ghi'
+        },
+        profileId: 'profile-3',
+        profileName: 'Profile 3',
+        wasSwapped: false
+      });
+
+      await processManager.spawnProcess('task-1', '/fake/cwd', ['run.py'], {}, 'task-execution');
+
+      expect(spawnCalls).toHaveLength(1);
+      const envArg = spawnCalls[0].options.env as Record<string, unknown>;
+
+      // When CLAUDE_CONFIG_DIR is present, CLAUDE_CODE_OAUTH_TOKEN should be cleared
+      // because Claude Code resolves auth from the config dir instead
+      expect(envArg.CLAUDE_CONFIG_DIR).toBe('/home/user/.config/claude-profile-3');
+      expect(envArg.CLAUDE_CODE_OAUTH_TOKEN).toBeFalsy();
     });
   });
 });

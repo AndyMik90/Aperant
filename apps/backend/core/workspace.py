@@ -121,6 +121,7 @@ from merge import (
     FileTimelineTracker,
     MergeOrchestrator,
 )
+from merge.progress import MergeProgressCallback, MergeProgressStage, emit_progress
 
 MODULE = "workspace"
 
@@ -143,6 +144,26 @@ MODULE = "workspace"
 # - _get_recent_merges_context
 # - _merge_file_with_ai
 # - _heuristic_merge
+
+
+def _create_merge_progress_callback() -> MergeProgressCallback | None:
+    """
+    Create a progress callback for merge operations when running as a subprocess.
+
+    Returns emit_progress (writing JSON to stdout) only when stdout is piped
+    (i.e., running as a subprocess from the Electron frontend). Returns None
+    when running interactively in a terminal to avoid polluting CLI output.
+
+    This function must be called at runtime (not at import time) to ensure
+    sys.stdout state is accurate.
+    """
+    import sys
+
+    # Only emit progress JSON when stdout is piped (subprocess mode).
+    # In interactive CLI mode (TTY), progress JSON would clutter the output.
+    if not sys.stdout.isatty():
+        return emit_progress
+    return None
 
 
 def merge_existing_build(
@@ -252,10 +273,11 @@ def merge_existing_build(
                 had_conflicts = stats.get("conflicts_resolved", 0) > 0
                 ai_assisted = stats.get("ai_assisted", 0) > 0
                 direct_copy = stats.get("direct_copy", False)
+                git_merge_used = stats.get("git_merge", False)
 
-                if had_conflicts or ai_assisted or direct_copy:
-                    # AI resolved conflicts, assisted with merges, or direct copy was used
-                    # Changes are already written and staged - no need for git merge
+                if had_conflicts or ai_assisted or direct_copy or git_merge_used:
+                    # AI resolved conflicts, assisted with merges, git merge was used, or direct copy was used
+                    # Changes are already written and staged - no need for additional git merge
                     _print_merge_success(
                         no_commit, stats, spec_name=spec_name, keep_worktree=True
                     )
@@ -402,8 +424,19 @@ def _try_smart_merge_inner(
         no_commit=no_commit,
     )
 
+    # Create progress callback for subprocess mode (Electron frontend).
+    # Only emits JSON to stdout when piped, not in interactive CLI.
+    progress_callback = _create_merge_progress_callback()
+
     try:
         print(muted("  Analyzing changes with intent-aware merge..."))
+
+        if progress_callback is not None:
+            progress_callback(
+                MergeProgressStage.ANALYZING,
+                0,
+                "Starting merge analysis",
+            )
 
         # Capture worktree state in FileTimelineTracker before merge
         try:
@@ -440,6 +473,13 @@ def _try_smart_merge_inner(
         )
 
         # Check for git-level conflicts first (branch divergence)
+        if progress_callback is not None:
+            progress_callback(
+                MergeProgressStage.DETECTING_CONFLICTS,
+                25,
+                "Checking for git-level conflicts",
+            )
+
         debug(MODULE, "Checking for git-level conflicts")
         git_conflicts = _check_git_conflicts(project_dir, spec_name)
 
@@ -492,12 +532,11 @@ def _try_smart_merge_inner(
                 # If rebase succeeded and now there are no conflicts,
                 # the diverged_but_no_conflicts path will handle the merge
             else:
-                # Rebase failed - continue with conflict resolution as before
-                # The AI resolver will handle the conflicts
-                print(
-                    warning(
-                        "  Rebase encountered issues, using AI conflict resolution..."
-                    )
+                # Rebase failed (likely due to worktree lock) - continue with merge
+                # Git merge or AI resolver will handle it depending on conflict state
+                debug(
+                    MODULE,
+                    "Rebase skipped or failed, continuing with merge flow",
                 )
 
         if git_conflicts.get("has_conflicts"):
@@ -518,6 +557,18 @@ def _try_smart_merge_inner(
                 num_conflicts=len(git_conflicts.get("conflicting_files", [])),
             )
 
+            if progress_callback is not None:
+                progress_callback(
+                    MergeProgressStage.RESOLVING,
+                    50,
+                    f"Resolving {len(git_conflicts.get('conflicting_files', []))} conflicting files with AI",
+                    {
+                        "conflicts_found": len(
+                            git_conflicts.get("conflicting_files", [])
+                        )
+                    },
+                )
+
             # Try to resolve git conflicts with AI
             resolution_result = _resolve_git_conflicts_with_ai(
                 project_dir,
@@ -535,6 +586,22 @@ def _try_smart_merge_inner(
                     resolved_files=resolution_result.get("resolved_files", []),
                     stats=resolution_result.get("stats", {}),
                 )
+
+                if progress_callback is not None:
+                    stats = resolution_result.get("stats", {})
+                    original_conflict_count = len(
+                        git_conflicts.get("conflicting_files", [])
+                    )
+                    progress_callback(
+                        MergeProgressStage.COMPLETE,
+                        100,
+                        "Merge complete",
+                        {
+                            "conflicts_found": original_conflict_count,
+                            "conflicts_resolved": stats.get("conflicts_resolved", 0),
+                        },
+                    )
+
                 return resolution_result
             else:
                 # AI couldn't resolve all conflicts
@@ -547,6 +614,26 @@ def _try_smart_merge_inner(
                     resolved_files=resolution_result.get("resolved_files", []),
                     error=resolution_result.get("error"),
                 )
+
+                if progress_callback is not None:
+                    original_conflict_count = len(
+                        git_conflicts.get("conflicting_files", [])
+                    )
+                    remaining_count = len(
+                        resolution_result.get("remaining_conflicts", [])
+                    )
+                    progress_callback(
+                        MergeProgressStage.ERROR,
+                        0,
+                        "Some conflicts could not be resolved",
+                        {
+                            "conflicts_found": original_conflict_count,
+                            "conflicts_resolved": original_conflict_count
+                            - remaining_count,
+                            "conflicts_remaining": remaining_count,
+                        },
+                    )
+
                 return {
                     "success": False,
                     "conflicts": resolution_result.get("remaining_conflicts", []),
@@ -555,148 +642,81 @@ def _try_smart_merge_inner(
                     "error": resolution_result.get("error"),
                 }
 
-        # Check if branches diverged but no actual conflicts (can do direct copy)
+        # Check if branches diverged but no actual conflicts (use git merge)
         if git_conflicts.get("diverged_but_no_conflicts"):
-            debug(MODULE, "Branches diverged but no conflicts - doing direct file copy")
+            debug(MODULE, "Branches diverged but no conflicts - using git merge")
             print(muted("  Branches diverged but no conflicts detected"))
-            print(muted("  Copying changed files directly from worktree..."))
+            print(muted("  Using git merge to combine changes..."))
 
-            # Get changed files from spec branch
             spec_branch = f"auto-claude/{spec_name}"
-            base_branch = git_conflicts.get("base_branch", "main")
 
-            # Get merge-base for diff
-            merge_base_result = run_git(
-                ["merge-base", base_branch, spec_branch],
+            # Use git merge --no-commit to combine changes from both branches
+            # Since merge-tree confirmed no conflicts, this should succeed cleanly
+            merge_result = run_git(
+                ["merge", "--no-commit", "--no-ff", spec_branch],
                 cwd=project_dir,
             )
-            merge_base = (
-                merge_base_result.stdout.strip()
-                if merge_base_result.returncode == 0
-                else None
-            )
 
-            if merge_base:
-                # Get list of changed files in spec branch
-                changed_files = _get_changed_files_from_branch(
-                    project_dir, merge_base, spec_branch
+            if merge_result.returncode == 0:
+                # Merge succeeded - get list of files that were merged
+                # Use git diff --cached to see what's staged
+                diff_result = run_git(
+                    ["diff", "--cached", "--name-only"],
+                    cwd=project_dir,
+                )
+                merged_files = [
+                    f.strip()
+                    for f in diff_result.stdout.splitlines()
+                    if f.strip() and not _is_auto_claude_file(f.strip())
+                ]
+
+                debug_success(
+                    MODULE,
+                    "Git merge succeeded",
+                    merged_files_count=len(merged_files),
                 )
 
-                resolved_files = []
-                skipped_files = []  # Track files that failed to copy
-                files_to_stage = []
-                for file_path, status in changed_files:
-                    if _is_auto_claude_file(file_path):
-                        continue
+                for file_path in merged_files:
+                    print(success(f"    ✓ {file_path}"))
 
-                    try:
-                        target_path = project_dir / file_path
-
-                        if status == "D":
-                            # Deleted in worktree
-                            if target_path.exists():
-                                target_path.unlink()
-                            files_to_stage.append(file_path)
-                            resolved_files.append(file_path)
-                            print(success(f"    ✓ {file_path} (deleted)"))
-                        else:
-                            # New or modified - copy from spec branch
-                            target_path.parent.mkdir(parents=True, exist_ok=True)
-
-                            if _is_binary_file(file_path):
-                                binary_content = _get_binary_file_content_from_ref(
-                                    project_dir, spec_branch, file_path
-                                )
-                                if binary_content is not None:
-                                    target_path.write_bytes(binary_content)
-                                    files_to_stage.append(file_path)
-                                    resolved_files.append(file_path)
-                                    status_label = (
-                                        "new file" if status == "A" else "updated"
-                                    )
-                                    print(
-                                        success(f"    ✓ {file_path} ({status_label})")
-                                    )
-                                else:
-                                    skipped_files.append(file_path)
-                                    debug_warning(
-                                        MODULE,
-                                        f"Could not retrieve binary content for {file_path}",
-                                    )
-                            else:
-                                content = _get_file_content_from_ref(
-                                    project_dir, spec_branch, file_path
-                                )
-                                if content is not None:
-                                    target_path.write_text(content, encoding="utf-8")
-                                    files_to_stage.append(file_path)
-                                    resolved_files.append(file_path)
-                                    status_label = (
-                                        "new file" if status == "A" else "updated"
-                                    )
-                                    print(
-                                        success(f"    ✓ {file_path} ({status_label})")
-                                    )
-                                else:
-                                    skipped_files.append(file_path)
-                                    debug_warning(
-                                        MODULE,
-                                        f"Could not retrieve content for {file_path}",
-                                    )
-
-                    except Exception as e:
-                        skipped_files.append(file_path)
-                        debug_warning(MODULE, f"Could not copy {file_path}: {e}")
-
-                # Stage all files in a single git add call for efficiency
-                if files_to_stage:
-                    add_result = run_git(
-                        ["add"] + files_to_stage,
-                        cwd=project_dir,
+                if progress_callback is not None:
+                    progress_callback(
+                        MergeProgressStage.COMPLETE,
+                        100,
+                        f"Git merge complete ({len(merged_files)} files)",
                     )
-                    if add_result.returncode != 0:
-                        debug_warning(
-                            MODULE,
-                            f"Failed to stage files for direct copy: {add_result.stderr}",
-                        )
-                        # Return failure - files were written but not staged
-                        return {
-                            "success": False,
-                            "error": f"Failed to stage files: {add_result.stderr}",
-                            "resolved_files": [],
-                        }
 
-                # Build result - check for skipped files to detect partial merges
-                result = {
-                    "success": len(skipped_files) == 0,
-                    "resolved_files": resolved_files,
+                return {
+                    "success": True,
+                    "resolved_files": merged_files,
                     "stats": {
-                        "files_merged": len(resolved_files),
+                        "files_merged": len(merged_files),
                         "conflicts_resolved": 0,
                         "ai_assisted": 0,
-                        "auto_merged": len(resolved_files),
-                        "direct_copy": True,  # Flag indicating direct copy was used
-                        "skipped_count": len(skipped_files),
+                        "auto_merged": len(merged_files),
+                        "git_merge": True,  # Flag indicating git merge was used
                     },
                 }
-                if skipped_files:
-                    result["skipped_files"] = skipped_files
-                    result["partial_success"] = len(resolved_files) > 0
-                    print()
-                    print(
-                        warning(
-                            f"  ⚠ {len(skipped_files)} file(s) could not be retrieved:"
-                        )
-                    )
-                    for skipped_file in skipped_files:
-                        print(muted(f"    - {skipped_file}"))
-                    print(muted("  These files may need manual review."))
-                return result
             else:
-                # merge-base failed - branches may not share history
+                # Merge failed unexpectedly - abort and fall back to semantic analysis
                 debug_warning(
                     MODULE,
-                    "Could not find merge-base between branches - falling back to semantic analysis",
+                    "Git merge failed unexpectedly despite no conflicts detected",
+                    stderr=merge_result.stderr[:500] if merge_result.stderr else "",
+                )
+                # Abort the merge to restore clean state
+                abort_result = run_git(["merge", "--abort"], cwd=project_dir)
+                if abort_result.returncode != 0:
+                    debug_error(
+                        MODULE,
+                        "Failed to abort merge - repo may be in inconsistent state",
+                        stderr=abort_result.stderr,
+                    )
+                    return None  # Trigger fallback to avoid operating on inconsistent state
+                print(
+                    warning(
+                        "  Git merge failed unexpectedly, falling back to semantic analysis..."
+                    )
                 )
 
         # No git conflicts - proceed with semantic analysis
@@ -725,6 +745,14 @@ def _try_smart_merge_inner(
 
         # All conflicts can be auto-merged or no conflicts
         print(muted("  All changes compatible, proceeding with merge..."))
+
+        if progress_callback is not None:
+            progress_callback(
+                MergeProgressStage.COMPLETE,
+                100,
+                f"Analysis complete ({files_to_merge} files compatible)",
+            )
+
         return {
             "success": True,
             "stats": {
@@ -737,6 +765,13 @@ def _try_smart_merge_inner(
         # If smart merge fails, fall back to git
         import traceback
 
+        if progress_callback is not None:
+            progress_callback(
+                MergeProgressStage.ERROR,
+                0,
+                f"Smart merge error: {e}",
+            )
+
         print(muted(f"  Smart merge error: {e}"))
         traceback.print_exc()
         return None
@@ -748,14 +783,11 @@ def _rebase_spec_branch(
     base_branch: str,
 ) -> bool:
     """
-    Rebase the spec branch onto the latest base branch.
+    Attempt to rebase the spec branch onto the latest base branch.
 
-    This performs an automatic rebase of the spec branch onto the current
-    base branch (main/develop) to bring it up to date before merging.
-    If conflicts occur during rebase, the function aborts and returns False
-    so that the caller can fall back to AI conflict resolution.
-
-    The function preserves the current HEAD by restoring it after completion.
+    NOTE: This will fail if the spec branch is checked out in a worktree,
+    which is the normal case. The caller should handle failure gracefully
+    by falling back to git merge or AI conflict resolution.
 
     Args:
         project_dir: The project directory
@@ -764,22 +796,36 @@ def _rebase_spec_branch(
 
     Returns:
         True if rebase succeeded cleanly or branch was already up-to-date,
-        False if rebase failed due to conflicts or other errors (aborted, no ref movement)
+        False if rebase failed (worktree lock, conflicts, or other errors)
     """
     spec_branch = f"auto-claude/{spec_name}"
 
     debug(
         MODULE,
-        "Rebasing spec branch",
+        "Attempting to rebase spec branch",
         spec_branch=spec_branch,
         base_branch=base_branch,
     )
 
-    # Save original branch to restore after rebase (HIGH: prevents leaving repo on spec branch)
+    # Check if spec branch is used by a worktree (common case)
+    # In this case, we can't checkout/rebase from the main repo
+    worktree_list_result = run_git(["worktree", "list", "--porcelain"], cwd=project_dir)
+    if worktree_list_result.returncode == 0:
+        # Check if spec_branch is in use by a worktree
+        output = worktree_list_result.stdout
+        if f"branch refs/heads/{spec_branch}" in output:
+            debug(
+                MODULE,
+                "Spec branch is checked out in a worktree - skipping rebase",
+                spec_branch=spec_branch,
+            )
+            # This is expected - return False to let caller use git merge instead
+            return False
+
+    # Save original branch to restore after rebase
     original_branch_result = run_git(
         ["rev-parse", "--abbrev-ref", "HEAD"], cwd=project_dir
     )
-    # Check returncode and validate stdout before using original_branch
     if original_branch_result.returncode != 0:
         debug_error(
             MODULE,
@@ -795,7 +841,6 @@ def _rebase_spec_branch(
         )
         return False
 
-    # Save current state for recovery
     # Get the current commit of spec_branch before rebase
     before_commit_result = run_git(["rev-parse", spec_branch], cwd=project_dir)
     if before_commit_result.returncode != 0:
@@ -804,8 +849,6 @@ def _rebase_spec_branch(
             "Could not get spec branch commit before rebase",
             stderr=before_commit_result.stderr,
         )
-        # Restore original branch before returning
-        run_git(["checkout", original_branch], cwd=project_dir)
         return False
     before_commit = before_commit_result.stdout.strip()
 
@@ -813,22 +856,18 @@ def _rebase_spec_branch(
     print(muted(f"  Rebasing {spec_branch} onto {base_branch}..."))
 
     try:
-        # Perform the rebase using safe/standard invocation:
-        # 1. Checkout the spec branch first
-        # 2. Run standard rebase (no strategy options - let conflicts stop the rebase)
-        # If conflicts occur, we'll abort and let AI handle them during merge
+        # Try to checkout the spec branch
         checkout_result = run_git(["checkout", spec_branch], cwd=project_dir)
         if checkout_result.returncode != 0:
-            debug_error(
+            # Checkout failed - likely due to worktree lock
+            debug(
                 MODULE,
-                "Could not checkout spec branch for rebase",
-                stderr=checkout_result.stderr,
+                "Could not checkout spec branch for rebase (likely worktree lock)",
+                stderr=checkout_result.stderr[:200] if checkout_result.stderr else "",
             )
             return False
 
-        # Run standard rebase - will stop on conflicts so we can detect them
-        # Git syntax: git rebase [options] <upstream>
-        # where <upstream> is the branch to rebase onto
+        # Run standard rebase
         rebase_result = run_git(
             ["rebase", base_branch],
             cwd=project_dir,
@@ -838,9 +877,6 @@ def _rebase_spec_branch(
             # Rebase failed - check if it was due to conflicts
             status_result = run_git(["status", "--porcelain"], cwd=project_dir)
 
-            # MEDIUM: Properly parse git status output for conflict markers
-            # Git status --porcelain uses two-character status codes:
-            # UU = both modified, AA = both added, DD = both deleted, etc.
             has_unmerged = any(
                 line[:2] in ("UU", "AA", "DD", "AU", "UA", "DU", "UD")
                 for line in status_result.stdout.splitlines()
@@ -848,7 +884,6 @@ def _rebase_spec_branch(
             )
 
             # Abort the rebase to return to clean state
-            # NEW-002: If abort fails, immediately return False (repo in bad state)
             abort_result = run_git(["rebase", "--abort"], cwd=project_dir)
             if abort_result.returncode != 0:
                 debug_error(
@@ -856,19 +891,16 @@ def _rebase_spec_branch(
                     "Failed to abort rebase - repo may be in inconsistent state",
                     stderr=abort_result.stderr,
                 )
-                return False  # Abort failed - cannot safely continue
-
-            if has_unmerged:
-                # Rebase failed due to conflicts - we aborted, so no ref movement happened
-                debug_warning(
-                    MODULE,
-                    "Rebase encountered conflicts - aborted, will use AI conflict resolution",
-                    stderr=rebase_result.stderr[:200] if rebase_result.stderr else "",
-                )
-                # Return False since we aborted - no rebase occurred, caller should use AI
                 return False
 
-            # Other error (not conflict-related)
+            if has_unmerged:
+                debug_warning(
+                    MODULE,
+                    "Rebase encountered conflicts - aborted, will use alternative merge",
+                    stderr=rebase_result.stderr[:200] if rebase_result.stderr else "",
+                )
+                return False
+
             debug_error(
                 MODULE,
                 "Rebase failed with unexpected error",
@@ -882,9 +914,7 @@ def _rebase_spec_branch(
         if after_commit_result.returncode == 0:
             after_commit_hash = after_commit_result.stdout.strip()
 
-            # Verify the branch actually moved (commit changed)
             if before_commit == after_commit_hash:
-                # MEDIUM: Branch already up-to-date is a success condition, not failure
                 debug(
                     MODULE,
                     "Branch already up-to-date, no rebase needed",
@@ -904,8 +934,7 @@ def _rebase_spec_branch(
         debug_error(MODULE, "Could not verify spec branch commit after rebase")
         return False
     finally:
-        # HIGH: Always restore original branch, even on error/exception
-        # NEW-001: Log restoration failure (cannot modify return from finally block)
+        # Always restore original branch
         if original_branch:
             restore_result = run_git(["checkout", original_branch], cwd=project_dir)
             if restore_result.returncode != 0:
@@ -914,8 +943,6 @@ def _rebase_spec_branch(
                     f"Failed to restore original branch '{original_branch}'",
                     stderr=restore_result.stderr,
                 )
-                # Note: Cannot modify return value from finally block,
-                # but restoration failure is rare and non-critical (user can manually switch back)
 
 
 def _check_git_conflicts(project_dir: Path, spec_name: str) -> dict:

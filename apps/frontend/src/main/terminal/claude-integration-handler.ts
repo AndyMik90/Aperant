@@ -10,7 +10,9 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { IPC_CHANNELS } from '../../shared/constants';
 import { getClaudeProfileManager, initializeClaudeProfileManager } from '../claude-profile-manager';
-import { getCredentialsFromKeychain, clearKeychainCache } from '../claude-profile/keychain-utils';
+import { getFullCredentialsFromKeychain, clearKeychainCache, updateProfileSubscriptionMetadata } from '../claude-profile/credential-utils';
+import { getUsageMonitor } from '../claude-profile/usage-monitor';
+import { getEmailFromConfigDir } from '../claude-profile/profile-utils';
 import * as OutputParser from './output-parser';
 import * as SessionHandler from './session-handler';
 import * as PtyManager from './pty-manager';
@@ -484,8 +486,8 @@ export function handleOAuthToken(
     // Clear Keychain cache to get fresh credentials
     clearKeychainCache(profile.configDir);
 
-    // Extract token from Keychain using the profile's configDir
-    const keychainCreds = getCredentialsFromKeychain(profile.configDir, true);
+    // Extract full credentials from Keychain including subscriptionType and rateLimitTier
+    const keychainCreds = getFullCredentialsFromKeychain(profile.configDir);
 
     // Check if there was a keychain access error (not just "not found")
     if (keychainCreds.error) {
@@ -495,34 +497,56 @@ export function handleOAuthToken(
     }
 
     if (keychainCreds.token) {
-      // Store the token in our profile store
-      const success = profileManager.setProfileToken(
-        profileId,
-        keychainCreds.token,
-        emailFromOutput || keychainCreds.email || undefined
-      );
+      // NOTE: We intentionally do NOT store the OAuth token in the profile.
+      // Storing causes AutoClaude to use a stale cached token instead of letting
+      // Claude CLI read fresh tokens from Keychain (which auto-refreshes).
+      // See: docs/LONG_LIVED_AUTH_PLAN.md for full context.
 
-      if (success) {
-        console.warn('[ClaudeIntegration] OAuth token extracted from Keychain and saved to profile:', profileId);
+      // Get email from multiple sources, preferring config file as the authoritative source
+      // Terminal output parsing can be corrupted by ANSI escape codes
+      let email = emailFromOutput || keychainCreds.email;
 
-        // Set flag to watch for Claude's ready state (onboarding complete)
-        terminal.awaitingOnboardingComplete = true;
-
-        const win = getWindow();
-        if (win) {
-          // needsOnboarding: true tells the UI to show "complete setup" message
-          // instead of "success" - user should finish Claude's onboarding before closing
-          win.webContents.send(IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, {
-            terminalId: terminal.id,
-            profileId,
-            email: emailFromOutput || keychainCreds.email || profile?.email,
-            success: true,
-            needsOnboarding: true,
-            detectedAt: new Date().toISOString()
-          } as OAuthTokenEvent);
+      // Fallback/validation: Read from Claude's config file (authoritative source)
+      const configEmail = getEmailFromConfigDir(profile.configDir);
+      if (configEmail) {
+        if (!email) {
+          console.warn('[ClaudeIntegration] Email not found in output/keychain, using config file:', maskEmail(configEmail));
+          email = configEmail;
+        } else if (configEmail !== email) {
+          // Config file email is different (terminal extraction might be corrupt)
+          console.warn('[ClaudeIntegration] Email from output differs from config file, using config file:', {
+            outputEmail: maskEmail(email),
+            configEmail: maskEmail(configEmail)
+          });
+          email = configEmail;
         }
-      } else {
-        console.error('[ClaudeIntegration] Failed to save Keychain token to profile:', profileId);
+      }
+
+      if (email) {
+        profile.email = email;
+      }
+      // Update subscription metadata from Keychain credentials
+      updateProfileSubscriptionMetadata(profile, keychainCreds);
+      profile.isAuthenticated = true;
+      profileManager.saveProfile(profile);
+
+      console.warn('[ClaudeIntegration] Profile credentials verified via Keychain (not caching token):', profileId);
+
+      // Set flag to watch for Claude's ready state (onboarding complete)
+      terminal.awaitingOnboardingComplete = true;
+
+      const win = getWindow();
+      if (win) {
+        // needsOnboarding: true tells the UI to show "complete setup" message
+        // instead of "success" - user should finish Claude's onboarding before closing
+        win.webContents.send(IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, {
+          terminalId: terminal.id,
+          profileId,
+          email: emailFromOutput || keychainCreds.email || profile?.email,
+          success: true,
+          needsOnboarding: true,
+          detectedAt: new Date().toISOString()
+        } as OAuthTokenEvent);
       }
     } else {
       // Token not in Keychain yet, but profile may still be authenticated via configDir
@@ -563,18 +587,40 @@ export function handleOAuthToken(
 
   console.warn('[ClaudeIntegration] OAuth token detected in output');
 
-  const email = OutputParser.extractEmail(terminal.outputBuffer);
+  let email = OutputParser.extractEmail(terminal.outputBuffer);
 
   if (profileId) {
-    // Save to specific profile (profile login terminal)
+    // Update profile metadata (but NOT the token - see docs/LONG_LIVED_AUTH_PLAN.md)
     const profileManager = getClaudeProfileManager();
     const profile = profileManager.getProfile(profileId);
-    const success = profileManager.setProfileToken(profileId, token, email || undefined);
 
-    if (success) {
+    if (profile) {
+      // Fallback/validation: Read email from Claude's config file (authoritative source)
+      const configEmail = getEmailFromConfigDir(profile.configDir);
+      if (configEmail) {
+        if (!email) {
+          console.warn('[ClaudeIntegration] Email not found in output, using config file:', maskEmail(configEmail));
+          email = configEmail;
+        } else if (configEmail !== email) {
+          console.warn('[ClaudeIntegration] Email from output differs from config file, using config file:', {
+            outputEmail: maskEmail(email),
+            configEmail: maskEmail(configEmail)
+          });
+          email = configEmail;
+        }
+      }
+
+      if (email) {
+        profile.email = email;
+      }
+      // Update subscription metadata from Keychain credentials
+      updateProfileSubscriptionMetadata(profile, profile.configDir);
+      profile.isAuthenticated = true;
+      profileManager.saveProfile(profile);
+
       // Clear keychain cache so next getCredentialsFromKeychain() fetches fresh token
-      clearKeychainCache(profile?.configDir);
-      console.warn('[ClaudeIntegration] OAuth token auto-saved to profile:', profileId);
+      clearKeychainCache(profile.configDir);
+      console.warn('[ClaudeIntegration] Profile credentials verified (not caching token):', profileId);
 
       const win = getWindow();
       if (win) {
@@ -587,17 +633,18 @@ export function handleOAuthToken(
         } as OAuthTokenEvent);
       }
     } else {
-      console.error('[ClaudeIntegration] Failed to save OAuth token to profile:', profileId);
+      console.error('[ClaudeIntegration] Profile not found for OAuth token:', profileId);
     }
   } else {
-    // No profile-specific terminal, save to active profile (GitHub OAuth flow, etc.)
-    console.warn('[ClaudeIntegration] OAuth token detected in non-profile terminal, saving to active profile');
+    // No profile-specific terminal, update active profile metadata (GitHub OAuth flow, etc.)
+    // NOTE: We do NOT store the token - see docs/LONG_LIVED_AUTH_PLAN.md
+    console.warn('[ClaudeIntegration] OAuth token detected in non-profile terminal, updating active profile metadata');
     const profileManager = getClaudeProfileManager();
     const activeProfile = profileManager.getActiveProfile();
 
     // Defensive null check for active profile
     if (!activeProfile) {
-      console.error('[ClaudeIntegration] Failed to save OAuth token: no active profile found');
+      console.error('[ClaudeIntegration] Failed to update profile: no active profile found');
       const win = getWindow();
       if (win) {
         win.webContents.send(IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, {
@@ -612,36 +659,42 @@ export function handleOAuthToken(
       return;
     }
 
-    const success = profileManager.setProfileToken(activeProfile.id, token, email || undefined);
-
-    if (success) {
-      // Clear keychain cache so next getCredentialsFromKeychain() fetches fresh token
-      clearKeychainCache(activeProfile.configDir);
-      console.warn('[ClaudeIntegration] OAuth token auto-saved to active profile:', activeProfile.name);
-
-      const win = getWindow();
-      if (win) {
-        win.webContents.send(IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, {
-          terminalId: terminal.id,
-          profileId: activeProfile.id,
-          email,
-          success: true,
-          detectedAt: new Date().toISOString()
-        } as OAuthTokenEvent);
+    // Fallback/validation: Read email from Claude's config file (authoritative source)
+    const configEmail = getEmailFromConfigDir(activeProfile.configDir);
+    if (configEmail) {
+      if (!email) {
+        console.warn('[ClaudeIntegration] Email not found in output, using config file:', maskEmail(configEmail));
+        email = configEmail;
+      } else if (configEmail !== email) {
+        console.warn('[ClaudeIntegration] Email from output differs from config file, using config file:', {
+          outputEmail: maskEmail(email),
+          configEmail: maskEmail(configEmail)
+        });
+        email = configEmail;
       }
-    } else {
-      console.error('[ClaudeIntegration] Failed to save OAuth token to active profile:', activeProfile.name);
-      const win = getWindow();
-      if (win) {
-        win.webContents.send(IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, {
-          terminalId: terminal.id,
-          profileId: activeProfile?.id,
-          email,
-          success: false,
-          message: 'Failed to save token to active profile',
-          detectedAt: new Date().toISOString()
-        } as OAuthTokenEvent);
-      }
+    }
+
+    if (email) {
+      activeProfile.email = email;
+    }
+    // Update subscription metadata from Keychain credentials
+    updateProfileSubscriptionMetadata(activeProfile, activeProfile.configDir);
+    activeProfile.isAuthenticated = true;
+    profileManager.saveProfile(activeProfile);
+
+    // Clear keychain cache so next getCredentialsFromKeychain() fetches fresh token
+    clearKeychainCache(activeProfile.configDir);
+    console.warn('[ClaudeIntegration] Active profile credentials verified (not caching token):', activeProfile.name);
+
+    const win = getWindow();
+    if (win) {
+      win.webContents.send(IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, {
+        terminalId: terminal.id,
+        profileId: activeProfile.id,
+        email,
+        success: true,
+        detectedAt: new Date().toISOString()
+      } as OAuthTokenEvent);
     }
   }
 }
@@ -679,57 +732,56 @@ export function handleOnboardingComplete(
   const profileId = extractProfileIdFromAuthTerminalId(terminal.id) || undefined;
 
   // Try to extract email from the welcome screen (e.g., "user@example.com's Organization")
-  // Strip ANSI escape codes first since terminal output contains formatting
-  // eslint-disable-next-line no-control-regex
-  const stripAnsi = (str: string) => str.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
-
-  const cleanData = stripAnsi(data);
-  const cleanBuffer = stripAnsi(terminal.outputBuffer);
-
-  let email = OutputParser.extractEmail(cleanData);
+  // Note: extractEmail automatically strips ANSI escape codes internally
+  let email = OutputParser.extractEmail(data);
   if (!email) {
-    email = OutputParser.extractEmail(cleanBuffer);
+    email = OutputParser.extractEmail(terminal.outputBuffer);
   }
 
-  // Debug: Test each pattern individually to see what matches
-  const emailPatternTests = [
-    { name: 'Authenticated/Logged in', pattern: /(?:Authenticated as |Logged in as |email[:\s]+)([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i },
-    { name: "email's Organization", pattern: /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})['\u2019]s\s*Organization/i },
-    { name: 'Claude Max · email', pattern: /Claude\s+(?:Max|Pro|Team|Enterprise)\s*[·•]\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i },
-    { name: "email's (broad)", pattern: /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})['\u2019]s/i },
-    { name: 'any email', pattern: /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/i },
-  ];
+  // Fallback: If terminal extraction failed or might be corrupt, read directly from Claude's config file
+  // This is the authoritative source and doesn't suffer from ANSI escape code issues
+  const profileManager = getClaudeProfileManager();
+  const profile = profileId ? profileManager.getProfile(profileId) : null;
 
-  const patternResults = emailPatternTests.map(({ name, pattern }) => {
-    const match = cleanBuffer.match(pattern);
-    return { name, matched: !!match, email: match?.[1] || null };
-  });
+  if (!email && profile?.configDir) {
+    const configEmail = getEmailFromConfigDir(profile.configDir);
+    if (configEmail) {
+      console.warn('[ClaudeIntegration] Email not found in terminal output, using config file:', maskEmail(configEmail));
+      email = configEmail;
+    }
+  }
 
-  // Redact PII from pattern results for logging
-  const redactedPatternResults = patternResults.map(({ name, matched, email: foundEmail }) => ({
-    name,
-    matched,
-    email: maskEmail(foundEmail)
-  }));
+  // Validate email looks correct (basic sanity check)
+  // If terminal extraction gave us a truncated email but config file has the correct one, prefer config
+  if (email && profile?.configDir) {
+    const configEmail = getEmailFromConfigDir(profile.configDir);
+    if (configEmail && configEmail !== email) {
+      // Config file email is different - it's more authoritative
+      console.warn('[ClaudeIntegration] Terminal email differs from config file, using config file:', {
+        terminalEmail: maskEmail(email),
+        configEmail: maskEmail(configEmail)
+      });
+      email = configEmail;
+    }
+  }
 
   console.warn('[ClaudeIntegration] Email extraction attempt:', {
     profileId,
     foundEmail: maskEmail(email),
     dataLength: data.length,
-    bufferLength: terminal.outputBuffer.length,
-    cleanBufferLength: cleanBuffer.length,
-    patternResults: redactedPatternResults
+    bufferLength: terminal.outputBuffer.length
   });
 
-  // Update profile with email if found and profile exists
-  if (profileId && email) {
-    const profileManager = getClaudeProfileManager();
-    const profile = profileManager.getProfile(profileId);
-    if (profile && !profile.email) {
-      // Update the profile with the email
-      profile.email = email;
-      profileManager.saveProfile(profile);
-      console.warn('[ClaudeIntegration] Updated profile email from welcome screen:', profileId, maskEmail(email));
+  // Update profile with email and subscription metadata if found and profile exists
+  // Always update - the newly extracted email from re-authentication should overwrite any stale/truncated email
+  if (profileId && email && profile) {
+    const previousEmail = profile.email;
+    profile.email = email;
+    // Also update subscription metadata from Keychain credentials
+    updateProfileSubscriptionMetadata(profile, profile.configDir);
+    profileManager.saveProfile(profile);
+    if (previousEmail !== email) {
+      console.warn('[ClaudeIntegration] Updated profile email from welcome screen:', profileId, maskEmail(email), '(was:', maskEmail(previousEmail), ')');
     }
   }
 
@@ -740,6 +792,41 @@ export function handleOnboardingComplete(
       profileId,
       detectedAt: new Date().toISOString()
     } as OnboardingCompleteEvent);
+  }
+
+  // Trigger immediate usage fetch after successful re-authentication
+  // This gives the user immediate feedback that their account is working
+  if (profileId) {
+    try {
+      const usageMonitor = getUsageMonitor();
+      if (usageMonitor) {
+        // Clear any auth failure status for this profile since they just re-authenticated
+        usageMonitor.clearAuthFailedProfile(profileId);
+
+        console.warn('[ClaudeIntegration] Triggering immediate usage fetch after re-authentication:', profileId);
+
+        // Switch to this profile if it's not already active, then fetch usage
+        const profileManager = getClaudeProfileManager();
+
+        // Also clear the migration flag if this profile was migrated to an isolated directory
+        // This prevents the auth failure modal from showing again on next startup
+        if (profileManager.isProfileMigrated(profileId)) {
+          profileManager.clearMigratedProfile(profileId);
+          console.warn('[ClaudeIntegration] Cleared migration flag for re-authenticated profile:', profileId);
+        }
+        const activeProfile = profileManager.getActiveProfile();
+        if (activeProfile?.id !== profileId) {
+          profileManager.setActiveProfile(profileId);
+        }
+
+        // Small delay to allow profile switch to settle, then trigger usage fetch
+        setTimeout(() => {
+          usageMonitor.checkNow();
+        }, 500);
+      }
+    } catch (error) {
+      console.error('[ClaudeIntegration] Failed to trigger post-auth usage fetch:', error);
+    }
   }
 }
 
@@ -1468,7 +1555,7 @@ async function waitForClaudeExit(
 export async function switchClaudeProfile(
   terminal: TerminalProcess,
   profileId: string,
-  getWindow: WindowGetter,
+  _getWindow: WindowGetter,
   invokeClaudeCallback: (terminalId: string, cwd: string | undefined, profileId: string, dangerouslySkipPermissions?: boolean) => Promise<void>,
   clearRateLimitCallback: (terminalId: string) => void
 ): Promise<{ success: boolean; error?: string }> {

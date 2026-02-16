@@ -79,7 +79,7 @@ export function FileTreeItem({
   // This handles cases where component unmounts mid-drag or dragend doesn't fire
   useEffect(() => {
     return () => {
-      if (dragImageRef.current && dragImageRef.current.parentNode) {
+      if (dragImageRef.current?.parentNode) {
         dragImageRef.current.parentNode.removeChild(dragImageRef.current);
         dragImageRef.current = null;
       }
@@ -151,7 +151,7 @@ export function FileTreeItem({
     setIsDragging(false);
 
     // Clean up drag image element
-    if (dragImageRef.current && dragImageRef.current.parentNode) {
+    if (dragImageRef.current?.parentNode) {
       dragImageRef.current.parentNode.removeChild(dragImageRef.current);
       dragImageRef.current = null;
     }

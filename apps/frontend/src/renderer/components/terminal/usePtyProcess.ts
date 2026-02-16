@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useState, type RefObject } from 'react';
 import { useTerminalStore } from '../../stores/terminal-store';
+import { debugLog, debugError } from '../../../shared/utils/debug-logger';
 
 // Maximum retry attempts for recreation when dimensions aren't ready
 // Increased from 10 to 30 (3 seconds total) to handle slow app startup scenarios
@@ -38,7 +39,7 @@ export function usePtyProcess({
   const currentCwdRef = useRef(cwd);
   // Trigger state to force re-creation after resetForRecreate()
   // Refs don't trigger re-renders, so we need a state to ensure the effect runs
-  const [recreationTrigger, setRecreationTrigger] = useState(0);
+  const [_recreationTrigger, setRecreationTrigger] = useState(0);
   // Track retry attempts during recreation when dimensions aren't ready
   const recreationRetryCountRef = useRef(0);
   const recreationRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -116,13 +117,20 @@ export function usePtyProcess({
 
     // During recreation, if dimensions aren't ready, schedule a retry instead of giving up
     if (skipCreation && isRecreatingRef?.current) {
+      debugLog(`[usePtyProcess] Skipping PTY creation for terminal: ${terminalId} - dimensions not ready during recreation, scheduling retry`);
       scheduleRetryOrFail('Terminal recreation failed: dimensions not ready');
       return;
     }
 
     // Normal skip (not during recreation) - just return
-    if (skipCreation) return;
-    if (isCreatingRef.current || isCreatedRef.current) return;
+    if (skipCreation) {
+      debugLog(`[usePtyProcess] Skipping PTY creation for terminal: ${terminalId} - dimensions not ready (skipCreation=true)`);
+      return;
+    }
+    if (isCreatingRef.current || isCreatedRef.current) {
+      debugLog(`[usePtyProcess] Skipping PTY creation for terminal: ${terminalId} - already creating: ${isCreatingRef.current}, already created: ${isCreatedRef.current}`);
+      return;
+    }
 
     // Clear retry counter since we're proceeding with creation
     recreationRetryCountRef.current = 0;
@@ -131,6 +139,10 @@ export function usePtyProcess({
     const terminalState = store.terminals.find((t) => t.id === terminalId);
     const alreadyRunning = terminalState?.status === 'running' || terminalState?.status === 'claude-active';
     const isRestored = terminalState?.isRestored;
+
+    debugLog(`[usePtyProcess] Starting PTY creation for terminal: ${terminalId}`);
+    debugLog(`[usePtyProcess] Terminal ${terminalId} state: isRestored=${isRestored}, status=${terminalState?.status}`);
+    debugLog(`[usePtyProcess] Terminal ${terminalId} dimensions for PTY: cols=${cols}, rows=${rows}`);
 
     // When recreating (e.g., worktree switching), reset status from 'exited' to 'idle'
     // This allows proper recreation after deliberate terminal destruction
@@ -160,6 +172,7 @@ export function usePtyProcess({
 
     if (isRestored && terminalState) {
       // Restored session
+      debugLog(`[usePtyProcess] Restoring session for terminal: ${terminalId}, cwd: ${terminalState.cwd}, isClaudeMode: ${terminalState.isClaudeMode}, claudeSessionId: ${terminalState.claudeSessionId || 'none'}`);
       window.electronAPI.restoreTerminalSession(
         {
           id: terminalState.id,
@@ -178,19 +191,24 @@ export function usePtyProcess({
         rows
       ).then((result) => {
         if (result.success && result.data?.success) {
+          debugLog(`[usePtyProcess] Successfully restored PTY session for terminal: ${terminalId}`);
           handleSuccess();
           const store = getStore();
           store.setTerminalStatus(terminalId, terminalState.isClaudeMode ? 'claude-active' : 'running');
           store.updateTerminal(terminalId, { isRestored: false });
           onCreated?.();
         } else {
-          handleError(`Error restoring session: ${result.data?.error || result.error}`);
+          const errorMsg = `Error restoring session: ${result.data?.error || result.error}`;
+          debugError(`[usePtyProcess] Failed to restore PTY session for terminal: ${terminalId}, error: ${errorMsg}`);
+          handleError(errorMsg);
         }
       }).catch((err) => {
+        debugError(`[usePtyProcess] Exception restoring PTY session for terminal: ${terminalId}, error:`, err);
         handleError(err.message);
       });
     } else {
       // New terminal
+      debugLog(`[usePtyProcess] Creating new PTY for terminal: ${terminalId}, cwd: ${cwd}, projectPath: ${projectPath}`);
       window.electronAPI.createTerminal({
         id: terminalId,
         cwd,
@@ -199,20 +217,24 @@ export function usePtyProcess({
         projectPath,
       }).then((result) => {
         if (result.success) {
+          debugLog(`[usePtyProcess] Successfully created PTY for terminal: ${terminalId}`);
           handleSuccess();
           if (!alreadyRunning) {
             getStore().setTerminalStatus(terminalId, 'running');
           }
           onCreated?.();
         } else {
-          handleError(result.error || 'Unknown error');
+          const errorMsg = result.error || 'Unknown error';
+          debugError(`[usePtyProcess] Failed to create PTY for terminal: ${terminalId}, error: ${errorMsg}`);
+          handleError(errorMsg);
         }
       }).catch((err) => {
+        debugError(`[usePtyProcess] Exception creating PTY for terminal: ${terminalId}, error:`, err);
         handleError(err.message);
       });
     }
 
-  }, [terminalId, cwd, projectPath, cols, rows, skipCreation, recreationTrigger, getStore, onCreated, onError, clearRetryTimer, scheduleRetryOrFail, isRecreatingRef]);
+  }, [terminalId, cwd, projectPath, cols, rows, skipCreation, getStore, onCreated, clearRetryTimer, scheduleRetryOrFail, isRecreatingRef]);
 
   // Function to prepare for recreation by preventing the effect from running
   // Call this BEFORE updating the store cwd to avoid race condition

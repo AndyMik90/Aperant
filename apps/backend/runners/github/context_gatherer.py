@@ -19,7 +19,6 @@ from __future__ import annotations
 import ast
 import asyncio
 import json
-import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -825,41 +824,11 @@ class PRContextGatherer:
         """
         Find files related to the changes.
 
-        This includes:
-        - Test files for changed source files
-        - Imported modules and dependencies
-        - Configuration files in the same directory
-        - Related type definition files
-        - Reverse dependencies (files that import changed files)
+        DEPRECATED: LLM agents now discover related files themselves using Read, Grep, and Glob tools.
+        This method returns an empty list - agents have domain expertise to find what's relevant.
         """
-        related = set()
-
-        for changed_file in changed_files:
-            path = Path(changed_file.path)
-
-            # Find test files
-            related.update(self._find_test_files(path))
-
-            # Find imported files (for supported languages)
-            if path.suffix in [".ts", ".tsx", ".js", ".jsx", ".py"]:
-                related.update(self._find_imports(changed_file.content, path))
-
-            # Find config files in same directory
-            related.update(self._find_config_files(path.parent))
-
-            # Find type definition files
-            if path.suffix in [".ts", ".tsx"]:
-                related.update(self._find_type_definitions(path))
-
-            # Find reverse dependencies (files that import this file)
-            related.update(self._find_dependents(changed_file.path))
-
-        # Remove files that are already in changed_files
-        changed_paths = {cf.path for cf in changed_files}
-        related = {r for r in related if r not in changed_paths}
-
-        # Use smart prioritization with increased limit (50 instead of 20)
-        return self._prioritize_related_files(related, limit=50)
+        # Return empty list - LLM agents will discover files via their tools
+        return []
 
     def _find_test_files(self, source_path: Path) -> set[str]:
         """Find test files related to a source file."""
@@ -1071,168 +1040,35 @@ class PRContextGatherer:
         """
         Find files that import the given file (reverse dependencies).
 
-        Uses pure Python to search for import statements referencing this file.
-        Cross-platform compatible (Windows, macOS, Linux).
-        Limited to prevent performance issues on large codebases.
+        DEPRECATED: LLM agents now discover reverse dependencies themselves using Grep and Read tools.
+        Returns empty set - agents can search the codebase with their domain expertise.
 
         Args:
             file_path: Path of the file to find dependents for
             max_results: Maximum number of dependents to return
 
         Returns:
-            Set of file paths that import this file.
+            Empty set - LLM agents will discover dependents via Grep tool.
         """
-        dependents: set[str] = set()
-        path_obj = Path(file_path)
-        stem = path_obj.stem  # e.g., 'helpers' from 'utils/helpers.ts'
-
-        # Skip if stem is too generic (would match too many files)
-        if stem in ["index", "main", "app", "utils", "helpers", "types", "constants"]:
-            return dependents
-
-        # Build regex patterns and file extensions based on file type
-        pattern = None
-        file_extensions = []
-
-        if path_obj.suffix in [".ts", ".tsx", ".js", ".jsx"]:
-            # Match various import styles for JS/TS
-            # from './helpers', from '../utils/helpers', from '@/utils/helpers'
-            # Escape stem for regex safety
-            escaped_stem = re.escape(stem)
-            pattern = re.compile(rf"['\"].*{escaped_stem}['\"]")
-            file_extensions = [".ts", ".tsx", ".js", ".jsx"]
-        elif path_obj.suffix == ".py":
-            # Match Python imports: from .helpers import, import helpers
-            escaped_stem = re.escape(stem)
-            pattern = re.compile(rf"(from.*{escaped_stem}|import.*{escaped_stem})")
-            file_extensions = [".py"]
-        else:
-            return dependents
-
-        # Directories to exclude
-        exclude_dirs = {
-            "node_modules",
-            ".git",
-            "dist",
-            "build",
-            "__pycache__",
-            ".venv",
-            "venv",
-        }
-
-        # Walk the project directory
-        project_path = Path(self.project_dir)
-        files_checked = 0
-        max_files_to_check = 2000  # Prevent infinite scanning on large codebases
-
-        try:
-            for root, dirs, files in os.walk(project_path):
-                # Modify dirs in-place to exclude certain directories
-                dirs[:] = [d for d in dirs if d not in exclude_dirs]
-
-                for filename in files:
-                    # Check if we've hit the file limit
-                    if files_checked >= max_files_to_check:
-                        safe_print(
-                            f"[Context] File limit reached finding dependents for {file_path}"
-                        )
-                        return dependents
-
-                    # Check if file has the right extension
-                    if not any(filename.endswith(ext) for ext in file_extensions):
-                        continue
-
-                    file_full_path = Path(root) / filename
-                    files_checked += 1
-
-                    # Get relative path from project root
-                    try:
-                        relative_path = file_full_path.relative_to(project_path)
-                        relative_path_str = str(relative_path).replace("\\", "/")
-
-                        # Don't include the file itself
-                        if relative_path_str == file_path:
-                            continue
-
-                        # Search for the pattern in the file
-                        try:
-                            with open(
-                                file_full_path, encoding="utf-8", errors="ignore"
-                            ) as f:
-                                content = f.read()
-                                if pattern.search(content):
-                                    dependents.add(relative_path_str)
-                                    if len(dependents) >= max_results:
-                                        return dependents
-                        except (OSError, UnicodeDecodeError):
-                            # Skip files that can't be read
-                            continue
-
-                    except ValueError:
-                        # File is not relative to project_path, skip it
-                        continue
-
-        except Exception as e:
-            safe_print(f"[Context] Error finding dependents: {e}")
-
-        return dependents
+        # Return empty set - LLM agents will use Grep to find importers when needed
+        return set()
 
     def _prioritize_related_files(self, files: set[str], limit: int = 50) -> list[str]:
         """
         Prioritize related files by relevance.
 
-        Priority order:
-        1. Test files (most important for review context)
-        2. Type definition files (.d.ts)
-        3. Configuration files
-        4. Direct imports/dependents
-        5. Other files
+        DEPRECATED: LLM agents now prioritize exploration based on their domain expertise.
+        Returns empty list since _find_related_files no longer populates files.
 
         Args:
             files: Set of file paths to prioritize
             limit: Maximum number of files to return
 
         Returns:
-            List of files sorted by priority, limited to `limit`.
+            Empty list - LLM agents handle prioritization via their tools.
         """
-        test_files = []
-        type_files = []
-        config_files = []
-        other_files = []
-
-        for f in files:
-            path = Path(f)
-            name_lower = path.name.lower()
-
-            # Test files
-            if (
-                ".test." in name_lower
-                or ".spec." in name_lower
-                or name_lower.startswith("test_")
-                or name_lower.endswith("_test.py")
-                or "__tests__" in f
-            ):
-                test_files.append(f)
-            # Type definition files
-            elif name_lower.endswith(".d.ts") or "types" in name_lower:
-                type_files.append(f)
-            # Config files
-            elif name_lower in [
-                n.lower() for n in CONFIG_FILE_NAMES
-            ] or name_lower.endswith((".config.js", ".config.ts", "rc", "rc.json")):
-                config_files.append(f)
-            else:
-                other_files.append(f)
-
-        # Sort within each category alphabetically for consistency, then combine
-        prioritized = (
-            sorted(test_files)
-            + sorted(type_files)
-            + sorted(config_files)
-            + sorted(other_files)
-        )
-
-        return prioritized[:limit]
+        # Return empty list - LLM agents will prioritize exploration themselves
+        return []
 
     def _load_json_safe(self, filename: str) -> dict | None:
         """
@@ -1460,59 +1296,18 @@ class PRContextGatherer:
         """
         Find files related to the changes using a specific project root.
 
-        This static method allows finding related files AFTER a worktree
-        has been created, ensuring files exist in the worktree filesystem.
+        DEPRECATED: LLM agents now discover related files themselves using Read, Grep, and Glob tools.
+        This method returns an empty list - agents have domain expertise to find what's relevant.
 
         Args:
             changed_files: List of changed files from the PR
             project_root: Path to search for related files (e.g., worktree path)
 
         Returns:
-            List of related file paths (relative to project root)
+            Empty list - LLM agents will discover files via their tools.
         """
-        related: set[str] = set()
-
-        for changed_file in changed_files:
-            path = Path(changed_file.path)
-
-            # Find test files
-            test_patterns = [
-                # Jest/Vitest patterns
-                path.parent / f"{path.stem}.test{path.suffix}",
-                path.parent / f"{path.stem}.spec{path.suffix}",
-                path.parent / "__tests__" / f"{path.name}",
-                # Python patterns
-                path.parent / f"test_{path.stem}.py",
-                path.parent / f"{path.stem}_test.py",
-                # Go patterns
-                path.parent / f"{path.stem}_test.go",
-            ]
-
-            for test_path in test_patterns:
-                full_path = project_root / test_path
-                if full_path.exists() and full_path.is_file():
-                    related.add(str(test_path))
-
-            # Find config files in same directory
-            for name in CONFIG_FILE_NAMES:
-                config_path = path.parent / name
-                full_path = project_root / config_path
-                if full_path.exists() and full_path.is_file():
-                    related.add(str(config_path))
-
-            # Find type definition files
-            if path.suffix in [".ts", ".tsx"]:
-                type_def = path.parent / f"{path.stem}.d.ts"
-                full_path = project_root / type_def
-                if full_path.exists() and full_path.is_file():
-                    related.add(str(type_def))
-
-        # Remove files that are already in changed_files
-        changed_paths = {cf.path for cf in changed_files}
-        related = {r for r in related if r not in changed_paths}
-
-        # Limit to 50 most relevant files (increased from 20)
-        return sorted(related)[:50]
+        # Return empty list - LLM agents will discover files via their tools
+        return []
 
 
 class FollowupContextGatherer:

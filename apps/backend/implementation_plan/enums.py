@@ -51,7 +51,3 @@ class VerificationType(str, Enum):
     COMPONENT = "component"  # Component renders correctly
     MANUAL = "manual"  # Requires human verification
     NONE = "none"  # No verification needed (investigation)
-
-
-# Backwards compatibility aliases
-ChunkStatus = SubtaskStatus

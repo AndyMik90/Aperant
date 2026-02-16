@@ -43,11 +43,19 @@ export const claudeProfileMock = {
       sessionThreshold: 95,
       weeklyThreshold: 99,
       autoSwitchOnRateLimit: false,
+      autoSwitchOnAuthFailure: false,
       usageCheckInterval: 30000
     }
   }),
 
   updateAutoSwitchSettings: async () => ({ success: true }),
+
+  getAccountPriorityOrder: async () => ({
+    success: true,
+    data: [] as string[]
+  }),
+
+  setAccountPriorityOrder: async () => ({ success: true }),
 
   fetchClaudeUsage: async () => ({ success: true }),
 
@@ -68,7 +76,14 @@ export const claudeProfileMock = {
     data: null
   }),
 
+  requestAllProfilesUsage: async (_forceRefresh?: boolean) => ({
+    success: true,
+    data: null
+  }),
+
   onUsageUpdated: () => () => {},
+
+  onAllProfilesUsageUpdated: () => () => {},
 
   onProactiveSwapNotification: () => () => {},
 

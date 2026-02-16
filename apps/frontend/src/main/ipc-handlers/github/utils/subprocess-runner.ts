@@ -9,20 +9,21 @@ import { spawn, exec, execFile } from 'child_process';
 import type { ChildProcess } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import fs from 'fs';
-
-// ESM-compatible __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 import type { Project } from '../../../../shared/types';
-import type { AuthFailureInfo } from '../../../../shared/types/terminal';
+import type { AuthFailureInfo, BillingFailureInfo } from '../../../../shared/types/terminal';
 import { parsePythonCommand } from '../../../python-detector';
-import { detectAuthFailure } from '../../../rate-limit-detector';
+import { detectAuthFailure, detectBillingFailure } from '../../../rate-limit-detector';
 import { getClaudeProfileManager } from '../../../claude-profile-manager';
-import { isWindows } from '../../../platform';
+import { getOperationRegistry, type OperationType } from '../../../claude-profile/operation-registry';
+import { isWindows, isMacOS } from '../../../platform';
+import { getEffectiveSourcePath } from '../../../updater/path-resolver';
+import { pythonEnvManager, getConfiguredPythonPath } from '../../../python-env-manager';
+import { getTaskkillExePath, getWhereExePath } from '../../../utils/windows-paths';
+import { safeCaptureException } from '../../../sentry';
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 /**
  * Create a fallback environment for Python subprocesses when no env is provided.
@@ -68,9 +69,28 @@ export interface SubprocessOptions {
   onError?: (error: string) => void;
   /** Callback when auth failure (401) is detected in output */
   onAuthFailure?: (authFailureInfo: AuthFailureInfo) => void;
+  /** Callback when billing/credit exhaustion failure is detected in output */
+  onBillingFailure?: (billingFailureInfo: BillingFailureInfo) => void;
   progressPattern?: RegExp;
   /** Additional environment variables to pass to the subprocess */
   env?: Record<string, string>;
+  /**
+   * Operation registration for proactive swap support.
+   * If provided, the operation will be registered with the unified OperationRegistry.
+   */
+  operationRegistration?: {
+    /** Unique operation ID */
+    operationId: string;
+    /** Operation type for categorization */
+    operationType: OperationType;
+    /** Optional metadata for the operation */
+    metadata?: Record<string, unknown>;
+    /**
+     * Function to restart the operation with a new profile.
+     * Should call the original function with refreshed environment.
+     */
+    restartFn?: (newProfileId: string) => boolean | Promise<boolean>;
+  };
 }
 
 /**
@@ -124,12 +144,88 @@ export function runPythonSubprocess<T = unknown>(
     detached: !isWindows(),
   });
 
+  // Register with OperationRegistry for proactive swap support
+  if (options.operationRegistration) {
+    const { operationId, operationType, metadata, restartFn } = options.operationRegistration;
+    const profileManager = getClaudeProfileManager();
+    const activeProfile = profileManager.getActiveProfile();
+
+    if (activeProfile) {
+      const operationRegistry = getOperationRegistry();
+
+      // Create a stop function that kills the subprocess.
+      // Note: This sends SIGTERM and returns immediately without waiting for process exit.
+      //
+      // Timing dependency for restarts:
+      // - For subprocess-runner operations, restartFn returns false so no race condition
+      //   (operations are non-resumable and won't be restarted, just stopped gracefully)
+      // - For AgentManager operations, there's a 500ms setTimeout delay in restartTask
+      //   (see agent-manager.ts line 528) that mitigates the race between kill and restart
+      //
+      // RestartFn implementations should handle potential overlap between process termination
+      // and restart initialization if not using the setTimeout pattern.
+      const stopFn = async () => {
+        if (child.pid) {
+          try {
+            if (!isWindows()) {
+              process.kill(-child.pid, 'SIGTERM');
+            } else {
+              execFile(getTaskkillExePath(), ['/pid', String(child.pid), '/T', '/F'], (err: Error | null) => {
+                if (err) console.warn('[SubprocessRunner] taskkill error (process may have already exited):', err.message);
+              });
+            }
+          } catch {
+            child.kill('SIGTERM');
+          }
+        }
+      };
+
+      // Register with OperationRegistry for tracking and proactive swap support.
+      // For operations that provide a restartFn, UsageMonitor can restart them with a new profile.
+      // For operations without restartFn (e.g., PR reviews which are non-resumable due to one-shot workflow),
+      // we register with a no-op restartFn that returns false. This allows the swap to stop the operation
+      // gracefully without attempting restart. The operation will be killed when the profile swaps,
+      // which is the correct behavior for non-resumable operations.
+      operationRegistry.registerOperation(
+        operationId,
+        operationType,
+        activeProfile.id,
+        activeProfile.name,
+        restartFn || (() => false), // Use provided restartFn or a no-op for non-resumable operations
+        {
+          stopFn,
+          metadata: { ...metadata, pythonPath: options.pythonPath, cwd: options.cwd }
+        }
+      );
+
+      console.log('[SubprocessRunner] Operation registered with OperationRegistry:', {
+        operationId,
+        operationType,
+        profileId: activeProfile.id,
+        profileName: activeProfile.name
+      });
+    }
+  }
+
   const promise = new Promise<SubprocessResult<T>>((resolve) => {
 
     let stdout = '';
     let stderr = '';
     let authFailureEmitted = false; // Track if we've already emitted an auth failure
     let killedDueToAuthFailure = false; // Track if subprocess was killed due to auth failure
+    let billingFailureEmitted = false; // Track if we've already emitted a billing failure
+    let killedDueToBillingFailure = false; // Track if subprocess was killed due to billing failure
+    let receivedOutput = false; // Track if any stdout/stderr has been received
+
+    // Health-check: report to Sentry if no output received within 120 seconds
+    const healthCheckTimeout = setTimeout(() => {
+      if (!receivedOutput) {
+        safeCaptureException(
+          new Error('[SubprocessRunner] No output received from subprocess after 120s'),
+          { extra: { pythonPath: options.pythonPath, args: options.args, cwd: options.cwd, envKeys: options.env ? Object.keys(options.env) : [] } }
+        );
+      }
+    }, 120_000);
 
     // Default progress pattern: [ 30%] message OR [30%] message
     const progressPattern = options.progressPattern ?? /\[\s*(\d+)%\]\s*(.+)/;
@@ -178,7 +274,66 @@ export function runPythonSubprocess<T = unknown>(
               process.kill(-child.pid, 'SIGKILL');
             } else {
               // On Windows, use taskkill to kill the process tree
-              execFile('taskkill', ['/pid', String(child.pid), '/T', '/F'], (err: Error | null) => {
+              execFile(getTaskkillExePath(), ['/pid', String(child.pid), '/T', '/F'], (err: Error | null) => {
+                if (err) console.warn('[SubprocessRunner] taskkill error (process may have already exited):', err.message);
+              });
+            }
+          } catch (err) {
+            // Fallback to regular kill if process group kill fails
+            console.log('[SubprocessRunner] Process group kill failed, using regular kill:', err);
+            child.kill('SIGKILL');
+          }
+        } else {
+          child.kill('SIGKILL');
+        }
+      }
+    };
+
+    // Helper to check for billing/credit failures in output and emit once
+    const checkBillingFailure = (line: string) => {
+      if (billingFailureEmitted || !options.onBillingFailure) return;
+
+      const billingResult = detectBillingFailure(line);
+      if (billingResult.isBillingFailure) {
+        billingFailureEmitted = true;
+        console.log('[SubprocessRunner] Billing failure detected in real-time:', billingResult);
+
+        // Get profile info for display
+        const profileManager = getClaudeProfileManager();
+        const profile = billingResult.profileId
+          ? profileManager.getProfile(billingResult.profileId)
+          : profileManager.getActiveProfile();
+
+        const billingFailureInfo: BillingFailureInfo = {
+          profileId: billingResult.profileId || profile?.id || 'unknown',
+          profileName: profile?.name,
+          failureType: billingResult.failureType || 'unknown',
+          message: billingResult.message || 'Billing or credit error. Please check your account.',
+          originalError: billingResult.originalError,
+          detectedAt: new Date(),
+        };
+
+        try {
+          options.onBillingFailure(billingFailureInfo);
+        } catch (e) {
+          console.error('[SubprocessRunner] onBillingFailure callback threw:', e);
+        }
+
+        // Kill the subprocess to stop the billing failure spam
+        killedDueToBillingFailure = true;
+        // The process is stuck in billing errors - no point continuing
+        console.log('[SubprocessRunner] Killing subprocess due to billing failure, pid:', child.pid);
+
+        // Use process.kill with negative PID to kill the entire process group on Unix
+        // This ensures child processes (like the Claude SDK subprocess) are also killed
+        if (child.pid) {
+          try {
+            // On Unix, negative PID kills the process group
+            if (!isWindows()) {
+              process.kill(-child.pid, 'SIGKILL');
+            } else {
+              // On Windows, use taskkill to kill the process tree
+              execFile(getTaskkillExePath(), ['/pid', String(child.pid), '/T', '/F'], (err: Error | null) => {
                 if (err) console.warn('[SubprocessRunner] taskkill error (process may have already exited):', err.message);
               });
             }
@@ -194,7 +349,8 @@ export function runPythonSubprocess<T = unknown>(
     };
 
     child.stdout.on('data', (data: Buffer) => {
-      const text = data.toString();
+      receivedOutput = true;
+      const text = data.toString('utf-8');
       stdout += text;
 
       const lines = text.split('\n');
@@ -205,6 +361,9 @@ export function runPythonSubprocess<T = unknown>(
 
           // Check for auth failures in real-time (only emit once)
           checkAuthFailure(line);
+
+          // Check for billing/credit failures in real-time (only emit once)
+          checkBillingFailure(line);
 
           // Parse progress updates
           const match = line.match(progressPattern);
@@ -218,7 +377,8 @@ export function runPythonSubprocess<T = unknown>(
     });
 
     child.stderr.on('data', (data: Buffer) => {
-      const text = data.toString();
+      receivedOutput = true;
+      const text = data.toString('utf-8');
       stderr += text;
 
       const lines = text.split('\n');
@@ -228,13 +388,22 @@ export function runPythonSubprocess<T = unknown>(
 
           // Also check stderr for auth failures
           checkAuthFailure(line);
+
+          // Also check stderr for billing/credit failures
+          checkBillingFailure(line);
         }
       }
     });
 
     child.on('close', (code: number | null) => {
+      clearTimeout(healthCheckTimeout);
       // Treat null exit code (killed with SIGKILL) as failure, not success
       const exitCode = code ?? -1;
+
+      // Unregister from OperationRegistry when process exits
+      if (options.operationRegistration) {
+        getOperationRegistry().unregisterOperation(options.operationRegistration.operationId);
+      }
 
       // Debug logging only in development mode
       if (process.env.NODE_ENV === 'development') {
@@ -256,6 +425,18 @@ export function runPythonSubprocess<T = unknown>(
           stdout,
           stderr,
           error: 'Authentication failed. Please re-authenticate.',
+        });
+        return;
+      }
+
+      // Check if subprocess was killed due to billing/credit failure
+      if (killedDueToBillingFailure) {
+        resolve({
+          success: false,
+          exitCode: exitCode,
+          stdout,
+          stderr,
+          error: 'Billing or credit error. Please check your account.',
         });
         return;
       }
@@ -295,6 +476,7 @@ export function runPythonSubprocess<T = unknown>(
     });
 
     child.on('error', (err: Error) => {
+      clearTimeout(healthCheckTimeout);
       options.onError?.(err.message);
       resolve({
         success: false,
@@ -310,10 +492,20 @@ export function runPythonSubprocess<T = unknown>(
 }
 
 /**
- * Get the Python path for a project's backend
- * Cross-platform: uses Scripts/python.exe on Windows, bin/python on Unix
+ * Get the Python path for running GitHub runners.
+ *
+ * Prefers the managed Python environment (bundled app venv) when ready,
+ * falls back to project-local .venv for development repos.
  */
 export function getPythonPath(backendPath: string): string {
+  // Use managed env when it's fully set up (has dependencies installed)
+  if (pythonEnvManager.isEnvReady()) {
+    const managed = getConfiguredPythonPath();
+    if (fs.existsSync(managed)) {
+      return managed;
+    }
+  }
+  // Fallback to venv in backend path (dev mode)
   return isWindows()
     ? path.join(backendPath, '.venv', 'Scripts', 'python.exe')
     : path.join(backendPath, '.venv', 'bin', 'python');
@@ -329,42 +521,28 @@ export function getRunnerPath(backendPath: string): string {
 /**
  * Get the auto-claude backend path for a project
  *
- * Auto-detects the backend location using multiple strategies:
- * 1. Development repo structure (apps/backend)
- * 2. Electron app bundle location
- * 3. Current working directory
+ * Uses getEffectiveSourcePath() which handles:
+ * 1. User settings (autoBuildPath)
+ * 2. userData override (backend-source) for user-updated backend
+ * 3. Bundled backend (process.resourcesPath/backend)
+ * 4. Development paths
+ * Falls back to project.path/apps/backend for development repos.
  */
 export function getBackendPath(project: Project): string | null {
-  // Import app module for production path detection
-  let app: any;
-  try {
-    app = require('electron').app;
-  } catch {
-    // Electron not available in tests
+  // Use shared path resolver which handles:
+  // 1. User settings (autoBuildPath)
+  // 2. userData override (backend-source) for user-updated backend
+  // 3. Bundled backend (process.resourcesPath/backend)
+  // 4. Development paths
+  const effectivePath = getEffectiveSourcePath();
+  if (fs.existsSync(effectivePath) && fs.existsSync(path.join(effectivePath, 'runners', 'github', 'runner.py'))) {
+    return effectivePath;
   }
 
-  // Check if this is a development repo (has apps/backend structure)
+  // Fallback: check project path for development repo structure
   const appsBackendPath = path.join(project.path, 'apps', 'backend');
   if (fs.existsSync(path.join(appsBackendPath, 'runners', 'github', 'runner.py'))) {
     return appsBackendPath;
-  }
-
-  // Auto-detect from app location (same logic as agent-process.ts)
-  const possiblePaths = [
-    // Dev mode: from dist/main -> ../../backend (apps/frontend/out/main -> apps/backend)
-    path.resolve(__dirname, '..', '..', '..', '..', '..', 'backend'),
-    // Alternative: from app root -> apps/backend
-    app ? path.resolve(app.getAppPath(), '..', 'backend') : null,
-    // If running from repo root with apps structure
-    path.resolve(process.cwd(), 'apps', 'backend'),
-  ].filter((p): p is string => p !== null);
-
-  for (const backendPath of possiblePaths) {
-    // Check for runner.py as marker
-    const runnerPath = path.join(backendPath, 'runners', 'github', 'runner.py');
-    if (fs.existsSync(runnerPath)) {
-      return backendPath;
-    }
   }
 
   return null;
@@ -446,17 +624,25 @@ export async function validateGitHubModule(project: Project): Promise<GitHubModu
 
   // 2. Check gh CLI installation (cross-platform)
   try {
-    const whichCommand = isWindows() ? 'where gh' : 'which gh';
-    await execAsync(whichCommand);
+    if (isWindows()) {
+      await execFileAsync(getWhereExePath(), ['gh'], { timeout: 5000 });
+    } else {
+      await execAsync('which gh');
+    }
     result.ghCliInstalled = true;
-  } catch {
+  } catch (error: unknown) {
     result.ghCliInstalled = false;
-    const installInstructions = process.platform === 'win32'
-      ? 'winget install --id GitHub.cli'
-      : process.platform === 'darwin'
-        ? 'brew install gh'
-        : 'See https://cli.github.com/';
-    result.error = `GitHub CLI (gh) is not installed. Install it with:\n  ${installInstructions}`;
+    const errCode = (error as NodeJS.ErrnoException).code;
+    if (errCode === 'ENOENT' && isWindows()) {
+      result.error = `System utility 'where.exe' not found. Check Windows installation.`;
+    } else {
+      const installInstructions = isWindows()
+        ? 'winget install --id GitHub.cli'
+        : isMacOS()
+          ? 'brew install gh'
+          : 'See https://cli.github.com/';
+      result.error = `GitHub CLI (gh) is not installed. Install it with:\n  ${installInstructions}`;
+    }
     return result;
   }
 

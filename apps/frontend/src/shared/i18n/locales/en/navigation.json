@@ -21,7 +21,10 @@
   "actions": {
     "settings": "Settings",
     "help": "Help & Feedback",
-    "newTask": "New Task"
+    "newTask": "New Task",
+    "collapseSidebar": "Collapse Sidebar",
+    "expandSidebar": "Expand Sidebar",
+    "sponsor": "Sponsor Us"
   },
   "tooltips": {
     "settings": "Application Settings",
@@ -37,7 +40,8 @@
     "installAndRestart": "Install and Restart",
     "downloading": "Downloading...",
     "dismiss": "Dismiss",
-    "downloadError": "Failed to download update"
+    "downloadError": "Failed to download update",
+    "readOnlyVolumeWarning": "Move to Applications folder to update"
   },
   "claudeCode": {
     "checking": "Checking Claude Code...",

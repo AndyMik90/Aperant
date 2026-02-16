@@ -3,25 +3,27 @@
  *
  * Bundles the common form fields used in both TaskCreationWizard and TaskEditDialog:
  * - Description (required, with image paste/drop support)
+ * - Reference Images section (collapsible, with screenshot capture)
  * - Title (optional)
  * - Agent profile selector
  * - Classification fields (collapsible)
- * - Reference Images section (collapsible, with screenshot capture)
  * - Review requirement checkbox
  */
 import { useRef, useState, useEffect, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronUp, Image as ImageIcon, X, Camera } from 'lucide-react';
+import { ChevronDown, ChevronUp, Image as ImageIcon, X, Camera, Zap, Info } from 'lucide-react';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Checkbox } from '../ui/checkbox';
+import { Switch } from '../ui/switch';
 import { Button } from '../ui/button';
 import { AgentProfileSelector } from '../AgentProfileSelector';
 import { ClassificationFields } from './ClassificationFields';
 import { useImageUpload, type FileReferenceData } from './useImageUpload';
 import { createThumbnail } from '../ImageUpload';
 import { ScreenshotCapture } from '../ScreenshotCapture';
+import { ImagePreviewModal } from './ImagePreviewModal';
 import { cn } from '../../lib/utils';
 import { MAX_IMAGES_PER_TASK } from '../../../shared/constants';
 import type {
@@ -36,6 +38,10 @@ import type {
 import type { PhaseModelConfig, PhaseThinkingConfig } from '../../../shared/types/settings';
 
 interface TaskFormFieldsProps {
+  // Project context (for loading image thumbnails from disk)
+  projectPath?: string;
+  specId?: string;
+
   // Description field
   description: string;
   onDescriptionChange: (value: string) => void;
@@ -81,6 +87,11 @@ interface TaskFormFieldsProps {
   requireReviewBeforeCoding: boolean;
   onRequireReviewChange: (require: boolean) => void;
 
+  // Fast mode
+  fastMode?: boolean;
+  onFastModeChange?: (value: boolean) => void;
+  showFastModeToggle?: boolean;
+
   // Form state
   disabled?: boolean;
   error?: string | null;
@@ -97,6 +108,8 @@ interface TaskFormFieldsProps {
 }
 
 export function TaskFormFields({
+  projectPath,
+  specId,
   description,
   onDescriptionChange,
   descriptionPlaceholder,
@@ -128,6 +141,9 @@ export function TaskFormFields({
   onImagesChange,
   requireReviewBeforeCoding,
   onRequireReviewChange,
+  fastMode = false,
+  onFastModeChange,
+  showFastModeToggle = false,
   disabled = false,
   error,
   onError,
@@ -144,6 +160,7 @@ export function TaskFormFields({
   // Reference Images section state
   const [showReferenceImages, setShowReferenceImages] = useState(false);
   const [screenshotModalOpen, setScreenshotModalOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState<ImageAttachment | null>(null);
 
   // Auto-expand reference images section when images are added via paste/drop/capture
   const prevImagesLengthRef = useRef(images.length);
@@ -154,6 +171,68 @@ export function TaskFormFields({
     }
     prevImagesLengthRef.current = images.length;
   }, [images.length]);
+
+  // Track images we've attempted to load thumbnails for to prevent infinite loops
+  // Note: Failed thumbnail loads are not retried (persists across re-renders)
+  // This prevents repeated failed IPC calls for missing/corrupt images
+  const loadedThumbnailsRef = useRef<Set<string>>(new Set());
+
+  // Track the latest images to avoid stale closure issues
+  const imagesRef = useRef<ImageAttachment[]>(images);
+  useEffect(() => {
+    imagesRef.current = images;
+  }, [images]);
+
+  // Load thumbnails for images that have path but no thumbnail (fix placeholder bug)
+  // This handles the case when TaskFormFields mounts with persisted images from disk
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadMissingThumbnails = async () => {
+      // Need project context to load images from disk
+      if (!projectPath || !specId) return;
+
+      // Find images that have path but no thumbnail and haven't been attempted yet
+      const imagesToLoad = images.filter(
+        img => img.path && !img.thumbnail && !loadedThumbnailsRef.current.has(img.id)
+      );
+
+      if (imagesToLoad.length === 0) return;
+
+      // Mark these as attempted before loading to prevent re-entry
+      imagesToLoad.forEach(img => loadedThumbnailsRef.current.add(img.id));
+
+      // Collect loaded thumbnails into a Map to avoid stale closure issues
+      const thumbnailMap = new Map<string, string>();
+
+      for (const image of imagesToLoad) {
+        try {
+          const result = await window.electronAPI.loadImageThumbnail(projectPath, specId, image.path!);
+          if (result.success && result.data) {
+            thumbnailMap.set(image.id, result.data);
+          }
+        } catch (error) {
+          // Log for debugging but don't block other images
+          console.debug('Failed to load thumbnail for image', image.id, error);
+        }
+      }
+
+      // Merge thumbnails into current state without overwriting user changes
+      if (thumbnailMap.size > 0 && !cancelled) {
+        const updatedImages = imagesRef.current.map(img => ({
+          ...img,
+          thumbnail: thumbnailMap.get(img.id) ?? img.thumbnail
+        }));
+        onImagesChange(updatedImages);
+      }
+    };
+
+    loadMissingThumbnails();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [images, onImagesChange, projectPath, specId]);
 
   // Use the shared image upload hook with translated error messages
   const {
@@ -215,6 +294,11 @@ export function TaskFormFields({
         onOpenChange={setScreenshotModalOpen}
         onCapture={handleScreenshotCapture}
       />
+      <ImagePreviewModal
+        open={previewImage !== null}
+        onOpenChange={(open) => !open && setPreviewImage(null)}
+        image={previewImage}
+      />
 
       <div className="space-y-6">
         {/* Description (Primary - Required) */}
@@ -262,38 +346,6 @@ export function TaskFormFields({
             {t('tasks:form.imageAddedSuccess')}
           </div>
         )}
-
-        {/* Title (Optional) */}
-        <div className="space-y-2">
-          <Label htmlFor={`${prefix}title`} className="text-sm font-medium text-foreground">
-            {t('tasks:form.taskTitle')} <span className="text-muted-foreground font-normal">({t('common:labels.optional')})</span>
-          </Label>
-          <Input
-            id={`${prefix}title`}
-            placeholder={t('tasks:form.titlePlaceholder')}
-            value={title}
-            onChange={(e) => onTitleChange(e.target.value)}
-            disabled={disabled}
-          />
-          <p className="text-xs text-muted-foreground">
-            {t('tasks:form.titleHelpText')}
-          </p>
-        </div>
-
-        {/* Agent Profile Selection */}
-        <AgentProfileSelector
-          profileId={profileId}
-          model={model}
-          thinkingLevel={thinkingLevel}
-          phaseModels={phaseModels}
-          phaseThinking={phaseThinking}
-          onProfileChange={onProfileChange}
-          onModelChange={onModelChange}
-          onThinkingLevelChange={onThinkingLevelChange}
-          onPhaseModelsChange={onPhaseModelsChange}
-          onPhaseThinkingChange={onPhaseThinkingChange}
-          disabled={disabled}
-        />
 
         {/* Reference Images Toggle */}
         <button
@@ -356,6 +408,7 @@ export function TaskFormFields({
                     className="relative group rounded-md border border-border overflow-hidden cursor-pointer hover:ring-2 hover:ring-primary/50 transition-all"
                     style={{ width: '72px', height: '72px' }}
                     title={image.filename}
+                    onDoubleClick={() => setPreviewImage(image)}
                   >
                     {image.thumbnail ? (
                       <img
@@ -396,6 +449,38 @@ export function TaskFormFields({
             )}
           </div>
         )}
+
+        {/* Title (Optional) */}
+        <div className="space-y-2">
+          <Label htmlFor={`${prefix}title`} className="text-sm font-medium text-foreground">
+            {t('tasks:form.taskTitle')} <span className="text-muted-foreground font-normal">({t('common:labels.optional')})</span>
+          </Label>
+          <Input
+            id={`${prefix}title`}
+            placeholder={t('tasks:form.titlePlaceholder')}
+            value={title}
+            onChange={(e) => onTitleChange(e.target.value)}
+            disabled={disabled}
+          />
+          <p className="text-xs text-muted-foreground">
+            {t('tasks:form.titleHelpText')}
+          </p>
+        </div>
+
+        {/* Agent Profile Selection */}
+        <AgentProfileSelector
+          profileId={profileId}
+          model={model}
+          thinkingLevel={thinkingLevel}
+          phaseModels={phaseModels}
+          phaseThinking={phaseThinking}
+          onProfileChange={onProfileChange}
+          onModelChange={onModelChange}
+          onThinkingLevelChange={onThinkingLevelChange}
+          onPhaseModelsChange={onPhaseModelsChange}
+          onPhaseThinkingChange={onPhaseThinkingChange}
+          disabled={disabled}
+        />
 
         {/* Classification Toggle */}
         <button
@@ -456,6 +541,38 @@ export function TaskFormFields({
             </p>
           </div>
         </div>
+
+        {/* Fast Mode Toggle - shown when any phase uses an Opus model */}
+        {showFastModeToggle && onFastModeChange && (
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10 shrink-0">
+                  <Zap className="h-5 w-5 text-amber-500" />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-foreground">
+                    {t('tasks:form.fastModeLabel')}
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {t('tasks:form.fastModeDescription')}
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={fastMode}
+                onCheckedChange={onFastModeChange}
+                disabled={disabled}
+              />
+            </div>
+            <div className="mt-3 flex items-start gap-2 rounded-md bg-amber-500/5 border border-amber-500/20 p-2.5">
+              <Info className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                {t('tasks:form.fastModeNotice')}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Error Display */}
         {error && (

@@ -7,7 +7,6 @@ export { AppSettingsDialog, type AppSection } from './AppSettings';
 export { ThemeSettings } from './ThemeSettings';
 export { ThemeSelector } from './ThemeSelector';
 export { GeneralSettings } from './GeneralSettings';
-export { IntegrationSettings } from './IntegrationSettings';
 export { AdvancedSettings } from './AdvancedSettings';
 export { SettingsSection } from './SettingsSection';
 export { useSettings } from './hooks/useSettings';

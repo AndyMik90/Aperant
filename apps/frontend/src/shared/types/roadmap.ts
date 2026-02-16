@@ -69,6 +69,7 @@ export interface CompetitorAnalysis {
 
 export type RoadmapFeaturePriority = 'must' | 'should' | 'could' | 'wont';
 export type RoadmapFeatureStatus = 'under_review' | 'planned' | 'in_progress' | 'done';
+export type TaskOutcome = 'completed' | 'deleted' | 'archived';
 export type RoadmapPhaseStatus = 'planned' | 'in_progress' | 'completed';
 export type RoadmapStatus = 'draft' | 'active' | 'archived';
 
@@ -131,6 +132,8 @@ export interface RoadmapFeature {
   acceptanceCriteria: string[];
   userStories: string[];
   linkedSpecId?: string;
+  taskOutcome?: TaskOutcome;
+  previousStatus?: RoadmapFeatureStatus;
   competitorInsightIds?: string[];
   // External integration fields
   source?: FeatureSource;
@@ -189,4 +192,18 @@ export interface RoadmapGenerationStatus {
   progress: number;
   message: string;
   error?: string;
+  startedAt?: Date;
+  lastActivityAt?: Date;
+}
+
+/**
+ * Serialized version of RoadmapGenerationStatus for IPC transport.
+ * Timestamps are ISO strings since Date objects serialize as strings in JSON.
+ */
+export interface PersistedRoadmapProgress {
+  phase: RoadmapGenerationStatus['phase'];
+  progress: number;
+  message: string;
+  startedAt?: string;
+  lastActivityAt?: string;
 }

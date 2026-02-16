@@ -29,13 +29,9 @@
       "title": "Chemins",
       "description": "Outils CLI et chemins framework"
     },
-    "integrations": {
-      "title": "Intégrations",
-      "description": "Clés API & comptes Claude"
-    },
-    "api-profiles": {
-      "title": "Profils API",
-      "description": "Profils d'endpoint API personnalisés"
+    "accounts": {
+      "title": "Comptes",
+      "description": "Comptes Claude & endpoints API"
     },
     "updates": {
       "title": "Mises à jour",
@@ -48,6 +44,10 @@
     "debug": {
       "title": "Debug & Logs",
       "description": "Outils de dépannage"
+    },
+    "terminal-fonts": {
+      "title": "Polices de terminal",
+      "description": "Personnaliser l'apparence des polices de terminal"
     }
   },
   "apiProfiles": {
@@ -58,8 +58,8 @@
       "anthropic": "Anthropic",
       "openrouter": "OpenRouter",
       "groq": "Groq",
-      "glmGlobal": "GLM (Global)",
-      "glmChina": "GLM (China)"
+      "zaiGlobal": "z.AI (Mondial)",
+      "zaiChina": "z.AI (Chine)"
     },
     "fields": {
       "name": "Nom",
@@ -107,7 +107,8 @@
       "defaultPlaceholder": "ex. : claude-sonnet-4-5-20250929",
       "haikuPlaceholder": "ex. : claude-haiku-4-5-20251001",
       "sonnetPlaceholder": "ex. : claude-sonnet-4-5-20250929",
-      "opusPlaceholder": "ex. : claude-opus-4-5-20251101"
+      "opusPlaceholder": "ex. : claude-opus-4-6",
+      "opus1mPlaceholder": "ex. : claude-opus-4-6 (contexte 1M)"
     },
     "empty": {
       "title": "Aucun profil API configuré",
@@ -185,6 +186,12 @@
     "comfortable": "Confortable",
     "large": "Grand"
   },
+  "logOrder": {
+    "label": "Ordre des journaux",
+    "description": "Choisir comment les journaux sont affichés dans la vue détaillée des tâches",
+    "chronological": "Chronologique (plus ancien en premier)",
+    "reverseChronological": "Chronologique inverse (plus récent en premier)"
+  },
   "general": {
     "otherAgentSettings": "Autres paramètres de l'agent",
     "otherAgentSettingsDescription": "Options de configuration supplémentaires de l'agent",
@@ -208,6 +215,9 @@
     "githubCLIPath": "Chemin GitHub CLI",
     "githubCLIPathDescription": "Chemin vers l'exécutable GitHub CLI (gh) (laisser vide pour détection automatique)",
     "githubCLIPathPlaceholder": "gh (par défaut)",
+    "gitlabCLIPath": "Chemin GitLab CLI",
+    "gitlabCLIPathDescription": "Chemin vers l'exécutable GitLab CLI (glab) (laisser vide pour détection automatique)",
+    "gitlabCLIPathPlaceholder": "glab (par défaut)",
     "claudePath": "Chemin Claude CLI",
     "claudePathDescription": "Chemin vers l'exécutable Claude CLI (laisser vide pour détection automatique)",
     "claudePathPlaceholder": "claude (par défaut)",
@@ -241,9 +251,11 @@
   },
   "devtools": {
     "title": "Outils de développement",
-    "description": "Configurez votre IDE et terminal préférés pour travailler avec les worktrees",
+    "description": "Configurez votre IDE, terminal et paramètres de police de terminal préférés",
     "detecting": "Détection des outils installés...",
     "detectAgain": "Détecter à nouveau",
+    "tabTools": "Outils",
+    "tabTerminalFonts": "Polices de terminal",
     "ide": {
       "label": "IDE préféré",
       "description": "Auto Claude ouvrira les worktrees dans cet éditeur",
@@ -297,7 +309,10 @@
     "stableDowngradeAvailable": "Version stable disponible",
     "stableDowngradeDescription": "Vous êtes actuellement sur une version bêta. Comme vous avez désactivé les mises à jour bêta, vous pouvez passer à la dernière version stable.",
     "stableVersion": "Version stable",
-    "downloadStableVersion": "Télécharger la version stable"
+    "downloadStableVersion": "Télécharger la version stable",
+    "readOnlyVolumeTitle": "Impossible d'installer depuis l'image disque",
+    "readOnlyVolumeDescription": "Auto Claude s'exécute depuis une image disque en lecture seule (DMG). Veuillez glisser l'application dans votre dossier Applications et la relancer depuis cet emplacement pour installer les mises à jour.",
+    "downloadError": "Échec du téléchargement de la mise à jour"
   },
   "notifications": {
     "title": "Notifications",
@@ -339,7 +354,15 @@
       "description": "Synchronisation issues GitHub",
       "integrationTitle": "Intégration GitHub",
       "integrationDescription": "Se connecter à GitHub pour le suivi des issues",
-      "syncDescription": "Synchroniser avec GitHub Issues"
+      "syncDescription": "Synchroniser avec GitHub Issues",
+      "defaultBranch": {
+        "label": "Branche par défaut",
+        "description": "Branche de base pour créer les worktrees de tâches",
+        "autoDetect": "Détection automatique (main/master)",
+        "searchPlaceholder": "Rechercher des branches...",
+        "noBranchesFound": "Aucune branche trouvée",
+        "selectedBranchHelp": "Toutes les nouvelles tâches partiront de {{branch}}"
+      }
     },
     "gitlab": {
       "title": "GitLab",
@@ -377,6 +400,10 @@
     "resetToProfileDefaults": "Réinitialiser aux défauts de {{profile}}",
     "customized": "Personnalisé",
     "phaseConfigNote": "Ces paramètres seront utilisés par défaut lors de la création de nouvelles tâches avec ce profil. Vous pouvez les modifier par tâche dans l'assistant de création.",
+    "adaptiveThinking": {
+      "badge": "Adaptatif",
+      "tooltip": "Opus utilise la réflexion adaptative — il décide dynamiquement de la profondeur de réflexion dans la limite du budget défini par le niveau de réflexion."
+    },
     "phases": {
       "spec": {
         "label": "Création de spec",
@@ -412,6 +439,7 @@
     "description": "Gérer les comptes Claude et les clés API",
     "claudeAccounts": "Comptes Claude",
     "claudeAccountsDescription": "Ajoutez plusieurs abonnements Claude pour basculer automatiquement entre eux quand vous atteignez les limites.",
+    "claudeAccountsWarning": "Lors de l'authentification, assurez-vous d'être connecté au bon compte Claude dans votre navigateur. Chaque profil doit utiliser un abonnement différent.",
     "noAccountsYet": "Aucun compte configuré",
     "default": "Par défaut",
     "active": "Actif",
@@ -443,6 +471,8 @@
     "weeklyThresholdDescription": "Changer quand l'utilisation hebdomadaire atteint ce niveau (recommandé: 99%)",
     "reactiveRecovery": "Récupération réactive",
     "reactiveDescription": "Basculer automatiquement quand une limite inattendue est atteinte",
+    "autoSwitchOnAuthFailure": "Changement auto en cas d'échec d'auth",
+    "autoSwitchOnAuthFailureDescription": "Basculer automatiquement vers un autre compte authentifié en cas d'échec d'authentification",
     "apiKeys": "Clés API",
     "apiKeysInfo": "Les clés définies ici sont utilisées par défaut. Les projets individuels peuvent les remplacer dans leurs paramètres.",
     "openaiKey": "Clé API OpenAI",
@@ -476,6 +506,127 @@
     "alerts": {
       "profileCreatedAuthFailed": "Profil créé mais échec de la préparation de l'authentification : {{error}}",
       "authPrepareFailed": "Échec de la préparation de l'authentification : {{error}}",
+      "authStartFailedMessage": "Échec du démarrage de l'authentification. Veuillez réessayer."
+    }
+  },
+  "accounts": {
+    "title": "Comptes",
+    "description": "Gérer les comptes Claude et les endpoints API",
+    "tabs": {
+      "claudeCode": "Claude Code",
+      "customEndpoints": "Endpoints personnalisés"
+    },
+    "claudeCode": {
+      "description": "Ajoutez plusieurs abonnements Claude pour basculer automatiquement entre eux lorsque vous atteignez les limites de taux.",
+      "noAccountsYet": "Aucun compte configuré",
+      "default": "Par défaut",
+      "active": "Actif",
+      "authenticated": "Authentifié",
+      "needsAuth": "Auth requise",
+      "authenticate": "Authentifier",
+      "authenticating": "Authentification...",
+      "setActive": "Définir actif",
+      "manualTokenEntry": "Saisie manuelle du token",
+      "runSetupToken": "Exécutez claude et tapez /login pour vous authentifier",
+      "tokenPlaceholder": "sk-ant-oat01-...",
+      "emailPlaceholder": "Email (optionnel, pour l'affichage)",
+      "saveToken": "Enregistrer le token",
+      "accountNamePlaceholder": "Nom du compte (ex: Travail, Personnel)"
+    },
+    "customEndpoints": {
+      "description": "Configurez des endpoints API compatibles Anthropic personnalisés",
+      "addButton": "Ajouter un profil",
+      "activeBadge": "Actif",
+      "customModels": "Modèles personnalisés: {{models}}",
+      "setActive": {
+        "label": "Définir actif",
+        "loading": "Configuration..."
+      },
+      "switchToOauth": {
+        "label": "Utiliser Claude Code",
+        "loading": "Basculement..."
+      },
+      "tooltips": {
+        "edit": "Modifier le profil",
+        "deleteActive": "Impossible de supprimer le profil actif",
+        "deleteInactive": "Supprimer le profil"
+      },
+      "empty": {
+        "title": "Aucun endpoint personnalisé",
+        "description": "Configurez des endpoints API compatibles Anthropic personnalisés pour utiliser des fournisseurs alternatifs.",
+        "action": "Ajouter un profil"
+      },
+      "dialog": {
+        "deleteTitle": "Supprimer le profil",
+        "deleteDescription": "Êtes-vous sûr de vouloir supprimer \"{{name}}\" ? Cette action est irréversible.",
+        "cancel": "Annuler",
+        "delete": "Supprimer",
+        "deleting": "Suppression..."
+      }
+    },
+    "autoSwitching": {
+      "title": "Basculement automatique de compte",
+      "description": "Basculez automatiquement entre les comptes pour éviter les interruptions. Configurez la surveillance proactive pour basculer avant d'atteindre les limites.",
+      "enableAutoSwitching": "Activer le basculement automatique",
+      "masterSwitch": "Interrupteur principal pour toutes les fonctionnalités d'auto-basculement",
+      "proactiveMonitoring": "Surveillance proactive",
+      "proactiveDescription": "Vérifier l'utilisation régulièrement et basculer avant d'atteindre les limites",
+      "sessionThreshold": "Seuil d'utilisation de session",
+      "sessionThresholdDescription": "Basculer lorsque l'utilisation de session atteint ce niveau (recommandé: 95%)",
+      "weeklyThreshold": "Seuil d'utilisation hebdomadaire",
+      "weeklyThresholdDescription": "Basculer lorsque l'utilisation hebdomadaire atteint ce niveau (recommandé: 99%)",
+      "reactiveRecovery": "Récupération réactive",
+      "reactiveDescription": "Auto-basculement en cas de limite de taux inattendue",
+      "autoSwitchOnAuthFailure": "Changement auto en cas d'échec d'auth",
+      "autoSwitchOnAuthFailureDescription": "Basculer automatiquement vers un autre compte authentifié en cas d'échec d'authentification"
+    },
+    "priority": {
+      "title": "Ordre de priorité des comptes",
+      "description": "Glissez pour réorganiser. Le système basculera vers le prochain compte disponible dans l'ordre.",
+      "noAccounts": "Aucun compte configuré. Ajoutez des comptes ci-dessus pour définir la priorité.",
+      "noEmail": "Pas d'email",
+      "active": "Actif",
+      "inUse": "En cours",
+      "next": "Suivant",
+      "unlimited": "Illimité",
+      "unavailable": "Indisponible",
+      "typeOAuth": "OAuth",
+      "typeAPI": "API",
+      "payPerUse": "Paiement à l'usage",
+      "needsAuth": "Non authentifié",
+      "duplicateUsage": "Doublon détecté",
+      "duplicateUsageHint": "Ce profil a une utilisation identique à un autre profil, suggérant qu'ils sont peut-être authentifiés sur le même compte Anthropic. Réauthentifiez-vous avec un autre compte pour corriger.",
+      "needsReauth": "Réauth requise",
+      "needsReauthHint": "Le token de rafraîchissement de ce profil est invalide. Cliquez pour vous réauthentifier.",
+      "sessionUsage": "Utilisation de session (fenêtre de 5 heures)",
+      "weeklyUsage": "Utilisation hebdomadaire (fenêtre de 7 jours)",
+      "oauthSection": "Comptes Claude (utilisés en premier)",
+      "apiSection": "Points de terminaison de secours (quand tous les comptes sont épuisés)",
+      "tipTitle": "Comment fonctionne la priorité",
+      "tipDescription": "Les comptes Claude sont inclus dans votre abonnement et seront utilisés en premier. Les endpoints API facturent par requête et sont utilisés comme solutions de secours lorsque tous les comptes Claude atteignent leurs limites.",
+      "status": {
+        "healthy": "Sain",
+        "moderate": "Modéré",
+        "highUsage": "Utilisation élevée",
+        "nearLimit": "Proche de la limite",
+        "rateLimited": "Limité"
+      }
+    },
+    "toast": {
+      "loadProfilesFailed": "Échec du chargement des profils",
+      "addProfileFailed": "Échec de l'ajout du profil",
+      "deleteProfileFailed": "Échec de la suppression du profil",
+      "renameProfileFailed": "Échec du renommage du profil",
+      "setActiveProfileFailed": "Échec de la définition du profil actif",
+      "tokenSaved": "Token enregistré",
+      "tokenSavedDescription": "Votre token a été enregistré avec succès.",
+      "tokenSaveFailed": "Échec de l'enregistrement du token",
+      "settingsUpdateFailed": "Échec de la mise à jour des paramètres",
+      "tryAgain": "Veuillez réessayer."
+    },
+    "alerts": {
+      "profileCreatedAuthFailed": "Profil créé mais échec de la préparation de l'authentification: {{error}}",
+      "authPrepareFailed": "Échec de la préparation de l'authentification: {{error}}",
       "authStartFailedMessage": "Échec du démarrage de l'authentification. Veuillez réessayer."
     }
   },
@@ -600,6 +751,147 @@
       "createAnthropicKey": "Créer une clé API Anthropic",
       "openai": "Ceci ressemble à une API OpenAI. Vous aurez besoin d'une clé API.",
       "createOpenaiKey": "Créer une clé API OpenAI"
+    }
+  },
+  "terminalFonts": {
+    "title": "Polices de Terminal",
+    "description": "Personnaliser l'apparence et le comportement des polices de terminal",
+    "configActions": "Configuration :",
+    "export": "Exporter JSON",
+    "import": "Importer JSON",
+    "copy": "Copier dans le presse-papier",
+    "fontConfig": {
+      "title": "Configuration des Polices",
+      "description": "Personnaliser la famille, la taille, la graisse, la hauteur de ligne et l'espacement des lettres",
+      "fontFamily": "Famille de Police",
+      "fontFamilyDescription": "Police monospace principale pour le texte du terminal",
+      "selectFont": "Sélectionner une police...",
+      "searchFont": "Rechercher des polices...",
+      "noFonts": "Aucune police trouvée",
+      "fontChain": "Chaîne de polices :",
+      "fontSize": "Taille de Police",
+      "fontSizeDescription": "Taille de police de base en pixels (10-24px)",
+      "decreaseFontSize": "Diminuer la taille de police de {{step}}px",
+      "increaseFontSize": "Augmenter la taille de police de {{step}}px",
+      "pixels": "pixels",
+      "fontWeight": "Graisse de Police",
+      "fontWeightDescription": "Graisse de police de 100 (maigre) à 900 (noir), par incréments de 100",
+      "commonWeights": "Courantes : 400 (normal), 600 (semi-gras), 700 (gras)",
+      "decreaseFontWeight": "Diminuer la graisse de police de {{step}}",
+      "increaseFontWeight": "Augmenter la graisse de police de {{step}}",
+      "lineHeight": "Hauteur de Ligne",
+      "lineHeightDescription": "Hauteur de ligne comme multiple de la taille de police (1.0-2.0)",
+      "letterSpacing": "Espacement des Lettres",
+      "letterSpacingDescription": "Espacement horizontal entre les caractères (-2 à 5px)"
+    },
+    "cursorConfig": {
+      "title": "Configuration du Curseur",
+      "description": "Personnaliser le style, le clignotement et la couleur d'accent du curseur",
+      "cursorStyle": "Style de Curseur",
+      "cursorStyleDescription": "Choisir l'apparence du curseur de terminal",
+      "selectStyle": "Sélectionner le style de curseur...",
+      "currentStyle": "Actuel :",
+      "styleBlock": "Bloc",
+      "styleBlockDescription": "Curseur bloc complet",
+      "styleUnderline": "Soulignement",
+      "styleUnderlineDescription": "Curseur souligné",
+      "styleBar": "Barre",
+      "styleBarDescription": "Barre verticale",
+      "cursorBlink": "Clignotement du Curseur",
+      "cursorBlinkDescription": "Activer ou désactiver l'animation de clignotement du curseur",
+      "blinkStatus": "État :",
+      "enabled": "Activé",
+      "disabled": "Désactivé",
+      "cursorAccentColor": "Couleur d'Accent du Curseur",
+      "cursorAccentColorDescription": "Choisir la couleur du curseur de terminal",
+      "cursorColorLabel": "Couleur d'accent du curseur",
+      "cursorColorDescription": "Couleur actuelle : {{color}}",
+      "pickColor": "Cliquer pour choisir une couleur",
+      "resetColor": "Réinitialiser en noir",
+      "reset": "Réinitialiser",
+      "preview": "Aperçu :"
+    },
+    "performanceConfig": {
+      "title": "Paramètres de Performance",
+      "description": "Ajuster la limite de défilement et autres paramètres liés aux performances",
+      "presets": "Préréglages Rapides",
+      "presetsDescription": "Limites de défilement courantes pour différents cas d'usage",
+      "scrollback": "Limite de Défilement",
+      "scrollbackDescription": "Nombre maximum de lignes à conserver dans l'historique du terminal",
+      "scrollbackPresets": "Préréglages Rapides",
+      "presetMinimal": "Minimal",
+      "presetMinimalDescription": "Historique minimal (1 000 lignes)",
+      "presetStandard": "Standard",
+      "presetStandardDescription": "Historique standard (10 000 lignes)",
+      "presetExtended": "Étendu",
+      "presetExtendedDescription": "Historique étendu (50 000 lignes)",
+      "presetMaximum": "Maximum",
+      "presetMaximumDescription": "Historique maximum (100 000 lignes)",
+      "decreaseScrollback": "Diminuer le défilement de {{step}}",
+      "increaseScrollback": "Augmenter le défilement de {{step}}",
+      "lines": "lignes",
+      "kValue": "{{value}}K",
+      "scrollbackValue": "{{value}} lignes"
+    },
+    "presets": {
+      "title": "Préréglages Rapides",
+      "description": "Appliquer des paramètres de police prédéfinis ou sauvegarder les vôtres",
+      "builtin": "Préréglages Intégrés",
+      "builtinDescription": "Cliquer pour appliquer un préréglage prédéfini",
+      "vscode": "Consolas 14px, curseur bloc",
+      "vscodeName": "VS Code",
+      "intellij": "JetBrains Mono 13px, curseur bloc",
+      "intellijName": "IntelliJ IDEA",
+      "macos": "SF Mono 13px, curseur bloc",
+      "macosName": "Terminal macOS",
+      "ubuntu": "Ubuntu Mono 13px, curseur bloc",
+      "ubuntuName": "Terminal Ubuntu",
+      "reset": "Réinitialiser aux Valeurs par Défaut",
+      "resetDescription": "Restaurer les paramètres par défaut de votre système d'exploitation",
+      "resetToOS": "Réinitialiser aux valeurs par défaut {{os}}",
+      "resetButton": "Réinitialiser aux Valeurs par Défaut de l'OS",
+      "custom": "Préréglages Personnalisés",
+      "customDescription": "Sauvegarder votre configuration actuelle comme un préréglage personnalisé",
+      "presetNamePlaceholder": "Nom du préréglage...",
+      "savePreset": "Sauvegarder la configuration actuelle comme un préréglage",
+      "applyPreset": "Appliquer ce préréglage",
+      "deletePreset": "Supprimer ce préréglage",
+      "noCustomPresets": "Aucun préréglage personnalisé pour le moment. Sauvegardez votre configuration actuelle pour commencer.",
+      "duplicateName": "Un préréglage avec ce nom existe déjà",
+      "saved": "Préréglage « {{name}} » sauvegardé",
+      "deleted": "Préréglage « {{name}} » supprimé",
+      "unknownFont": "Inconnu",
+      "applyFailed": "Échec de l'application du préréglage « {{name}} »",
+      "presetNameLabel": "Nom du préréglage",
+      "summary": "{{font}}, {{size}}px, curseur {{cursor}}"
+    },
+    "preview": {
+      "title": "Aperçu en Direct",
+      "description": "Prévisualiser vos paramètres de terminal en temps réel (mises à jour dans les 300ms)",
+      "ariaLabel": "Aperçu des polices de terminal",
+      "infoText": "Cet aperçu se met à jour dans les 300ms suivant tout changement pour montrer l'apparence de vos paramètres dans les terminaux réels."
+    },
+    "importExport": {
+      "exportSuccess": "Paramètres exportés avec succès",
+      "exportFailed": "Échec de l'export des paramètres",
+      "importSuccess": "Paramètres importés avec succès",
+      "importFailed": "Échec de l'import : format JSON invalide",
+      "importFailedRange": "Échec de l'import : valeurs hors plage valide",
+      "copySuccess": "Paramètres copiés dans le presse-papier",
+      "copyFailed": "Échec de la copie dans le presse-papier",
+      "fileTooLarge": "Fichier d'import trop volumineux (max 10 Ko)",
+      "readError": "Échec de la lecture du fichier"
+    },
+    "slider": {
+      "decrease": "Diminuer {{label}} de {{step}}",
+      "increase": "Augmenter {{label}} de {{step}}",
+      "currentValue": "Valeur actuelle : {{value}}"
+    }
+  },
+  "agents": {
+    "pr_template_filler": {
+      "label": "Remplisseur de modèle PR",
+      "description": "Remplit intelligemment les modèles de PR GitHub à partir des changements de code"
     }
   }
 }

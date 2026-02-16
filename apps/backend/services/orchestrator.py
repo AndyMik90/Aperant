@@ -11,7 +11,7 @@ The service orchestrator is used by:
 - Validation Strategy: To determine if multi-service orchestration is needed
 
 Usage:
-    from service_orchestrator import ServiceOrchestrator
+    from services.orchestrator import ServiceOrchestrator
 
     orchestrator = ServiceOrchestrator(project_dir)
     if orchestrator.is_multi_service():

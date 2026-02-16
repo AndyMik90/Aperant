@@ -21,7 +21,10 @@
   "actions": {
     "settings": "Paramètres",
     "help": "Aide & Feedback",
-    "newTask": "Nouvelle tâche"
+    "newTask": "Nouvelle tâche",
+    "collapseSidebar": "Réduire la barre latérale",
+    "expandSidebar": "Développer la barre latérale",
+    "sponsor": "Nous sponsoriser"
   },
   "tooltips": {
     "settings": "Paramètres de l'application",
@@ -37,7 +40,8 @@
     "installAndRestart": "Installer et redémarrer",
     "downloading": "Téléchargement...",
     "dismiss": "Ignorer",
-    "downloadError": "Échec du téléchargement de la mise à jour"
+    "downloadError": "Échec du téléchargement de la mise à jour",
+    "readOnlyVolumeWarning": "Déplacez l'app dans le dossier Applications pour mettre à jour"
   },
   "claudeCode": {
     "checking": "Vérification de Claude Code...",

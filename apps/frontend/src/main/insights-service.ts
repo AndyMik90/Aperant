@@ -175,13 +175,16 @@ export class InsightsService extends EventEmitter {
         role: 'assistant',
         content: result.fullResponse,
         timestamp: new Date(),
-        suggestedTask: result.suggestedTask,
+        suggestedTasks: result.suggestedTasks,
         toolsUsed: result.toolsUsed.length > 0 ? result.toolsUsed : undefined
       };
 
       session.messages.push(assistantMessage);
       session.updatedAt = new Date();
       this.sessionManager.saveSession(projectPath, session);
+
+      // Emit session-updated event for real-time UI updates
+      this.emit('session-updated', projectId, session);
     } catch (error) {
       // Error already emitted by executor
       console.error('[InsightsService] Error executing insights:', error);

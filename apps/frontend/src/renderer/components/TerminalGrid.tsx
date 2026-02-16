@@ -1,9 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Group,
-  Panel,
-  Separator,
-} from 'react-resizable-panels';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   DndContext,
   DragOverlay,
@@ -20,7 +16,7 @@ import {
   rectSortingStrategy,
   sortableKeyboardCoordinates,
 } from '@dnd-kit/sortable';
-import { Plus, Sparkles, Grid2X2, FolderTree, File, Folder, History, ChevronDown, Loader2, TerminalSquare } from 'lucide-react';
+import { Plus, Sparkles, Grid2X2, FolderTree, File, Folder, History, ChevronDown, Loader2, TerminalSquare, Settings } from 'lucide-react';
 import { SortableTerminalWrapper } from './SortableTerminalWrapper';
 import { Button } from './ui/button';
 import {
@@ -35,7 +31,7 @@ import { cn } from '../lib/utils';
 import { useTerminalStore } from '../stores/terminal-store';
 import { useTaskStore } from '../stores/task-store';
 import { useFileExplorerStore } from '../stores/file-explorer-store';
-import { TERMINAL_DOM_UPDATE_DELAY_MS } from '../../shared/constants';
+import { TERMINAL_DOM_UPDATE_DELAY_MS, PANEL_CLEANUP_GRACE_PERIOD_MS } from '../../shared/constants';
 import type { SessionDateInfo } from '../../shared/types';
 
 interface TerminalGridProps {
@@ -45,17 +41,83 @@ interface TerminalGridProps {
 }
 
 export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: TerminalGridProps) {
+  const { t } = useTranslation('common');
   const allTerminals = useTerminalStore((state) => state.terminals);
+
+  // Track terminals that are in the grace period before being filtered out
+  // Map of terminal ID -> timestamp when it was marked for cleanup
+  const [pendingCleanup, setPendingCleanup] = useState<Map<string, number>>(new Map());
+
+  // Ref to track active cleanup timers — avoids including pendingCleanup in effect deps
+  const cleanupTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+
+  // Helper to clear all active cleanup timers
+  const clearAllCleanupTimers = useCallback(() => {
+    for (const timer of cleanupTimersRef.current.values()) {
+      clearTimeout(timer);
+    }
+    cleanupTimersRef.current.clear();
+  }, []);
+
   // Filter terminals to show only those belonging to the current project
   // Also include legacy terminals without projectPath (created before this change)
-  // Exclude exited terminals as they are no longer functional
+  // Keep exited terminals in DOM during grace period to allow react-resizable-panels to reconcile
   const terminals = useMemo(() => {
     const filtered = projectPath
       ? allTerminals.filter(t => t.projectPath === projectPath || !t.projectPath)
       : allTerminals;
-    // Exclude exited terminals from the visible list
-    return filtered.filter(t => t.status !== 'exited');
+
+    // Filter out exited terminals UNLESS they are still in the grace period
+    return filtered.filter(t => {
+      if (t.status !== 'exited') {
+        return true; // Keep all non-exited terminals
+      }
+      // Check if this exited terminal is in grace period
+      const cleanupTime = pendingCleanup.get(t.id);
+      if (cleanupTime) {
+        const now = Date.now();
+        return now < cleanupTime; // Keep if still within grace period
+      }
+      return false; // Remove if not in grace period
+    });
+  }, [allTerminals, projectPath, pendingCleanup]);
+
+  // Manage grace period timers for exited terminals
+  // When a terminal exits, add it to pendingCleanup and schedule its removal
+  // Uses cleanupTimersRef to track scheduled timers, avoiding pendingCleanup in deps
+  // No cleanup function here — timers must survive dependency changes
+  useEffect(() => {
+    const filtered = projectPath
+      ? allTerminals.filter(t => t.projectPath === projectPath || !t.projectPath)
+      : allTerminals;
+
+    const exitedTerminals = filtered.filter(t => t.status === 'exited');
+
+    for (const terminal of exitedTerminals) {
+      // Check ref (not state) to see if a timer is already scheduled
+      if (!cleanupTimersRef.current.has(terminal.id)) {
+        const cleanupTime = Date.now() + PANEL_CLEANUP_GRACE_PERIOD_MS;
+        setPendingCleanup(prev => new Map(prev).set(terminal.id, cleanupTime));
+
+        const timer = setTimeout(() => {
+          cleanupTimersRef.current.delete(terminal.id);
+          setPendingCleanup(prev => {
+            const next = new Map(prev);
+            next.delete(terminal.id);
+            return next;
+          });
+        }, PANEL_CLEANUP_GRACE_PERIOD_MS);
+
+        cleanupTimersRef.current.set(terminal.id, timer);
+      }
+    }
   }, [allTerminals, projectPath]);
+
+  // Clear all cleanup timers on unmount
+  useEffect(() => {
+    return clearAllCleanupTimers;
+  }, [clearAllCleanupTimers]);
+
   const activeTerminalId = useTerminalStore((state) => state.activeTerminalId);
   const addTerminal = useTerminalStore((state) => state.addTerminal);
   const removeTerminal = useTerminalStore((state) => state.removeTerminal);
@@ -79,10 +141,12 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
   // Expanded terminal state - when set, this terminal takes up the full grid space
   const [expandedTerminalId, setExpandedTerminalId] = useState<string | null>(null);
 
-  // Reset expanded terminal when project changes
+  // Reset expanded terminal and clear pending cleanup when project changes
   useEffect(() => {
     setExpandedTerminalId(null);
-  }, [projectPath]);
+    setPendingCleanup(new Map());
+    clearAllCleanupTimers();
+  }, [projectPath, clearAllCleanupTimers]);
 
   // Fetch available session dates when project changes
   useEffect(() => {
@@ -157,15 +221,26 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
         });
 
         // Add each successfully restored session to the renderer's terminal store
+        // Use staggered initialization to prevent race conditions when multiple terminals
+        // try to initialize and measure dimensions simultaneously
+        const TERMINAL_INIT_STAGGER_MS = 75; // Small delay between each terminal
+
         for (const sessionResult of result.data.sessions) {
           if (sessionResult.success) {
             const fullSession = sortedSessions.find(s => s.id === sessionResult.id);
             if (fullSession) {
               console.warn(`[TerminalGrid] Adding restored terminal to store: ${fullSession.id}`);
               addRestoredTerminal(fullSession);
+              // Stagger terminal initialization to prevent race conditions
+              await new Promise(resolve => setTimeout(resolve, TERMINAL_INIT_STAGGER_MS));
             }
           }
         }
+
+        // Trigger terminal refit after grid layout stabilizes to ensure correct dimensions
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('terminal-refit-all'));
+        }, TERMINAL_DOM_UPDATE_DELAY_MS);
 
         // Refresh session dates to update counts
         const datesResult = await window.electronAPI.getTerminalSessionDates(projectPath);
@@ -250,7 +325,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
     terminals.forEach((terminal) => {
       if (terminal.status === 'running' && !terminal.isClaudeMode) {
         setClaudeMode(terminal.id, true);
-        window.electronAPI.invokeClaudeInTerminal(terminal.id, projectPath);
+        window.electronAPI.invokeClaudeInTerminal(terminal.id, terminal.cwd || projectPath);
       }
     });
   }, [terminals, setClaudeMode, projectPath]);
@@ -319,6 +394,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
           });
         }
 
+        // Refit terminals after dnd-kit CSS transitions settle
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('terminal-refit-all'));
         }, TERMINAL_DOM_UPDATE_DELAY_MS);
@@ -343,7 +419,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
       // Insert the file path into the terminal with a trailing space
       window.electronAPI.sendTerminalInput(terminalId, quotedPath + ' ');
     }
-  }, [reorderTerminals, terminals]);
+  }, [reorderTerminals, terminals, projectPath]);
 
   // Calculate grid layout based on number of terminals
   const gridLayout = useMemo(() => {
@@ -356,18 +432,6 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
     if (count <= 9) return { rows: 3, cols: 3 };
     return { rows: 3, cols: 4 }; // Max 12 terminals = 3x4
   }, [terminals.length]);
-
-  // Group terminals into rows
-  const terminalRows = useMemo(() => {
-    const rows: typeof terminals[] = [];
-    const { cols } = gridLayout;
-    if (cols === 0) return rows;
-
-    for (let i = 0; i < terminals.length; i += cols) {
-      rows.push(terminals.slice(i, i + cols));
-    }
-    return rows;
-  }, [terminals, gridLayout]);
 
   // Terminal IDs for SortableContext
   const terminalIds = useMemo(() => terminals.map(t => t.id), [terminals]);
@@ -451,6 +515,17 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1.5"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent('open-app-settings', { detail: 'terminal-fonts' }));
+              }}
+            >
+              <Settings className="h-3 w-3" />
+              {t('actions.settings')}
+            </Button>
             {terminals.some((t) => t.status === 'running' && !t.isClaudeMode) && (
               <Button
                 variant="outline"
@@ -521,45 +596,38 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
                 );
               })()
             ) : (
-              // Show the normal grid layout
+              // Flat CSS Grid layout — all terminals are siblings of the same parent.
+              // This prevents React from unmounting/remounting terminal components during
+              // drag-drop reorder. With the old nested Group/Panel structure from
+              // react-resizable-panels, terminals that changed rows got new parents,
+              // causing React to unmount → dispose xterm → blank screen.
+              // With a flat grid, React just reorders siblings (no unmount needed).
               <SortableContext items={terminalIds} strategy={rectSortingStrategy}>
-                <Group orientation="vertical" className="h-full">
-                  {terminalRows.map((row, rowIndex) => (
-                    <React.Fragment key={rowIndex}>
-                      <Panel id={`row-${rowIndex}`} defaultSize={100 / terminalRows.length} minSize={15}>
-                        <Group orientation="horizontal" className="h-full">
-                          {row.map((terminal, colIndex) => (
-                            <React.Fragment key={terminal.id}>
-                              <Panel id={terminal.id} defaultSize={100 / row.length} minSize={10}>
-                                <div className="h-full p-1">
-                                  <SortableTerminalWrapper
-                                    id={terminal.id}
-                                    cwd={terminal.cwd || projectPath}
-                                    projectPath={projectPath}
-                                    isActive={terminal.id === activeTerminalId}
-                                    onClose={() => handleCloseTerminal(terminal.id)}
-                                    onActivate={() => setActiveTerminal(terminal.id)}
-                                    tasks={tasks}
-                                    onNewTaskClick={onNewTaskClick}
-                                    terminalCount={terminals.length}
-                                    isExpanded={false}
-                                    onToggleExpand={() => handleToggleExpand(terminal.id)}
-                                  />
-                                </div>
-                              </Panel>
-                              {colIndex < row.length - 1 && (
-                                <Separator className="w-1 hover:bg-primary/30 transition-colors" />
-                              )}
-                            </React.Fragment>
-                          ))}
-                        </Group>
-                      </Panel>
-                      {rowIndex < terminalRows.length - 1 && (
-                        <Separator className="h-1 hover:bg-primary/30 transition-colors" />
-                      )}
-                    </React.Fragment>
+                <div
+                  className="h-full grid"
+                  style={{
+                    gridTemplateColumns: `repeat(${gridLayout.cols}, 1fr)`,
+                    gridTemplateRows: `repeat(${gridLayout.rows}, 1fr)`,
+                  }}
+                >
+                  {terminals.map((terminal) => (
+                    <div key={terminal.id} className="p-1 min-h-0 min-w-0">
+                      <SortableTerminalWrapper
+                        id={terminal.id}
+                        cwd={terminal.cwd || projectPath}
+                        projectPath={projectPath}
+                        isActive={terminal.id === activeTerminalId}
+                        onClose={() => handleCloseTerminal(terminal.id)}
+                        onActivate={() => setActiveTerminal(terminal.id)}
+                        tasks={tasks}
+                        onNewTaskClick={onNewTaskClick}
+                        terminalCount={terminals.length}
+                        isExpanded={false}
+                        onToggleExpand={() => handleToggleExpand(terminal.id)}
+                      />
+                    </div>
                   ))}
-                </Group>
+                </div>
               </SortableContext>
             )}
           </div>

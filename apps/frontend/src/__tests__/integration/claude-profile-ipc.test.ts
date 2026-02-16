@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { mkdirSync, rmSync, existsSync, mkdtempSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
-import type { ClaudeProfile, IPCResult, TerminalCreateOptions } from '../../shared/types';
+import type { ClaudeProfile, IPCResult, } from '../../shared/types';
 
 // Test directories - use secure temp directory with random suffix
 let TEST_DIR: string;
@@ -152,6 +152,7 @@ describe('Claude Profile IPC Integration', () => {
 
     // Import and call the registration function
     const { registerTerminalHandlers } = await import('../../main/ipc-handlers/terminal-handlers');
+    // biome-ignore lint/suspicious/noExplicitAny: Test mock types don't match production types
     registerTerminalHandlers(mockTerminalManager as any, () => mockBrowserWindow as any);
   });
 
@@ -171,7 +172,7 @@ describe('Claude Profile IPC Integration', () => {
         name: 'New Account'
       });
 
-      const result = await handleProfileSave!(null, newProfile) as IPCResult<ClaudeProfile>;
+      const result = await handleProfileSave?.(null, newProfile) as IPCResult<ClaudeProfile>;
 
       expect(result.success).toBe(true);
       expect(mockProfileManager.generateProfileId).toHaveBeenCalledWith('New Account');
@@ -190,7 +191,7 @@ describe('Claude Profile IPC Integration', () => {
         name: 'Existing Account'
       });
 
-      const result = await handleProfileSave!(null, existingProfile) as IPCResult<ClaudeProfile>;
+      const result = await handleProfileSave?.(null, existingProfile) as IPCResult<ClaudeProfile>;
 
       expect(result.success).toBe(true);
       expect(mockProfileManager.generateProfileId).not.toHaveBeenCalled();
@@ -206,8 +207,9 @@ describe('Claude Profile IPC Integration', () => {
         configDir: path.join(TEST_DIR, 'new-profile-config')
       });
 
-      await handleProfileSave!(null, profile);
+      await handleProfileSave?.(null, profile);
 
+      // biome-ignore lint/style/noNonNullAssertion: Test file - configDir is set in createTestProfile
       expect(existsSync(profile.configDir!)).toBe(true);
     });
 
@@ -220,8 +222,9 @@ describe('Claude Profile IPC Integration', () => {
         configDir: path.join(TEST_DIR, 'should-not-exist')
       });
 
-      await handleProfileSave!(null, profile);
+      await handleProfileSave?.(null, profile);
 
+      // biome-ignore lint/style/noNonNullAssertion: Test file - configDir is set in createTestProfile
       expect(existsSync(profile.configDir!)).toBe(false);
     });
 
@@ -234,7 +237,7 @@ describe('Claude Profile IPC Integration', () => {
       });
 
       const profile = createTestProfile();
-      const result = await handleProfileSave!(null, profile) as IPCResult;
+      const result = await handleProfileSave?.(null, profile) as IPCResult;
 
       expect(result.success).toBe(false);
       expect(result.error).toContain('Database error');

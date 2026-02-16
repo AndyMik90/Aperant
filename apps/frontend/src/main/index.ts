@@ -29,13 +29,13 @@ const possibleEnvPaths = [
 
 for (const envPath of possibleEnvPaths) {
   if (existsSync(envPath)) {
-    config({ path: envPath });
+    config({ path: envPath, quiet: true });
     console.log(`[dotenv] Loaded environment from: ${envPath}`);
     break;
   }
 }
 
-import { app, BrowserWindow, shell, nativeImage, session, screen } from 'electron';
+import { app, BrowserWindow, shell, nativeImage, session, screen, Menu, MenuItem } from 'electron';
 import { join } from 'path';
 import { accessSync, readFileSync, writeFileSync, rmSync } from 'fs';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
@@ -46,13 +46,17 @@ import { pythonEnvManager } from './python-env-manager';
 import { getUsageMonitor } from './claude-profile/usage-monitor';
 import { initializeUsageMonitorForwarding } from './ipc-handlers/terminal-handlers';
 import { initializeAppUpdater, stopPeriodicUpdates } from './app-updater';
-import { DEFAULT_APP_SETTINGS } from '../shared/constants';
+import { DEFAULT_APP_SETTINGS, IPC_CHANNELS, SPELL_CHECK_LANGUAGE_MAP, DEFAULT_SPELL_CHECK_LANGUAGE, ADD_TO_DICTIONARY_LABELS } from '../shared/constants';
+import { getAppLanguage, initAppLanguage } from './app-language';
 import { readSettingsFile } from './settings-utils';
 import { setupErrorLogging } from './app-logger';
 import { initSentryMain } from './sentry';
 import { preWarmToolCache } from './cli-tool-manager';
-import { initializeClaudeProfileManager } from './claude-profile-manager';
-import type { AppSettings } from '../shared/types';
+import { initializeClaudeProfileManager, getClaudeProfileManager } from './claude-profile-manager';
+import { isProfileAuthenticated } from './claude-profile/profile-utils';
+import { isMacOS, isWindows } from './platform';
+import { ptyDaemonClient } from './terminal/pty-daemon-client';
+import type { AppSettings, AuthFailureInfo } from '../shared/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Window sizing constants
@@ -121,10 +125,10 @@ function getIconPath(): string {
     : join(process.resourcesPath);
 
   let iconName: string;
-  if (process.platform === 'darwin') {
+  if (isMacOS()) {
     // Use PNG in dev mode (works better), ICNS in production
     iconName = is.dev ? 'icon-256.png' : 'icon.icns';
-  } else if (process.platform === 'win32') {
+  } else if (isWindows()) {
     iconName = 'icon.ico';
   } else {
     iconName = 'icon.png';
@@ -139,6 +143,12 @@ let mainWindow: BrowserWindow | null = null;
 let agentManager: AgentManager | null = null;
 let terminalManager: TerminalManager | null = null;
 
+// Re-entrancy guard for before-quit handler.
+// The first before-quit call pauses quit for async cleanup, then calls app.quit() again.
+// The second call sees isQuitting=true and allows quit to proceed immediately.
+// Fixes: pty.node SIGABRT crash caused by environment teardown before PTY cleanup (GitHub #1469)
+let isQuitting = false;
+
 function createWindow(): void {
   // Get the primary display's work area (accounts for taskbar, dock, etc.)
   // Wrapped in try/catch to handle potential failures with fallback to safe defaults
@@ -147,8 +157,7 @@ function createWindow(): void {
     const display = screen.getPrimaryDisplay();
     // Validate the returned object has expected structure with valid dimensions
     if (
-      display &&
-      display.workAreaSize &&
+      display?.workAreaSize &&
       typeof display.workAreaSize.width === 'number' &&
       typeof display.workAreaSize.height === 'number' &&
       display.workAreaSize.width > 0 &&
@@ -195,13 +204,95 @@ function createWindow(): void {
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false,
-      backgroundThrottling: false // Prevent terminal lag when window loses focus
+      backgroundThrottling: false, // Prevent terminal lag when window loses focus
+      spellcheck: true // Enable spell check for text inputs
     }
   });
 
   // Show window when ready to avoid visual flash
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
+  });
+
+  // Configure initial spell check languages with proper fallback logic
+  // Uses shared constant for consistency with the IPC handler
+  const defaultLanguage = 'en';
+  const defaultSpellCheckLanguages = SPELL_CHECK_LANGUAGE_MAP[defaultLanguage] || [DEFAULT_SPELL_CHECK_LANGUAGE];
+  const availableSpellCheckLanguages = session.defaultSession.availableSpellCheckerLanguages;
+  const validSpellCheckLanguages = defaultSpellCheckLanguages.filter(lang =>
+    availableSpellCheckLanguages.includes(lang)
+  );
+  const initialSpellCheckLanguages = validSpellCheckLanguages.length > 0
+    ? validSpellCheckLanguages
+    : (availableSpellCheckLanguages.includes(DEFAULT_SPELL_CHECK_LANGUAGE) ? [DEFAULT_SPELL_CHECK_LANGUAGE] : []);
+
+  if (initialSpellCheckLanguages.length > 0) {
+    session.defaultSession.setSpellCheckerLanguages(initialSpellCheckLanguages);
+    console.log(`[SPELLCHECK] Initial languages set to: ${initialSpellCheckLanguages.join(', ')}`);
+  } else {
+    console.warn('[SPELLCHECK] No spell check languages available on this system');
+  }
+
+  // Handle context menu with spell check and standard editing options
+  mainWindow.webContents.on('context-menu', (_event, params) => {
+    const menu = new Menu();
+
+    // Add spelling suggestions if there's a misspelled word
+    if (params.misspelledWord) {
+      for (const suggestion of params.dictionarySuggestions) {
+        menu.append(new MenuItem({
+          label: suggestion,
+          click: () => mainWindow?.webContents.replaceMisspelling(suggestion)
+        }));
+      }
+
+      if (params.dictionarySuggestions.length > 0) {
+        menu.append(new MenuItem({ type: 'separator' }));
+      }
+
+      // Use localized label for "Add to Dictionary" based on app language (not OS locale)
+      // getAppLanguage() tracks the user's in-app language setting, updated via SPELLCHECK_SET_LANGUAGES IPC
+      const addToDictionaryLabel = ADD_TO_DICTIONARY_LABELS[getAppLanguage()] || ADD_TO_DICTIONARY_LABELS['en'];
+      menu.append(new MenuItem({
+        label: addToDictionaryLabel,
+        click: () => mainWindow?.webContents.session.addWordToSpellCheckerDictionary(params.misspelledWord)
+      }));
+
+      menu.append(new MenuItem({ type: 'separator' }));
+    }
+
+    // Standard editing options for editable fields
+    // Using role without explicit label allows Electron to provide localized labels
+    if (params.isEditable) {
+      menu.append(new MenuItem({
+        role: 'cut',
+        enabled: params.editFlags.canCut
+      }));
+      menu.append(new MenuItem({
+        role: 'copy',
+        enabled: params.editFlags.canCopy
+      }));
+      menu.append(new MenuItem({
+        role: 'paste',
+        enabled: params.editFlags.canPaste
+      }));
+      menu.append(new MenuItem({
+        role: 'selectAll',
+        enabled: params.editFlags.canSelectAll
+      }));
+    } else if (params.selectionText?.trim()) {
+      // Non-editable text selection (e.g., labels, paragraphs)
+      // Use .trim() to avoid showing menu for whitespace-only selections
+      menu.append(new MenuItem({
+        role: 'copy',
+        enabled: params.editFlags.canCopy
+      }));
+    }
+
+    // Only show menu if there are items
+    if (menu.items.length > 0) {
+      menu.popup();
+    }
   });
 
   // Handle external links with URL scheme allowlist for security
@@ -239,19 +330,23 @@ function createWindow(): void {
 
   // Clean up on close
   mainWindow.on('closed', () => {
+    // Kill all agents when window closes (prevents orphaned processes)
+    agentManager?.killAll?.()?.catch((err: unknown) => {
+      console.warn('[main] Error killing agents on window close:', err);
+    });
     mainWindow = null;
   });
 }
 
 // Set app name before ready (for dock tooltip on macOS in dev mode)
 app.setName('Auto Claude');
-if (process.platform === 'darwin') {
+if (isMacOS()) {
   // Force the name to appear in dock on macOS
   app.name = 'Auto Claude';
 }
 
 // Fix Windows GPU cache permission errors (0x5 Access Denied)
-if (process.platform === 'win32') {
+if (isWindows()) {
   app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
   app.commandLine.appendSwitch('disable-gpu-program-cache');
   console.log('[main] Applied Windows GPU cache fixes');
@@ -263,18 +358,21 @@ app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.autoclaude.ui');
 
   // Clear cache on Windows to prevent permission errors from stale cache
-  if (process.platform === 'win32') {
+  if (isWindows()) {
     session.defaultSession.clearCache()
       .then(() => console.log('[main] Cleared cache on startup'))
       .catch((err) => console.warn('[main] Failed to clear cache:', err));
   }
+
+  // Initialize app language from OS locale for main process i18n (context menus)
+  initAppLanguage();
 
   // Clean up stale update metadata from the old source updater system
   // This prevents version display desync after electron-updater installs a new version
   cleanupStaleUpdateMetadata();
 
   // Set dock icon on macOS
-  if (process.platform === 'darwin') {
+  if (isMacOS()) {
     const iconPath = getIconPath();
     try {
       const icon = nativeImage.createFromPath(iconPath);
@@ -400,10 +498,53 @@ app.whenReady().then(() => {
         // Setup event forwarding from usage monitor to renderer
         initializeUsageMonitorForwarding(mainWindow);
 
-        // Start the usage monitor
+        // Start the usage monitor (uses unified OperationRegistry for proactive restart)
         const usageMonitor = getUsageMonitor();
         usageMonitor.start();
         console.warn('[main] Usage monitor initialized and started (after profile load)');
+
+        // Check for migrated profiles that need re-authentication
+        // These profiles were moved from shared ~/.claude to isolated directories
+        // and need new credentials since they now use a different keychain entry
+        const profileManager = getClaudeProfileManager();
+        const migratedProfileIds = profileManager.getMigratedProfileIds();
+        const activeProfile = profileManager.getActiveProfile();
+
+        if (migratedProfileIds.length > 0) {
+          console.warn('[main] Found migrated profiles that need re-authentication:', migratedProfileIds);
+
+          // Check ALL migrated profiles for valid credentials, not just the active one
+          // This prevents stale migrated flags from triggering unnecessary re-auth prompts
+          // when the user switches to a different profile later
+          for (const profileId of migratedProfileIds) {
+            const profile = profileManager.getProfile(profileId);
+            if (profile && isProfileAuthenticated(profile)) {
+              // Credentials are valid - clear the migrated flag
+              console.warn('[main] Migrated profile has valid credentials via file fallback, clearing migrated flag:', profile.name);
+              profileManager.clearMigratedProfile(profileId);
+            }
+          }
+
+          // Re-check if the active profile still needs re-auth after clearing valid ones
+          const remainingMigratedIds = profileManager.getMigratedProfileIds();
+          if (remainingMigratedIds.includes(activeProfile.id)) {
+            // Active profile still needs re-auth - show the modal
+            mainWindow.webContents.once('did-finish-load', () => {
+              // Small delay to ensure stores are initialized
+              setTimeout(() => {
+                const authFailureInfo: AuthFailureInfo = {
+                  profileId: activeProfile.id,
+                  profileName: activeProfile.name,
+                  failureType: 'missing',
+                  message: `Profile "${activeProfile.name}" was migrated to an isolated directory and needs re-authentication.`,
+                  detectedAt: new Date()
+                };
+                console.warn('[main] Sending auth failure for migrated active profile:', activeProfile.name);
+                mainWindow?.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+              }, 1000);
+            });
+          }
+        }
       }
     })
     .catch((error) => {
@@ -458,29 +599,55 @@ app.whenReady().then(() => {
 
 // Quit when all windows are closed (except on macOS)
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  if (!isMacOS()) {
     app.quit();
   }
 });
 
-// Cleanup before quit
-app.on('before-quit', async () => {
-  // Stop periodic update checks
+// Cleanup before quit — uses event.preventDefault() to allow async PTY cleanup
+// before the JS environment tears down. Without this, pty.node's native
+// ThreadSafeFunction callbacks fire after teardown, causing SIGABRT (GitHub #1469).
+app.on('before-quit', (event) => {
+  // Re-entrancy guard: the second app.quit() call (after cleanup) must pass through
+  if (isQuitting) {
+    return;
+  }
+  isQuitting = true;
+
+  // Pause quit to perform async cleanup
+  event.preventDefault();
+
+  // Stop synchronous services immediately
   stopPeriodicUpdates();
 
-  // Stop usage monitor
   const usageMonitor = getUsageMonitor();
   usageMonitor.stop();
   console.warn('[main] Usage monitor stopped');
 
-  // Kill all running agent processes
-  if (agentManager) {
-    await agentManager.killAll();
-  }
-  // Kill all terminal processes
-  if (terminalManager) {
-    await terminalManager.killAll();
-  }
+  // Perform async cleanup, then allow quit to proceed
+  (async () => {
+    try {
+      // Kill all running agent processes
+      if (agentManager) {
+        await agentManager.killAll();
+      }
+
+      // Kill all terminal processes — waits for PTY exit with bounded timeout
+      if (terminalManager) {
+        await terminalManager.killAll();
+      }
+
+      // Shut down PTY daemon client AFTER terminal cleanup completes,
+      // ensuring all kill commands reach PTY processes before the daemon disconnects
+      ptyDaemonClient.shutdown();
+      console.warn('[main] PTY daemon client shutdown complete');
+    } catch (error) {
+      console.error('[main] Error during pre-quit cleanup:', error);
+    } finally {
+      // Always allow quit to proceed, even if cleanup fails
+      app.quit();
+    }
+  })();
 });
 
 // Note: Uncaught exceptions and unhandled rejections are now

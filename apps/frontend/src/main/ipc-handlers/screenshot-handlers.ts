@@ -3,8 +3,12 @@
  *
  * Provides screenshot capture functionality using Electron's desktopCapturer API.
  * Users can capture screenshots of their entire screen or individual application windows.
+ *
+ * Note: Screenshot capture may not work in development mode (app.isPackaged === false)
+ * due to macOS screen recording permission requirements for unsigned builds.
+ * In dev mode, the handler returns a devMode flag so the UI can show a helpful message.
  */
-import { ipcMain } from 'electron';
+import { ipcMain, app } from 'electron';
 import { desktopCapturer } from 'electron';
 import { IPC_CHANNELS } from '../../shared/constants/ipc';
 import type { ScreenshotSource, ScreenshotCaptureOptions } from '../../shared/types/screenshot';
@@ -15,8 +19,21 @@ import type { ScreenshotSource, ScreenshotCaptureOptions } from '../../shared/ty
 export function registerScreenshotHandlers(): void {
   /**
    * Get available screenshot sources (screens and windows)
+   *
+   * In development mode (app.isPackaged === false), returns devMode: true
+   * instead of attempting to get sources, as screen recording permissions
+   * typically aren't granted to unsigned development builds on macOS.
    */
   ipcMain.handle(IPC_CHANNELS.SCREENSHOT_GET_SOURCES, async () => {
+    // Check if running in development mode
+    // Dev builds don't have screen recording permissions on macOS
+    if (!app.isPackaged) {
+      return {
+        success: false,
+        devMode: true
+      };
+    }
+
     try {
       const sources = await desktopCapturer.getSources({
         types: ['screen', 'window'],

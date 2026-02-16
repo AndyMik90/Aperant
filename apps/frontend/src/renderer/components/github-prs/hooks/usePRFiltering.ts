@@ -16,10 +16,13 @@ export type PRStatusFilter =
   | 'ready_to_merge'
   | 'ready_for_followup';
 
+export type PRSortOption = 'newest' | 'oldest' | 'largest';
+
 export interface PRFilterState {
   searchQuery: string;
   contributors: string[];
   statuses: PRStatusFilter[];
+  sortBy: PRSortOption;
 }
 
 interface PRReviewInfo {
@@ -32,6 +35,7 @@ const DEFAULT_FILTERS: PRFilterState = {
   searchQuery: '',
   contributors: [],
   statuses: [],
+  sortBy: 'newest',
 };
 
 /**
@@ -98,9 +102,9 @@ export function usePRFiltering(
     );
   }, [prs]);
 
-  // Filter PRs based on current filters
+  // Filter and sort PRs based on current filters
   const filteredPRs = useMemo(() => {
-    return prs.filter(pr => {
+    const filtered = prs.filter(pr => {
       // Search filter - matches title or body
       if (filters.searchQuery) {
         const query = filters.searchQuery.toLowerCase();
@@ -142,6 +146,36 @@ export function usePRFiltering(
 
       return true;
     });
+
+    // Pre-compute timestamps to avoid creating Date objects on every comparison
+    const timestamps = new Map(
+      filtered.map((pr) => [pr.number, new Date(pr.createdAt).getTime()])
+    );
+
+    // Sort the filtered results
+    return filtered.sort((a, b) => {
+      const aTime = timestamps.get(a.number)!;
+      const bTime = timestamps.get(b.number)!;
+
+      switch (filters.sortBy) {
+        case 'newest':
+          // Sort by createdAt descending (most recent first)
+          return bTime - aTime;
+        case 'oldest':
+          // Sort by createdAt ascending (oldest first)
+          return aTime - bTime;
+        case 'largest': {
+          // Sort by total changes (additions + deletions) descending
+          const aChanges = (a.additions || 0) + (a.deletions || 0);
+          const bChanges = (b.additions || 0) + (b.deletions || 0);
+          if (bChanges !== aChanges) return bChanges - aChanges;
+          // Secondary sort by createdAt (newest first) for stable ordering
+          return bTime - aTime;
+        }
+        default:
+          return 0;
+      }
+    });
   }, [prs, filters, getReviewStateForPR]);
 
   // Filter setters
@@ -157,8 +191,15 @@ export function usePRFiltering(
     setFiltersState(prev => ({ ...prev, statuses }));
   }, []);
 
+  const setSortBy = useCallback((sortBy: PRSortOption) => {
+    setFiltersState(prev => ({ ...prev, sortBy }));
+  }, []);
+
   const clearFilters = useCallback(() => {
-    setFiltersState(DEFAULT_FILTERS);
+    setFiltersState((prev) => ({
+      ...DEFAULT_FILTERS,
+      sortBy: prev.sortBy, // Preserve sort preference when clearing filters
+    }));
   }, []);
 
   const hasActiveFilters = useMemo(() => {
@@ -176,6 +217,7 @@ export function usePRFiltering(
     setSearchQuery,
     setContributors,
     setStatuses,
+    setSortBy,
     clearFilters,
     hasActiveFilters,
   };

@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Label PR
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           retries: 3
           retry-exempt-status-codes: 400,401,403,404,422

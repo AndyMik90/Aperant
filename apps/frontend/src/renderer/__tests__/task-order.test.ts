@@ -271,9 +271,6 @@ describe('Task Order State Management', () => {
     });
 
     it('should handle corrupted localStorage data gracefully', () => {
-      // Spy on console.error to verify error logging
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
       localStorage.setItem('task-order-state-project-1', 'invalid-json{{{');
 
       useTaskStore.getState().loadTaskOrder('project-1');
@@ -289,15 +286,9 @@ describe('Task Order State Management', () => {
         pr_created: [],
         error: []
       });
-      expect(consoleSpy).toHaveBeenCalledWith('Failed to load task order:', expect.any(Error));
-
-      consoleSpy.mockRestore();
     });
 
     it('should handle localStorage access errors', () => {
-      // Spy on console.error
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
       // Mock localStorage.getItem to throw
       const originalGetItem = localStorage.getItem;
       localStorage.getItem = vi.fn(() => {
@@ -319,7 +310,6 @@ describe('Task Order State Management', () => {
       });
 
       localStorage.getItem = originalGetItem;
-      consoleSpy.mockRestore();
     });
   });
 

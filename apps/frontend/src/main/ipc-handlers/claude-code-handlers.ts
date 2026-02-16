@@ -8,7 +8,7 @@
  */
 
 import { ipcMain } from 'electron';
-import { exec, execFileSync, spawn, execFile } from 'child_process';
+import { execFileSync, spawn, execFile } from 'child_process';
 import { existsSync, readFileSync, promises as fsPromises } from 'fs';
 import { mkdir, rename, unlink } from 'fs/promises';
 import path from 'path';
@@ -19,9 +19,12 @@ import type { IPCResult } from '../../shared/types';
 import type { ClaudeCodeVersionInfo, ClaudeInstallationList, ClaudeInstallationInfo } from '../../shared/types/cli';
 import { getToolInfo, configureTools, sortNvmVersionDirs, getClaudeDetectionPaths, type ExecFileAsyncOptionsWithVerbatim } from '../cli-tool-manager';
 import { readSettingsFile, writeSettingsFile } from '../settings-utils';
-import { isSecurePath } from '../utils/windows-paths';
+import { isSecurePath, getWhereExePath, getTaskkillExePath } from '../utils/windows-paths';
+import { isWindows, isMacOS, isLinux } from '../platform';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { isValidConfigDir } from '../utils/config-path-validator';
+import { clearKeychainCache, getCredentialsFromKeychain, updateProfileSubscriptionMetadata } from '../claude-profile/credential-utils';
+import { getUsageMonitor } from '../claude-profile/usage-monitor';
 import semver from 'semver';
 
 const execFileAsync = promisify(execFile);
@@ -39,10 +42,8 @@ const VERSION_LIST_CACHE_DURATION_MS = 60 * 60 * 1000; // 1 hour for version lis
  */
 async function validateClaudeCliAsync(cliPath: string): Promise<[boolean, string | null]> {
   try {
-    const isWindows = process.platform === 'win32';
-
     // Security validation: reject paths with shell metacharacters or directory traversal
-    if (isWindows && !isSecurePath(cliPath)) {
+    if (isWindows() && !isSecurePath(cliPath)) {
       throw new Error(`Claude CLI path failed security validation: ${cliPath}`);
     }
 
@@ -58,7 +59,7 @@ async function validateClaudeCliAsync(cliPath: string): Promise<[boolean, string
     // /d = disable AutoRun registry commands
     // /s = strip first and last quotes, preserving inner quotes
     // /c = run command then terminate
-    if (isWindows && /\.(cmd|bat)$/i.test(cliPath)) {
+    if (isWindows() && /\.(cmd|bat)$/i.test(cliPath)) {
       // Get cmd.exe path from environment or use default
       const cmdExe = process.env.ComSpec
         || path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
@@ -106,7 +107,6 @@ async function scanClaudeInstallations(activePath: string | null): Promise<Claud
   const installations: ClaudeInstallationInfo[] = [];
   const seenPaths = new Set<string>();
   const homeDir = os.homedir();
-  const isWindows = process.platform === 'win32';
 
   // Get detection paths from cli-tool-manager (single source of truth)
   const detectionPaths = getClaudeDetectionPaths(homeDir);
@@ -146,8 +146,8 @@ async function scanClaudeInstallations(activePath: string | null): Promise<Claud
 
   // 2. Check system PATH via which/where
   try {
-    if (isWindows) {
-      const result = await execFileAsync('where', ['claude'], { timeout: 5000 });
+    if (isWindows()) {
+      const result = await execFileAsync(getWhereExePath(), ['claude'], { timeout: 5000 });
       const paths = result.stdout.trim().split('\n').filter(p => p.trim());
       for (const p of paths) {
         await addInstallation(p.trim(), 'system-path');
@@ -164,14 +164,14 @@ async function scanClaudeInstallations(activePath: string | null): Promise<Claud
   }
 
   // 3. Homebrew paths (macOS) - from getClaudeDetectionPaths
-  if (process.platform === 'darwin') {
+  if (isMacOS()) {
     for (const p of detectionPaths.homebrewPaths) {
       await addInstallation(p, 'homebrew');
     }
   }
 
   // 4. NVM paths (Unix) - check Node.js version manager
-  if (!isWindows && existsSync(detectionPaths.nvmVersionsDir)) {
+  if (!isWindows() && existsSync(detectionPaths.nvmVersionsDir)) {
     try {
       const entries = await fsPromises.readdir(detectionPaths.nvmVersionsDir, { withFileTypes: true });
       const versionDirs = sortNvmVersionDirs(entries);
@@ -190,7 +190,7 @@ async function scanClaudeInstallations(activePath: string | null): Promise<Claud
   }
 
   // 6. Additional common paths not in getClaudeDetectionPaths (for broader scanning)
-  const additionalPaths = isWindows
+  const additionalPaths = isWindows()
     ? [] // Windows paths are well covered by detectionPaths.platformPaths
     : [
         path.join(homeDir, '.npm-global', 'bin', 'claude'),
@@ -213,11 +213,36 @@ async function scanClaudeInstallations(activePath: string | null): Promise<Claud
 
 /**
  * Fetch the latest version of Claude Code from npm registry
+ * @param currentInstalled - Optional currently installed version. If provided and newer than
+ *                           cached latest, cache will be invalidated and fresh data fetched.
+ *                           This handles the case where CLI was updated while app was running.
  */
-async function fetchLatestVersion(): Promise<string> {
+async function fetchLatestVersion(currentInstalled?: string | null): Promise<string> {
   // Check cache first
   if (cachedLatestVersion && Date.now() - cachedLatestVersion.timestamp < CACHE_DURATION_MS) {
-    return cachedLatestVersion.version;
+    const cachedVersion = cachedLatestVersion.version;
+
+    // Invalidate cache if installed version is newer than cached latest
+    // This handles the case where CLI was updated while app was running
+    if (currentInstalled && cachedVersion) {
+      try {
+        const cleanInstalled = currentInstalled.replace(/^v/, '');
+        const cleanCached = cachedVersion.replace(/^v/, '');
+        if (semver.valid(cleanInstalled) && semver.valid(cleanCached) &&
+            semver.gt(cleanInstalled, cleanCached)) {
+          console.warn('[Claude Code] Installed version newer than cached latest, invalidating cache');
+          cachedLatestVersion = null;
+          // Fall through to fetch fresh from npm
+        } else {
+          return cachedVersion;
+        }
+      } catch {
+        // If semver comparison fails, return cached version
+        return cachedVersion;
+      }
+    } else {
+      return cachedVersion;
+    }
   }
 
   try {
@@ -311,9 +336,9 @@ async function fetchAvailableVersions(): Promise<string[]> {
  * @param version - The version to install (e.g., "1.0.5")
  */
 function getInstallVersionCommand(version: string): string {
-  if (process.platform === 'win32') {
+  if (isWindows()) {
     // Windows: kill running Claude processes first, then install specific version
-    return `taskkill /IM claude.exe /F 2>nul; claude install --force ${version}`;
+    return `"${getTaskkillExePath()}" /IM claude.exe /F 2>nul; claude install --force ${version}`;
   } else {
     // macOS/Linux: kill running Claude processes first, then install specific version
     return `pkill -x claude 2>/dev/null; sleep 1; claude install --force ${version}`;
@@ -325,10 +350,10 @@ function getInstallVersionCommand(version: string): string {
  * @param isUpdate - If true, Claude is already installed and we just need to update
  */
 function getInstallCommand(isUpdate: boolean): string {
-  if (process.platform === 'win32') {
+  if (isWindows()) {
     if (isUpdate) {
       // Update: kill running Claude processes first, then update with --force
-      return 'taskkill /IM claude.exe /F 2>nul; claude install --force latest';
+      return `"${getTaskkillExePath()}" /IM claude.exe /F 2>nul; claude install --force latest`;
     }
     return 'irm https://claude.ai/install.ps1 | iex';
   } else {
@@ -408,14 +433,13 @@ export function escapeBashCommand(str: string): string {
  * Supports macOS, Windows, and Linux terminals
  */
 export async function openTerminalWithCommand(command: string): Promise<void> {
-  const platform = process.platform;
   const settings = readSettingsFile();
   const preferredTerminal = settings?.preferredTerminal as string | undefined;
 
-  console.warn('[Claude Code] Platform:', platform);
+  console.warn('[Claude Code] Platform:', isWindows() ? 'Windows' : isMacOS() ? 'macOS' : 'Linux');
   console.warn('[Claude Code] Preferred terminal:', preferredTerminal);
 
-  if (platform === 'darwin') {
+  if (isMacOS()) {
     // macOS: Use AppleScript to open terminal with command
     const escapedCommand = escapeAppleScriptString(command);
     let script: string;
@@ -524,7 +548,7 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
     console.warn('[Claude Code] Running AppleScript...');
     execFileSync('osascript', ['-e', script], { stdio: 'pipe' });
 
-  } else if (platform === 'win32') {
+  } else if (isWindows()) {
     // Windows: Use appropriate terminal
     // Values match SupportedTerminal type: 'windowsterminal', 'powershell', 'cmd', 'conemu', 'cmder',
     // 'gitbash', 'alacritty', 'wezterm', 'hyper', 'tabby', 'cygwin', 'msys2'
@@ -533,21 +557,41 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
     console.warn('[Claude Code] Using terminal:', terminalId);
     console.warn('[Claude Code] Command to run:', command);
 
-    // For Windows, use exec with a properly formed command string
-    // This is more reliable than spawn for complex PowerShell commands with pipes
-    const runWindowsCommand = (cmdString: string): Promise<void> => {
-      return new Promise((resolve) => {
-        console.warn(`[Claude Code] Executing: ${cmdString}`);
-        // Fire and forget - don't wait for the terminal to close
-        // The -NoExit flag keeps the terminal open, so we can't wait for exec to complete
-        const child = exec(cmdString, { windowsHide: false });
+    // Helper to spawn a detached process on Windows
+    // This is more reliable than exec() + start command because:
+    // 1. spawn() launches the executable directly without requiring CMD shell
+    // 2. detached: true allows the terminal to persist after our app exits
+    // 3. stdio: 'ignore' prevents our app from being blocked by terminal output
+    const spawnWindowsTerminal = (executable: string, args: string[]): Promise<void> => {
+      // Give the process a brief moment to spawn and open its window.
+      // 300ms is sufficient for most terminal emulators to start, but short
+      // enough that the UI doesn't feel sluggish.
+      const SPAWN_WAIT_MS = 300;
 
-        // Detach from the child process so we don't wait for it
-        child.unref?.();
+      return new Promise((resolve, reject) => {
+        console.warn(`[Claude Code] Spawning: ${executable}`, args);
 
-        // Resolve immediately after starting the process
-        // Give it a brief moment to ensure the window opens
-        setTimeout(() => resolve(), 300);
+        const child = spawn(executable, args, {
+          detached: true,
+          stdio: 'ignore',
+          windowsHide: false,
+        });
+
+        // Detach from the child process so it runs independently
+        child.unref();
+
+        const timer = setTimeout(() => {
+          child.removeListener('error', onError);
+          resolve();
+        }, SPAWN_WAIT_MS);
+
+        const onError = (err: Error) => {
+          console.error(`[Claude Code] Spawn error for ${executable}:`, err);
+          clearTimeout(timer);
+          reject(err);
+        };
+
+        child.on('error', onError);
       });
     };
 
@@ -557,7 +601,8 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
 
       if (terminalId === 'windowsterminal') {
         // Windows Terminal - open new tab with PowerShell
-        await runWindowsCommand(`wt new-tab powershell -NoExit -Command "${escapedCommand}"`);
+        // wt.exe accepts arguments directly without needing CMD's start command
+        await spawnWindowsTerminal('wt', ['new-tab', 'powershell', '-NoExit', '-Command', escapedCommand]);
       } else if (terminalId === 'gitbash') {
         // Git Bash - use the passed command (escaped for bash context)
         const escapedBashCommand = escapeGitBashCommand(command);
@@ -567,22 +612,21 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
         ];
         const gitBashPath = gitBashPaths.find(p => existsSync(p));
         if (gitBashPath) {
-          await runWindowsCommand(`"${gitBashPath}" -c "${escapedBashCommand}"`);
+          await spawnWindowsTerminal(gitBashPath, ['-c', escapedBashCommand]);
         } else {
           throw new Error('Git Bash not found');
         }
       } else if (terminalId === 'alacritty') {
-        // Alacritty
-        await runWindowsCommand(`start alacritty -e powershell -NoExit -Command "${escapedCommand}"`);
+        // Alacritty - launch with PowerShell
+        await spawnWindowsTerminal('alacritty', ['-e', 'powershell', '-NoExit', '-Command', escapedCommand]);
       } else if (terminalId === 'wezterm') {
-        // WezTerm
-        await runWindowsCommand(`start wezterm start -- powershell -NoExit -Command "${escapedCommand}"`);
+        // WezTerm - use start subcommand with PowerShell
+        await spawnWindowsTerminal('wezterm', ['start', '--', 'powershell', '-NoExit', '-Command', escapedCommand]);
       } else if (terminalId === 'cmd') {
-        // Command Prompt - use cmd /k to run command and keep window open
-        // Note: cmd.exe uses its own escaping rules, so we pass the raw command
-        // and let cmd handle it. The command is typically PowerShell-formatted
-        // for install scripts, so we run PowerShell from cmd.
-        await runWindowsCommand(`start cmd /k "powershell -NoExit -Command ${escapedCommand}"`);
+        // Command Prompt - spawn cmd.exe with /k (keep window open)
+        // The command runs PowerShell to execute the install script
+        const cmdPath = process.env.ComSpec || path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
+        await spawnWindowsTerminal(cmdPath, ['/k', 'powershell', '-NoExit', '-Command', escapedCommand]);
       } else if (terminalId === 'conemu') {
         // ConEmu - open with PowerShell tab running the command
         const conemuPaths = [
@@ -592,11 +636,11 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
         const conemuPath = conemuPaths.find(p => existsSync(p));
         if (conemuPath) {
           // ConEmu uses -run to specify the command to execute
-          await runWindowsCommand(`start "" "${conemuPath}" -run "powershell -NoExit -Command ${escapedCommand}"`);
+          await spawnWindowsTerminal(conemuPath, ['-run', `powershell -NoExit -Command ${escapedCommand}`]);
         } else {
           // Fall back to PowerShell if ConEmu not found
           console.warn('[Claude Code] ConEmu not found, falling back to PowerShell');
-          await runWindowsCommand(`start powershell -NoExit -Command "${escapedCommand}"`);
+          await spawnWindowsTerminal('powershell', ['-NoExit', '-Command', escapedCommand]);
         }
       } else if (terminalId === 'cmder') {
         // Cmder - portable console emulator for Windows
@@ -608,11 +652,11 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
         const cmderPath = cmderPaths.find(p => existsSync(p));
         if (cmderPath) {
           // Cmder uses /TASK for predefined tasks or /START for directory, but we can use /C for command
-          await runWindowsCommand(`start "" "${cmderPath}" /SINGLE /START "" /TASK "powershell -NoExit -Command ${escapedCommand}"`);
+          await spawnWindowsTerminal(cmderPath, ['/SINGLE', '/START', '', '/TASK', `powershell -NoExit -Command ${escapedCommand}`]);
         } else {
           // Fall back to PowerShell if Cmder not found
           console.warn('[Claude Code] Cmder not found, falling back to PowerShell');
-          await runWindowsCommand(`start powershell -NoExit -Command "${escapedCommand}"`);
+          await spawnWindowsTerminal('powershell', ['-NoExit', '-Command', escapedCommand]);
         }
       } else if (terminalId === 'hyper') {
         // Hyper - Electron-based terminal
@@ -624,11 +668,11 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
         if (hyperPath) {
           // Launch Hyper and it will pick up the shell; send command via PowerShell since Hyper
           // doesn't have a built-in way to run commands on startup
-          await runWindowsCommand(`start "" "${hyperPath}"`);
+          await spawnWindowsTerminal(hyperPath, []);
           console.warn('[Claude Code] Hyper opened - command must be pasted manually');
         } else {
           console.warn('[Claude Code] Hyper not found, falling back to PowerShell');
-          await runWindowsCommand(`start powershell -NoExit -Command "${escapedCommand}"`);
+          await spawnWindowsTerminal('powershell', ['-NoExit', '-Command', escapedCommand]);
         }
       } else if (terminalId === 'tabby') {
         // Tabby (formerly Terminus) - modern terminal for Windows
@@ -639,11 +683,11 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
         const tabbyPath = tabbyPaths.find(p => existsSync(p));
         if (tabbyPath) {
           // Tabby opens with default shell; similar to Hyper, no command line arg for running commands
-          await runWindowsCommand(`start "" "${tabbyPath}"`);
+          await spawnWindowsTerminal(tabbyPath, []);
           console.warn('[Claude Code] Tabby opened - command must be pasted manually');
         } else {
           console.warn('[Claude Code] Tabby not found, falling back to PowerShell');
-          await runWindowsCommand(`start powershell -NoExit -Command "${escapedCommand}"`);
+          await spawnWindowsTerminal('powershell', ['-NoExit', '-Command', escapedCommand]);
         }
       } else if (terminalId === 'cygwin') {
         // Cygwin terminal
@@ -655,10 +699,10 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
         if (cygwinPath) {
           // mintty with bash, escaping for bash context
           const escapedBashCommand = escapeGitBashCommand(command);
-          await runWindowsCommand(`"${cygwinPath}" -e /bin/bash -lc "${escapedBashCommand}"`);
+          await spawnWindowsTerminal(cygwinPath, ['-e', '/bin/bash', '-lc', escapedBashCommand]);
         } else {
           console.warn('[Claude Code] Cygwin not found, falling back to PowerShell');
-          await runWindowsCommand(`start powershell -NoExit -Command "${escapedCommand}"`);
+          await spawnWindowsTerminal('powershell', ['-NoExit', '-Command', escapedCommand]);
         }
       } else if (terminalId === 'msys2') {
         // MSYS2 terminal
@@ -672,20 +716,19 @@ export async function openTerminalWithCommand(command: string): Promise<void> {
           const escapedBashCommand = escapeGitBashCommand(command);
           if (msys2Path.endsWith('.cmd')) {
             // Use the shell launcher script
-            await runWindowsCommand(`"${msys2Path}" -mingw64 -c "${escapedBashCommand}"`);
+            await spawnWindowsTerminal(msys2Path, ['-mingw64', '-c', escapedBashCommand]);
           } else {
             // Use mintty directly
-            await runWindowsCommand(`"${msys2Path}" -e /bin/bash -lc "${escapedBashCommand}"`);
+            await spawnWindowsTerminal(msys2Path, ['-e', '/bin/bash', '-lc', escapedBashCommand]);
           }
         } else {
           console.warn('[Claude Code] MSYS2 not found, falling back to PowerShell');
-          await runWindowsCommand(`start powershell -NoExit -Command "${escapedCommand}"`);
+          await spawnWindowsTerminal('powershell', ['-NoExit', '-Command', escapedCommand]);
         }
       } else {
         // Default: PowerShell (handles 'powershell', 'system', or any unknown value)
-        // Use 'start' command to open a new PowerShell window
-        // The command is wrapped in double quotes and passed via -Command
-        await runWindowsCommand(`start powershell -NoExit -Command "${escapedCommand}"`);
+        // Spawn PowerShell directly with the command - this is more reliable than using CMD's start command
+        await spawnWindowsTerminal('powershell', ['-NoExit', '-Command', escapedCommand]);
       }
     } catch (err) {
       console.error('[Claude Code] Terminal execution failed:', err);
@@ -812,7 +855,7 @@ interface AuthCheckResult {
  * Checks multiple locations based on platform:
  * - macOS: .claude.json with oauthAccount containing emailAddress
  * - Linux: .credentials.json OR .claude.json (Claude uses different storage on Linux)
- * - Windows: .claude.json with oauthAccount containing emailAddress
+ * - Windows: .claude.json, .credentials.json, AND Windows Credential Manager
  *
  * Also returns the full oauthAccount data so we can update the profile token.
  */
@@ -838,7 +881,7 @@ function checkProfileAuthentication(configDir: string): AuthCheckResult {
       const data = JSON.parse(content);
 
       // Check for oauthAccount with emailAddress
-      if (data.oauthAccount && data.oauthAccount.emailAddress) {
+      if (data.oauthAccount?.emailAddress) {
         return {
           authenticated: true,
           email: data.oauthAccount.emailAddress,
@@ -847,8 +890,8 @@ function checkProfileAuthentication(configDir: string): AuthCheckResult {
       }
     }
 
-    // On Linux, also check .credentials.json (Claude CLI may store tokens here)
-    if (process.platform === 'linux' && existsSync(credentialsJsonPath)) {
+    // On Linux and Windows, also check .credentials.json (Claude CLI stores tokens here)
+    if ((isLinux() || isWindows()) && existsSync(credentialsJsonPath)) {
       const content = readFileSync(credentialsJsonPath, 'utf-8');
       const data = JSON.parse(content);
 
@@ -864,7 +907,7 @@ function checkProfileAuthentication(configDir: string): AuthCheckResult {
         };
       }
 
-      if (data.oauthAccount && data.oauthAccount.emailAddress) {
+      if (data.oauthAccount?.emailAddress) {
         return {
           authenticated: true,
           email: data.oauthAccount.emailAddress,
@@ -880,6 +923,22 @@ function checkProfileAuthentication(configDir: string): AuthCheckResult {
           oauthAccount: {
             accessToken: data.accessToken || data.token,
             refreshToken: data.refreshToken
+          }
+        };
+      }
+    }
+
+    // On Windows, also check Windows Credential Manager as a fallback
+    // Credentials may be stored ONLY in Credential Manager (not in files)
+    if (isWindows()) {
+      const keychainCreds = getCredentialsFromKeychain(expandedConfigDir);
+      if (keychainCreds.token) {
+        return {
+          authenticated: true,
+          email: keychainCreds.email || undefined,
+          oauthAccount: {
+            accessToken: keychainCreds.token,
+            emailAddress: keychainCreds.email || undefined
           }
         };
       }
@@ -917,10 +976,11 @@ export function registerClaudeCodeHandlers(): void {
         console.warn('[Claude Code] Installed version:', installed);
 
         // Fetch latest version from npm
+        // Pass installed version to invalidate cache if installed > cached (handles CLI update while app running)
         let latest: string;
         try {
           console.warn('[Claude Code] Fetching latest version from npm...');
-          latest = await fetchLatestVersion();
+          latest = await fetchLatestVersion(installed);
           console.warn('[Claude Code] Latest version:', latest);
         } catch (error) {
           console.warn('[Claude Code] Failed to fetch latest version, continuing with unknown:', error);
@@ -1310,7 +1370,13 @@ export function registerClaudeCodeHandlers(): void {
           }
         }
 
-        // If authenticated, update the profile with the email and OAuth token
+        // If authenticated, update the profile with metadata from credentials
+        // NOTE: We intentionally do NOT store the OAuth token in the profile.
+        // Storing the token causes AutoClaude to use a stale cached token instead of
+        // letting Claude CLI read fresh tokens from Keychain (which auto-refreshes).
+        // By only storing metadata, we ensure getProfileEnv() uses CLAUDE_CONFIG_DIR,
+        // which allows Claude CLI's working token refresh mechanism to be used.
+        // See: docs/LONG_LIVED_AUTH_PLAN.md for full context.
         if (result.authenticated) {
           profile.isAuthenticated = true;
 
@@ -1318,18 +1384,25 @@ export function registerClaudeCodeHandlers(): void {
             profile.email = result.email;
           }
 
-          // Save the OAuth token if available (critical for re-authentication)
-          if (result.oauthAccount?.accessToken) {
-            console.warn('[Claude Code] Saving OAuth token for profile:', profileId);
-            profileManager.setProfileToken(
-              profileId,
-              result.oauthAccount.accessToken,
-              result.email
-            );
-          } else {
-            // No OAuth token, just save the email update
-            profileManager.saveProfile(profile);
-          }
+          // Update subscription metadata from Keychain credentials
+          // These are needed to display "Max" vs "Pro" in the UI
+          updateProfileSubscriptionMetadata(profile, expandedConfigDir);
+
+          // Save profile metadata (email, isAuthenticated, subscriptionType, rateLimitTier) but NOT the OAuth token
+          profileManager.saveProfile(profile);
+
+          // CRITICAL: Clear keychain cache for this profile's configDir
+          // This ensures the new token is read from keychain instead of using a stale cached token
+          // Without this, UsageMonitor would use the old cached token and show incorrect usage data
+          clearKeychainCache(expandedConfigDir);
+          console.warn('[Claude Code] Cleared keychain cache for profile after re-authentication:', profileId);
+
+          // CRITICAL: Also clear the UsageMonitor's usage cache for this profile
+          // This ensures fresh usage data is fetched from the API instead of using stale cached data
+          // The keychain cache clear alone is not enough - we also need to clear the usage cache
+          const usageMonitor = getUsageMonitor();
+          usageMonitor.clearProfileUsageCache(profileId);
+          console.warn('[Claude Code] Cleared usage cache for profile after re-authentication:', profileId);
 
           // Clean up backup file after successful authentication
           if (existsSync(claudeJsonBakPath)) {

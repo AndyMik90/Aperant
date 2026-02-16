@@ -12,9 +12,6 @@ import type {
 } from '../../../shared/types';
 import { projectStore } from '../../project-store';
 import { getMemoryService, isKuzuAvailable } from '../../memory-service';
-import {
-  getGraphitiDatabaseDetails
-} from './utils';
 import { getEffectiveSourcePath } from '../../updater/path-resolver';
 import {
   loadGraphitiStateFromSpecs,
@@ -179,15 +176,19 @@ export function registerProjectContextHandlers(
             '--output', indexOutputPath
           ], {
             cwd: project.path,
-            env: getAugmentedEnv()
+            env: {
+              ...getAugmentedEnv(),
+              PYTHONIOENCODING: 'utf-8',
+              PYTHONUTF8: '1'
+            }
           });
 
           proc.stdout?.on('data', (data) => {
-            stdout += data.toString();
+            stdout += data.toString('utf-8');
           });
 
           proc.stderr?.on('data', (data) => {
-            stderr += data.toString();
+            stderr += data.toString('utf-8');
           });
 
           proc.on('close', (code: number) => {

@@ -13,12 +13,13 @@ Tests cover:
 import json
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
 # Add auto-claude to path for imports
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 from ci_discovery import (
     CIConfig,
@@ -628,11 +629,12 @@ class TestEdgeCases:
 
     def test_nonexistent_directory(self, discovery):
         """Test handling of non-existent directory."""
-        fake_dir = Path("/nonexistent/path")
+        fake_dir = Path("/tmp/test-nonexistent-ci-discovery-123456")
 
-        # Should not raise
-        result = discovery.discover(fake_dir)
-        assert result is None
+        # Should not raise - mock exists to avoid permission error
+        with patch.object(Path, 'exists', return_value=False):
+            result = discovery.discover(fake_dir)
+            assert result is None
 
     def test_ci_priority_github_first(self, discovery, temp_dir):
         """Test that GitHub Actions takes priority."""

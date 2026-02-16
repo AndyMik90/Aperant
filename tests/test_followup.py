@@ -16,8 +16,8 @@ from pathlib import Path
 from implementation_plan import (
     ImplementationPlan,
     Phase,
-    Chunk,
-    ChunkStatus,
+    Subtask,
+    SubtaskStatus,
     PhaseType,
     WorkflowType,
 )
@@ -31,8 +31,8 @@ class TestAddFollowupPhase:
         plan = ImplementationPlan(feature="Test Feature")
 
         new_chunks = [
-            Chunk(id="followup-1", description="First follow-up task"),
-            Chunk(id="followup-2", description="Second follow-up task"),
+            Subtask(id="followup-1", description="First follow-up task"),
+            Subtask(id="followup-2", description="Second follow-up task"),
         ]
 
         phase = plan.add_followup_phase("Follow-Up: New Work", new_chunks)
@@ -53,7 +53,7 @@ class TestAddFollowupPhase:
             ],
         )
 
-        new_chunks = [Chunk(id="followup-1", description="Follow-up task")]
+        new_chunks = [Subtask(id="followup-1", description="Follow-up task")]
         phase = plan.add_followup_phase("Follow-Up Phase", new_chunks)
 
         assert phase.phase == 3
@@ -70,7 +70,7 @@ class TestAddFollowupPhase:
             ],
         )
 
-        new_chunks = [Chunk(id="followup-1", description="Follow-up task")]
+        new_chunks = [Subtask(id="followup-1", description="Follow-up task")]
         phase = plan.add_followup_phase("Follow-Up Phase", new_chunks)
 
         assert phase.depends_on == [1, 2, 3]
@@ -79,7 +79,7 @@ class TestAddFollowupPhase:
         """Respects phase_type parameter."""
         plan = ImplementationPlan(feature="Test Feature")
 
-        new_chunks = [Chunk(id="followup-1", description="Integration task")]
+        new_chunks = [Subtask(id="followup-1", description="Integration task")]
         phase = plan.add_followup_phase(
             "Integration Work",
             new_chunks,
@@ -92,7 +92,7 @@ class TestAddFollowupPhase:
         """Respects parallel_safe parameter."""
         plan = ImplementationPlan(feature="Test Feature")
 
-        new_chunks = [Chunk(id="followup-1", description="Parallel task")]
+        new_chunks = [Subtask(id="followup-1", description="Parallel task")]
         phase = plan.add_followup_phase(
             "Parallel Work",
             new_chunks,
@@ -109,7 +109,7 @@ class TestAddFollowupPhase:
             planStatus="completed",
         )
 
-        new_chunks = [Chunk(id="followup-1", description="New task")]
+        new_chunks = [Subtask(id="followup-1", description="New task")]
         plan.add_followup_phase("Follow-Up", new_chunks)
 
         assert plan.status == "in_progress"
@@ -122,7 +122,7 @@ class TestAddFollowupPhase:
             qa_signoff={"status": "approved", "timestamp": "2024-01-01"},
         )
 
-        new_chunks = [Chunk(id="followup-1", description="New task")]
+        new_chunks = [Subtask(id="followup-1", description="New task")]
         plan.add_followup_phase("Follow-Up", new_chunks)
 
         assert plan.qa_signoff is None
@@ -131,7 +131,7 @@ class TestAddFollowupPhase:
         """Returns the newly created Phase object."""
         plan = ImplementationPlan(feature="Test Feature")
 
-        new_chunks = [Chunk(id="followup-1", description="New task")]
+        new_chunks = [Subtask(id="followup-1", description="New task")]
         phase = plan.add_followup_phase("Follow-Up", new_chunks)
 
         assert isinstance(phase, Phase)
@@ -146,11 +146,11 @@ class TestAddFollowupPhase:
         )
 
         # First follow-up
-        plan.add_followup_phase("Follow-Up 1", [Chunk(id="f1", description="Task 1")])
+        plan.add_followup_phase("Follow-Up 1", [Subtask(id="f1", description="Task 1")])
         # Second follow-up
-        plan.add_followup_phase("Follow-Up 2", [Chunk(id="f2", description="Task 2")])
+        plan.add_followup_phase("Follow-Up 2", [Subtask(id="f2", description="Task 2")])
         # Third follow-up
-        plan.add_followup_phase("Follow-Up 3", [Chunk(id="f3", description="Task 3")])
+        plan.add_followup_phase("Follow-Up 3", [Subtask(id="f3", description="Task 3")])
 
         assert len(plan.phases) == 4
         assert plan.phases[0].phase == 1
@@ -163,13 +163,13 @@ class TestAddFollowupPhase:
         plan = ImplementationPlan(feature="Test Feature")
 
         new_chunks = [
-            Chunk(id="followup-1", description="Task 1"),
-            Chunk(id="followup-2", description="Task 2"),
+            Subtask(id="followup-1", description="Task 1"),
+            Subtask(id="followup-2", description="Task 2"),
         ]
         phase = plan.add_followup_phase("Follow-Up", new_chunks)
 
         for chunk in phase.chunks:
-            assert chunk.status == ChunkStatus.PENDING
+            assert chunk.status == SubtaskStatus.PENDING
 
 
 class TestResetForFollowup:
@@ -185,7 +185,7 @@ class TestResetForFollowup:
                 Phase(
                     phase=1,
                     name="Phase 1",
-                    subtasks=[Chunk(id="c1", description="Task", status=ChunkStatus.COMPLETED)],
+                    subtasks=[Subtask(id="c1", description="Task", status=SubtaskStatus.COMPLETED)],
                 ),
             ],
         )
@@ -206,7 +206,7 @@ class TestResetForFollowup:
                 Phase(
                     phase=1,
                     name="Phase 1",
-                    subtasks=[Chunk(id="c1", description="Task", status=ChunkStatus.COMPLETED)],
+                    subtasks=[Subtask(id="c1", description="Task", status=SubtaskStatus.COMPLETED)],
                 ),
             ],
         )
@@ -227,7 +227,7 @@ class TestResetForFollowup:
                 Phase(
                     phase=1,
                     name="Phase 1",
-                    subtasks=[Chunk(id="c1", description="Task", status=ChunkStatus.COMPLETED)],
+                    subtasks=[Subtask(id="c1", description="Task", status=SubtaskStatus.COMPLETED)],
                 ),
             ],
         )
@@ -249,8 +249,8 @@ class TestResetForFollowup:
                     phase=1,
                     name="Phase 1",
                     subtasks=[
-                        Chunk(id="c1", description="Task 1", status=ChunkStatus.COMPLETED),
-                        Chunk(id="c2", description="Task 2", status=ChunkStatus.COMPLETED),
+                        Subtask(id="c1", description="Task 1", status=SubtaskStatus.COMPLETED),
+                        Subtask(id="c2", description="Task 2", status=SubtaskStatus.COMPLETED),
                     ],
                 ),
             ],
@@ -272,8 +272,8 @@ class TestResetForFollowup:
                     phase=1,
                     name="Phase 1",
                     subtasks=[
-                        Chunk(id="c1", description="Task 1", status=ChunkStatus.COMPLETED),
-                        Chunk(id="c2", description="Task 2", status=ChunkStatus.PENDING),
+                        Subtask(id="c1", description="Task 1", status=SubtaskStatus.COMPLETED),
+                        Subtask(id="c2", description="Task 2", status=SubtaskStatus.PENDING),
                     ],
                 ),
             ],
@@ -293,7 +293,7 @@ class TestResetForFollowup:
                 Phase(
                     phase=1,
                     name="Phase 1",
-                    subtasks=[Chunk(id="c1", description="Task", status=ChunkStatus.PENDING)],
+                    subtasks=[Subtask(id="c1", description="Task", status=SubtaskStatus.PENDING)],
                 ),
             ],
         )
@@ -313,7 +313,7 @@ class TestResetForFollowup:
                 Phase(
                     phase=1,
                     name="Phase 1",
-                    subtasks=[Chunk(id="c1", description="Task", status=ChunkStatus.COMPLETED)],
+                    subtasks=[Subtask(id="c1", description="Task", status=SubtaskStatus.COMPLETED)],
                 ),
             ],
         )
@@ -333,7 +333,7 @@ class TestResetForFollowup:
                 Phase(
                     phase=1,
                     name="Phase 1",
-                    subtasks=[Chunk(id="c1", description="Task", status=ChunkStatus.COMPLETED)],
+                    subtasks=[Subtask(id="c1", description="Task", status=SubtaskStatus.COMPLETED)],
                 ),
             ],
         )
@@ -357,10 +357,10 @@ class TestExistingChunksPreserved:
                     phase=1,
                     name="Original Phase",
                     subtasks=[
-                        Chunk(
+                        Subtask(
                             id="original-1",
                             description="Original task",
-                            status=ChunkStatus.COMPLETED,
+                            status=SubtaskStatus.COMPLETED,
                             completed_at="2024-01-01T12:00:00",
                         ),
                     ],
@@ -369,12 +369,12 @@ class TestExistingChunksPreserved:
         )
 
         # Add follow-up
-        new_chunks = [Chunk(id="followup-1", description="New task")]
+        new_chunks = [Subtask(id="followup-1", description="New task")]
         plan.add_followup_phase("Follow-Up", new_chunks)
 
         # Original chunk should still be completed
         original_chunk = plan.phases[0].chunks[0]
-        assert original_chunk.status == ChunkStatus.COMPLETED
+        assert original_chunk.status == SubtaskStatus.COMPLETED
         assert original_chunk.completed_at == "2024-01-01T12:00:00"
 
     def test_original_phase_structure_preserved(self):
@@ -384,13 +384,13 @@ class TestExistingChunksPreserved:
                 phase=1,
                 name="Phase 1",
                 depends_on=[],
-                subtasks=[Chunk(id="c1", description="Task 1", status=ChunkStatus.COMPLETED)],
+                subtasks=[Subtask(id="c1", description="Task 1", status=SubtaskStatus.COMPLETED)],
             ),
             Phase(
                 phase=2,
                 name="Phase 2",
                 depends_on=[1],
-                subtasks=[Chunk(id="c2", description="Task 2", status=ChunkStatus.COMPLETED)],
+                subtasks=[Subtask(id="c2", description="Task 2", status=SubtaskStatus.COMPLETED)],
             ),
         ]
 
@@ -399,7 +399,7 @@ class TestExistingChunksPreserved:
             phases=original_phases,
         )
 
-        plan.add_followup_phase("Follow-Up", [Chunk(id="f1", description="Follow-up")])
+        plan.add_followup_phase("Follow-Up", [Subtask(id="f1", description="Follow-up")])
 
         # Original phases should be unchanged
         assert plan.phases[0].name == "Phase 1"
@@ -420,7 +420,7 @@ class TestFollowupPlanSaveLoad:
                 Phase(
                     phase=1,
                     name="Original",
-                    subtasks=[Chunk(id="c1", description="Task", status=ChunkStatus.COMPLETED)],
+                    subtasks=[Subtask(id="c1", description="Task", status=SubtaskStatus.COMPLETED)],
                 ),
             ],
         )
@@ -428,7 +428,7 @@ class TestFollowupPlanSaveLoad:
         # Add follow-up
         plan.add_followup_phase(
             "Follow-Up Work",
-            [Chunk(id="followup-1", description="Follow-up task")],
+            [Subtask(id="followup-1", description="Follow-up task")],
         )
 
         # Save
@@ -451,7 +451,7 @@ class TestFollowupPlanSaveLoad:
                 Phase(
                     phase=1,
                     name="Original",
-                    subtasks=[Chunk(id="c1", description="Task", status=ChunkStatus.COMPLETED)],
+                    subtasks=[Subtask(id="c1", description="Task", status=SubtaskStatus.COMPLETED)],
                 ),
             ],
         )
@@ -459,12 +459,12 @@ class TestFollowupPlanSaveLoad:
         plan_path = temp_dir / "implementation_plan.json"
 
         # Add first follow-up and save
-        plan.add_followup_phase("Follow-Up 1", [Chunk(id="f1", description="Task 1")])
+        plan.add_followup_phase("Follow-Up 1", [Subtask(id="f1", description="Task 1")])
         plan.save(plan_path)
 
         # Load, add second follow-up, save
         plan = ImplementationPlan.load(plan_path)
-        plan.add_followup_phase("Follow-Up 2", [Chunk(id="f2", description="Task 2")])
+        plan.add_followup_phase("Follow-Up 2", [Subtask(id="f2", description="Task 2")])
         plan.save(plan_path)
 
         # Load and verify
@@ -487,7 +487,7 @@ class TestFollowupProgressCalculation:
                 Phase(
                     phase=1,
                     name="Original",
-                    subtasks=[Chunk(id="c1", description="Task", status=ChunkStatus.COMPLETED)],
+                    subtasks=[Subtask(id="c1", description="Task", status=SubtaskStatus.COMPLETED)],
                 ),
             ],
         )
@@ -499,7 +499,7 @@ class TestFollowupProgressCalculation:
         assert progress["is_complete"] is True
 
         # Add follow-up
-        plan.add_followup_phase("Follow-Up", [Chunk(id="f1", description="New task")])
+        plan.add_followup_phase("Follow-Up", [Subtask(id="f1", description="New task")])
 
         # Now 50% complete
         progress = plan.get_progress()
@@ -516,7 +516,7 @@ class TestFollowupProgressCalculation:
                 Phase(
                     phase=1,
                     name="Original",
-                    subtasks=[Chunk(id="c1", description="Task", status=ChunkStatus.COMPLETED)],
+                    subtasks=[Subtask(id="c1", description="Task", status=SubtaskStatus.COMPLETED)],
                 ),
             ],
         )
@@ -525,7 +525,7 @@ class TestFollowupProgressCalculation:
         assert plan.get_next_subtask() is None
 
         # Add follow-up
-        plan.add_followup_phase("Follow-Up", [Chunk(id="f1", description="New task")])
+        plan.add_followup_phase("Follow-Up", [Subtask(id="f1", description="New task")])
 
         # Now follow-up chunk is next
         next_work = plan.get_next_subtask()

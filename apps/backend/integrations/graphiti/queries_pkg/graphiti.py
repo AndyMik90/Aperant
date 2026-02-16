@@ -13,6 +13,7 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
+from core.sentry import capture_exception
 from graphiti_config import GraphitiConfig, GraphitiState
 
 from .client import GraphitiClient
@@ -196,6 +197,13 @@ class GraphitiMemory:
         except Exception as e:
             logger.warning(f"Failed to initialize Graphiti: {e}")
             self._record_error(f"Initialization failed: {e}")
+            capture_exception(
+                e,
+                component="graphiti",
+                operation="initialize",
+                group_id=self.group_id,
+                group_id_mode=self.group_id_mode,
+            )
             self._available = False
             return False
 
@@ -220,14 +228,25 @@ class GraphitiMemory:
         if not await self._ensure_initialized():
             return False
 
-        result = await self._queries.add_session_insight(session_num, insights)
+        try:
+            result = await self._queries.add_session_insight(session_num, insights)
 
-        if result and self.state:
-            self.state.last_session = session_num
-            self.state.episode_count += 1
-            self.state.save(self.spec_dir)
+            if result and self.state:
+                self.state.last_session = session_num
+                self.state.episode_count += 1
+                self.state.save(self.spec_dir)
 
-        return result
+            return result
+        except Exception as e:
+            logger.warning(f"Failed to save session insights: {e}")
+            self._record_error(f"save_session_insights failed: {e}")
+            capture_exception(
+                e,
+                component="graphiti",
+                operation="save_session_insights",
+                session_num=session_num,
+            )
+            return False
 
     async def save_codebase_discoveries(
         self,
@@ -237,39 +256,69 @@ class GraphitiMemory:
         if not await self._ensure_initialized():
             return False
 
-        result = await self._queries.add_codebase_discoveries(discoveries)
+        try:
+            result = await self._queries.add_codebase_discoveries(discoveries)
 
-        if result and self.state:
-            self.state.episode_count += 1
-            self.state.save(self.spec_dir)
+            if result and self.state:
+                self.state.episode_count += 1
+                self.state.save(self.spec_dir)
 
-        return result
+            return result
+        except Exception as e:
+            logger.warning(f"Failed to save codebase discoveries: {e}")
+            self._record_error(f"save_codebase_discoveries failed: {e}")
+            capture_exception(
+                e,
+                component="graphiti",
+                operation="save_codebase_discoveries",
+            )
+            return False
 
     async def save_pattern(self, pattern: str) -> bool:
         """Save a code pattern to the knowledge graph."""
         if not await self._ensure_initialized():
             return False
 
-        result = await self._queries.add_pattern(pattern)
+        try:
+            result = await self._queries.add_pattern(pattern)
 
-        if result and self.state:
-            self.state.episode_count += 1
-            self.state.save(self.spec_dir)
+            if result and self.state:
+                self.state.episode_count += 1
+                self.state.save(self.spec_dir)
 
-        return result
+            return result
+        except Exception as e:
+            logger.warning(f"Failed to save pattern: {e}")
+            self._record_error(f"save_pattern failed: {e}")
+            capture_exception(
+                e,
+                component="graphiti",
+                operation="save_pattern",
+            )
+            return False
 
     async def save_gotcha(self, gotcha: str) -> bool:
         """Save a gotcha (pitfall) to the knowledge graph."""
         if not await self._ensure_initialized():
             return False
 
-        result = await self._queries.add_gotcha(gotcha)
+        try:
+            result = await self._queries.add_gotcha(gotcha)
 
-        if result and self.state:
-            self.state.episode_count += 1
-            self.state.save(self.spec_dir)
+            if result and self.state:
+                self.state.episode_count += 1
+                self.state.save(self.spec_dir)
 
-        return result
+            return result
+        except Exception as e:
+            logger.warning(f"Failed to save gotcha: {e}")
+            self._record_error(f"save_gotcha failed: {e}")
+            capture_exception(
+                e,
+                component="graphiti",
+                operation="save_gotcha",
+            )
+            return False
 
     async def save_task_outcome(
         self,
@@ -282,28 +331,49 @@ class GraphitiMemory:
         if not await self._ensure_initialized():
             return False
 
-        result = await self._queries.add_task_outcome(
-            task_id, success, outcome, metadata
-        )
+        try:
+            result = await self._queries.add_task_outcome(
+                task_id, success, outcome, metadata
+            )
 
-        if result and self.state:
-            self.state.episode_count += 1
-            self.state.save(self.spec_dir)
+            if result and self.state:
+                self.state.episode_count += 1
+                self.state.save(self.spec_dir)
 
-        return result
+            return result
+        except Exception as e:
+            logger.warning(f"Failed to save task outcome: {e}")
+            self._record_error(f"save_task_outcome failed: {e}")
+            capture_exception(
+                e,
+                component="graphiti",
+                operation="save_task_outcome",
+                task_id=task_id,
+            )
+            return False
 
     async def save_structured_insights(self, insights: dict) -> bool:
         """Save extracted insights as multiple focused episodes."""
         if not await self._ensure_initialized():
             return False
 
-        result = await self._queries.add_structured_insights(insights)
+        try:
+            result = await self._queries.add_structured_insights(insights)
 
-        if result and self.state:
-            # Episode count updated in queries module
-            pass
+            if result and self.state:
+                # Episode count updated in queries module
+                pass
 
-        return result
+            return result
+        except Exception as e:
+            logger.warning(f"Failed to save structured insights: {e}")
+            self._record_error(f"save_structured_insights failed: {e}")
+            capture_exception(
+                e,
+                component="graphiti",
+                operation="save_structured_insights",
+            )
+            return False
 
     # Delegate methods to search module
 
@@ -317,9 +387,19 @@ class GraphitiMemory:
         if not await self._ensure_initialized():
             return []
 
-        return await self._search.get_relevant_context(
-            query, num_results, include_project_context
-        )
+        try:
+            return await self._search.get_relevant_context(
+                query, num_results, include_project_context
+            )
+        except Exception as e:
+            logger.warning(f"Failed to get relevant context: {e}")
+            self._record_error(f"get_relevant_context failed: {e}")
+            capture_exception(
+                e,
+                component="graphiti",
+                operation="get_relevant_context",
+            )
+            return []
 
     async def get_session_history(
         self,
@@ -330,7 +410,17 @@ class GraphitiMemory:
         if not await self._ensure_initialized():
             return []
 
-        return await self._search.get_session_history(limit, spec_only)
+        try:
+            return await self._search.get_session_history(limit, spec_only)
+        except Exception as e:
+            logger.warning(f"Failed to get session history: {e}")
+            self._record_error(f"get_session_history failed: {e}")
+            capture_exception(
+                e,
+                component="graphiti",
+                operation="get_session_history",
+            )
+            return []
 
     async def get_similar_task_outcomes(
         self,
@@ -341,7 +431,17 @@ class GraphitiMemory:
         if not await self._ensure_initialized():
             return []
 
-        return await self._search.get_similar_task_outcomes(task_description, limit)
+        try:
+            return await self._search.get_similar_task_outcomes(task_description, limit)
+        except Exception as e:
+            logger.warning(f"Failed to get similar task outcomes: {e}")
+            self._record_error(f"get_similar_task_outcomes failed: {e}")
+            capture_exception(
+                e,
+                component="graphiti",
+                operation="get_similar_task_outcomes",
+            )
+            return []
 
     async def get_patterns_and_gotchas(
         self,
@@ -367,9 +467,19 @@ class GraphitiMemory:
         if not await self._ensure_initialized():
             return [], []
 
-        return await self._search.get_patterns_and_gotchas(
-            query, num_results, min_score
-        )
+        try:
+            return await self._search.get_patterns_and_gotchas(
+                query, num_results, min_score
+            )
+        except Exception as e:
+            logger.warning(f"Failed to get patterns and gotchas: {e}")
+            self._record_error(f"get_patterns_and_gotchas failed: {e}")
+            capture_exception(
+                e,
+                component="graphiti",
+                operation="get_patterns_and_gotchas",
+            )
+            return [], []
 
     # Status and utility methods
 

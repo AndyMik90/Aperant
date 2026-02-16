@@ -77,9 +77,23 @@
     "discard": "Discard",
     "switch": "Switch",
     "add": "Add",
+    "apply": "Apply",
     "gotIt": "Got it",
     "continue": "Continue",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "deleting": "Deleting..."
+  },
+  "actions": {
+    "save": "Save",
+    "apply": "Apply",
+    "delete": "Delete",
+    "settings": "Settings"
+  },
+  "os": {
+    "windows": "Windows",
+    "macos": "macOS",
+    "linux": "Linux",
+    "unknown": "your OS"
   },
   "labels": {
     "loading": "Loading...",
@@ -91,7 +105,9 @@
     "noData": "No data",
     "optional": "Optional",
     "required": "Required",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "important": "Important",
+    "orphaned": "(orphaned)"
   },
   "selection": {
     "select": "Select",
@@ -120,6 +136,11 @@
     "failedToDeleteTaskWorktree": "Failed to delete task worktree: {{specName}}",
     "terminalWorktreeNotFound": "Terminal worktree not found: {{name}}",
     "failedToDeleteTerminalWorktree": "Failed to delete terminal worktree: {{name}}"
+  },
+  "worktrees": {
+    "deleteSuccess": "Worktree '{{branch}}' deleted successfully",
+    "bulkDeleteSuccess": "{{count}} worktree deleted successfully",
+    "bulkDeleteSuccess_plural": "{{count}} worktrees deleted successfully"
   },
   "notification": {
     "accountSwitched": "Account Switched",
@@ -222,6 +243,12 @@
     "selectedCount": "{{count}} selected",
     "noResultsFound": "No results found",
     "reset": "Reset",
+    "sort": {
+      "label": "Sort",
+      "newest": "Newest",
+      "oldest": "Oldest",
+      "largest": "Largest"
+    },
     "pullRequests": "Pull Requests",
     "open": "open",
     "selectPRToView": "Select a pull request to view details",
@@ -265,6 +292,8 @@
     "newIssue": "{{count}} new issue",
     "newIssue_plural": "{{count}} new issues",
     "reviewFailed": "Review Failed",
+    "externalReviewDetected": "External Review Detected",
+    "reviewStartedExternally": "This review was started from another session",
     "description": "Description",
     "noDescription": "No description provided.",
     "followupReviewDetails": "Follow-up Review Details",
@@ -338,9 +367,10 @@
     "updatingBranch": "Updating...",
     "branchUpdated": "Branch updated",
     "branchUpdateFailed": "Failed to update branch",
-    "loadingMore": "Loading more PRs...",
-    "scrollForMore": "Scroll for more",
     "allPRsLoaded": "All PRs loaded",
+    "maxPRsShown": "Showing first 100 PRs",
+    "loadMore": "Load More",
+    "loadingMore": "Loading...",
     "workflowsAwaitingApproval": "{{count}} Workflow Awaiting Approval",
     "workflowsAwaitingApproval_plural": "{{count}} Workflows Awaiting Approval",
     "blockedByWorkflows": "Blocked",
@@ -391,6 +421,12 @@
     "failedLabel": "Failed",
     "starting": "Starting..."
   },
+  "insights": {
+    "suggestedTask": "Suggested Task",
+    "creating": "Creating...",
+    "taskCreated": "Task Created",
+    "createTask": "Create Task"
+  },
   "ideation": {
     "converting": "Converting...",
     "convertToTask": "Convert to Auto-Build Task",
@@ -418,7 +454,11 @@
     "authenticationAriaLabel": "Authentication: {{provider}}",
     "authenticationDetails": "Authentication Details",
     "apiProfile": "API Profile",
+    "apiKey": "API Key",
     "oauth": "OAuth",
+    "claudeCode": "Claude Code",
+    "claudeCodeSubscription": "Claude Code subscription",
+    "subscription": "Subscription",
     "provider": "Provider",
     "providerAnthropic": "Anthropic",
     "providerZai": "z.ai",
@@ -441,7 +481,20 @@
     "window5Hour": "5-hour window",
     "window7Day": "7-day window",
     "window5HoursQuota": "5 Hours Quota",
-    "windowMonthlyToolsQuota": "Monthly Tools Quota"
+    "windowMonthlyToolsQuota": "Monthly Tools Quota",
+    "otherAccounts": "Other Accounts",
+    "next": "Next",
+    "weeklyLimitReached": "Weekly limit reached",
+    "sessionLimitReached": "Session limit reached",
+    "notAuthenticated": "Not authenticated",
+    "needsReauth": "Needs re-auth",
+    "reauthRequired": "Re-authentication required",
+    "reauthRequiredDescription": "Your session has expired. Re-authenticate to view usage and continue using this account.",
+    "reauthButton": "Re-authenticate",
+    "clickToOpenSettings": "Click to open Settings →",
+    "sessionShort": "5-hour session usage",
+    "weeklyShort": "7-day weekly usage",
+    "swap": "Swap"
   },
   "oauth": {
     "enterCode": "Manual Code Entry (Fallback)",
@@ -543,6 +596,49 @@
     "step3": "Click \"Authenticate\" to complete login",
     "footer": "The account will be available once you complete authentication."
   },
+  "roadmap": {
+    "taskCompleted": "Completed",
+    "taskDeleted": "Deleted",
+    "taskArchived": "Archived",
+    "showMoreFeatures": "Show {{count}} more feature",
+    "showMoreFeatures_plural": "Show {{count}} more features",
+    "showLessFeatures": "Show less"
+  },
+  "roadmapGeneration": {
+    "progress": "Progress",
+    "elapsed": "Elapsed: {{time}}",
+    "stillWorking": "Still working...",
+    "stopping": "Stopping...",
+    "stop": "Stop",
+    "stopTooltip": "Stop generation",
+    "phases": {
+      "analyzing": {
+        "label": "Analyzing",
+        "description": "Analyzing project structure and codebase..."
+      },
+      "discovering": {
+        "label": "Discovering",
+        "description": "Discovering target audience and user needs..."
+      },
+      "generating": {
+        "label": "Generating",
+        "description": "Generating feature roadmap..."
+      },
+      "complete": {
+        "label": "Complete",
+        "description": "Roadmap generation complete!"
+      },
+      "error": {
+        "label": "Error",
+        "description": "Generation failed"
+      }
+    },
+    "steps": {
+      "analyze": "Analyze",
+      "discover": "Discover",
+      "generate": "Generate"
+    }
+  },
   "auth": {
     "failure": {
       "title": "Authentication Required",
@@ -556,6 +652,104 @@
       "taskAffected": "Task affected",
       "technicalDetails": "Technical details",
       "goToSettings": "Go to Settings"
+    }
+  },
+  "git": {
+    "branchGroups": {
+      "local": "Local Branches",
+      "remote": "Remote Branches"
+    },
+    "branchType": {
+      "local": "Local",
+      "remote": "Remote"
+    }
+  },
+  "githubErrors": {
+    "rateLimitTitle": "GitHub Rate Limit Reached",
+    "authTitle": "GitHub Authentication Required",
+    "permissionTitle": "GitHub Permission Denied",
+    "notFoundTitle": "GitHub Resource Not Found",
+    "networkTitle": "GitHub Connection Error",
+    "unknownTitle": "GitHub Error",
+    "rateLimitMessage": "GitHub API rate limit reached. Please wait a moment before trying again.",
+    "rateLimitMessageMinutes": "GitHub API rate limit reached. Please wait {{minutes}} minute(s) before trying again.",
+    "rateLimitMessageHours": "GitHub API rate limit reached. Rate limit resets in approximately {{hours}} hour(s).",
+    "authMessage": "GitHub authentication failed. Please check your GitHub token in Settings and try again.",
+    "permissionMessage": "GitHub permission denied. Your token may not have the required access. Please check your token permissions in Settings.",
+    "permissionMessageScopes": "GitHub permission denied. Your token is missing required scopes: {{scopes}}. Please update your GitHub token in Settings.",
+    "notFoundMessage": "The requested GitHub resource was not found. Please verify the repository exists and you have access to it.",
+    "networkMessage": "Unable to connect to GitHub. Please check your internet connection and try again.",
+    "unknownMessage": "An unexpected error occurred while communicating with GitHub. Please try again.",
+    "resetsIn": "Resets in {{time}}",
+    "countdownHoursMinutes": "{{hours}}h {{minutes}}m",
+    "countdownMinutesSeconds": "{{minutes}}m {{seconds}}s",
+    "rateLimitExpired": "Rate limit has reset. You can retry now.",
+    "requiredScopes": "Required scopes"
+  },
+  "roadmapProgress": {
+    "elapsedTime": "Elapsed",
+    "lastActivity": "Last activity",
+    "staleWarning": "No activity for a while",
+    "staleWarningTooltip": "This task has had no activity for {{minutes}} minutes",
+    "phases": {
+      "analyzing": {
+        "label": "Analyzing",
+        "description": "Analyzing project structure and codebase..."
+      },
+      "discovering": {
+        "label": "Discovering",
+        "description": "Discovering target audience and user needs..."
+      },
+      "generating": {
+        "label": "Generating",
+        "description": "Generating feature roadmap..."
+      },
+      "complete": {
+        "label": "Complete",
+        "description": "Roadmap generation complete!"
+      },
+      "error": {
+        "label": "Error",
+        "description": "Generation failed"
+      }
+    },
+    "steps": {
+      "analyze": "Analyze",
+      "discover": "Discover",
+      "generate": "Generate"
+    },
+    "processing": "Processing",
+    "processActiveTooltip": "Process is actively running",
+    "stopGeneration": "Stop generation",
+    "stopping": "Stopping...",
+    "progress": "Progress",
+    "lastActivityPrefix": "last activity",
+    "lastProgressUpdateTooltip": "Last progress update received"
+  },
+  "prStatus": {
+    "ci": {
+      "success": "CI Passed",
+      "pending": "CI Pending",
+      "failure": "CI Failed",
+      "successTooltip": "All CI checks have passed",
+      "pendingTooltip": "CI checks are still running",
+      "failureTooltip": "One or more CI checks have failed"
+    },
+    "review": {
+      "approved": "Approved",
+      "changesRequested": "Changes Requested",
+      "pending": "Review Pending",
+      "approvedTooltip": "This PR has been approved",
+      "changesRequestedTooltip": "Changes have been requested on this PR",
+      "pendingTooltip": "Waiting for review"
+    },
+    "merge": {
+      "ready": "Ready to Merge",
+      "blocked": "Merge Blocked",
+      "conflict": "Has Conflicts",
+      "readyTooltip": "This PR is ready to be merged",
+      "blockedTooltip": "This PR cannot be merged due to blocking conditions",
+      "conflictTooltip": "This PR has merge conflicts that need to be resolved"
     }
   }
 }

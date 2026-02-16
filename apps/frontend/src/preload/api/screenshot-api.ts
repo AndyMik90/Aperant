@@ -16,6 +16,8 @@ export interface ScreenshotAPI {
     success: boolean;
     data?: ScreenshotSource[];
     error?: string;
+    /** Indicates the app is running in development mode (screenshot capture unavailable) */
+    devMode?: boolean;
   }>;
   capture: (options: ScreenshotCaptureOptions) => Promise<{
     success: boolean;

@@ -10,6 +10,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from qa.criteria import is_fixes_applied, is_qa_approved, is_qa_rejected
 from ui import highlight, print_status
 
 
@@ -151,13 +152,22 @@ def handle_batch_status_command(project_dir: str) -> bool:
             except json.JSONDecodeError:
                 pass
 
-        # Determine status
-        if (spec_dir / "spec.md").exists():
-            status = "spec_created"
-        elif (spec_dir / "implementation_plan.json").exists():
-            status = "building"
-        elif (spec_dir / "qa_report.md").exists():
+        # Determine status (highest priority first)
+        # Use authoritative QA status check, not just file existence
+        if is_qa_approved(spec_dir):
             status = "qa_approved"
+        elif is_qa_rejected(spec_dir):
+            status = "qa_rejected"
+        elif is_fixes_applied(spec_dir):
+            status = "fixes_applied"
+        elif (spec_dir / "implementation_plan.json").exists():
+            # Check if there's a qa_report.md but no approval yet (QA in progress)
+            if (spec_dir / "qa_report.md").exists():
+                status = "qa_in_progress"
+            else:
+                status = "building"
+        elif (spec_dir / "spec.md").exists():
+            status = "spec_created"
         else:
             status = "pending_spec"
 
@@ -165,7 +175,10 @@ def handle_batch_status_command(project_dir: str) -> bool:
             "pending_spec": "⏳",
             "spec_created": "📋",
             "building": "⚙️",
+            "qa_in_progress": "🔍",
             "qa_approved": "✅",
+            "qa_rejected": "❌",
+            "fixes_applied": "🔧",
             "unknown": "❓",
         }.get(status, "❓")
 
@@ -192,10 +205,10 @@ def handle_batch_cleanup_command(project_dir: str, dry_run: bool = True) -> bool
         print_status("No specs directory found", "info")
         return True
 
-    # Find completed specs
+    # Find completed specs (only QA-approved, matching status display logic)
     completed = []
     for spec_dir in specs_dir.iterdir():
-        if spec_dir.is_dir() and (spec_dir / "qa_report.md").exists():
+        if spec_dir.is_dir() and is_qa_approved(spec_dir):
             completed.append(spec_dir.name)
 
     if not completed:

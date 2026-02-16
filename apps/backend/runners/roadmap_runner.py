@@ -37,6 +37,7 @@ if env_file.exists():
     load_dotenv(env_file)
 
 from debug import debug, debug_error, debug_warning
+from phase_config import sanitize_thinking_level
 
 # Import from refactored roadmap package (now a subpackage of runners)
 from runners.roadmap import RoadmapOrchestrator
@@ -71,8 +72,7 @@ def main():
         "--thinking-level",
         type=str,
         default="medium",
-        choices=["none", "low", "medium", "high", "ultrathink"],
-        help="Thinking level for extended reasoning (default: medium)",
+        help="Thinking level for extended reasoning (low, medium, high)",
     )
     parser.add_argument(
         "--refresh",
@@ -93,6 +93,9 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # Validate and sanitize thinking level (handles legacy values like 'ultrathink')
+    args.thinking_level = sanitize_thinking_level(args.thinking_level)
 
     debug(
         "roadmap_runner",

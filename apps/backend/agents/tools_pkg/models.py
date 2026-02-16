@@ -46,7 +46,7 @@ TOOL_UPDATE_QA_STATUS = "mcp__auto-claude__update_qa_status"
 # Context7 MCP tools for documentation lookup (always enabled)
 CONTEXT7_TOOLS = [
     "mcp__context7__resolve-library-id",
-    "mcp__context7__get-library-docs",
+    "mcp__context7__query-docs",
 ]
 
 # Linear MCP tools for project management (when LINEAR_API_KEY is set)
@@ -158,7 +158,7 @@ AGENT_CONFIGS = {
         "tools": BASE_READ_TOOLS,
         "mcp_servers": [],  # Self-critique, no external tools
         "auto_claude_tools": [],
-        "thinking_default": "ultrathink",
+        "thinking_default": "high",
     },
     "spec_discovery": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
@@ -210,7 +210,7 @@ AGENT_CONFIGS = {
             TOOL_RECORD_GOTCHA,
             TOOL_GET_SESSION_CONTEXT,
         ],
-        "thinking_default": "none",  # Coding doesn't use extended thinking
+        "thinking_default": "low",  # Coding uses minimal thinking (effort: low for Opus, 1024 tokens for Sonnet/Haiku)
     },
     # ═══════════════════════════════════════════════════════════════════════
     # QA PHASES (Read + test + browser + Graphiti memory)
@@ -247,9 +247,9 @@ AGENT_CONFIGS = {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": [],
         "auto_claude_tools": [],
-        # Note: Default to "none" because insight_extractor uses Haiku which doesn't support thinking
-        # If using Sonnet/Opus models, override max_thinking_tokens in create_simple_client()
-        "thinking_default": "none",
+        # Note: Default to "low" for minimal thinking overhead
+        # Haiku doesn't support thinking; create_simple_client() handles this
+        "thinking_default": "low",
     },
     "merge_resolver": {
         "tools": [],  # Text-only analysis
@@ -263,6 +263,12 @@ AGENT_CONFIGS = {
         "auto_claude_tools": [],
         "thinking_default": "low",
     },
+    "pr_template_filler": {
+        "tools": BASE_READ_TOOLS,  # Read-only — reads diff, template, spec
+        "mcp_servers": [],  # No MCP needed, context passed via prompt
+        "auto_claude_tools": [],
+        "thinking_default": "low",  # Fast utility task for structured fill-in
+    },
     "pr_reviewer": {
         "tools": BASE_READ_TOOLS + WEB_TOOLS,  # Read-only
         "mcp_servers": ["context7"],
@@ -270,17 +276,37 @@ AGENT_CONFIGS = {
         "thinking_default": "high",
     },
     "pr_orchestrator_parallel": {
-        "tools": BASE_READ_TOOLS + WEB_TOOLS,  # Read-only for parallel PR orchestrator
+        # Read-only for parallel PR orchestrator
+        # NOTE: Do NOT add "Task" here - the SDK auto-allows Task when agents are defined
+        # via the --agents flag. Explicitly adding it interferes with agent registration.
+        "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7"],
         "auto_claude_tools": [],
         "thinking_default": "high",
     },
     "pr_followup_parallel": {
-        "tools": BASE_READ_TOOLS
-        + WEB_TOOLS,  # Read-only for parallel followup reviewer
+        # Read-only for parallel followup reviewer
+        # NOTE: Do NOT add "Task" here - same reason as pr_orchestrator_parallel
+        "tools": BASE_READ_TOOLS + WEB_TOOLS,
         "mcp_servers": ["context7"],
         "auto_claude_tools": [],
         "thinking_default": "high",
+    },
+    "pr_followup_extraction": {
+        # Lightweight extraction call for recovering data when structured output fails
+        # Pure structured output extraction, no tools needed
+        "tools": [],
+        "mcp_servers": [],
+        "auto_claude_tools": [],
+        "thinking_default": "low",
+    },
+    "pr_finding_validator": {
+        # Standalone validator for re-checking findings against actual code
+        # Called separately from orchestrator to validate findings with fresh context
+        "tools": BASE_READ_TOOLS,
+        "mcp_servers": [],
+        "auto_claude_tools": [],
+        "thinking_default": "medium",
     },
     # ═══════════════════════════════════════════════════════════════════════
     # ANALYSIS PHASES
@@ -506,7 +532,7 @@ def get_default_thinking_level(agent_type: str) -> str:
         agent_type: The agent type identifier
 
     Returns:
-        Thinking level string (none, low, medium, high, ultrathink)
+        Thinking level string (low, medium, high)
     """
     config = get_agent_config(agent_type)
     return config.get("thinking_default", "medium")

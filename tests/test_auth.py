@@ -67,10 +67,10 @@ class TestEnvVarTokenResolution:
         token = get_auth_token()
         assert token == claude_token
 
-    def test_no_token_returns_none(self, mocker):
+    def test_no_token_returns_none(self, monkeypatch):
         """Returns None when no auth token is configured."""
         # Mock keychain to return None (env vars already cleared by fixture)
-        mocker.patch("core.auth.get_token_from_keychain", return_value=None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
         token = get_auth_token()
         assert token is None
 
@@ -369,12 +369,12 @@ class TestRequireAuthToken:
     """Tests for require_auth_token function."""
 
     @pytest.fixture(autouse=True)
-    def clear_env(self, mocker):
+    def clear_env(self, monkeypatch):
         """Clear auth environment variables and mock keychain before each test."""
         for var in AUTH_TOKEN_ENV_VARS:
             os.environ.pop(var, None)
         # Mock keychain to return None (tests that need a token will set env var)
-        mocker.patch("core.auth.get_token_from_keychain", return_value=None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
         yield
         # Cleanup after test
         for var in AUTH_TOKEN_ENV_VARS:
@@ -465,7 +465,7 @@ class TestEnsureClaudeCodeOAuthToken:
         """Doesn't set env var when no auth token is available."""
         monkeypatch.setattr(platform, "system", lambda: "Linux")
         # Ensure keychain returns None
-        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
 
         ensure_claude_code_oauth_token()
 
@@ -512,7 +512,8 @@ class TestTokenSourceDetection:
         monkeypatch.setattr("subprocess.run", Mock(return_value=mock_result))
 
         source = get_auth_token_source()
-        assert source == "macOS Keychain"
+        # Source can be "macOS Keychain" or "macOS Keychain (profile)" depending on profile settings
+        assert source is not None and source.startswith("macOS Keychain")
 
     def test_source_windows_credential_files(self, monkeypatch, tmp_path):
         """Identifies Windows Credential Files as source."""
@@ -528,7 +529,8 @@ class TestTokenSourceDetection:
         )
 
         source = get_auth_token_source()
-        assert source == "Windows Credential Files"
+        # Source can have "(profile)" suffix depending on profile settings
+        assert source is not None and source.startswith("Windows Credential Files")
 
     def test_source_linux_secret_service(self, monkeypatch):
         """Identifies Linux Secret Service as source."""
@@ -554,12 +556,13 @@ class TestTokenSourceDetection:
         monkeypatch.setattr("core.auth.secretstorage", mock_ss)
 
         source = get_auth_token_source()
-        assert source == "Linux Secret Service"
+        # Source can have "(profile)" suffix depending on profile settings
+        assert source is not None and source.startswith("Linux Secret Service")
 
-    def test_source_none_when_not_found(self, mocker):
+    def test_source_none_when_not_found(self, monkeypatch):
         """Returns None when no token source is found."""
         # Mock keychain to return None (env vars already cleared by fixture)
-        mocker.patch("core.auth.get_token_from_keychain", return_value=None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
         source = get_auth_token_source()
         assert source is None
 
@@ -646,7 +649,7 @@ class TestTokenDecryption:
         from unittest.mock import patch
 
         monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", "enc:testtoken123456789")
-        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
 
         with patch("core.auth.decrypt_token") as mock_decrypt:
             # Simulate decryption failure
@@ -669,7 +672,7 @@ class TestTokenDecryption:
         decrypted_token = "sk-ant-oat01-decrypted-token"
 
         monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", encrypted_token)
-        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
 
         with patch("core.auth.decrypt_token") as mock_decrypt:
             mock_decrypt.return_value = decrypted_token
@@ -687,12 +690,398 @@ class TestTokenDecryption:
         """Verify plaintext tokens continue to work unchanged."""
         token = "sk-ant-oat01-test"
         monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", token)
-        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda: None)
+        monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
 
         from core.auth import get_auth_token
 
         result = get_auth_token()
         assert result == token
+
+
+class TestTokenDecryptionPlatformRouting:
+    """Tests for decrypt_token() platform-specific routing."""
+
+    def test_decrypt_token_routes_to_macos(self, monkeypatch):
+        """Verify decrypt_token routes to macOS implementation on Darwin."""
+        from unittest.mock import patch
+
+        monkeypatch.setattr("core.auth.is_macos", lambda: True)
+        monkeypatch.setattr("core.auth.is_linux", lambda: False)
+        monkeypatch.setattr("core.auth.is_windows", lambda: False)
+
+        with patch("core.auth._decrypt_token_macos") as mock_macos:
+            mock_macos.side_effect = NotImplementedError("macOS test")
+
+            from core.auth import decrypt_token
+
+            with pytest.raises(ValueError, match="not yet implemented"):
+                decrypt_token("enc:validbase64data")
+
+            mock_macos.assert_called_once_with("validbase64data")
+
+    def test_decrypt_token_routes_to_linux(self, monkeypatch):
+        """Verify decrypt_token routes to Linux implementation."""
+        from unittest.mock import patch
+
+        monkeypatch.setattr("core.auth.is_macos", lambda: False)
+        monkeypatch.setattr("core.auth.is_linux", lambda: True)
+        monkeypatch.setattr("core.auth.is_windows", lambda: False)
+
+        with patch("core.auth._decrypt_token_linux") as mock_linux:
+            mock_linux.side_effect = NotImplementedError("Linux test")
+
+            from core.auth import decrypt_token
+
+            with pytest.raises(ValueError, match="not yet implemented"):
+                decrypt_token("enc:validbase64data")
+
+            mock_linux.assert_called_once_with("validbase64data")
+
+    def test_decrypt_token_routes_to_windows(self, monkeypatch):
+        """Verify decrypt_token routes to Windows implementation."""
+        from unittest.mock import patch
+
+        monkeypatch.setattr("core.auth.is_macos", lambda: False)
+        monkeypatch.setattr("core.auth.is_linux", lambda: False)
+        monkeypatch.setattr("core.auth.is_windows", lambda: True)
+
+        with patch("core.auth._decrypt_token_windows") as mock_windows:
+            mock_windows.side_effect = NotImplementedError("Windows test")
+
+            from core.auth import decrypt_token
+
+            with pytest.raises(ValueError, match="not yet implemented"):
+                decrypt_token("enc:validbase64data")
+
+            mock_windows.assert_called_once_with("validbase64data")
+
+    def test_decrypt_token_unsupported_platform(self, monkeypatch):
+        """Verify decrypt_token raises error on unsupported platform."""
+        monkeypatch.setattr("core.auth.is_macos", lambda: False)
+        monkeypatch.setattr("core.auth.is_linux", lambda: False)
+        monkeypatch.setattr("core.auth.is_windows", lambda: False)
+
+        from core.auth import decrypt_token
+
+        with pytest.raises(ValueError, match="Unsupported platform"):
+            decrypt_token("enc:validbase64data")
+
+
+class TestTokenDecryptionMacOS:
+    """Tests for macOS-specific token decryption."""
+
+    def test_macos_decrypt_no_claude_cli(self, monkeypatch):
+        """Verify macOS decryption fails when Claude CLI is not found."""
+        monkeypatch.setattr("core.auth.is_macos", lambda: True)
+        monkeypatch.setattr("core.auth.is_linux", lambda: False)
+        monkeypatch.setattr("core.auth.is_windows", lambda: False)
+        # Mock shutil.which to return None (CLI not found)
+        monkeypatch.setattr("shutil.which", lambda name: None)
+
+        from core.auth import decrypt_token
+
+        with pytest.raises(ValueError, match="Claude Code CLI not found"):
+            decrypt_token("enc:validbase64data")
+
+    def test_macos_decrypt_raises_not_implemented(self, monkeypatch):
+        """Verify macOS decryption raises ValueError (wrapping NotImplementedError) with helpful message."""
+        monkeypatch.setattr("core.auth.is_macos", lambda: True)
+        monkeypatch.setattr("core.auth.is_linux", lambda: False)
+        monkeypatch.setattr("core.auth.is_windows", lambda: False)
+        # Mock shutil.which to return a path (CLI found)
+        monkeypatch.setattr("shutil.which", lambda name: "/usr/local/bin/claude")
+
+        from core.auth import decrypt_token
+
+        # NotImplementedError is wrapped in ValueError at the decrypt_token level
+        with pytest.raises(ValueError) as exc_info:
+            decrypt_token("enc:validbase64data")
+
+        error_msg = str(exc_info.value)
+        # Should mention alternatives
+        assert "setup-token" in error_msg or "plaintext" in error_msg
+
+
+class TestTokenDecryptionLinux:
+    """Tests for Linux-specific token decryption."""
+
+    def test_linux_decrypt_no_secretstorage(self, monkeypatch):
+        """Verify Linux decryption fails when secretstorage is not installed."""
+        monkeypatch.setattr("core.auth.is_macos", lambda: False)
+        monkeypatch.setattr("core.auth.is_linux", lambda: True)
+        monkeypatch.setattr("core.auth.is_windows", lambda: False)
+        monkeypatch.setattr("core.auth.secretstorage", None)
+
+        from core.auth import decrypt_token
+
+        with pytest.raises(ValueError, match="secretstorage"):
+            decrypt_token("enc:validbase64data")
+
+    def test_linux_decrypt_raises_not_implemented(self, monkeypatch):
+        """Verify Linux decryption raises NotImplementedError with helpful message."""
+        mock_ss = MagicMock()
+
+        monkeypatch.setattr("core.auth.is_macos", lambda: False)
+        monkeypatch.setattr("core.auth.is_linux", lambda: True)
+        monkeypatch.setattr("core.auth.is_windows", lambda: False)
+        monkeypatch.setattr("core.auth.secretstorage", mock_ss)
+
+        from core.auth import decrypt_token
+
+        with pytest.raises(ValueError) as exc_info:
+            decrypt_token("enc:validbase64data")
+
+        error_msg = str(exc_info.value)
+        # Should mention alternatives
+        assert "setup-token" in error_msg or "plaintext" in error_msg
+
+
+class TestTokenDecryptionWindows:
+    """Tests for Windows-specific token decryption."""
+
+    def test_windows_decrypt_raises_not_implemented(self, monkeypatch):
+        """Verify Windows decryption raises NotImplementedError with helpful message."""
+        monkeypatch.setattr("core.auth.is_macos", lambda: False)
+        monkeypatch.setattr("core.auth.is_linux", lambda: False)
+        monkeypatch.setattr("core.auth.is_windows", lambda: True)
+
+        from core.auth import decrypt_token
+
+        with pytest.raises(ValueError) as exc_info:
+            decrypt_token("enc:validbase64data")
+
+        error_msg = str(exc_info.value)
+        # Should mention alternatives
+        assert "setup-token" in error_msg or "plaintext" in error_msg
+
+
+class TestTokenDecryptionErrorHandling:
+    """Tests for error handling in token decryption."""
+
+    def test_decrypt_token_invalid_type(self):
+        """Verify decrypt_token rejects non-string input."""
+        from core.auth import decrypt_token
+
+        with pytest.raises(ValueError, match="Invalid token type"):
+            decrypt_token(12345)  # type: ignore
+
+        with pytest.raises(ValueError, match="Invalid token type"):
+            decrypt_token(["enc:test"])  # type: ignore
+
+    def test_decrypt_token_empty_after_prefix(self):
+        """Verify decrypt_token rejects empty data after prefix."""
+        from core.auth import decrypt_token
+
+        with pytest.raises(ValueError, match="Empty encrypted token data"):
+            decrypt_token("enc:")
+
+    def test_decrypt_token_invalid_characters(self):
+        """Verify decrypt_token rejects invalid base64 characters."""
+        from core.auth import decrypt_token
+
+        with pytest.raises(ValueError, match="invalid characters"):
+            decrypt_token("enc:test!@#$%^&*()")
+
+    def test_decrypt_token_valid_base64_characters_accepted(self):
+        """Verify decrypt_token accepts standard and URL-safe base64 characters."""
+        from core.auth import decrypt_token
+        from unittest.mock import patch
+
+        # Standard base64 includes +/=
+        # URL-safe base64 includes -_
+        valid_tokens = [
+            "enc:testABCabc123+/=",
+            "enc:testABCabc123-_==",
+            "enc:abcdefghij",
+        ]
+
+        # These should pass character validation but fail at platform-specific
+        # decryption (which raises NotImplementedError)
+        for token in valid_tokens:
+            with patch("core.auth.is_macos", return_value=False):
+                with patch("core.auth.is_linux", return_value=False):
+                    with patch("core.auth.is_windows", return_value=False):
+                        with pytest.raises(ValueError, match="Unsupported platform"):
+                            decrypt_token(token)
+
+    def test_decrypt_token_file_not_found_error(self, monkeypatch):
+        """Verify decrypt_token handles FileNotFoundError gracefully."""
+        from unittest.mock import patch
+
+        monkeypatch.setattr("core.auth.is_macos", lambda: True)
+        monkeypatch.setattr("core.auth.is_linux", lambda: False)
+        monkeypatch.setattr("core.auth.is_windows", lambda: False)
+
+        with patch("core.auth._decrypt_token_macos") as mock_macos:
+            mock_macos.side_effect = FileNotFoundError("Credentials file not found")
+
+            from core.auth import decrypt_token
+
+            with pytest.raises(ValueError, match="required file not found"):
+                decrypt_token("enc:validbase64data")
+
+    def test_decrypt_token_permission_error(self, monkeypatch):
+        """Verify decrypt_token handles PermissionError gracefully."""
+        from unittest.mock import patch
+
+        monkeypatch.setattr("core.auth.is_macos", lambda: True)
+        monkeypatch.setattr("core.auth.is_linux", lambda: False)
+        monkeypatch.setattr("core.auth.is_windows", lambda: False)
+
+        with patch("core.auth._decrypt_token_macos") as mock_macos:
+            mock_macos.side_effect = PermissionError("Access denied")
+
+            from core.auth import decrypt_token
+
+            with pytest.raises(ValueError, match="permission denied"):
+                decrypt_token("enc:validbase64data")
+
+    def test_decrypt_token_timeout_error(self, monkeypatch):
+        """Verify decrypt_token handles subprocess timeout gracefully."""
+        import subprocess
+        from unittest.mock import patch
+
+        monkeypatch.setattr("core.auth.is_macos", lambda: True)
+        monkeypatch.setattr("core.auth.is_linux", lambda: False)
+        monkeypatch.setattr("core.auth.is_windows", lambda: False)
+
+        with patch("core.auth._decrypt_token_macos") as mock_macos:
+            mock_macos.side_effect = subprocess.TimeoutExpired("cmd", 5)
+
+            from core.auth import decrypt_token
+
+            with pytest.raises(ValueError, match="timed out"):
+                decrypt_token("enc:validbase64data")
+
+    def test_decrypt_token_generic_error(self, monkeypatch):
+        """Verify decrypt_token handles unexpected errors gracefully."""
+        from unittest.mock import patch
+
+        monkeypatch.setattr("core.auth.is_macos", lambda: True)
+        monkeypatch.setattr("core.auth.is_linux", lambda: False)
+        monkeypatch.setattr("core.auth.is_windows", lambda: False)
+
+        with patch("core.auth._decrypt_token_macos") as mock_macos:
+            mock_macos.side_effect = RuntimeError("Unexpected error")
+
+            from core.auth import decrypt_token
+
+            with pytest.raises(ValueError) as exc_info:
+                decrypt_token("enc:validbase64data")
+
+            error_msg = str(exc_info.value)
+            assert "RuntimeError" in error_msg
+            assert "setup-token" in error_msg
+
+
+class TestTokenDecryptionKeychain:
+    """Tests for encrypted token handling from keychain sources."""
+
+    @pytest.fixture(autouse=True)
+    def clear_env(self):
+        """Clear auth environment variables before each test."""
+        for var in AUTH_TOKEN_ENV_VARS:
+            os.environ.pop(var, None)
+        yield
+        # Cleanup after test
+        for var in AUTH_TOKEN_ENV_VARS:
+            os.environ.pop(var, None)
+
+    def test_keychain_encrypted_token_decryption_attempted(self, monkeypatch):
+        """Verify encrypted tokens from keychain trigger decryption."""
+        from unittest.mock import patch
+
+        encrypted_token = "enc:keychaintoken1234"
+        monkeypatch.setattr(
+            "core.auth.get_token_from_keychain", lambda _config_dir=None: encrypted_token
+        )
+
+        with patch("core.auth.decrypt_token") as mock_decrypt:
+            mock_decrypt.side_effect = ValueError("Decryption failed")
+
+            from core.auth import get_auth_token
+
+            result = get_auth_token()
+
+            mock_decrypt.assert_called_once_with(encrypted_token)
+            # On failure, encrypted token is returned for client validation
+            assert result == encrypted_token
+
+    def test_keychain_encrypted_token_decryption_success(self, monkeypatch):
+        """Verify successful decryption of keychain token."""
+        from unittest.mock import patch
+
+        encrypted_token = "enc:keychaintoken1234"
+        decrypted_token = "sk-ant-oat01-from-keychain"
+
+        monkeypatch.setattr(
+            "core.auth.get_token_from_keychain", lambda _config_dir=None: encrypted_token
+        )
+
+        with patch("core.auth.decrypt_token") as mock_decrypt:
+            mock_decrypt.return_value = decrypted_token
+
+            from core.auth import get_auth_token
+
+            result = get_auth_token()
+
+            mock_decrypt.assert_called_once_with(encrypted_token)
+            assert result == decrypted_token
+
+    def test_plaintext_keychain_token_not_decrypted(self, monkeypatch):
+        """Verify plaintext tokens from keychain are not passed to decrypt."""
+        from unittest.mock import patch
+
+        plaintext_token = "sk-ant-oat01-keychain-plaintext"
+        monkeypatch.setattr(
+            "core.auth.get_token_from_keychain", lambda _config_dir=None: plaintext_token
+        )
+
+        with patch("core.auth.decrypt_token") as mock_decrypt:
+            from core.auth import get_auth_token
+
+            result = get_auth_token()
+
+            mock_decrypt.assert_not_called()
+            assert result == plaintext_token
+
+    def test_env_var_takes_precedence_over_keychain(self, monkeypatch):
+        """Verify environment variable token takes precedence over keychain."""
+        env_token = "sk-ant-oat01-from-env"
+        keychain_token = "sk-ant-oat01-from-keychain"
+
+        monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", env_token)
+        monkeypatch.setattr(
+            "core.auth.get_token_from_keychain", lambda _config_dir=None: keychain_token
+        )
+
+        from core.auth import get_auth_token
+
+        result = get_auth_token()
+        assert result == env_token
+
+    def test_encrypted_env_var_precedence_over_plaintext_keychain(self, monkeypatch):
+        """Verify encrypted env var is preferred over plaintext keychain token."""
+        from unittest.mock import patch
+
+        encrypted_env = "enc:encryptedfromenv"
+        decrypted_env = "sk-ant-oat01-decrypted-env"
+        keychain_token = "sk-ant-oat01-from-keychain"
+
+        monkeypatch.setenv("CLAUDE_CODE_OAUTH_TOKEN", encrypted_env)
+        monkeypatch.setattr(
+            "core.auth.get_token_from_keychain", lambda _config_dir=None: keychain_token
+        )
+
+        with patch("core.auth.decrypt_token") as mock_decrypt:
+            mock_decrypt.return_value = decrypted_env
+
+            from core.auth import get_auth_token
+
+            result = get_auth_token()
+
+            mock_decrypt.assert_called_once_with(encrypted_env)
+            assert result == decrypted_env
 
 
 class TestValidateTokenNotEncrypted:

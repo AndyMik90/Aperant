@@ -248,13 +248,13 @@ export function registerStartGlabAuth(): void {
             env: getAugmentedEnv()
           });
 
-          let output = '';
+          let _output = '';
           let errorOutput = '';
           let browserOpened = false;
 
           glabProcess.stdout?.on('data', (data) => {
-            const chunk = data.toString();
-            output += chunk;
+            const chunk = data.toString('utf-8');
+            _output += chunk;
             debugLog('glab stdout:', chunk);
 
             // Try to open browser if URL detected
@@ -268,7 +268,7 @@ export function registerStartGlabAuth(): void {
           });
 
           glabProcess.stderr?.on('data', (data) => {
-            const chunk = data.toString();
+            const chunk = data.toString('utf-8');
             errorOutput += chunk;
             debugLog('glab stderr:', chunk);
           });

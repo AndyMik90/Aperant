@@ -21,6 +21,9 @@ export interface SettingsAPI {
     claude: ToolDetectionResult;
   }>>;
 
+  // Claude Code onboarding status
+  getClaudeCodeOnboardingStatus: () => Promise<IPCResult<{ hasCompletedOnboarding: boolean }>>;
+
   // App Info
   getAppVersion: () => Promise<string>;
 
@@ -33,6 +36,9 @@ export interface SettingsAPI {
   notifySentryStateChanged: (enabled: boolean) => void;
   getSentryDsn: () => Promise<string>;
   getSentryConfig: () => Promise<{ dsn: string; tracesSampleRate: number; profilesSampleRate: number }>;
+
+  // Spell check
+  setSpellCheckLanguages: (language: string) => Promise<IPCResult<{ success: boolean }>>;
 }
 
 export const createSettingsAPI = (): SettingsAPI => ({
@@ -51,6 +57,10 @@ export const createSettingsAPI = (): SettingsAPI => ({
     claude: ToolDetectionResult;
   }>> =>
     ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_GET_CLI_TOOLS_INFO),
+
+  // Claude Code onboarding status
+  getClaudeCodeOnboardingStatus: (): Promise<IPCResult<{ hasCompletedOnboarding: boolean }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_CLAUDE_CODE_GET_ONBOARDING_STATUS),
 
   // App Info
   getAppVersion: (): Promise<string> =>
@@ -76,5 +86,9 @@ export const createSettingsAPI = (): SettingsAPI => ({
 
   // Get full Sentry config from main process (DSN + sample rates)
   getSentryConfig: (): Promise<{ dsn: string; tracesSampleRate: number; profilesSampleRate: number }> =>
-    ipcRenderer.invoke(IPC_CHANNELS.GET_SENTRY_CONFIG)
+    ipcRenderer.invoke(IPC_CHANNELS.GET_SENTRY_CONFIG),
+
+  // Spell check - sync spell checker language with app language
+  setSpellCheckLanguages: (language: string): Promise<IPCResult<{ success: boolean }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.SPELLCHECK_SET_LANGUAGES, language)
 });

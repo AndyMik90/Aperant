@@ -75,7 +75,7 @@ jobs:
           ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.create-tag.outputs.version) }}
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
@@ -86,7 +86,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cache pip wheel cache (for compiled packages like real_ladybug)
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/Library/Caches/pip
           key: pip-wheel-${{ runner.os }}-x64-${{ hashFiles('apps/backend/requirements.txt') }}
@@ -94,7 +94,7 @@ jobs:
             pip-wheel-${{ runner.os }}-x64-
 
       - name: Cache bundled Python
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: apps/frontend/python-runtime
           key: python-bundle-${{ runner.os }}-x64-3.12.8-rust-${{ hashFiles('apps/backend/requirements.txt') }}
@@ -151,7 +151,7 @@ jobs:
           ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.create-tag.outputs.version) }}
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
@@ -159,7 +159,7 @@ jobs:
         uses: ./.github/actions/setup-node-frontend
 
       - name: Cache pip wheel cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/Library/Caches/pip
           key: pip-wheel-${{ runner.os }}-arm64-${{ hashFiles('apps/backend/requirements.txt') }}
@@ -167,7 +167,7 @@ jobs:
             pip-wheel-${{ runner.os }}-arm64-
 
       - name: Cache bundled Python
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: apps/frontend/python-runtime
           key: python-bundle-${{ runner.os }}-arm64-3.12.8-${{ hashFiles('apps/backend/requirements.txt') }}
@@ -226,7 +226,7 @@ jobs:
           ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.create-tag.outputs.version) }}
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
@@ -234,7 +234,7 @@ jobs:
         uses: ./.github/actions/setup-node-frontend
 
       - name: Cache pip wheel cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~\AppData\Local\pip\Cache
           key: pip-wheel-${{ runner.os }}-x64-${{ hashFiles('apps/backend/requirements.txt') }}
@@ -242,7 +242,7 @@ jobs:
             pip-wheel-${{ runner.os }}-x64-
 
       - name: Cache bundled Python
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: apps/frontend/python-runtime
           key: python-bundle-${{ runner.os }}-x64-3.12.8-${{ hashFiles('apps/backend/requirements.txt') }}
@@ -398,24 +398,24 @@ jobs:
           ref: ${{ github.event.inputs.dry_run == 'true' && 'develop' || format('v{0}', needs.create-tag.outputs.version) }}
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
       - name: Setup Node.js and install dependencies
         uses: ./.github/actions/setup-node-frontend
 
-      - name: Setup Flatpak
+      - name: Setup Flatpak and verification tools
         run: |
           set -e
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder
+          sudo apt-get install -y flatpak flatpak-builder libarchive-tools
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak install -y --user flathub org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08
           flatpak install -y --user flathub org.electronjs.Electron2.BaseApp//25.08
 
       - name: Cache pip wheel cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/pip
           key: pip-wheel-${{ runner.os }}-x64-${{ hashFiles('apps/backend/requirements.txt') }}
@@ -423,7 +423,7 @@ jobs:
             pip-wheel-${{ runner.os }}-x64-
 
       - name: Cache bundled Python
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: apps/frontend/python-runtime
           key: python-bundle-${{ runner.os }}-x64-3.12.8-${{ hashFiles('apps/backend/requirements.txt') }}
@@ -447,6 +447,9 @@ jobs:
           SENTRY_TRACES_SAMPLE_RATE: ${{ secrets.SENTRY_TRACES_SAMPLE_RATE }}
           SENTRY_PROFILES_SAMPLE_RATE: ${{ secrets.SENTRY_PROFILES_SAMPLE_RATE }}
 
+      - name: Verify Linux packages
+        run: cd apps/frontend && npm run verify:linux
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -465,13 +468,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Download Intel DMG
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: macos-intel-builds
           path: intel
 
       - name: Download ARM64 DMG
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: macos-arm64-builds
           path: arm64
@@ -512,7 +515,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: dist
 
@@ -661,7 +664,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           path: dist
 

@@ -8,7 +8,9 @@ import type {
   GitHubInvestigationResult,
   IPCResult,
   VersionSuggestion,
-  PaginatedIssuesResult
+  PaginatedIssuesResult,
+  PRStatusUpdate,
+  PollingMetadata
 } from '../../../shared/types';
 import { createIpcListener, invokeIpc, sendIpc, IpcListenerCleanup } from './ipc-utils';
 
@@ -189,6 +191,11 @@ export interface GitHubAPI {
     callback: (data: { deviceCode: string; authUrl: string; browserOpened: boolean }) => void
   ) => IpcListenerCleanup;
 
+  // OAuth event listener - notifies when GitHub account changes (via gh auth login)
+  onGitHubAuthChanged: (
+    callback: (data: { oldUsername: string | null; newUsername: string }) => void
+  ) => IpcListenerCleanup;
+
   // Repository detection and management
   detectGitHubRepo: (projectPath: string) => Promise<IPCResult<string>>;
   getGitHubBranches: (repo: string, token: string) => Promise<IPCResult<string[]>>;
@@ -262,8 +269,10 @@ export interface GitHubAPI {
     callback: (projectId: string, error: { error: string }) => void
   ) => IpcListenerCleanup;
 
-  // PR operations
-  listPRs: (projectId: string, page?: number) => Promise<PRData[]>;
+  // PR operations (fetches up to 100 open PRs at once - GitHub GraphQL limit)
+  listPRs: (projectId: string) => Promise<PRListResult>;
+  /** Load more PRs using cursor-based pagination */
+  listMorePRs: (projectId: string, cursor: string) => Promise<PRListResult>;
   getPR: (projectId: string, prNumber: number) => Promise<PRData | null>;
   runPRReview: (projectId: string, prNumber: number) => void;
   cancelPRReview: (projectId: string, prNumber: number) => Promise<boolean>;
@@ -299,6 +308,23 @@ export interface GitHubAPI {
   onPRReviewError: (
     callback: (projectId: string, error: { prNumber: number; error: string }) => void
   ) => IpcListenerCleanup;
+  onPRLogsUpdated: (
+    callback: (projectId: string, data: { prNumber: number; entryCount: number }) => void
+  ) => IpcListenerCleanup;
+
+  // PR status polling operations
+  /** Start background polling for PR status (CI checks, reviews, mergeability) */
+  startStatusPolling: (projectId: string, prNumbers: number[]) => Promise<boolean>;
+  /** Stop background polling for a project */
+  stopStatusPolling: (projectId: string) => Promise<boolean>;
+  /** Get current polling metadata (rate limits, errors, etc.) */
+  getPollingMetadata: (projectId: string) => Promise<PollingMetadata | null>;
+
+  // PR status polling event listener
+  /** Subscribe to PR status updates from background polling */
+  onPRStatusUpdate: (
+    callback: (update: PRStatusUpdate) => void
+  ) => IpcListenerCleanup;
 }
 
 /**
@@ -328,6 +354,15 @@ export interface PRData {
 }
 
 /**
+ * PR list result with pagination info
+ */
+export interface PRListResult {
+  prs: PRData[];
+  hasNextPage: boolean; // True if more PRs exist beyond the 100 limit
+  endCursor?: string | null; // Cursor for fetching next page (null if no more pages)
+}
+
+/**
  * PR review finding
  */
 export interface PRReviewFinding {
@@ -352,7 +387,7 @@ export interface PRReviewResult {
   success: boolean;
   findings: PRReviewFinding[];
   summary: string;
-  overallStatus: 'approve' | 'request_changes' | 'comment';
+  overallStatus: 'approve' | 'request_changes' | 'comment' | 'in_progress';
   reviewId?: number;
   reviewedAt: string;
   error?: string;
@@ -368,6 +403,8 @@ export interface PRReviewResult {
   hasPostedFindings?: boolean;
   postedFindingIds?: string[];
   postedAt?: string;
+  // In-progress review tracking
+  inProgressSince?: string;
 }
 
 /**
@@ -532,6 +569,12 @@ export const createGitHubAPI = (): GitHubAPI => ({
   ): IpcListenerCleanup =>
     createIpcListener(IPC_CHANNELS.GITHUB_AUTH_DEVICE_CODE, callback),
 
+  // OAuth event listener - notifies when GitHub account changes (via gh auth login)
+  onGitHubAuthChanged: (
+    callback: (data: { oldUsername: string | null; newUsername: string }) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITHUB_AUTH_CHANGED, callback),
+
   // Repository detection and management
   detectGitHubRepo: (projectPath: string): Promise<IPCResult<string>> =>
     invokeIpc(IPC_CHANNELS.GITHUB_DETECT_REPO, projectPath),
@@ -652,8 +695,13 @@ export const createGitHubAPI = (): GitHubAPI => ({
     createIpcListener(IPC_CHANNELS.GITHUB_AUTOFIX_ANALYZE_PREVIEW_ERROR, callback),
 
   // PR operations
-  listPRs: (projectId: string, page: number = 1): Promise<PRData[]> =>
-    invokeIpc(IPC_CHANNELS.GITHUB_PR_LIST, projectId, page),
+  // Fetches up to 100 open PRs at once (GitHub GraphQL limit)
+  listPRs: (projectId: string): Promise<PRListResult> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_LIST, projectId),
+
+  // Load more PRs using cursor-based pagination
+  listMorePRs: (projectId: string, cursor: string): Promise<PRListResult> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_LIST_MORE, projectId, cursor),
 
   getPR: (projectId: string, prNumber: number): Promise<PRData | null> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_GET, projectId, prNumber),
@@ -726,5 +774,26 @@ export const createGitHubAPI = (): GitHubAPI => ({
   onPRReviewError: (
     callback: (projectId: string, error: { prNumber: number; error: string }) => void
   ): IpcListenerCleanup =>
-    createIpcListener(IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR, callback)
+    createIpcListener(IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR, callback),
+
+  onPRLogsUpdated: (
+    callback: (projectId: string, data: { prNumber: number; entryCount: number }) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITHUB_PR_LOGS_UPDATED, callback),
+
+  // PR status polling operations
+  startStatusPolling: (projectId: string, prNumbers: number[]): Promise<boolean> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_STATUS_POLL_START, { projectId, prNumbers }),
+
+  stopStatusPolling: (projectId: string): Promise<boolean> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_STATUS_POLL_STOP, { projectId }),
+
+  getPollingMetadata: (projectId: string): Promise<PollingMetadata | null> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_STATUS_UPDATE, projectId),
+
+  // PR status polling event listener
+  onPRStatusUpdate: (
+    callback: (update: PRStatusUpdate) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITHUB_PR_STATUS_UPDATE, callback)
 });

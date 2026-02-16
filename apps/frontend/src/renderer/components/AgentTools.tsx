@@ -32,7 +32,6 @@ import {
   Terminal,
   Loader2,
   RefreshCw,
-  AlertTriangle,
   Lock
 } from 'lucide-react';
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -48,7 +47,7 @@ import {
 } from './ui/dialog';
 import { useSettingsStore } from '../stores/settings-store';
 import { useProjectStore } from '../stores/project-store';
-import type { ProjectEnvConfig, AgentMcpOverrides, AgentMcpOverride, CustomMcpServer, McpHealthCheckResult, McpHealthStatus } from '../../shared/types';
+import type { ProjectEnvConfig, AgentMcpOverride, CustomMcpServer, McpHealthCheckResult, } from '../../shared/types';
 import { CustomMcpDialog } from './CustomMcpDialog';
 import { useTranslation } from 'react-i18next';
 import {
@@ -59,7 +58,6 @@ import {
   useResolvedAgentSettings,
   resolveAgentSettings as resolveAgentModelConfig,
   type AgentSettingsSource,
-  type ResolvedAgentSettings,
 } from '../hooks';
 import type { ModelTypeShort, ThinkingLevel } from '../../shared/types/settings';
 
@@ -256,6 +254,14 @@ const AGENT_CONFIGS: Record<string, AgentConfig> = {
     mcp_servers: ['context7'],
     settingsSource: { type: 'feature', feature: 'roadmap' },
   },
+  pr_template_filler: {
+    label: 'PR Template Filler',
+    description: 'Generates AI-powered PR descriptions from templates',
+    category: 'utility',
+    tools: ['Read', 'Glob', 'Grep'],
+    mcp_servers: [],
+    settingsSource: { type: 'feature', feature: 'utility' },
+  },
 };
 
 // MCP Server descriptions - accurate per backend models.py
@@ -264,7 +270,7 @@ const MCP_SERVERS: Record<string, { name: string; description: string; icon: Rea
     name: 'Context7',
     description: 'Documentation lookup for libraries and frameworks via @upstash/context7-mcp',
     icon: Search,
-    tools: ['mcp__context7__resolve-library-id', 'mcp__context7__get-library-docs'],
+    tools: ['mcp__context7__resolve-library-id', 'mcp__context7__query-docs'],
   },
   'graphiti-memory': {
     name: 'Graphiti Memory',
@@ -904,7 +910,7 @@ export function AgentTools() {
             [server.id]: result.data!,
           }));
         }
-      } catch (error) {
+      } catch (_error) {
         setServerHealthStatus(prev => ({
           ...prev,
           [server.id]: {
@@ -937,14 +943,14 @@ export function AgentTools() {
           ...prev,
           [server.id]: {
             serverId: server.id,
-            status: result.data!.success ? 'healthy' : 'unhealthy',
-            message: result.data!.message,
-            responseTime: result.data!.responseTime,
+            status: result.data?.success ? 'healthy' : 'unhealthy',
+            message: result.data?.message,
+            responseTime: result.data?.responseTime,
             checkedAt: new Date().toISOString(),
           }
         }));
       }
-    } catch (error) {
+    } catch (_error) {
       setServerHealthStatus(prev => ({
         ...prev,
         [server.id]: {

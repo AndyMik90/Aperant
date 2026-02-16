@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   updateProjectSettings,
   checkProjectVersion,
   initializeProject
 } from '../../../stores/project-store';
 import { checkGitHubConnection as checkGitHubConnectionGlobal } from '../../../stores/github';
+import { setProjectEnvConfig } from '../../../stores/project-env-store';
 import type {
   Project,
   ProjectSettings as ProjectSettingsType,
@@ -34,7 +35,6 @@ export interface UseProjectSettingsReturn {
   isLoadingEnv: boolean;
   envError: string | null;
   setEnvError: React.Dispatch<React.SetStateAction<string | null>>;
-  isSavingEnv: boolean;
   updateEnvConfig: (updates: Partial<ProjectEnvConfig>) => Promise<void>;
 
   // Password visibility toggles
@@ -74,7 +74,6 @@ export interface UseProjectSettingsReturn {
 
   // Actions
   handleInitialize: () => Promise<void>;
-  handleSaveEnv: () => Promise<void>;
   handleClaudeSetup: () => Promise<void>;
   handleSave: (onClose: () => void) => Promise<void>;
 }
@@ -91,10 +90,17 @@ export function useProjectSettings(
   const [isUpdating, setIsUpdating] = useState(false);
 
   // Environment configuration state
+  // NOTE: We maintain local envConfig state AND update the global project-env-store.
+  // This dual-state pattern is intentional:
+  // - Local state: allows dialog-scoped edits, immediate UI feedback
+  // - Global store: syncs to Sidebar and other components for real-time updates
+  // The local state is the source of truth for this dialog's edits.
   const [envConfig, setEnvConfig] = useState<ProjectEnvConfig | null>(null);
   const [isLoadingEnv, setIsLoadingEnv] = useState(false);
   const [envError, setEnvError] = useState<string | null>(null);
-  const [isSavingEnv, setIsSavingEnv] = useState(false);
+  // Ref to track the latest committed config - used to handle concurrent updateEnvConfig calls
+  // This ensures rapid updates don't lose changes due to stale state reads
+  const committedEnvConfigRef = useRef<ProjectEnvConfig | null>(null);
 
   // Password visibility toggles
   const [showClaudeToken, setShowClaudeToken] = useState(false);
@@ -156,6 +162,9 @@ export function useProjectSettings(
           const result = await window.electronAPI.getProjectEnv(project.id);
           if (result.success && result.data) {
             setEnvConfig(result.data);
+            committedEnvConfigRef.current = result.data;
+            // Update the shared store so other components (like Sidebar) can react
+            setProjectEnvConfig(project.id, result.data);
           } else {
             setEnvError(result.error || 'Failed to load environment config');
           }
@@ -287,6 +296,9 @@ export function useProjectSettings(
         const envResult = await window.electronAPI.getProjectEnv(project.id);
         if (envResult.success && envResult.data) {
           setEnvConfig(envResult.data);
+          committedEnvConfigRef.current = envResult.data;
+          // Update global store so Sidebar reflects correct GitHub/GitLab enabled state
+          setProjectEnvConfig(project.id, envResult.data);
         }
       } else {
         setError(result?.error || 'Failed to initialize');
@@ -295,23 +307,6 @@ export function useProjectSettings(
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setIsUpdating(false);
-    }
-  };
-
-  const handleSaveEnv = async () => {
-    if (!envConfig) return;
-
-    setIsSavingEnv(true);
-    setEnvError(null);
-    try {
-      const result = await window.electronAPI.updateProjectEnv(project.id, envConfig);
-      if (!result.success) {
-        setEnvError(result.error || 'Failed to save environment config');
-      }
-    } catch (err) {
-      setEnvError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setIsSavingEnv(false);
     }
   };
 
@@ -324,6 +319,9 @@ export function useProjectSettings(
         const envResult = await window.electronAPI.getProjectEnv(project.id);
         if (envResult.success && envResult.data) {
           setEnvConfig(envResult.data);
+          committedEnvConfigRef.current = envResult.data;
+          // Update global store so Sidebar and other components reflect changes
+          setProjectEnvConfig(project.id, envResult.data);
         }
       }
     } catch {
@@ -361,22 +359,42 @@ export function useProjectSettings(
   };
 
   const updateEnvConfig = async (updates: Partial<ProjectEnvConfig>) => {
-    if (envConfig) {
-      const newConfig = { ...envConfig, ...updates };
+    // Use the committed ref as base to handle concurrent calls correctly
+    // This ensures rapid updates don't lose changes due to stale state reads
+    const baseConfig = committedEnvConfigRef.current || envConfig;
+    if (!baseConfig) return;
 
-      // Save to backend FIRST so disk is updated before effects run
-      try {
-        const result = await window.electronAPI.updateProjectEnv(project.id, newConfig);
-        if (!result.success) {
-          console.error('[useProjectSettings] Failed to auto-save env config:', result.error);
-        }
-      } catch (err) {
-        console.error('[useProjectSettings] Error auto-saving env config:', err);
+    const newConfig = { ...baseConfig, ...updates };
+
+    // Update the ref BEFORE the await (optimistically) to prevent race conditions
+    // If two calls happen rapidly, the second will see the first's changes in the ref
+    committedEnvConfigRef.current = newConfig;
+
+    // Save to backend
+    try {
+      const result = await window.electronAPI.updateProjectEnv(project.id, newConfig);
+      if (!result.success) {
+        console.error('[useProjectSettings] Failed to auto-save env config:', result.error);
+        setEnvError(result.error || 'Failed to save environment config');
+        // Note: We don't rollback the ref here because another concurrent call may have
+        // already updated it. The error is shown to the user who can retry.
+        return;
       }
-
-      // Then update local state (triggers effects that read from disk)
-      setEnvConfig(newConfig);
+    } catch (err) {
+      console.error('[useProjectSettings] Error auto-saving env config:', err);
+      setEnvError(err instanceof Error ? err.message : 'Failed to save environment config');
+      // Note: We don't rollback the ref here for the same reason as above.
+      return;
     }
+
+    // Clear any previous error on successful save
+    setEnvError(null);
+
+    // Update local state after successful backend save
+    setEnvConfig(newConfig);
+
+    // Update the shared store so other components (like Sidebar) can react immediately
+    setProjectEnvConfig(project.id, newConfig);
   };
 
   return {
@@ -393,7 +411,6 @@ export function useProjectSettings(
     isLoadingEnv,
     envError,
     setEnvError,
-    isSavingEnv,
     updateEnvConfig,
     showClaudeToken,
     setShowClaudeToken,
@@ -419,7 +436,6 @@ export function useProjectSettings(
     linearConnectionStatus,
     isCheckingLinear,
     handleInitialize,
-    handleSaveEnv,
     handleClaudeSetup,
     handleSave
   };

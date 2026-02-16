@@ -95,7 +95,7 @@ function getNpmGlobalPrefix(): string | null {
     const normalizedPath = path.normalize(binPath);
 
     return fs.existsSync(normalizedPath) ? normalizedPath : null;
-  } catch (error) {
+  } catch (_error) {
     // Fallback for Windows: try default npm global location when npm.cmd is not in PATH
     // This happens when the packaged app launches from GUI without full shell environment
     if (isWindows()) {
@@ -147,9 +147,15 @@ export const COMMON_BIN_PATHS: Record<string, string[]> = {
 
 /**
  * Essential system directories that must always be in PATH
- * Required for core system functionality (e.g., /usr/bin/security for Keychain access)
+ * Required for core system functionality (e.g., /usr/bin/security for Keychain access on macOS,
+ * System32 for where.exe/taskkill.exe on Windows)
  */
-const ESSENTIAL_SYSTEM_PATHS: string[] = ['/usr/bin', '/bin', '/usr/sbin', '/sbin'];
+const ESSENTIAL_SYSTEM_PATHS: Record<string, string[]> = {
+  unix: ['/usr/bin', '/bin', '/usr/sbin', '/sbin'],
+  win32: [
+    `${process.env.SystemRoot || process.env.SYSTEMROOT || 'C:\\Windows'}\\System32`,
+  ],
+};
 
 /**
  * Get expanded platform paths for PATH augmentation
@@ -238,10 +244,11 @@ export function getAugmentedEnv(additionalPaths?: string[]): Record<string, stri
   // The Claude Agent SDK needs /usr/bin/security to access macOS Keychain.
   let currentPath = env.PATH || '';
 
-  // On macOS/Linux, ensure basic system paths are always present
-  if (isUnix()) {
+  // Ensure basic system paths are always present
+  {
+    const essentialPaths = isUnix() ? ESSENTIAL_SYSTEM_PATHS.unix : ESSENTIAL_SYSTEM_PATHS.win32;
     const pathSetForEssentials = new Set(currentPath.split(pathSeparator).filter(Boolean));
-    const missingEssentials = ESSENTIAL_SYSTEM_PATHS.filter(p => !pathSetForEssentials.has(p));
+    const missingEssentials = essentialPaths.filter(p => !pathSetForEssentials.has(p));
 
     if (missingEssentials.length > 0) {
       // Append essential paths if missing (append, not prepend, to respect user's PATH)
@@ -407,12 +414,13 @@ export async function getAugmentedEnvAsync(additionalPaths?: string[]): Promise<
   // Get all candidate paths (platform + additional)
   const candidatePaths = getExpandedPlatformPaths(additionalPaths);
 
-  // Ensure essential system paths are present (for macOS Keychain access)
+  // Ensure essential system paths are present (for macOS Keychain access, Windows System32)
   let currentPath = env.PATH || '';
 
-  if (isUnix()) {
+  {
+    const essentialPaths = isUnix() ? ESSENTIAL_SYSTEM_PATHS.unix : ESSENTIAL_SYSTEM_PATHS.win32;
     const pathSetForEssentials = new Set(currentPath.split(pathSeparator).filter(Boolean));
-    const missingEssentials = ESSENTIAL_SYSTEM_PATHS.filter(p => !pathSetForEssentials.has(p));
+    const missingEssentials = essentialPaths.filter(p => !pathSetForEssentials.has(p));
 
     if (missingEssentials.length > 0) {
       currentPath = currentPath

@@ -81,6 +81,31 @@ def get_base_branch_from_metadata(spec_dir: Path) -> str | None:
     return None
 
 
+def get_use_local_branch_from_metadata(spec_dir: Path) -> bool:
+    """
+    Read useLocalBranch from task_metadata.json if it exists.
+
+    When True, the worktree should be created from the local branch directly
+    instead of preferring origin/branch. This preserves gitignored files
+    (.env, configs) that may not exist on the remote.
+
+    Args:
+        spec_dir: Directory containing the spec files
+
+    Returns:
+        True if useLocalBranch is set in metadata, False otherwise
+    """
+    metadata_path = spec_dir / "task_metadata.json"
+    if metadata_path.exists():
+        try:
+            with open(metadata_path, encoding="utf-8") as f:
+                metadata = json.load(f)
+                return bool(metadata.get("useLocalBranch", False))
+        except (json.JSONDecodeError, OSError):
+            pass
+    return False
+
+
 # Alias for backwards compatibility (internal use)
 _get_base_branch_from_metadata = get_base_branch_from_metadata
 
@@ -504,18 +529,82 @@ This shows only changes made in the spec branch since it diverged from `{base_br
 
 """
 
-    # Add capability summary for transparency
+    # Add capability summary as verification requirements table
     active_caps = [k for k, v in capabilities.items() if v]
     if active_caps:
-        spec_context += (
-            "Based on project analysis, the following capabilities were detected:\n"
-        )
-        for cap in active_caps:
-            cap_name = (
-                cap.replace("is_", "").replace("has_", "").replace("_", " ").title()
+        spec_context += "Based on project analysis, the following verification requirements apply:\n\n"
+        spec_context += "| Capability | Detected | Verification Requirement |\n"
+        spec_context += "|-----------|----------|-------------------------|\n"
+
+        # NOTE: Keys must match those returned by detect_project_capabilities() in project_context.py.
+        # If new capabilities are added there, update this dict to avoid silent omission.
+        cap_requirements = {
+            "is_electron": (
+                "Electron Desktop App",
+                "UI changes REQUIRE Electron MCP visual verification (screenshots)",
+            ),
+            "is_web_frontend": (
+                "Web Frontend",
+                "UI changes REQUIRE browser-based visual verification (screenshots)",
+            ),
+            "is_tauri": ("Tauri Desktop App", "UI changes REQUIRE visual verification"),
+            "is_expo": (
+                "Expo Mobile App",
+                "UI changes require device/simulator verification",
+            ),
+            "is_react_native": (
+                "React Native App",
+                "UI changes require device/simulator verification",
+            ),
+            "is_nextjs": ("Next.js App", "Page changes require browser verification"),
+            "is_nuxt": ("Nuxt App", "Page changes require browser verification"),
+            "has_api": ("API Endpoints", "Endpoint changes require API testing"),
+            "has_database": (
+                "Database",
+                "Schema changes require migration verification",
+            ),
+        }
+
+        for cap_key in active_caps:
+            if cap_key in cap_requirements:
+                name, req = cap_requirements[cap_key]
+                spec_context += f"| {name} | YES | {req} |\n"
+
+        spec_context += "\n"
+
+        # Inject startup commands from project_index services
+        # Handle both dict format (services by name) and list format
+        services = project_index.get("services", {})
+        if isinstance(services, dict):
+            services_iter = services.items()
+        elif isinstance(services, list):
+            services_iter = (
+                (svc.get("name", f"service-{i}"), svc)
+                for i, svc in enumerate(services)
+                if isinstance(svc, dict)
             )
-            spec_context += f"- {cap_name}\n"
-        spec_context += "\nRelevant validation tools have been included below.\n\n"
+        else:
+            services_iter = iter([])
+        for svc_name, svc in services_iter:
+            svc_scripts = svc.get("scripts", {})
+            dev_cmd = svc.get("dev_command", "")
+            if svc_scripts or dev_cmd:
+                spec_context += f"**{svc_name} service commands:**\n"
+                if dev_cmd:
+                    spec_context += f"- Dev server: `{dev_cmd}`\n"
+                # Surface debug/MCP scripts specifically
+                debug_scripts = {
+                    k: v
+                    for k, v in svc_scripts.items()
+                    if any(term in k for term in ("debug", "mcp", "test", "e2e"))
+                }
+                if debug_scripts:
+                    pkg_mgr = svc.get("package_manager", "npm")
+                    for script_name, script_cmd in debug_scripts.items():
+                        spec_context += f"- {script_name}: `{pkg_mgr} run {script_name}` ({script_cmd})\n"
+                spec_context += "\n"
+
+        spec_context += "Match changed files from the git diff against these capabilities to determine which verification phases are MANDATORY.\n\n"
     else:
         spec_context += (
             "No special project capabilities detected. Using standard validation.\n\n"

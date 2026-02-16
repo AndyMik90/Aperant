@@ -19,7 +19,7 @@ import { detectRateLimit, createSDKRateLimitInfo } from '../rate-limit-detector'
  */
 interface ProcessorResult {
   fullResponse: string;
-  suggestedTask?: InsightsChatMessage['suggestedTask'];
+  suggestedTasks?: InsightsChatMessage['suggestedTasks'];
   toolsUsed: InsightsToolUsage[];
 }
 
@@ -127,13 +127,13 @@ export class InsightsExecutor extends EventEmitter {
 
     return new Promise((resolve, reject) => {
       let fullResponse = '';
-      let suggestedTask: InsightsChatMessage['suggestedTask'] | undefined;
+      const suggestedTasks: InsightsChatMessage['suggestedTasks'] = [];
       const toolsUsed: InsightsToolUsage[] = [];
       let allInsightsOutput = '';
       let stderrOutput = '';
 
       proc.stdout?.on('data', (data: Buffer) => {
-        const text = data.toString();
+        const text = data.toString('utf-8');
         // Collect output for rate limit detection (keep last 10KB)
         allInsightsOutput = (allInsightsOutput + text).slice(-10000);
 
@@ -142,7 +142,9 @@ export class InsightsExecutor extends EventEmitter {
         for (const line of lines) {
           if (line.startsWith('__TASK_SUGGESTION__:')) {
             this.handleTaskSuggestion(projectId, line, (task) => {
-              suggestedTask = task;
+              if (task) {
+                suggestedTasks.push(task);
+              }
             });
           } else if (line.startsWith('__TOOL_START__:')) {
             this.handleToolStart(projectId, line, toolsUsed);
@@ -159,7 +161,7 @@ export class InsightsExecutor extends EventEmitter {
       });
 
       proc.stderr?.on('data', (data: Buffer) => {
-        const text = data.toString();
+        const text = data.toString('utf-8');
         // Collect stderr for rate limit detection and error reporting
         allInsightsOutput = (allInsightsOutput + text).slice(-10000);
         stderrOutput = (stderrOutput + text).slice(-2000);
@@ -194,7 +196,7 @@ export class InsightsExecutor extends EventEmitter {
 
           resolve({
             fullResponse: fullResponse.trim(),
-            suggestedTask,
+            suggestedTasks: suggestedTasks.length > 0 ? suggestedTasks : undefined,
             toolsUsed
           });
         } else {
@@ -237,7 +239,7 @@ export class InsightsExecutor extends EventEmitter {
   private handleTaskSuggestion(
     projectId: string,
     line: string,
-    onTaskFound: (task: InsightsChatMessage['suggestedTask']) => void
+    onTaskFound: (task: NonNullable<InsightsChatMessage['suggestedTasks']>[number]) => void
   ): void {
     try {
       const taskJson = line.substring('__TASK_SUGGESTION__:'.length);
@@ -245,7 +247,7 @@ export class InsightsExecutor extends EventEmitter {
       onTaskFound(suggestedTask);
       this.emit('stream-chunk', projectId, {
         type: 'task_suggestion',
-        suggestedTask
+        suggestedTasks: [suggestedTask]
       } as InsightsStreamChunk);
     } catch {
       // Not valid JSON, treat as normal text (should not emit here as it's already handled)

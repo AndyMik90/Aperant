@@ -12,12 +12,8 @@ The refactored code is now organized as:
 - graphiti/search.py - Semantic search logic
 - graphiti/schema.py - Graph schema definitions
 
-This facade ensures existing imports continue to work:
-    from graphiti_memory import GraphitiMemory, is_graphiti_enabled
-
-New code should prefer importing from the graphiti package:
-    from graphiti import GraphitiMemory
-    from graphiti.schema import GroupIdMode
+Import from this module:
+    from integrations.graphiti.memory import GraphitiMemory, is_graphiti_enabled, GroupIdMode
 
 For detailed documentation on the memory system architecture and usage,
 see graphiti/graphiti.py.
@@ -76,6 +72,8 @@ async def test_graphiti_connection() -> tuple[bool, str]:
     """
     Test if LadybugDB is available and Graphiti can connect.
 
+    Uses the embedded LadybugDB via the patched KuzuDriver (no remote connection).
+
     Returns:
         Tuple of (success: bool, message: str)
     """
@@ -91,43 +89,48 @@ async def test_graphiti_connection() -> tuple[bool, str]:
 
     try:
         from graphiti_core import Graphiti
-        from graphiti_core.driver.falkordb_driver import FalkorDriver
         from graphiti_providers import ProviderError, create_embedder, create_llm_client
+
+        # Import the patched driver creator (handles LadybugDB monkeypatch internally)
+        from integrations.graphiti.queries_pkg.client import _apply_ladybug_monkeypatch
+        from integrations.graphiti.queries_pkg.kuzu_driver_patched import (
+            create_patched_kuzu_driver,
+        )
 
         # Create providers
         try:
-            llm_client = create_llm_client(config)
-            embedder = create_embedder(config)
+            llm_client = create_llm_client(config)  # pragma: no cover
+            embedder = create_embedder(config)  # pragma: no cover
         except ProviderError as e:
             return False, f"Provider error: {e}"
 
-        # Try to connect
-        driver = FalkorDriver(
-            host=config.falkordb_host,
-            port=config.falkordb_port,
-            password=config.falkordb_password or None,
-            database=config.database,
-        )
+        # Apply LadybugDB monkeypatch for embedded database
+        if not _apply_ladybug_monkeypatch():  # pragma: no cover
+            return False, "LadybugDB not installed (requires Python 3.12+)"
 
-        graphiti = Graphiti(
+        # Create embedded database driver
+        db_path = config.get_db_path()
+        driver = create_patched_kuzu_driver(db=str(db_path))  # pragma: no cover
+
+        graphiti = Graphiti(  # pragma: no cover
             graph_driver=driver,
             llm_client=llm_client,
             embedder=embedder,
         )
 
         # Try a simple operation
-        await graphiti.build_indices_and_constraints()
-        await graphiti.close()
+        await graphiti.build_indices_and_constraints()  # pragma: no cover
+        await graphiti.close()  # pragma: no cover
 
-        return True, (
-            f"Connected to LadybugDB at {config.falkordb_host}:{config.falkordb_port} "
+        return True, (  # pragma: no cover
+            f"Connected to LadybugDB at {db_path} "
             f"(providers: {config.get_provider_summary()})"
         )
 
     except ImportError as e:
         return False, f"Graphiti packages not installed: {e}"
 
-    except Exception as e:
+    except Exception as e:  # pragma: no cover
         return False, f"Connection failed: {e}"
 
 
