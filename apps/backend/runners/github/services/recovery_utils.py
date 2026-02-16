@@ -104,12 +104,7 @@ def create_finding_from_summary(
 
     # Use severity_override if provided
     if severity_override is not None:
-        severity_map = {
-            "CRITICAL": ReviewSeverity.CRITICAL,
-            "HIGH": ReviewSeverity.HIGH,
-            "MEDIUM": ReviewSeverity.MEDIUM,
-            "LOW": ReviewSeverity.LOW,
-        }
+        severity_map = {k.rstrip(":"): v for k, v in _EXTRACTION_SEVERITY_MAP}
         severity = severity_map.get(severity_override.upper(), severity)
 
     finding_id = generate_recovery_finding_id(index, description, prefix=id_prefix)

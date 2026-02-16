@@ -1129,7 +1129,8 @@ The SDK will run invoked agents in parallel automatically.
         """Attempt a short SDK call with a minimal schema to recover review data.
 
         This is the Tier 2 recovery step when full structured output validation fails.
-        Uses FollowupExtractionResponse (~6 flat fields) which has near-100% success rate.
+        Uses FollowupExtractionResponse (small schema with ExtractedFindingSummary nesting)
+        which has near-100% success rate.
 
         Returns parsed result dict on success, None on failure.
         """

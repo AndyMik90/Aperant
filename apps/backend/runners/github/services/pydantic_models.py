@@ -543,6 +543,11 @@ class ExtractedFindingSummary(BaseModel):
     )
     line: int = Field(default=0, description="Line number in the file (0 if unknown)")
 
+    @field_validator("severity", mode="before")
+    @classmethod
+    def _normalize_severity(cls, v: str) -> str:
+        return _normalize_severity(v)
+
 
 class FollowupExtractionResponse(BaseModel):
     """Minimal extraction schema for recovering data when full structured output fails.
