@@ -6,7 +6,7 @@ import { existsSync, readFileSync } from 'fs';
 import { app } from 'electron';
 import { joinPaths } from '../platform';
 import { TASK_WORKTREE_DIR } from '../worktree-paths';
-import { escapeRegExp } from '@shared/utils/string-utils';
+import { escapeRegExp } from '../../shared/utils/string-utils';
 
 /**
  * Get the path to the bundled backend source

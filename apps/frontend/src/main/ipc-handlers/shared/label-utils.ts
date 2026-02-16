@@ -3,7 +3,7 @@
  * Used by both GitHub and GitLab spec-utils for category detection
  */
 
-import { escapeRegExp } from '@shared/utils/string-utils';
+import { escapeRegExp } from '../../../shared/utils/string-utils';
 
 /**
  * Check if a label contains a whole-word match for a term.
