@@ -171,19 +171,11 @@ export function registerTaskExecutionHandlers(
       );
       const planFilePath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
       let planHasSubtasks = false;
-      if (existsSync(planFilePath)) {
+      const planContent = safeReadFileSync(planFilePath);
+      if (planContent) {
         try {
-          const planContent = readFileSync(planFilePath, 'utf-8');
           const plan = JSON.parse(planContent);
-          const phases = plan?.phases;
-          if (Array.isArray(phases)) {
-            const subtaskCount = phases.reduce(
-              (sum: number, phase: { subtasks?: unknown[] }) =>
-                sum + (Array.isArray(phase.subtasks) ? phase.subtasks.length : 0),
-              0
-            );
-            planHasSubtasks = subtaskCount > 0;
-          }
+          planHasSubtasks = checkSubtasksCompletion(plan).totalCount > 0;
         } catch {
           // Invalid/corrupt plan file - treat as no subtasks
         }
@@ -746,7 +738,19 @@ export function registerTaskExecutionHandlers(
           const specFilePath = path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE);
           const hasSpec = existsSync(specFilePath);
           const needsSpecCreation = !hasSpec;
-          const needsImplementation = hasSpec && task.subtasks.length === 0;
+          // FIX (#1562): Check actual plan file for subtasks, not just task.subtasks.length
+          const updatePlanFilePath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+          let updatePlanHasSubtasks = false;
+          const updatePlanContent = safeReadFileSync(updatePlanFilePath);
+          if (updatePlanContent) {
+            try {
+              const plan = JSON.parse(updatePlanContent);
+              updatePlanHasSubtasks = checkSubtasksCompletion(plan).totalCount > 0;
+            } catch {
+              // Invalid/corrupt plan file - treat as no subtasks
+            }
+          }
+          const needsImplementation = hasSpec && !updatePlanHasSubtasks;
 
           console.warn('[TASK_UPDATE_STATUS] hasSpec:', hasSpec, 'needsSpecCreation:', needsSpecCreation, 'needsImplementation:', needsImplementation);
 

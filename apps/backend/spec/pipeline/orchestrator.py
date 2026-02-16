@@ -358,6 +358,9 @@ class SpecOrchestrator:
         if new_spec_dir != self.spec_dir:
             self.spec_dir = new_spec_dir
             self.validator = SpecValidator(self.spec_dir)
+            # Update phase executor to use the renamed directory
+            phase_executor.spec_dir = self.spec_dir
+            phase_executor.spec_validator = self.validator
 
         # Update task description from requirements
         req = requirements.load_requirements(self.spec_dir)
@@ -781,4 +784,5 @@ class SpecOrchestrator:
         new_spec_dir = rename_spec_dir_from_requirements(self.spec_dir)
         if new_spec_dir != self.spec_dir:
             self.spec_dir = new_spec_dir
+            self.validator = SpecValidator(self.spec_dir)
         return True
