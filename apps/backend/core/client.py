@@ -840,7 +840,11 @@ def create_client(
             # Cap CLAUDE.md content to keep total command line under the limit. (#1661)
             was_truncated = False
             if is_windows():
-                max_claude_md_chars = WINDOWS_MAX_SYSTEM_PROMPT_CHARS - len(base_prompt)
+                max_claude_md_chars = (
+                    WINDOWS_MAX_SYSTEM_PROMPT_CHARS
+                    - len(base_prompt)
+                    - len(WINDOWS_TRUNCATION_MESSAGE)
+                )
                 if len(claude_md_content) > max_claude_md_chars > 0:
                     claude_md_content = (
                         claude_md_content[:max_claude_md_chars]

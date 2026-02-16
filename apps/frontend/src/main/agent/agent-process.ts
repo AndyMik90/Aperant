@@ -686,22 +686,37 @@ export class AgentProcessManager {
     // Instead, merge PATH entries: prepend pythonEnv-specific paths to the augmented PATH.
     const mergedPythonEnv = { ...pythonEnv };
     const pathSep = getPathDelimiter();
-    const envPathKey = Object.keys(env).find(k => k.toUpperCase() === 'PATH') || 'PATH';
-    const pythonPathKey = Object.keys(mergedPythonEnv).find(k => k.toUpperCase() === 'PATH');
 
-    if (pythonPathKey && env[envPathKey]) {
+    // Normalize env to a single uppercase 'PATH' key to avoid duplicate PATH keys on Windows.
+    // On Windows, process.env spread produces 'Path' (system) while getAugmentedEnv() writes 'PATH'.
+    // Without normalization, Object.keys().find() returns 'Path' first (insertion order), missing
+    // augmented entries, and the final spread produces both 'Path' and 'PATH' keys. (#1661)
+    const envPathKey = Object.keys(env).find(k => k.toUpperCase() === 'PATH') || 'PATH';
+    if (envPathKey !== 'PATH' && envPathKey in env) {
+      env['PATH'] = env[envPathKey] as string;
+      delete env[envPathKey];
+    }
+
+    // Also normalize pythonEnv PATH key to uppercase
+    const pythonPathKey = Object.keys(mergedPythonEnv).find(k => k.toUpperCase() === 'PATH');
+    if (pythonPathKey && pythonPathKey !== 'PATH') {
+      mergedPythonEnv['PATH'] = mergedPythonEnv[pythonPathKey] as string;
+      delete mergedPythonEnv[pythonPathKey];
+    }
+
+    if (mergedPythonEnv['PATH'] && env['PATH']) {
       const augmentedPathEntries = new Set(
-        (env[envPathKey] as string).split(pathSep).filter(Boolean)
+        (env['PATH'] as string).split(pathSep).filter(Boolean)
       );
       // Extract only new entries from pythonEnv.PATH that aren't already in the augmented PATH
-      const pythonPathEntries = (mergedPythonEnv[pythonPathKey] as string)
+      const pythonPathEntries = (mergedPythonEnv['PATH'] as string)
         .split(pathSep)
         .filter(entry => entry && !augmentedPathEntries.has(entry));
 
       // Prepend python-specific paths (e.g., pywin32_system32) to the augmented PATH
-      mergedPythonEnv[pythonPathKey] = pythonPathEntries.length > 0
-        ? [...pythonPathEntries, env[envPathKey] as string].join(pathSep)
-        : env[envPathKey] as string;
+      mergedPythonEnv['PATH'] = pythonPathEntries.length > 0
+        ? [...pythonPathEntries, env['PATH'] as string].join(pathSep)
+        : env['PATH'] as string;
     }
 
     // Parse Python command to handle space-separated commands like "py -3"
