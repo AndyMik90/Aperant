@@ -1309,9 +1309,9 @@ The SDK will run invoked agents in parallel automatically.
             )
 
             # All findings (active + dismissed) go in the result for UI display
-            unique_findings = validated_findings
+            all_review_findings = validated_findings
             logger.info(
-                f"[ParallelOrchestrator] Review complete: {len(unique_findings)} findings "
+                f"[ParallelOrchestrator] Review complete: {len(all_review_findings)} findings "
                 f"({len(active_findings)} active, {len(dismissed_findings)} disputed)"
             )
 
@@ -1335,7 +1335,7 @@ The SDK will run invoked agents in parallel automatically.
                 verdict=verdict,
                 verdict_reasoning=verdict_reasoning,
                 blockers=blockers,
-                findings=unique_findings,
+                findings=all_review_findings,
                 agents_invoked=agents_invoked,
             )
 
@@ -1380,7 +1380,7 @@ The SDK will run invoked agents in parallel automatically.
                 pr_number=context.pr_number,
                 repo=self.config.repo,
                 success=True,
-                findings=unique_findings,
+                findings=all_review_findings,
                 summary=summary,
                 overall_status=overall_status,
                 verdict=verdict,
@@ -2171,11 +2171,16 @@ For EACH finding above:
                 sev = f.severity.value
                 emoji = severity_emoji.get(sev, "⚪")
 
+                is_disputed = f.validation_status == "dismissed_false_positive"
+
                 # Finding header with location
                 line_range = f"L{f.line}"
                 if f.end_line and f.end_line != f.line:
                     line_range = f"L{f.line}-L{f.end_line}"
-                lines.append(f"#### {emoji} [{sev.upper()}] {f.title}")
+                if is_disputed:
+                    lines.append(f"#### ⚪ [DISPUTED] ~~{f.title}~~")
+                else:
+                    lines.append(f"#### {emoji} [{sev.upper()}] {f.title}")
                 lines.append(f"**File:** `{f.file}` ({line_range})")
 
                 # Cross-validation badge
@@ -2205,6 +2210,7 @@ For EACH finding above:
                     status_label = {
                         "confirmed_valid": "Confirmed",
                         "needs_human_review": "Needs human review",
+                        "dismissed_false_positive": "Disputed by validator",
                     }.get(f.validation_status, f.validation_status)
                     lines.append("")
                     lines.append(f"**Validation:** {status_label}")
@@ -2226,18 +2232,27 @@ For EACH finding above:
 
                 lines.append("")
 
-            # Findings count summary
+            # Findings count summary (exclude dismissed from active count)
+            active_count = 0
+            dismissed_count = 0
             by_severity: dict[str, int] = {}
             for f in findings:
+                if f.validation_status == "dismissed_false_positive":
+                    dismissed_count += 1
+                    continue
+                active_count += 1
                 sev = f.severity.value
                 by_severity[sev] = by_severity.get(sev, 0) + 1
             summary_parts = []
             for sev in ["critical", "high", "medium", "low"]:
                 if sev in by_severity:
                     summary_parts.append(f"{by_severity[sev]} {sev}")
-            lines.append(
-                f"**Total:** {len(findings)} finding(s) ({', '.join(summary_parts)})"
+            count_text = (
+                f"**Total:** {active_count} finding(s) ({', '.join(summary_parts)})"
             )
+            if dismissed_count > 0:
+                count_text += f" + {dismissed_count} disputed"
+            lines.append(count_text)
             lines.append("")
 
         lines.append("---")

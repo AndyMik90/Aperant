@@ -253,6 +253,7 @@ export function ReviewFindings({
           <button
             type="button"
             onClick={() => setDisputedExpanded(!disputedExpanded)}
+            aria-expanded={disputedExpanded}
             className="w-full flex items-center gap-2 p-3 text-left hover:bg-purple-500/10 transition-colors rounded-t-lg"
           >
             {disputedExpanded ? (

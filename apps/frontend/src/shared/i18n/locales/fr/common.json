@@ -404,7 +404,6 @@
     "failedPostBlockedStatus": "Échec de la publication du statut",
     "disputed": "Contesté",
     "disputedByValidator": "Contesté par le validateur ({{count}})",
-    "disputedExplanation": "Le validateur IA est en désaccord avec cette conclusion",
     "crossValidatedBy": "Confirmé par {{count}} agents",
     "disputedSectionHint": "Ces résultats ont été signalés par les spécialistes mais contestés par le validateur. Vous pouvez toujours les sélectionner et les publier.",
     "logs": {

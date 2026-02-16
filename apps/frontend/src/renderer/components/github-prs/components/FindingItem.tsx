@@ -48,7 +48,7 @@ export function FindingItem({ finding, selected, posted = false, disputed = fals
         "rounded-lg border bg-background p-3 space-y-2 transition-colors",
         selected && !posted && !disputed && "ring-2 ring-primary/50",
         selected && disputed && "ring-2 ring-purple-500/50",
-        (posted || disputed) && "opacity-60"
+        (posted || (disputed && !selected)) && "opacity-60"
       )}
     >
       {/* Finding Header */}

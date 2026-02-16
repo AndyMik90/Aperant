@@ -404,7 +404,6 @@
     "runFollowupAnyway": "Run follow-up verification even though no files overlap",
     "disputed": "Disputed",
     "disputedByValidator": "Disputed by Validator ({{count}})",
-    "disputedExplanation": "The AI validator disagrees with this finding",
     "crossValidatedBy": "Confirmed by {{count}} agents",
     "disputedSectionHint": "These findings were reported by specialists but disputed by the validator. You can still select and post them.",
     "logs": {
