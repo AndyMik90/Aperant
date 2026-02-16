@@ -31,6 +31,9 @@ vi.mock('electron', () => ({
 import { existsSync } from 'fs';
 import { getBundledSourcePath } from '../updater/path-resolver';
 
+// Normalize path separators to forward slashes for cross-platform assertions
+const normalize = (p: string) => p.replace(/\\/g, '/');
+
 describe('path-resolver', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -47,11 +50,12 @@ describe('path-resolver', () => {
         '/home/user/project/.auto-claude/worktrees/tasks/my-feature/apps/frontend'
       );
       vi.mocked(existsSync).mockImplementation((p) => {
-        if (String(p).includes('runners/spec_runner.py')) return true;
+        const normalized = String(p).replace(/\\/g, '/');
+        if (normalized.includes('runners/spec_runner.py')) return true;
         return false;
       });
 
-      const result = getBundledSourcePath();
+      const result = normalize(getBundledSourcePath());
       expect(result).toContain('.auto-claude/worktrees/tasks/my-feature');
       expect(result).toContain('apps/backend');
     });
@@ -61,17 +65,14 @@ describe('path-resolver', () => {
         'C:\\Users\\dev\\project\\.auto-claude\\worktrees\\tasks\\my-feature\\apps\\frontend'
       );
       vi.mocked(existsSync).mockImplementation((p) => {
-        if (
-          String(p).includes('runners/spec_runner.py') ||
-          String(p).includes('runners\\spec_runner.py')
-        )
-          return true;
+        const normalized = String(p).replace(/\\/g, '/');
+        if (normalized.includes('runners/spec_runner.py')) return true;
         return false;
       });
 
-      const result = getBundledSourcePath();
-      expect(result).toContain('my-feature');
-      expect(result).toContain('backend');
+      const result = normalize(getBundledSourcePath());
+      expect(result).toContain('.auto-claude/worktrees/tasks/my-feature');
+      expect(result).toContain('apps/backend');
     });
 
     it('should NOT match paths without the exact .auto-claude directory', () => {
@@ -110,7 +111,7 @@ describe('path-resolver', () => {
         configurable: true,
       });
 
-      const result = getBundledSourcePath();
+      const result = normalize(getBundledSourcePath());
       expect(result).toContain('resources');
       expect(result).toContain('backend');
     });
