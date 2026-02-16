@@ -7,19 +7,17 @@ Phases for spec document creation and quality assurance.
 
 import json
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from .. import validator, writer
 from ..discovery import get_project_index_stats
 from .models import MAX_RETRIES, PhaseResult
 
-if TYPE_CHECKING:
-    pass
-
 
 def _is_greenfield_project(spec_dir: Path) -> bool:
     """Check if the project is empty/greenfield (0 discovered files)."""
     stats = get_project_index_stats(spec_dir)
+    if not stats:
+        return False  # Can't determine - don't assume greenfield
     return stats.get("file_count", 0) == 0
 
 
