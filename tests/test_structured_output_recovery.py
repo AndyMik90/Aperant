@@ -98,11 +98,11 @@ class TestFollowupExtractionResponse:
         followup_schema = json.dumps(
             ParallelFollowupResponse.model_json_schema()
         )
-        # Extraction schema should be well under 2/3 the size of the full schema
-        # (it grew slightly after adding ExtractedFindingSummary but is still much simpler)
-        assert len(extraction_schema) < len(followup_schema) * 2 / 3, (
+        # Actual ratio is ~50.7% after adding ExtractedFindingSummary nesting.
+        # Threshold at 55% gives headroom while still guarding against schema bloat.
+        assert len(extraction_schema) < len(followup_schema) * 0.55, (
             f"Extraction schema ({len(extraction_schema)} chars) should be "
-            f"less than 2/3 of full schema ({len(followup_schema)} chars)"
+            f"less than 55% of full schema ({len(followup_schema)} chars)"
         )
 
     def test_all_verdict_values_accepted(self):
