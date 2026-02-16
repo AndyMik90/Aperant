@@ -15,64 +15,81 @@ interface WatcherInfo {
  */
 export class FileWatcher extends EventEmitter {
   private watchers: Map<string, WatcherInfo> = new Map();
+  private pendingWatches: Set<string> = new Set();
 
   /**
    * Start watching a task's implementation plan
    */
   async watch(taskId: string, specDir: string): Promise<void> {
-    // Stop any existing watcher for this task
-    await this.unwatch(taskId);
-
-    const planPath = path.join(specDir, 'implementation_plan.json');
-
-    // Check if plan file exists
-    if (!existsSync(planPath)) {
-      this.emit('error', taskId, `Plan file not found: ${planPath}`);
+    // Prevent overlapping watch() calls for the same taskId.
+    // Since watch() is async, rapid-fire callers could enter concurrently
+    // before the first call updates state, creating duplicate watchers.
+    if (this.pendingWatches.has(taskId)) {
       return;
     }
+    this.pendingWatches.add(taskId);
 
-    // Create watcher with settings to handle frequent writes
-    const watcher = chokidar.watch(planPath, {
-      persistent: true,
-      ignoreInitial: true,
-      awaitWriteFinish: {
-        stabilityThreshold: 300,
-        pollInterval: 100
+    try {
+      // Close any existing watcher for this task
+      const existing = this.watchers.get(taskId);
+      if (existing) {
+        await existing.watcher.close();
+        this.watchers.delete(taskId);
       }
-    });
 
-    // Store watcher info
-    this.watchers.set(taskId, {
-      taskId,
-      watcher,
-      planPath
-    });
+      const planPath = path.join(specDir, 'implementation_plan.json');
 
-    // Handle file changes
-    watcher.on('change', () => {
+      // Check if plan file exists
+      if (!existsSync(planPath)) {
+        this.emit('error', taskId, `Plan file not found: ${planPath}`);
+        return;
+      }
+
+      // Create watcher with settings to handle frequent writes
+      const watcher = chokidar.watch(planPath, {
+        persistent: true,
+        ignoreInitial: true,
+        awaitWriteFinish: {
+          stabilityThreshold: 300,
+          pollInterval: 100
+        }
+      });
+
+      // Store watcher info
+      this.watchers.set(taskId, {
+        taskId,
+        watcher,
+        planPath
+      });
+
+      // Handle file changes
+      watcher.on('change', () => {
+        try {
+          const content = readFileSync(planPath, 'utf-8');
+          const plan: ImplementationPlan = JSON.parse(content);
+          this.emit('progress', taskId, plan);
+        } catch {
+          // File might be in the middle of being written
+          // Ignore parse errors, next change event will have complete file
+        }
+      });
+
+      // Handle errors
+      watcher.on('error', (error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        this.emit('error', taskId, message);
+      });
+
+      // Read and emit initial state
       try {
         const content = readFileSync(planPath, 'utf-8');
         const plan: ImplementationPlan = JSON.parse(content);
         this.emit('progress', taskId, plan);
       } catch {
-        // File might be in the middle of being written
-        // Ignore parse errors, next change event will have complete file
+        // Initial read failed - not critical
       }
-    });
-
-    // Handle errors
-    watcher.on('error', (error: unknown) => {
-      const message = error instanceof Error ? error.message : String(error);
-      this.emit('error', taskId, message);
-    });
-
-    // Read and emit initial state
-    try {
-      const content = readFileSync(planPath, 'utf-8');
-      const plan: ImplementationPlan = JSON.parse(content);
-      this.emit('progress', taskId, plan);
-    } catch {
-      // Initial read failed - not critical
+    } finally {
+      this.pendingWatches.delete(taskId);
     }
   }
 

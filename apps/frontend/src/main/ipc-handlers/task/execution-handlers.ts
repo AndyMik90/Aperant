@@ -250,7 +250,9 @@ export function registerTaskExecutionHandlers(
       // Start file watcher for this task
       // Use worktree path if it exists, since the backend writes implementation_plan.json there
       const watchSpecDir = getSpecDirForWatcher(project.path, specsBaseDir, task.specId);
-      fileWatcher.watch(taskId, watchSpecDir);
+      fileWatcher.watch(taskId, watchSpecDir).catch((err) => {
+        console.error(`[TASK_START] Failed to watch spec dir for ${taskId}:`, err);
+      });
 
       // Check if spec.md exists (indicates spec creation was already done or in progress)
       // Check main project path for spec file (spec is created before worktree)
@@ -751,7 +753,9 @@ export function registerTaskExecutionHandlers(
           // Start file watcher for this task
           // Use worktree path if it exists, since the backend writes implementation_plan.json there
           const watchSpecDir = getSpecDirForWatcher(project.path, specsBaseDir, task.specId);
-          fileWatcher.watch(taskId, watchSpecDir);
+          fileWatcher.watch(taskId, watchSpecDir).catch((err) => {
+            console.error(`[TASK_UPDATE_STATUS] Failed to watch spec dir for ${taskId}:`, err);
+          });
 
           // Check if spec.md exists
           const specFilePath = path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE);
@@ -1200,9 +1204,10 @@ export function registerTaskExecutionHandlers(
             // Start the task execution
             // Start file watcher for this task
             // Use worktree path if it exists, since the backend writes implementation_plan.json there
-            const specsBaseDir = getSpecsDir(project.autoBuildPath);
             const watchSpecDir = getSpecDirForWatcher(project.path, specsBaseDir, task.specId);
-            fileWatcher.watch(taskId, watchSpecDir);
+            fileWatcher.watch(taskId, watchSpecDir).catch((err) => {
+              console.error(`[Recovery] Failed to watch spec dir for ${taskId}:`, err);
+            });
 
             // Check if spec.md exists to determine whether to run spec creation or task execution
             // Check main project path for spec file (spec is created before worktree)
