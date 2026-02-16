@@ -387,7 +387,7 @@ export interface PRReviewResult {
   success: boolean;
   findings: PRReviewFinding[];
   summary: string;
-  overallStatus: 'approve' | 'request_changes' | 'comment';
+  overallStatus: 'approve' | 'request_changes' | 'comment' | 'in_progress';
   reviewId?: number;
   reviewedAt: string;
   error?: string;
@@ -403,6 +403,8 @@ export interface PRReviewResult {
   hasPostedFindings?: boolean;
   postedFindingIds?: string[];
   postedAt?: string;
+  // In-progress review tracking
+  inProgressSince?: string;
 }
 
 /**

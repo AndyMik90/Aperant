@@ -10,9 +10,20 @@
  *    - Must be below user's configured thresholds (default: 95% session, 99% weekly)
  * 3. First profile in priority order that passes all filters is selected
  * 4. If no profile passes all filters, falls back to "least bad" option
+ *
+ * v3 Enhancement: Unified Account Support
+ * - Supports both OAuth profiles (ClaudeProfile) and API profiles (APIProfile)
+ * - API profiles are always considered available (hasUnlimitedUsage = true)
+ * - Unified selection algorithm considers both types in priority order
  */
 
-import type { ClaudeProfile, ClaudeAutoSwitchSettings } from '../../shared/types';
+import type { ClaudeProfile, ClaudeAutoSwitchSettings, APIProfile } from '../../shared/types';
+import type { UnifiedAccount } from '../../shared/types/unified-account';
+import {
+  claudeProfileToUnified,
+  apiProfileToUnified,
+  OAUTH_ID_PREFIX
+} from '../../shared/utils/unified-account';
 import { isProfileRateLimited } from './rate-limit-manager';
 import { isProfileAuthenticated } from './profile-utils';
 
@@ -121,6 +132,236 @@ function calculateFallbackScore(
   return score;
 }
 
+// ============================================
+// Unified Account Scoring (v3)
+// ============================================
+
+interface ScoredUnifiedAccount {
+  account: UnifiedAccount;
+  score: number;
+  priorityIndex: number;
+  isAvailable: boolean;
+  unavailableReason?: string;
+}
+
+/**
+ * Options for unified account selection
+ */
+export interface UnifiedAccountSelectionOptions {
+  /** Unified account ID to exclude (usually the current/failing one) */
+  excludeAccountId?: string;
+  /** User's configured priority order (array of unified IDs) */
+  priorityOrder?: string[];
+  /** Currently active OAuth profile ID (if any) */
+  activeOAuthId?: string;
+  /** Currently active API profile ID (if any) */
+  activeAPIId?: string;
+}
+
+/**
+ * Score a single unified account for availability
+ *
+ * @param account - The unified account to score
+ * @param priorityIndex - Index in the user's priority order (lower = higher priority)
+ * @param settings - Auto-switch settings containing usage thresholds
+ */
+function scoreUnifiedAccount(
+  account: UnifiedAccount,
+  priorityIndex: number,
+  settings: ClaudeAutoSwitchSettings
+): ScoredUnifiedAccount {
+  let score = 100;
+  let unavailableReason: string | undefined;
+  let isOverThreshold = false;
+
+  // For API profiles: simple availability check
+  if (account.type === 'api') {
+    if (!account.isAuthenticated) {
+      score = -1000;
+      unavailableReason = 'API key not validated';
+    } else if (!account.isAvailable) {
+      score = -500;
+      unavailableReason = 'not available';
+    }
+    // API profiles with valid auth get high scores (no usage limits)
+
+    return {
+      account,
+      score,
+      priorityIndex,
+      isAvailable: score > 0,
+      unavailableReason
+    };
+  }
+
+  // For OAuth profiles: detailed scoring with threshold enforcement
+  if (!account.isAuthenticated) {
+    score = -1000;
+    unavailableReason = 'not authenticated';
+  } else if (account.isRateLimited) {
+    if (account.rateLimitType === 'weekly') {
+      score = -500;
+    } else {
+      score = -200;
+    }
+    unavailableReason = `rate limited (${account.rateLimitType || 'unknown'})`;
+  } else {
+    // Check usage thresholds (matching checkProfileAvailability behavior)
+    if (account.weeklyPercent !== undefined && account.weeklyPercent >= settings.weeklyThreshold) {
+      isOverThreshold = true;
+      unavailableReason = `weekly usage ${account.weeklyPercent}% >= threshold ${settings.weeklyThreshold}%`;
+    } else if (account.sessionPercent !== undefined && account.sessionPercent >= settings.sessionThreshold) {
+      isOverThreshold = true;
+      unavailableReason = `session usage ${account.sessionPercent}% >= threshold ${settings.sessionThreshold}%`;
+    }
+
+    // Apply proportional penalties for high usage (even if not over threshold)
+    if (account.weeklyPercent !== undefined) {
+      score -= account.weeklyPercent * 0.3;
+    }
+    if (account.sessionPercent !== undefined) {
+      score -= account.sessionPercent * 0.1;
+    }
+  }
+
+  return {
+    account,
+    score,
+    priorityIndex,
+    isAvailable: score > 0 && account.isAuthenticated === true && !account.isRateLimited && !isOverThreshold,
+    unavailableReason
+  };
+}
+
+/**
+ * Get the best unified account from both OAuth and API profiles
+ *
+ * Selection Logic:
+ * 1. Convert all profiles to UnifiedAccount format
+ * 2. Sort by user's priority order
+ * 3. Filter by availability
+ * 4. Return first available account in priority order
+ * 5. If none available, return the "least bad" option
+ *
+ * @param oauthProfiles - All OAuth (Claude) profiles
+ * @param apiProfiles - All API profiles
+ * @param settings - Auto-switch settings (contains thresholds for OAuth)
+ * @param options - Optional configuration for selection
+ */
+export function getBestAvailableUnifiedAccount(
+  oauthProfiles: ClaudeProfile[],
+  apiProfiles: APIProfile[],
+  settings: ClaudeAutoSwitchSettings,
+  options: UnifiedAccountSelectionOptions = {}
+): UnifiedAccount | null {
+  const { excludeAccountId, priorityOrder = [], activeOAuthId, activeAPIId } = options;
+  // Convert all profiles to unified format
+  const unifiedAccounts: UnifiedAccount[] = [];
+
+  // Convert OAuth profiles
+  for (const profile of oauthProfiles) {
+    const isActive = profile.id === activeOAuthId;
+    const rateLimitStatus = isProfileRateLimited(profile);
+    // Compute authentication status - profile.isAuthenticated may not be set on raw profiles
+    const isAuthenticated = isProfileAuthenticated(profile);
+
+    unifiedAccounts.push(claudeProfileToUnified(profile, isActive, {
+      isRateLimited: rateLimitStatus.limited,
+      rateLimitType: rateLimitStatus.type,
+      isAuthenticated
+    }));
+  }
+
+  // Convert API profiles
+  for (const profile of apiProfiles) {
+    const isActive = profile.id === activeAPIId;
+    // TODO: API profiles are considered authenticated if they have an API key.
+    // Add validation tracking to distinguish "has key" from "key is confirmed valid".
+    const isAuthenticated = !!profile.apiKey;
+    unifiedAccounts.push(apiProfileToUnified(profile, isActive, isAuthenticated));
+  }
+
+  // Filter out excluded account
+  const candidates = unifiedAccounts.filter(a => a.id !== excludeAccountId);
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  if (isDebug) {
+    console.warn('[ProfileScorer] Evaluating', candidates.length, 'candidate accounts (excluding:', excludeAccountId, ')');
+    console.warn('[ProfileScorer] Priority order:', priorityOrder);
+    console.warn('[ProfileScorer] OAuth thresholds: session =', settings.sessionThreshold, '%, weekly =', settings.weeklyThreshold, '%');
+  }
+
+  // Score and check availability for each account
+  const scoredAccounts: ScoredUnifiedAccount[] = candidates.map(account => {
+    const priorityIndex = priorityOrder.indexOf(account.id);
+    const scored = scoreUnifiedAccount(account, priorityIndex === -1 ? Infinity : priorityIndex, settings);
+
+    if (isDebug) {
+      console.warn('[ProfileScorer] Scoring account:', account.displayName, '(', account.id, ')');
+      console.warn('[ProfileScorer]   Type:', account.type);
+      console.warn('[ProfileScorer]   Priority index:', priorityIndex === -1 ? 'not in list (Infinity)' : priorityIndex);
+      console.warn('[ProfileScorer]   Available:', scored.isAvailable, scored.unavailableReason ? `(${scored.unavailableReason})` : '');
+      if (account.type === 'oauth') {
+        console.warn('[ProfileScorer]   Usage:', `session=${account.sessionPercent}%, weekly=${account.weeklyPercent}%`);
+      }
+      console.warn('[ProfileScorer]   Score:', scored.score);
+    }
+
+    return scored;
+  });
+
+  // Sort by:
+  // 1. Available accounts first
+  // 2. Within available: by priority index (lower = higher priority)
+  // 3. Within unavailable: by score (higher = better, for "least bad" selection)
+  scoredAccounts.sort((a, b) => {
+    // Available accounts always come first
+    if (a.isAvailable !== b.isAvailable) {
+      return a.isAvailable ? -1 : 1;
+    }
+
+    // For available accounts, sort by priority order
+    if (a.isAvailable && b.isAvailable) {
+      if (a.priorityIndex !== b.priorityIndex) {
+        return a.priorityIndex - b.priorityIndex;
+      }
+      // Tiebreaker: prefer higher score
+      return b.score - a.score;
+    }
+
+    // For unavailable accounts, sort by score (for "least bad" selection)
+    return b.score - a.score;
+  });
+
+  const best = scoredAccounts[0];
+
+  if (best.isAvailable) {
+    if (isDebug) {
+      console.warn('[ProfileScorer] Best available account:', best.account.displayName,
+        '(type:', best.account.type, ', priority index:', best.priorityIndex, ')');
+    }
+    return best.account;
+  }
+
+  // No account meets all criteria - check if we should return the least bad option
+  if (best.score > 0) {
+    if (isDebug) {
+      console.warn('[ProfileScorer] No ideal account available, using least-bad option:', best.account.displayName,
+        '(type:', best.account.type, ', score:', best.score, ', reason:', best.unavailableReason, ')');
+    }
+    return best.account;
+  }
+
+  // All accounts are truly unusable
+  if (isDebug) {
+    console.warn('[ProfileScorer] No usable account available, all have issues');
+  }
+  return null;
+}
+
 /**
  * Get the best profile to switch to based on priority order and availability
  *
@@ -157,7 +398,7 @@ export function getBestAvailableProfile(
 
   // Score and check availability for each profile
   const scoredProfiles: ScoredProfile[] = candidates.map(profile => {
-    const unifiedId = `oauth-${profile.id}`;
+    const unifiedId = `${OAUTH_ID_PREFIX}${profile.id}`;
     const priorityIndex = priorityOrder.indexOf(unifiedId);
     const availability = checkProfileAvailability(profile, settings);
     const fallbackScore = calculateFallbackScore(profile, settings);

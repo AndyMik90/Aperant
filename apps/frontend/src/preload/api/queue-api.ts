@@ -13,6 +13,7 @@ import type {
   ProfileAssignmentReason,
   ProfileSwapRecord,
 } from '../../shared/types';
+import type { UnifiedAccount } from '../../shared/types/unified-account';
 
 /**
  * Result of best profile selection for a task
@@ -35,6 +36,14 @@ export interface GetBestProfileOptions {
   perProfileMaxTasks?: number;
   /** Usage threshold (0-1) before considering profile "busy" (default: 0.85) */
   profileThreshold?: number;
+}
+
+/**
+ * Options for getting the best unified account for a task
+ */
+export interface GetBestUnifiedAccountOptions {
+  /** Unified account ID to exclude (e.g., 'oauth-profile1' or 'api-profile2') */
+  excludeAccountId?: string;
 }
 
 /**
@@ -67,6 +76,13 @@ export interface QueueAPI {
    * Considers availability scores, running task counts, and rate limit status
    */
   getBestProfileForTask: (options?: GetBestProfileOptions) => Promise<IPCResult<BestProfileResult | null>>;
+
+  /**
+   * Get the best available unified account for a new task
+   * Considers both OAuth profiles and API profiles in unified selection
+   * Used for cross-type account switching when OAuth profiles are exhausted
+   */
+  getBestUnifiedAccount: (options?: GetBestUnifiedAccountOptions) => Promise<IPCResult<UnifiedAccount | null>>;
 
   /**
    * Assign a profile to a task
@@ -117,6 +133,9 @@ export const createQueueAPI = (): QueueAPI => ({
 
   getBestProfileForTask: (options?: GetBestProfileOptions): Promise<IPCResult<BestProfileResult | null>> =>
     ipcRenderer.invoke(IPC_CHANNELS.QUEUE_GET_BEST_PROFILE_FOR_TASK, options),
+
+  getBestUnifiedAccount: (options?: GetBestUnifiedAccountOptions): Promise<IPCResult<UnifiedAccount | null>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.QUEUE_GET_BEST_UNIFIED_ACCOUNT, options),
 
   assignProfileToTask: (
     taskId: string,

@@ -7,6 +7,9 @@ import { useAuthFailureStore } from '../stores/auth-failure-store';
 import { useProjectStore } from '../stores/project-store';
 import type { ImplementationPlan, TaskStatus, RoadmapGenerationStatus, Roadmap, ExecutionProgress, RateLimitInfo, SDKRateLimitInfo, AuthFailureInfo } from '../../shared/types';
 
+/** Maximum log entries to buffer in the batch queue between flushes (OOM prevention) */
+const MAX_BATCH_QUEUE_LOGS = 100;
+
 /**
  * Batched update queue for IPC events.
  * Collects updates within a 16ms window (one frame) and flushes them together.
@@ -124,6 +127,10 @@ function queueUpdate(taskId: string, update: BatchedUpdate): void {
   let mergedLogs = existing.logs;
   if (update.logs) {
     mergedLogs = [...(existing.logs || []), ...update.logs];
+    // Cap batch queue logs to prevent OOM when logs arrive faster than flush interval
+    if (mergedLogs.length > MAX_BATCH_QUEUE_LOGS) {
+      mergedLogs = mergedLogs.slice(-MAX_BATCH_QUEUE_LOGS);
+    }
   }
 
   batchQueue.set(taskId, {
@@ -148,8 +155,10 @@ function queueUpdate(taskId: string, update: BatchedUpdate): void {
 function isTaskForCurrentProject(eventProjectId?: string): boolean {
   // If no projectId provided (backward compatibility), accept the event
   if (!eventProjectId) return true;
-  const currentProjectId = useProjectStore.getState().selectedProjectId;
-  // If no project selected, accept the event
+  const { activeProjectId, selectedProjectId } = useProjectStore.getState();
+  // Keep filtering aligned with App task loading logic (active first, selected fallback)
+  const currentProjectId = activeProjectId || selectedProjectId;
+  // If no project selected/active, accept the event
   if (!currentProjectId) return true;
   return currentProjectId === eventProjectId;
 }
@@ -210,6 +219,19 @@ export function useIpcListeners(): void {
         // Filter by project to prevent multi-project interference
         if (!isTaskForCurrentProject(projectId)) return;
         queueUpdate(taskId, { status, reviewReason });
+
+        // Sync roadmap feature when task completes
+        if (status === 'done' || status === 'pr_created') {
+          useRoadmapStore.getState().markFeatureDoneBySpecId(taskId);
+          // Re-read state after mutation to get updated roadmap
+          const rm = useRoadmapStore.getState().roadmap;
+          const currentProjectId = useProjectStore.getState().activeProjectId || useProjectStore.getState().selectedProjectId;
+          if (rm && currentProjectId) {
+            window.electronAPI.saveRoadmap(currentProjectId, rm).catch((err) => {
+              console.error('[useIpc] Failed to persist roadmap after task completion:', err);
+            });
+          }
+        }
       }
     );
 

@@ -20,6 +20,7 @@ Requirements:
 """
 
 import inspect
+import os
 import subprocess
 import sys
 import tempfile
@@ -99,12 +100,16 @@ def create_test_git_repo(repo_path: Path, remote_url: str) -> bool:
     try:
         repo_path.mkdir(parents=True, exist_ok=True)
 
+        # Clear GIT_* environment variables to prevent worktree interference
+        env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
+
         # Initialize git repo
         subprocess.run(
             ["git", "init"],
             cwd=repo_path,
             capture_output=True,
             check=True,
+            env=env,
         )
 
         # Configure git user for commits
@@ -113,12 +118,14 @@ def create_test_git_repo(repo_path: Path, remote_url: str) -> bool:
             cwd=repo_path,
             capture_output=True,
             check=True,
+            env=env,
         )
         subprocess.run(
             ["git", "config", "user.email", "test@example.com"],
             cwd=repo_path,
             capture_output=True,
             check=True,
+            env=env,
         )
 
         # Disable GPG signing to prevent hangs in CI
@@ -127,6 +134,7 @@ def create_test_git_repo(repo_path: Path, remote_url: str) -> bool:
             cwd=repo_path,
             capture_output=True,
             check=True,
+            env=env,
         )
 
         # Add remote
@@ -135,6 +143,7 @@ def create_test_git_repo(repo_path: Path, remote_url: str) -> bool:
             cwd=repo_path,
             capture_output=True,
             check=True,
+            env=env,
         )
 
         # Create initial commit
@@ -144,12 +153,14 @@ def create_test_git_repo(repo_path: Path, remote_url: str) -> bool:
             cwd=repo_path,
             capture_output=True,
             check=True,
+            env=env,
         )
         subprocess.run(
             ["git", "commit", "-m", "Initial commit"],
             cwd=repo_path,
             capture_output=True,
             check=True,
+            env=env,
         )
 
         return True

@@ -7,15 +7,19 @@ Reads configuration from task_metadata.json and provides resolved model IDs.
 """
 
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Literal, TypedDict
+
+logger = logging.getLogger(__name__)
 
 # Model shorthand to full model ID mapping
 # Values must match apps/frontend/src/shared/constants/models.ts MODEL_ID_MAP
 MODEL_ID_MAP: dict[str, str] = {
     "opus": "claude-opus-4-6",
     "opus-1m": "claude-opus-4-6",
+    "opus-4.5": "claude-opus-4-5-20251101",
     "sonnet": "claude-sonnet-4-5-20250929",
     "haiku": "claude-haiku-4-5-20251001",
 }
@@ -128,6 +132,8 @@ def resolve_model_id(model: str) -> str:
             "sonnet": "ANTHROPIC_DEFAULT_SONNET_MODEL",
             "opus": "ANTHROPIC_DEFAULT_OPUS_MODEL",
             "opus-1m": "ANTHROPIC_DEFAULT_OPUS_MODEL",
+            # opus-4.5 intentionally omitted — always resolves to its hardcoded
+            # model ID (claude-opus-4-5-20251101) regardless of env var overrides.
         }
         env_var = env_var_map.get(model)
         if env_var:
@@ -158,6 +164,37 @@ def get_model_betas(model_short: str) -> list[str]:
     return MODEL_BETAS_MAP.get(model_short, [])
 
 
+VALID_THINKING_LEVELS = {"low", "medium", "high"}
+
+# Mapping from legacy/removed thinking levels to valid ones
+LEGACY_THINKING_LEVEL_MAP: dict[str, str] = {
+    "ultrathink": "high",
+    "none": "low",
+}
+
+
+def sanitize_thinking_level(thinking_level: str) -> str:
+    """
+    Validate and sanitize a thinking level string.
+
+    Maps legacy values (e.g., 'ultrathink') to valid equivalents and falls
+    back to 'medium' for completely unknown values. Used by CLI argparse
+    handlers to make the backend resilient to invalid values from the frontend.
+
+    Args:
+        thinking_level: Raw thinking level string from CLI or task_metadata.json
+
+    Returns:
+        A valid thinking level string (low, medium, high)
+    """
+    if thinking_level in VALID_THINKING_LEVELS:
+        return thinking_level
+
+    mapped = LEGACY_THINKING_LEVEL_MAP.get(thinking_level, "medium")
+    logger.warning("Invalid thinking level '%s' mapped to '%s'", thinking_level, mapped)
+    return mapped
+
+
 def get_thinking_budget(thinking_level: str) -> int:
     """
     Get the thinking budget for a thinking level.
@@ -168,13 +205,12 @@ def get_thinking_budget(thinking_level: str) -> int:
     Returns:
         Token budget for extended thinking
     """
-    import logging
-
     if thinking_level not in THINKING_BUDGET_MAP:
         valid_levels = ", ".join(THINKING_BUDGET_MAP.keys())
-        logging.warning(
-            f"Invalid thinking_level '{thinking_level}'. Valid values: {valid_levels}. "
-            f"Defaulting to 'medium'."
+        logger.warning(
+            "Invalid thinking_level '%s'. Valid values: %s. Defaulting to 'medium'.",
+            thinking_level,
+            valid_levels,
         )
         return THINKING_BUDGET_MAP["medium"]
 
@@ -447,7 +483,15 @@ def get_fast_mode(spec_dir: Path) -> bool:
     """
     metadata = load_task_metadata(spec_dir)
     if metadata:
-        return bool(metadata.get("fastMode", False))
+        enabled = bool(metadata.get("fastMode", False))
+        if enabled:
+            logger.info(
+                "[Fast Mode] ENABLED — read fastMode=true from task_metadata.json"
+            )
+        else:
+            logger.info("[Fast Mode] disabled — fastMode not set in task_metadata.json")
+        return enabled
+    logger.info("[Fast Mode] disabled — no task_metadata.json found")
     return False
 
 

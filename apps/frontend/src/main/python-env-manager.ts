@@ -753,6 +753,8 @@ if sys.version_info >= (3, 12):
       ...windowsEnv,
       // Don't write bytecode - not needed and avoids permission issues
       PYTHONDONTWRITEBYTECODE: '1',
+      // Force unbuffered stdout/stderr so progress updates reach Electron immediately
+      PYTHONUNBUFFERED: '1',
       // Use UTF-8 encoding
       PYTHONIOENCODING: 'utf-8',
       PYTHONUTF8: '1',

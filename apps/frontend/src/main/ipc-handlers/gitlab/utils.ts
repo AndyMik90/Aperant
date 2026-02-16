@@ -13,6 +13,19 @@ import { getIsolatedGitEnv } from '../../utils/git-isolation';
 
 const DEFAULT_GITLAB_URL = 'https://gitlab.com';
 
+/**
+ * Custom error class for GitLab API errors with structured status code
+ */
+export class GitLabAPIError extends Error {
+  public readonly statusCode: number;
+
+  constructor(message: string, statusCode: number) {
+    super(message);
+    this.name = 'GitLabAPIError';
+    this.statusCode = statusCode;
+  }
+}
+
 function parseInstanceUrl(value: string): string | null {
   const candidate = value.trim();
   if (!candidate) return null;
@@ -261,13 +274,16 @@ export async function gitlabFetch(
 
     if (!response.ok) {
       const errorBody = await response.text();
-      throw new Error(`GitLab API error: ${response.status} ${response.statusText} - ${errorBody}`);
+      throw new GitLabAPIError(
+        `GitLab API error: ${response.status} ${response.statusText} - ${errorBody}`,
+        response.status
+      );
     }
 
     return response.json();
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`GitLab API timeout after ${GITLAB_API_TIMEOUT_MS / 1000}s: ${url}`);
+      throw new GitLabAPIError(`GitLab API timeout after ${GITLAB_API_TIMEOUT_MS / 1000}s: ${url}`, 0);
     }
     throw error;
   } finally {
@@ -316,7 +332,10 @@ export async function gitlabFetchWithCount(
 
     if (!response.ok) {
       const errorBody = await response.text();
-      throw new Error(`GitLab API error: ${response.status} ${response.statusText} - ${errorBody}`);
+      throw new GitLabAPIError(
+        `GitLab API error: ${response.status} ${response.statusText} - ${errorBody}`,
+        response.status
+      );
     }
 
     // Get total count from X-Total header (GitLab's pagination header)
@@ -327,7 +346,7 @@ export async function gitlabFetchWithCount(
     return { data, totalCount };
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`GitLab API timeout after ${GITLAB_API_TIMEOUT_MS / 1000}s: ${url}`);
+      throw new GitLabAPIError(`GitLab API timeout after ${GITLAB_API_TIMEOUT_MS / 1000}s: ${url}`, 0);
     }
     throw error;
   } finally {

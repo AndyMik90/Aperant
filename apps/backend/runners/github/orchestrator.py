@@ -395,8 +395,28 @@ class GitHubOrchestrator:
                     else:
                         # No existing review found, create skip result
                         return await self._create_skip_result(pr_number, skip_reason)
+                elif "Review already in progress" in skip_reason:
+                    # Return an in-progress result WITHOUT saving to disk
+                    # to avoid overwriting the partial result being written by the active review
+                    started_at = self.bot_detector.state.in_progress_reviews.get(
+                        str(pr_number)
+                    )
+                    safe_print(
+                        f"[BOT DETECTION] Review in progress for PR #{pr_number} "
+                        f"(started: {started_at})",
+                        flush=True,
+                    )
+                    return PRReviewResult(
+                        pr_number=pr_number,
+                        repo=self.config.repo,
+                        success=True,
+                        findings=[],
+                        summary="Review in progress",
+                        overall_status="in_progress",
+                        in_progress_since=started_at,
+                    )
                 else:
-                    # For other skip reasons (bot-authored, cooling off, in-progress), create a skip result
+                    # For other skip reasons (bot-authored, cooling off), create a skip result
                     return await self._create_skip_result(pr_number, skip_reason)
 
             # Mark review as started (prevents concurrent reviews)

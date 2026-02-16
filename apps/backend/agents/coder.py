@@ -591,6 +591,9 @@ async def run_autonomous_agent(
 
         # Generate appropriate prompt
         fast_mode = get_fast_mode(spec_dir)
+        logger.info(
+            f"[Coder] [Fast Mode] {'ENABLED' if fast_mode else 'disabled'} for phase={current_phase}"
+        )
 
         if first_run:
             # Create client for planning phase

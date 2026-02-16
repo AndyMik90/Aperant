@@ -19,6 +19,7 @@ import {
   Sparkles,
   GitBranch,
   HelpCircle,
+  Heart,
   Wrench,
   PanelLeft,
   PanelLeftClose
@@ -451,6 +452,26 @@ export function Sidebar({
               <TooltipContent side={isCollapsed ? "right" : "top"}>{t('tooltips.help')}</TooltipContent>
             </Tooltip>
           </div>
+
+          {/* Sponsor link */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => window.open('https://github.com/sponsors/AndyMik90', '_blank')}
+                className={cn(
+                  'flex w-full items-center text-xs transition-colors',
+                  'text-amber-500/70 hover:text-amber-400',
+                  isCollapsed ? 'justify-center' : 'gap-1.5 px-3'
+                )}
+              >
+                <Heart className="h-3.5 w-3.5" />
+                {!isCollapsed && <span>{t('actions.sponsor')}</span>}
+              </button>
+            </TooltipTrigger>
+            {isCollapsed && (
+              <TooltipContent side="right">{t('actions.sponsor')}</TooltipContent>
+            )}
+          </Tooltip>
 
           {/* New Task button */}
           <Tooltip>
