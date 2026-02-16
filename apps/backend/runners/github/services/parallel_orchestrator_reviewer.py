@@ -1290,16 +1290,13 @@ The SDK will run invoked agents in parallel automatically.
             )
 
             # Separate active findings (drive verdict) from dismissed (shown in UI only)
-            active_findings = [
-                f
-                for f in validated_findings
-                if f.validation_status != "dismissed_false_positive"
-            ]
-            dismissed_findings = [
-                f
-                for f in validated_findings
-                if f.validation_status == "dismissed_false_positive"
-            ]
+            active_findings = []
+            dismissed_findings = []
+            for f in validated_findings:
+                if f.validation_status == "dismissed_false_positive":
+                    dismissed_findings.append(f)
+                else:
+                    active_findings.append(f)
 
             safe_print(
                 f"[ParallelOrchestrator] Final: {len(active_findings)} active, "

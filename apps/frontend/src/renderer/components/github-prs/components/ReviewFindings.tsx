@@ -59,16 +59,19 @@ export function ReviewFindings({
     [findings, postedIds]
   );
 
-  // Split unposted findings into active vs disputed
-  const activeFindings = useMemo(() =>
-    unpostedFindings.filter(f => f.validationStatus !== 'dismissed_false_positive'),
-    [unpostedFindings]
-  );
-
-  const disputedFindings = useMemo(() =>
-    unpostedFindings.filter(f => f.validationStatus === 'dismissed_false_positive'),
-    [unpostedFindings]
-  );
+  // Split unposted findings into active vs disputed (single pass)
+  const { activeFindings, disputedFindings } = useMemo(() => {
+    const active: PRReviewFinding[] = [];
+    const disputed: PRReviewFinding[] = [];
+    for (const finding of unpostedFindings) {
+      if (finding.validationStatus === 'dismissed_false_positive') {
+        disputed.push(finding);
+      } else {
+        active.push(finding);
+      }
+    }
+    return { activeFindings: active, disputedFindings: disputed };
+  }, [unpostedFindings]);
 
   // Check if all findings are posted
   const allFindingsPosted = findings.length > 0 && unpostedFindings.length === 0;
@@ -130,6 +133,12 @@ export function ReviewFindings({
     });
   };
 
+  // Count only active findings that are selected (excludes disputed from count)
+  const selectedActiveCount = useMemo(
+    () => activeFindings.filter(f => selectedIds.has(f.id)).length,
+    [activeFindings, selectedIds]
+  );
+
   // When all findings have been posted, show a success message instead of the selection UI
   if (allFindingsPosted) {
     return (
@@ -150,7 +159,7 @@ export function ReviewFindings({
       {/* Summary Stats Bar - show active findings + disputed count */}
       <FindingsSummary
         findings={activeFindings}
-        selectedCount={selectedIds.size}
+        selectedCount={selectedActiveCount}
         disputedCount={disputedFindings.length}
       />
 
