@@ -3,16 +3,7 @@
  * Used by both GitHub and GitLab spec-utils for category detection
  */
 
-/**
- * Escape special regex characters in a string.
- * This ensures that terms like "c++" or "c#" are matched literally.
- *
- * @param str - The string to escape
- * @returns The escaped string safe for use in a RegExp
- */
-function escapeRegExp(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
+import { escapeRegExp } from '@shared/utils/string-utils';
 
 /**
  * Check if a label contains a whole-word match for a term.

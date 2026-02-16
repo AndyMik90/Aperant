@@ -6,6 +6,7 @@ import { existsSync, readFileSync } from 'fs';
 import { app } from 'electron';
 import { joinPaths } from '../platform';
 import { TASK_WORKTREE_DIR } from '../worktree-paths';
+import { escapeRegExp } from '@shared/utils/string-utils';
 
 /**
  * Get the path to the bundled backend source
@@ -25,7 +26,6 @@ export function getBundledSourcePath(): string {
   const normalizedAppPath = appPath.replace(/\\/g, '/');
   // Build regex pattern from the constant, escaping special chars to prevent false matches
   // (e.g., the dot in ".auto-claude" must match literally, not any character)
-  const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const escapedPattern = escapeRegExp(TASK_WORKTREE_DIR.replace(/\\/g, '/'));
   const worktreeRegex = new RegExp(`(.+/${escapedPattern}/[^/]+)`);
   const worktreeMatch = normalizedAppPath.match(worktreeRegex);
@@ -100,7 +100,7 @@ export function getEffectiveSourcePath(): string {
       // Ignore settings read errors
     }
   } else {
-    console.log('[path-resolver] Dev mode: skipping stored autoBuildPath to support worktrees');
+    console.debug('[path-resolver] Dev mode: skipping stored autoBuildPath to support worktrees');
   }
 
   if (app.isPackaged) {
