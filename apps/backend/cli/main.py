@@ -215,6 +215,13 @@ Environment Variables:
         help="Add follow-up tasks to a completed spec (extends existing implementation plan)",
     )
 
+    # Stuck subtask recovery
+    parser.add_argument(
+        "--unstick",
+        action="store_true",
+        help="Clear all stuck subtasks for a spec (allows task to continue after file validation failures)",
+    )
+
     # Review options
     parser.add_argument(
         "--review-status",
@@ -462,6 +469,21 @@ def _run_cli() -> None:
             model=model,
             verbose=args.verbose,
         )
+        return
+
+    # Handle --unstick command
+    if args.unstick:
+        from services.recovery import get_stuck_subtasks as get_stuck
+        from services.recovery import clear_stuck_subtasks as clear_stuck
+
+        stuck = get_stuck(spec_dir, project_dir)
+        if stuck:
+            clear_stuck(spec_dir, project_dir)
+            print(f"Cleared {len(stuck)} stuck subtasks for {args.spec}")
+            for s in stuck:
+                print(f"  - {s.get('subtask_id', 'unknown')}: {s.get('reason', 'no reason')[:80]}")
+        else:
+            print(f"No stuck subtasks found for {args.spec}")
         return
 
     # Normal build flow

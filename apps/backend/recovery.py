@@ -7,6 +7,7 @@ from services.recovery import (
     check_and_recover,
     clear_stuck_subtasks,
     get_recovery_context,
+    get_stuck_subtasks,
     reset_subtask,
 )
 
@@ -17,5 +18,6 @@ __all__ = [
     "check_and_recover",
     "clear_stuck_subtasks",
     "get_recovery_context",
+    "get_stuck_subtasks",
     "reset_subtask",
 ]

@@ -1,11 +1,24 @@
-import { AlertTriangle, Play, RotateCcw, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { AlertTriangle, Play, RotateCcw, Loader2, Unlock } from 'lucide-react';
 import { Button } from '../ui/button';
+import { getStuckInfo, unstickSubtasks } from '../../stores/task-store';
+import { useToast } from '../../hooks/use-toast';
+
+interface StuckSubtask {
+  subtask_id: string;
+  reason: string;
+  escalated_at: string;
+  attempt_count: number;
+}
 
 interface TaskWarningsProps {
   isStuck: boolean;
   isIncomplete: boolean;
   isRecovering: boolean;
   taskProgress: { completed: number; total: number };
+  projectId?: string;
+  specId?: string;
   onRecover: () => void;
   onResume: () => void;
 }
@@ -15,9 +28,49 @@ export function TaskWarnings({
   isIncomplete,
   isRecovering,
   taskProgress,
+  projectId,
+  specId,
   onRecover,
   onResume
 }: TaskWarningsProps) {
+  const { t } = useTranslation('tasks');
+  const { toast } = useToast();
+  const [stuckSubtasks, setStuckSubtasks] = useState<StuckSubtask[]>([]);
+  const [isLoadingStuck, setIsLoadingStuck] = useState(false);
+  const [isUnsticking, setIsUnsticking] = useState(false);
+
+  // Load stuck subtask info when stuck
+  useEffect(() => {
+    if (isStuck && projectId && specId) {
+      setIsLoadingStuck(true);
+      getStuckInfo(projectId, specId)
+        .then(result => {
+          if (result.success && result.stuckSubtasks) {
+            setStuckSubtasks(result.stuckSubtasks);
+          }
+        })
+        .finally(() => setIsLoadingStuck(false));
+    } else {
+      setStuckSubtasks([]);
+    }
+  }, [isStuck, projectId, specId]);
+
+  const handleUnstick = async () => {
+    if (!projectId || !specId) return;
+    setIsUnsticking(true);
+    try {
+      const result = await unstickSubtasks(projectId, specId);
+      if (result.success && result.cleared && result.cleared > 0) {
+        toast({ title: t('messages.subtasksUnstuck', { count: result.cleared }) });
+        setStuckSubtasks([]);
+      } else if (result.error) {
+        toast({ title: t('errors.unstickFailed'), description: result.error, variant: 'destructive' });
+      }
+    } finally {
+      setIsUnsticking(false);
+    }
+  };
+
   if (!isStuck && !isIncomplete) return null;
 
   return (
@@ -29,12 +82,58 @@ export function TaskWarnings({
             <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
             <div className="flex-1">
               <h3 className="font-medium text-sm text-foreground mb-1">
-                Task Appears Stuck
+                {t('warnings.taskStuck')}
               </h3>
               <p className="text-sm text-muted-foreground mb-3">
-                This task is marked as running but no active process was found.
-                This can happen if the app crashed or the process was terminated unexpectedly.
+                {t('warnings.taskStuckDescription')}
               </p>
+
+              {/* Stuck Subtasks Info */}
+              {stuckSubtasks.length > 0 && (
+                <div className="mb-3 p-2 bg-destructive/10 rounded text-sm">
+                  <p className="font-medium text-destructive mb-1">
+                    {t('labels.stuckSubtasks')} ({stuckSubtasks.length})
+                  </p>
+                  <ul className="space-y-1 max-h-32 overflow-y-auto">
+                    {stuckSubtasks.map((stuck) => (
+                      <li key={stuck.subtask_id} className="text-xs text-muted-foreground">
+                        <span className="font-mono">{stuck.subtask_id}</span>:{' '}
+                        <span className="truncate" title={stuck.reason}>
+                          {stuck.reason.length > 80 ? `${stuck.reason.slice(0, 80)}...` : stuck.reason}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={handleUnstick}
+                    disabled={isUnsticking}
+                  >
+                    {isUnsticking ? (
+                      <>
+                        <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                        {t('actions.unsticking')}
+                      </>
+                    ) : (
+                      <>
+                        <Unlock className="mr-1.5 h-3 w-3" />
+                        {t('actions.unstickSubtasks')}
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
+
+              {/* Loading state for stuck info */}
+              {isLoadingStuck && stuckSubtasks.length === 0 && (
+                <div className="mb-3 flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  {t('labels.checkingStuck')}
+                </div>
+              )}
+
               <Button
                 variant="warning"
                 size="sm"
@@ -45,12 +144,12 @@ export function TaskWarnings({
                 {isRecovering ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Recovering...
+                    {t('actions.recovering')}
                   </>
                 ) : (
                   <>
                     <RotateCcw className="mr-2 h-4 w-4" />
-                    Recover & Restart Task
+                    {t('actions.recoverRestart')}
                   </>
                 )}
               </Button>
@@ -66,11 +165,10 @@ export function TaskWarnings({
             <AlertTriangle className="h-5 w-5 text-orange-400 shrink-0 mt-0.5" />
             <div className="flex-1">
               <h3 className="font-medium text-sm text-foreground mb-1">
-                Task Incomplete
+                {t('warnings.taskIncomplete')}
               </h3>
               <p className="text-sm text-muted-foreground mb-3">
-                This task has a spec and implementation plan but never completed any subtasks ({taskProgress.completed}/{taskProgress.total}).
-                The process likely crashed during spec creation. Click Resume to continue implementation.
+                {t('warnings.taskIncompleteDescription', { completed: taskProgress.completed, total: taskProgress.total })}
               </p>
               <Button
                 variant="default"
@@ -79,7 +177,7 @@ export function TaskWarnings({
                 className="w-full"
               >
                 <Play className="mr-2 h-4 w-4" />
-                Resume Task
+                {t('actions.resumeTask')}
               </Button>
             </div>
           </div>

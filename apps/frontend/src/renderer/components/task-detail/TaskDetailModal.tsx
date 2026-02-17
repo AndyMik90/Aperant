@@ -467,6 +467,8 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                     isIncomplete={state.isIncomplete}
                     isRecovering={state.isRecovering}
                     taskProgress={state.taskProgress}
+                    projectId={task.projectId}
+                    specId={task.specId}
                     onRecover={handleRecover}
                     onResume={handleStartStop}
                   />

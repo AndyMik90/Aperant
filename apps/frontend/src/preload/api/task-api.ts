@@ -52,6 +52,11 @@ export interface TaskAPI {
   ) => Promise<IPCResult<TaskRecoveryResult>>;
   checkTaskRunning: (taskId: string) => Promise<IPCResult<boolean>>;
   resumePausedTask: (taskId: string) => Promise<IPCResult>;
+  getStuckInfo: (
+    projectId: string,
+    specId: string
+  ) => Promise<IPCResult<{ stuckSubtasks: Array<{ subtask_id: string; reason: string; escalated_at: string; attempt_count: number }> }>>;
+  unstickSubtasks: (projectId: string, specId: string) => Promise<IPCResult<{ cleared: number }>>;
 
   // Worktree Change Detection
   checkWorktreeChanges: (taskId: string) => Promise<IPCResult<{ hasChanges: boolean; worktreePath?: string; changedFileCount?: number }>>;
@@ -150,6 +155,15 @@ export const createTaskAPI = (): TaskAPI => ({
 
   resumePausedTask: (taskId: string): Promise<IPCResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_RESUME_PAUSED, taskId),
+
+  getStuckInfo: (
+    projectId: string,
+    specId: string
+  ): Promise<IPCResult<{ stuckSubtasks: Array<{ subtask_id: string; reason: string; escalated_at: string; attempt_count: number }> }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_GET_STUCK_INFO, projectId, specId),
+
+  unstickSubtasks: (projectId: string, specId: string): Promise<IPCResult<{ cleared: number }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_UNSTICK_SUBTASKS, projectId, specId),
 
   // Worktree Change Detection
   checkWorktreeChanges: (taskId: string): Promise<IPCResult<{ hasChanges: boolean; worktreePath?: string; changedFileCount?: number }>> =>

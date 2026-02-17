@@ -960,6 +960,45 @@ export async function recoverStuckTask(
 }
 
 /**
+ * Get stuck subtask information for a spec
+ * @param projectId - The project ID
+ * @param specId - The spec ID to check
+ */
+export async function getStuckInfo(
+  projectId: string,
+  specId: string
+): Promise<{ success: boolean; stuckSubtasks?: Array<{ subtask_id: string; reason: string; escalated_at: string; attempt_count: number }>; error?: string }> {
+  try {
+    const result = await window.electronAPI.getStuckInfo(projectId, specId);
+    if (result.success && result.data) {
+      return { success: true, stuckSubtasks: result.data.stuckSubtasks };
+    }
+    return { success: false, error: result.error };
+  } catch (error) {
+    console.error('Error getting stuck info:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+/**
+ * Clear stuck subtasks for a spec
+ * @param projectId - The project ID
+ * @param specId - The spec ID to unstick
+ */
+export async function unstickSubtasks(
+  projectId: string,
+  specId: string
+): Promise<{ success: boolean; cleared?: number; error?: string }> {
+  try {
+    const result = await window.electronAPI.unstickSubtasks(projectId, specId);
+    return result;
+  } catch (error) {
+    console.error('Error unsticking subtasks:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+/**
  * Delete a task and its spec directory
  */
 export async function deleteTask(

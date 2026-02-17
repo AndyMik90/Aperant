@@ -577,6 +577,16 @@ class RecoveryManager:
 
         return hints
 
+    def get_stuck_subtasks(self) -> list[dict]:
+        """
+        Return list of stuck subtasks with reasons.
+
+        Returns:
+            List of stuck subtask dicts with subtask_id, reason, escalated_at, attempt_count
+        """
+        history = self._load_attempt_history()
+        return history.get("stuck_subtasks", [])
+
     def clear_stuck_subtasks(self) -> None:
         """Clear all stuck subtasks (for manual resolution)."""
         history = self._load_attempt_history()
@@ -676,3 +686,18 @@ def clear_stuck_subtasks(spec_dir: Path, project_dir: Path) -> None:
     """
     manager = RecoveryManager(spec_dir, project_dir)
     manager.clear_stuck_subtasks()
+
+
+def get_stuck_subtasks(spec_dir: Path, project_dir: Path) -> list[dict]:
+    """
+    Get list of stuck subtasks (module-level wrapper).
+
+    Args:
+        spec_dir: Spec directory
+        project_dir: Project directory
+
+    Returns:
+        List of stuck subtask dicts
+    """
+    manager = RecoveryManager(spec_dir, project_dir)
+    return manager.get_stuck_subtasks()

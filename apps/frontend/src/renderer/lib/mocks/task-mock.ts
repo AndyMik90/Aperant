@@ -76,6 +76,10 @@ export const taskMock = {
 
   resumePausedTask: async () => ({ success: true }),
 
+  getStuckInfo: async () => ({ success: true, data: { stuckSubtasks: [] } }),
+
+  unstickSubtasks: async () => ({ success: true, data: { cleared: 0 } }),
+
   // Worktree change detection
   checkWorktreeChanges: async (_taskId: string) => ({
     success: true as const,

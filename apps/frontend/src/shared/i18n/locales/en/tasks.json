@@ -21,7 +21,12 @@
     "viewPR": "View PR",
     "moveTo": "Move to",
     "taskActions": "Task actions",
-    "selectTask": "Select task: {{title}}"
+    "selectTask": "Select task: {{title}}",
+    "unstickSubtasks": "Unstick Subtasks",
+    "unsticking": "Unsticking...",
+    "recovering": "Recovering...",
+    "recoverRestart": "Recover & Restart Task",
+    "resumeTask": "Resume Task"
   },
   "labels": {
     "running": "Running",
@@ -32,7 +37,23 @@
     "incomplete": "Incomplete",
     "recovering": "Recovering...",
     "needsRecovery": "Needs Recovery",
-    "needsResume": "Needs Resume"
+    "needsResume": "Needs Resume",
+    "stuckSubtasks": "Stuck Subtasks",
+    "checkingStuck": "Checking stuck subtasks..."
+  },
+  "errors": {
+    "recoveryFailed": "Recovery failed",
+    "stuckSubtasksBlocking": "{{count}} stuck subtasks blocking progress",
+    "unstickFailed": "Failed to unstick subtasks"
+  },
+  "messages": {
+    "subtasksUnstuck": "{{count}} subtasks unstuck"
+  },
+  "warnings": {
+    "taskStuck": "Task Appears Stuck",
+    "taskStuckDescription": "This task is marked as running but no active process was found. This can happen if the app crashed or the process was terminated unexpectedly.",
+    "taskIncomplete": "Task Incomplete",
+    "taskIncompleteDescription": "This task has a spec and implementation plan but never completed any subtasks ({{completed}}/{{total}}). The process likely crashed during spec creation. Click Resume to continue implementation."
   },
   "reviewReason": {
     "completed": "Completed",

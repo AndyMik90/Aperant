@@ -31,7 +31,7 @@ import {
   JSON_ERROR_PREFIX,
   JSON_ERROR_TITLE_SUFFIX
 } from '../../shared/constants';
-import { stopTask, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks, hasRecentActivity, startTaskOrQueue } from '../stores/task-store';
+import { stopTask, checkTaskRunning, recoverStuckTask, getStuckInfo, isIncompleteHumanReview, archiveTasks, hasRecentActivity, startTaskOrQueue } from '../stores/task-store';
 import { useToast } from '../hooks/use-toast';
 import type { Task, TaskCategory, ReviewReason, TaskStatus } from '../../shared/types';
 
@@ -251,6 +251,18 @@ export const TaskCard = memo(function TaskCard({
     const result = await recoverStuckTask(task.id, { autoRestart: true });
     if (result.success) {
       setIsStuck(false);
+    } else {
+      // Check for stuck subtasks that might be blocking
+      const stuckResult = await getStuckInfo(task.projectId, task.specId);
+      const hasStuckSubtasks = stuckResult.success && stuckResult.stuckSubtasks && stuckResult.stuckSubtasks.length > 0;
+
+      toast({
+        title: t('tasks:errors.recoveryFailed'),
+        description: hasStuckSubtasks
+          ? t('tasks:errors.stuckSubtasksBlocking', { count: stuckResult.stuckSubtasks?.length ?? 0 })
+          : result.message,
+        variant: 'destructive',
+      });
     }
     setIsRecovering(false);
   };

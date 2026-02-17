@@ -30,6 +30,8 @@ export const IPC_CHANNELS = {
   TASK_REVIEW: 'task:review',
   TASK_UPDATE_STATUS: 'task:updateStatus',
   TASK_RECOVER_STUCK: 'task:recoverStuck',
+  TASK_GET_STUCK_INFO: 'task:getStuckInfo',       // Get stuck subtask details
+  TASK_UNSTICK_SUBTASKS: 'task:unstickSubtasks',  // Clear stuck subtasks
   TASK_CHECK_RUNNING: 'task:checkRunning',
   TASK_RESUME_PAUSED: 'task:resumePaused',  // Resume a rate-limited or auth-paused task
   TASK_LOAD_IMAGE_THUMBNAIL: 'task:loadImageThumbnail',

@@ -21,7 +21,12 @@
     "viewPR": "Voir la PR",
     "moveTo": "Déplacer vers",
     "taskActions": "Actions de la tâche",
-    "selectTask": "Sélectionner la tâche : {{title}}"
+    "selectTask": "Sélectionner la tâche : {{title}}",
+    "unstickSubtasks": "Débloquer les sous-tâches",
+    "unsticking": "Déblocage...",
+    "recovering": "Récupération...",
+    "recoverRestart": "Récupérer et redémarrer",
+    "resumeTask": "Reprendre la tâche"
   },
   "labels": {
     "running": "En cours",
@@ -32,7 +37,23 @@
     "incomplete": "Incomplet",
     "recovering": "Récupération...",
     "needsRecovery": "Récupération requise",
-    "needsResume": "Reprise requise"
+    "needsResume": "Reprise requise",
+    "stuckSubtasks": "Sous-tâches bloquées",
+    "checkingStuck": "Vérification des sous-tâches bloquées..."
+  },
+  "errors": {
+    "recoveryFailed": "Échec de la récupération",
+    "stuckSubtasksBlocking": "{{count}} sous-tâches bloquées empêchent la progression",
+    "unstickFailed": "Échec du déblocage des sous-tâches"
+  },
+  "messages": {
+    "subtasksUnstuck": "{{count}} sous-tâches débloquées"
+  },
+  "warnings": {
+    "taskStuck": "Tâche bloquée",
+    "taskStuckDescription": "Cette tâche est marquée comme en cours mais aucun processus actif n'a été trouvé. Cela peut arriver si l'application a planté ou si le processus a été terminé de manière inattendue.",
+    "taskIncomplete": "Tâche incomplète",
+    "taskIncompleteDescription": "Cette tâche a un spec et un plan d'implémentation mais n'a terminé aucune sous-tâche ({{completed}}/{{total}}). Le processus a probablement planté pendant la création du spec. Cliquez sur Reprendre pour continuer l'implémentation."
   },
   "reviewReason": {
     "completed": "Terminé",

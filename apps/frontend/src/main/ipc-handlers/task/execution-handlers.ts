@@ -1221,4 +1221,100 @@ export function registerTaskExecutionHandlers(
       }
     }
   );
+
+  /**
+   * Get stuck subtask information for a spec
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_GET_STUCK_INFO,
+    async (_, projectId: string, specId: string): Promise<IPCResult<{ stuckSubtasks: Array<{ subtask_id: string; reason: string; escalated_at: string; attempt_count: number }> }>> => {
+      try {
+        const project = projectStore.getProject(projectId);
+        if (!project) {
+          return { success: false, error: 'Project not found' };
+        }
+
+        const specsBaseDir = getSpecsDir(project.autoBuildPath);
+        const specDir = path.join(project.path, specsBaseDir, specId);
+        const attemptHistoryPath = path.join(specDir, 'memory', 'attempt_history.json');
+
+        if (!existsSync(attemptHistoryPath)) {
+          return { success: true, data: { stuckSubtasks: [] } };
+        }
+
+        const historyContent = safeReadFileSync(attemptHistoryPath);
+        if (!historyContent) {
+          return { success: true, data: { stuckSubtasks: [] } };
+        }
+
+        const history = JSON.parse(historyContent);
+        return { success: true, data: { stuckSubtasks: history.stuck_subtasks || [] } };
+      } catch (error) {
+        console.error('Failed to get stuck info:', error);
+        return { success: false, error: error instanceof Error ? error.message : 'Failed to get stuck info' };
+      }
+    }
+  );
+
+  /**
+   * Clear stuck subtasks for a spec
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_UNSTICK_SUBTASKS,
+    async (_, projectId: string, specId: string): Promise<IPCResult<{ cleared: number }>> => {
+      try {
+        const project = projectStore.getProject(projectId);
+        if (!project) {
+          return { success: false, error: 'Project not found' };
+        }
+
+        const specsBaseDir = getSpecsDir(project.autoBuildPath);
+        const specDir = path.join(project.path, specsBaseDir, specId);
+        const attemptHistoryPath = path.join(specDir, 'memory', 'attempt_history.json');
+
+        if (!existsSync(attemptHistoryPath)) {
+          return { success: true, data: { cleared: 0 } };
+        }
+
+        const historyContent = safeReadFileSync(attemptHistoryPath);
+        if (!historyContent) {
+          return { success: true, data: { cleared: 0 } };
+        }
+
+        const history = JSON.parse(historyContent);
+        const count = (history.stuck_subtasks || []).length;
+
+        // Clear stuck subtasks list
+        history.stuck_subtasks = [];
+
+        // Reset any subtasks marked as 'stuck' to 'pending'
+        if (history.subtasks) {
+          for (const subtaskId in history.subtasks) {
+            if (history.subtasks[subtaskId].status === 'stuck') {
+              history.subtasks[subtaskId].status = 'pending';
+            }
+          }
+        }
+
+        // Save updated history
+        writeFileAtomicSync(attemptHistoryPath, JSON.stringify(history, null, 2));
+
+        // Also update worktree copy if it exists
+        const worktreePath = findTaskWorktree(project.path, specId);
+        if (worktreePath) {
+          const worktreeSpecDir = path.join(worktreePath, specsBaseDir, specId);
+          const worktreeHistoryPath = path.join(worktreeSpecDir, 'memory', 'attempt_history.json');
+          if (existsSync(worktreeHistoryPath)) {
+            writeFileAtomicSync(worktreeHistoryPath, JSON.stringify(history, null, 2));
+          }
+        }
+
+        console.log(`[Unstick] Cleared ${count} stuck subtasks for ${specId}`);
+        return { success: true, data: { cleared: count } };
+      } catch (error) {
+        console.error('Failed to unstick subtasks:', error);
+        return { success: false, error: error instanceof Error ? error.message : 'Failed to unstick subtasks' };
+      }
+    }
+  );
 }
