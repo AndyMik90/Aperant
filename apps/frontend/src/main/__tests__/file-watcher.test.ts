@@ -5,6 +5,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { EventEmitter } from 'events';
+import path from 'path';
 
 // ---------------------------------------------------------------------------
 // Mock chokidar BEFORE importing FileWatcher so the module sees our mock.
@@ -110,8 +111,8 @@ describe('FileWatcher concurrency', () => {
   describe('supersession: watch() with different specDir replaces the in-flight call', () => {
     it('should let the second call win when the first is awaiting close()', async () => {
       const taskId = 'task-2';
-      const specDir1 = '/project/.auto-claude/specs/001-first';
-      const specDir2 = '/project/.auto-claude/specs/002-second';
+      const specDir1 = path.join('/project', '.auto-claude', 'specs', '001-first');
+      const specDir2 = path.join('/project', '.auto-claude', 'specs', '002-second');
 
       // First call installs an existing watcher (simulate: the watcher for
       // specDir1 is already set up so the second watch() needs to close it).
@@ -147,8 +148,8 @@ describe('FileWatcher concurrency', () => {
 
     it('first watch() bails when pendingWatches changes to a different specDir', async () => {
       const taskId = 'task-super';
-      const specDir1 = '/project/.auto-claude/specs/super-first';
-      const specDir2 = '/project/.auto-claude/specs/super-second';
+      const specDir1 = path.join('/project', '.auto-claude', 'specs', 'super-first');
+      const specDir2 = path.join('/project', '.auto-claude', 'specs', 'super-second');
 
       // Make the first watcher's close() slow so we can interleave.
       let resolveFirstClose!: () => void;
@@ -261,7 +262,7 @@ describe('FileWatcher concurrency', () => {
 
       // pendingWatches should be cleared (we verify indirectly: a fresh
       // watch() call for taskId1 must succeed without treating it as a duplicate).
-      const specDirFresh = '/project/.auto-claude/specs/004a-fresh';
+      const specDirFresh = path.join('/project', '.auto-claude', 'specs', '004a-fresh');
       await fw.watch(taskId1, specDirFresh);
       expect(fw.isWatching(taskId1)).toBe(true);
       expect(fw.getWatchedSpecDir(taskId1)).toBe(specDirFresh);
@@ -274,7 +275,7 @@ describe('FileWatcher concurrency', () => {
   describe('getWatchedSpecDir()', () => {
     it('returns the specDir that was passed to watch()', async () => {
       const taskId = 'task-5';
-      const specDir = '/project/.auto-claude/specs/005-specdir';
+      const specDir = path.join('/project', '.auto-claude', 'specs', '005-specdir');
 
       await fw.watch(taskId, specDir);
 
@@ -287,8 +288,8 @@ describe('FileWatcher concurrency', () => {
 
     it('returns updated specDir after re-watch with different specDir', async () => {
       const taskId = 'task-5b';
-      const specDir1 = '/project/.auto-claude/specs/005b-first';
-      const specDir2 = '/project/.auto-claude/specs/005b-second';
+      const specDir1 = path.join('/project', '.auto-claude', 'specs', '005b-first');
+      const specDir2 = path.join('/project', '.auto-claude', 'specs', '005b-second');
 
       await fw.watch(taskId, specDir1);
       expect(fw.getWatchedSpecDir(taskId)).toBe(specDir1);
