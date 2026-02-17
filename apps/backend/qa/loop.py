@@ -215,6 +215,7 @@ async def run_qa_validation_loop(
                         "Removed QA_FIX_REQUEST.md after permanent fixer error",
                     )
                 except OSError:
+                    # File removal failure is not critical here
                     pass
             return False
 
@@ -230,6 +231,7 @@ async def run_qa_validation_loop(
             fix_request_file.unlink()
             debug("qa_loop", "Removed processed QA_FIX_REQUEST.md")
         except OSError:
+            # File removal failure is not critical here
             pass  # Ignore if file removal fails
 
     # Check for no-test projects

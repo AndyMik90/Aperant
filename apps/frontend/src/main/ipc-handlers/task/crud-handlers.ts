@@ -1,9 +1,10 @@
 import { ipcMain, nativeImage } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, getSpecsDir, VALID_THINKING_LEVELS, sanitizeThinkingLevel } from '../../../shared/constants';
-import type { IPCResult, Task, TaskMetadata } from '../../../shared/types';
+import type { IPCResult, Task, TaskMetadata, TaskOutcome } from '../../../shared/types';
 import path from 'path';
 import { execFileSync } from 'child_process';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, Dirent } from 'fs';
+import { updateRoadmapFeatureOutcome } from '../../utils/roadmap-utils';
 import { projectStore } from '../../project-store';
 import { titleGenerator } from '../../title-generator';
 import { AgentManager } from '../../agent';
@@ -101,6 +102,19 @@ function truncateToTitle(description: string): string {
   let title = description.split('\n')[0].substring(0, 60);
   if (title.length === 60) title += '...';
   return title;
+}
+
+/**
+ * Update a linked roadmap feature when a task is deleted.
+ * Delegates to shared utility with file locking and retry.
+ */
+async function updateLinkedRoadmapFeature(
+  projectPath: string,
+  specId: string,
+  taskOutcome: TaskOutcome
+): Promise<void> {
+  const roadmapFile = path.join(projectPath, AUTO_BUILD_PATHS.ROADMAP_DIR, AUTO_BUILD_PATHS.ROADMAP_FILE);
+  await updateRoadmapFeatureOutcome(roadmapFile, [specId], taskOutcome, '[TASK_CRUD]');
 }
 
 /**
@@ -409,6 +423,13 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
           success: false,
           error: `Failed to delete some task files: ${errors.join('; ')}`
         };
+      }
+
+      // Update any linked roadmap feature (only after successful deletion)
+      try {
+        await updateLinkedRoadmapFeature(project.path, task.specId, 'deleted');
+      } catch (err) {
+        console.warn('[TASK_DELETE] Failed to update linked roadmap feature:', err);
       }
 
       return { success: true };

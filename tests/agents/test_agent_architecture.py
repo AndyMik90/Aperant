@@ -22,7 +22,7 @@ from pathlib import Path
 import pytest
 
 # Add apps/backend directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "apps" / "backend"))
 
 
 class TestNoExternalParallelism:
@@ -31,7 +31,7 @@ class TestNoExternalParallelism:
     def test_no_coordinator_module(self):
         """No external coordinator module should exist."""
         coordinator_path = (
-            Path(__file__).parent.parent / "apps" / "backend" / "coordinator.py"
+            Path(__file__).parent.parent.parent / "apps" / "backend" / "coordinator.py"
         )
         assert not coordinator_path.exists(), (
             "coordinator.py should not exist. Parallel orchestration is handled "
@@ -41,7 +41,7 @@ class TestNoExternalParallelism:
     def test_no_task_tool_module(self):
         """No task_tool wrapper module should exist."""
         task_tool_path = (
-            Path(__file__).parent.parent / "apps" / "backend" / "task_tool.py"
+            Path(__file__).parent.parent.parent / "apps" / "backend" / "task_tool.py"
         )
         assert not task_tool_path.exists(), (
             "task_tool.py should not exist. The agent spawns subagents directly "
@@ -51,7 +51,7 @@ class TestNoExternalParallelism:
     def test_no_subtask_worker_config(self):
         """No external subtask worker agent config should exist."""
         worker_config = (
-            Path(__file__).parent.parent / ".claude" / "agents" / "subtask-worker.md"
+            Path(__file__).parent.parent.parent / ".claude" / "agents" / "subtask-worker.md"
         )
         assert not worker_config.exists(), (
             "subtask-worker.md should not exist. Subagents use Claude Code's "
@@ -64,7 +64,7 @@ class TestCLIInterface:
 
     def test_no_parallel_flag(self):
         """CLI should not have --parallel argument."""
-        run_py_path = Path(__file__).parent.parent / "apps" / "backend" / "run.py"
+        run_py_path = Path(__file__).parent.parent.parent / "apps" / "backend" / "run.py"
         content = run_py_path.read_text(encoding="utf-8")
 
         # Check that --parallel is not defined as an argument
@@ -79,7 +79,7 @@ class TestCLIInterface:
 
     def test_no_parallel_examples_in_docs(self):
         """CLI documentation should not mention parallel mode."""
-        run_py_path = Path(__file__).parent.parent / "apps" / "backend" / "run.py"
+        run_py_path = Path(__file__).parent.parent.parent / "apps" / "backend" / "run.py"
         content = run_py_path.read_text(encoding="utf-8")
 
         # The docstring should not have --parallel examples
@@ -132,7 +132,7 @@ class TestAgentPrompt:
     def test_mentions_subagents(self):
         """Agent prompt mentions subagent capability."""
         coder_prompt_path = (
-            Path(__file__).parent.parent / "apps" / "backend" / "prompts" / "coder.md"
+            Path(__file__).parent.parent.parent / "apps" / "backend" / "prompts" / "coder.md"
         )
         content = coder_prompt_path.read_text(encoding="utf-8")
 
@@ -143,7 +143,7 @@ class TestAgentPrompt:
     def test_mentions_parallel_capability(self):
         """Agent prompt mentions parallel/concurrent capability."""
         coder_prompt_path = (
-            Path(__file__).parent.parent / "apps" / "backend" / "prompts" / "coder.md"
+            Path(__file__).parent.parent.parent / "apps" / "backend" / "prompts" / "coder.md"
         )
         content = coder_prompt_path.read_text(encoding="utf-8")
 
@@ -170,7 +170,7 @@ class TestModuleIntegrity:
 
     def test_run_module_valid_syntax(self):
         """Run module has valid Python syntax."""
-        run_py_path = Path(__file__).parent.parent / "apps" / "backend" / "run.py"
+        run_py_path = Path(__file__).parent.parent.parent / "apps" / "backend" / "run.py"
         content = run_py_path.read_text(encoding="utf-8")
 
         try:
@@ -181,7 +181,7 @@ class TestModuleIntegrity:
     def test_no_coordinator_imports(self):
         """Core modules don't import coordinator."""
         for filename in ["run.py", "core/agent.py"]:
-            filepath = Path(__file__).parent.parent / "apps" / "backend" / filename
+            filepath = Path(__file__).parent.parent.parent / "apps" / "backend" / filename
             content = filepath.read_text(encoding="utf-8")
 
             assert "from coordinator import" not in content, (
@@ -194,7 +194,7 @@ class TestModuleIntegrity:
     def test_no_task_tool_imports(self):
         """Core modules don't import task_tool."""
         for filename in ["run.py", "core/agent.py"]:
-            filepath = Path(__file__).parent.parent / "apps" / "backend" / filename
+            filepath = Path(__file__).parent.parent.parent / "apps" / "backend" / filename
             content = filepath.read_text(encoding="utf-8")
 
             assert "from task_tool import" not in content, (
@@ -210,7 +210,7 @@ class TestProjectDocumentation:
 
     def test_no_parallel_cli_documented(self):
         """CLAUDE.md doesn't document --parallel flag."""
-        claude_md_path = Path(__file__).parent.parent / "CLAUDE.md"
+        claude_md_path = Path(__file__).parent.parent.parent / "CLAUDE.md"
         content = claude_md_path.read_text(encoding="utf-8")
 
         assert "--parallel 2" not in content, (
@@ -219,7 +219,7 @@ class TestProjectDocumentation:
 
     def test_subagent_architecture_documented(self):
         """CLAUDE.md documents subagent-based architecture."""
-        claude_md_path = Path(__file__).parent.parent / "CLAUDE.md"
+        claude_md_path = Path(__file__).parent.parent.parent / "CLAUDE.md"
         content = claude_md_path.read_text(encoding="utf-8")
 
         has_subagent = "subagent" in content.lower()
@@ -334,7 +334,7 @@ class TestSubtaskTerminology:
     def test_progress_uses_subtask_terminology(self):
         """Progress module uses subtask terminology."""
         progress_path = (
-            Path(__file__).parent.parent / "apps" / "backend" / "core" / "progress.py"
+            Path(__file__).parent.parent.parent / "apps" / "backend" / "core" / "progress.py"
         )
         content = progress_path.read_text(encoding="utf-8")
 

@@ -9,12 +9,7 @@ import { spawn, exec, execFile } from 'child_process';
 import type { ChildProcess } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import fs from 'fs';
-
-// ESM-compatible __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 import type { Project } from '../../../../shared/types';
 import type { AuthFailureInfo, BillingFailureInfo } from '../../../../shared/types/terminal';
 import { parsePythonCommand } from '../../../python-detector';
@@ -22,7 +17,10 @@ import { detectAuthFailure, detectBillingFailure } from '../../../rate-limit-det
 import { getClaudeProfileManager } from '../../../claude-profile-manager';
 import { getOperationRegistry, type OperationType } from '../../../claude-profile/operation-registry';
 import { isWindows, isMacOS } from '../../../platform';
+import { getEffectiveSourcePath } from '../../../updater/path-resolver';
+import { pythonEnvManager, getConfiguredPythonPath } from '../../../python-env-manager';
 import { getTaskkillExePath, getWhereExePath } from '../../../utils/windows-paths';
+import { safeCaptureException } from '../../../sentry';
 
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
@@ -217,6 +215,17 @@ export function runPythonSubprocess<T = unknown>(
     let killedDueToAuthFailure = false; // Track if subprocess was killed due to auth failure
     let billingFailureEmitted = false; // Track if we've already emitted a billing failure
     let killedDueToBillingFailure = false; // Track if subprocess was killed due to billing failure
+    let receivedOutput = false; // Track if any stdout/stderr has been received
+
+    // Health-check: report to Sentry if no output received within 120 seconds
+    const healthCheckTimeout = setTimeout(() => {
+      if (!receivedOutput) {
+        safeCaptureException(
+          new Error('[SubprocessRunner] No output received from subprocess after 120s'),
+          { extra: { pythonPath: options.pythonPath, args: options.args, cwd: options.cwd, envKeys: options.env ? Object.keys(options.env) : [] } }
+        );
+      }
+    }, 120_000);
 
     // Default progress pattern: [ 30%] message OR [30%] message
     const progressPattern = options.progressPattern ?? /\[\s*(\d+)%\]\s*(.+)/;
@@ -340,6 +349,7 @@ export function runPythonSubprocess<T = unknown>(
     };
 
     child.stdout.on('data', (data: Buffer) => {
+      receivedOutput = true;
       const text = data.toString('utf-8');
       stdout += text;
 
@@ -367,6 +377,7 @@ export function runPythonSubprocess<T = unknown>(
     });
 
     child.stderr.on('data', (data: Buffer) => {
+      receivedOutput = true;
       const text = data.toString('utf-8');
       stderr += text;
 
@@ -385,6 +396,7 @@ export function runPythonSubprocess<T = unknown>(
     });
 
     child.on('close', (code: number | null) => {
+      clearTimeout(healthCheckTimeout);
       // Treat null exit code (killed with SIGKILL) as failure, not success
       const exitCode = code ?? -1;
 
@@ -464,6 +476,7 @@ export function runPythonSubprocess<T = unknown>(
     });
 
     child.on('error', (err: Error) => {
+      clearTimeout(healthCheckTimeout);
       options.onError?.(err.message);
       resolve({
         success: false,
@@ -479,10 +492,20 @@ export function runPythonSubprocess<T = unknown>(
 }
 
 /**
- * Get the Python path for a project's backend
- * Cross-platform: uses Scripts/python.exe on Windows, bin/python on Unix
+ * Get the Python path for running GitHub runners.
+ *
+ * Prefers the managed Python environment (bundled app venv) when ready,
+ * falls back to project-local .venv for development repos.
  */
 export function getPythonPath(backendPath: string): string {
+  // Use managed env when it's fully set up (has dependencies installed)
+  if (pythonEnvManager.isEnvReady()) {
+    const managed = getConfiguredPythonPath();
+    if (fs.existsSync(managed)) {
+      return managed;
+    }
+  }
+  // Fallback to venv in backend path (dev mode)
   return isWindows()
     ? path.join(backendPath, '.venv', 'Scripts', 'python.exe')
     : path.join(backendPath, '.venv', 'bin', 'python');
@@ -498,42 +521,28 @@ export function getRunnerPath(backendPath: string): string {
 /**
  * Get the auto-claude backend path for a project
  *
- * Auto-detects the backend location using multiple strategies:
- * 1. Development repo structure (apps/backend)
- * 2. Electron app bundle location
- * 3. Current working directory
+ * Uses getEffectiveSourcePath() which handles:
+ * 1. User settings (autoBuildPath)
+ * 2. userData override (backend-source) for user-updated backend
+ * 3. Bundled backend (process.resourcesPath/backend)
+ * 4. Development paths
+ * Falls back to project.path/apps/backend for development repos.
  */
 export function getBackendPath(project: Project): string | null {
-  // Import app module for production path detection
-  let app: any;
-  try {
-    app = require('electron').app;
-  } catch {
-    // Electron not available in tests
+  // Use shared path resolver which handles:
+  // 1. User settings (autoBuildPath)
+  // 2. userData override (backend-source) for user-updated backend
+  // 3. Bundled backend (process.resourcesPath/backend)
+  // 4. Development paths
+  const effectivePath = getEffectiveSourcePath();
+  if (fs.existsSync(effectivePath) && fs.existsSync(path.join(effectivePath, 'runners', 'github', 'runner.py'))) {
+    return effectivePath;
   }
 
-  // Check if this is a development repo (has apps/backend structure)
+  // Fallback: check project path for development repo structure
   const appsBackendPath = path.join(project.path, 'apps', 'backend');
   if (fs.existsSync(path.join(appsBackendPath, 'runners', 'github', 'runner.py'))) {
     return appsBackendPath;
-  }
-
-  // Auto-detect from app location (same logic as agent-process.ts)
-  const possiblePaths = [
-    // Dev mode: from dist/main -> ../../backend (apps/frontend/out/main -> apps/backend)
-    path.resolve(__dirname, '..', '..', '..', '..', '..', 'backend'),
-    // Alternative: from app root -> apps/backend
-    app ? path.resolve(app.getAppPath(), '..', 'backend') : null,
-    // If running from repo root with apps structure
-    path.resolve(process.cwd(), 'apps', 'backend'),
-  ].filter((p): p is string => p !== null);
-
-  for (const backendPath of possiblePaths) {
-    // Check for runner.py as marker
-    const runnerPath = path.join(backendPath, 'runners', 'github', 'runner.py');
-    if (fs.existsSync(runnerPath)) {
-      return backendPath;
-    }
   }
 
   return null;

@@ -97,9 +97,8 @@ repos:
       - id: ruff-format
         files: ^apps/backend/
 
-  # Python tests (apps/backend/) - skip slow/integration tests for pre-commit speed
+  # Python tests (apps/backend/) - run full test suite from project root
   # Tests to skip: graphiti (external deps), merge_file_tracker/service_orchestrator/worktree/workspace (Windows path/git issues)
-  # NOTE: Skip this hook in worktrees (where .git is a file, not a directory)
   - repo: local
     hooks:
       - id: pytest
@@ -108,31 +107,24 @@ repos:
         args:
           - -c
           - |
-            # Skip in worktrees - .git is a file pointing to main repo, not a directory
-            # This prevents path resolution issues with ../../tests/ in worktree context
-            if [ -f ".git" ]; then
-              echo "Skipping pytest in worktree (path resolution would fail)"
-              exit 0
-            fi
-            cd apps/backend
-            if [ -f ".venv/bin/pytest" ]; then
-              PYTEST_CMD=".venv/bin/pytest"
-            elif [ -f ".venv/Scripts/pytest.exe" ]; then
-              PYTEST_CMD=".venv/Scripts/pytest.exe"
+            # Run pytest directly from project root
+            if [ -f "apps/backend/.venv/bin/pytest" ]; then
+              PYTEST_CMD="apps/backend/.venv/bin/pytest"
+            elif [ -f "apps/backend/.venv/Scripts/pytest.exe" ]; then
+              PYTEST_CMD="apps/backend/.venv/Scripts/pytest.exe"
             else
               PYTEST_CMD="python -m pytest"
             fi
-            PYTHONPATH=. $PYTEST_CMD \
-              ../../tests/ \
+            $PYTEST_CMD tests/ \
               -v \
               --tb=short \
               -x \
               -m "not slow and not integration" \
-              --ignore=../../tests/test_graphiti.py \
-              --ignore=../../tests/test_merge_file_tracker.py \
-              --ignore=../../tests/test_service_orchestrator.py \
-              --ignore=../../tests/test_worktree.py \
-              --ignore=../../tests/test_workspace.py
+              --ignore=tests/test_graphiti.py \
+              --ignore=tests/test_merge_file_tracker.py \
+              --ignore=tests/test_service_orchestrator.py \
+              --ignore=tests/test_worktree.py \
+              --ignore=tests/test_workspace.py
         language: system
         files: ^(apps/backend/.*\.py$|tests/.*\.py$)
         pass_filenames: false

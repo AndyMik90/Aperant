@@ -1,6 +1,6 @@
 {
   "name": "auto-claude",
-  "version": "2.7.6-beta.3",
+  "version": "2.7.6-beta.5",
   "description": "Autonomous multi-agent coding framework powered by Claude AI",
   "license": "AGPL-3.0",
   "author": "Auto Claude Team",
@@ -20,6 +20,7 @@
     "lint": "cd apps/frontend && npm run lint",
     "test": "cd apps/frontend && npm test",
     "test:backend": "node scripts/test-backend.js",
+    "test:coverage": "node scripts/test-backend.js --cov --cov-report=term-missing --cov-report=html",
     "package": "cd apps/frontend && npm run package",
     "package:mac": "cd apps/frontend && npm run package:mac",
     "package:win": "cd apps/frontend && npm run package:win",

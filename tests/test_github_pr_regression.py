@@ -9,6 +9,7 @@ This test suite verifies that:
 5. Provider field is correctly set to "github"
 """
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -27,6 +28,19 @@ from worktree import PullRequestResult, WorktreeInfo, WorktreeManager
 
 class TestGitHubProviderDetection:
     """Test that GitHub remotes are still detected correctly."""
+
+    @pytest.fixture(autouse=True)
+    def isolate_git_env(self):
+        """Clear GIT_* environment variables to prevent worktree interference."""
+        # Store original values
+        git_vars = {k: v for k, v in os.environ.items() if k.startswith('GIT_')}
+        # Clear GIT environment variables
+        for k in list(git_vars.keys()):
+            del os.environ[k]
+        yield
+        # Restore original values
+        for k, v in git_vars.items():
+            os.environ[k] = v
 
     def test_github_https_detection(self, tmp_path):
         """Test GitHub HTTPS URL detection."""
