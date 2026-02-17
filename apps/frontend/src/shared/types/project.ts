@@ -355,6 +355,23 @@ export interface ProjectEnvConfig {
 
   // Custom MCP servers defined by the user
   customMcpServers?: CustomMcpServer[];
+
+  // LLM Provider Configuration (per-project override for local LLM)
+  llmProvider?: 'claude' | 'local';
+  localLlmBaseUrl?: string;
+  localLlmModel?: string;
+  localLlmApiKey?: string;
+  localLlmTemperature?: number;
+  localLlmMaxTokens?: number;
+  localLlmTimeout?: number;
+  localLlmToolMode?: string;
+  // Per-phase local model overrides
+  localLlmPhaseModels?: {
+    spec?: string;
+    planning?: string;
+    coding?: string;
+    qa?: string;
+  };
 }
 
 /**

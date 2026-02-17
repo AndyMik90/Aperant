@@ -227,6 +227,40 @@ export function registerEnvHandlers(
       }
     }
 
+    // LLM Provider Configuration (local LLM support)
+    if (config.llmProvider !== undefined) {
+      existingVars['LLM_PROVIDER'] = config.llmProvider;
+    }
+    if (config.localLlmBaseUrl !== undefined) {
+      existingVars['LOCAL_LLM_BASE_URL'] = config.localLlmBaseUrl;
+    }
+    if (config.localLlmModel !== undefined) {
+      existingVars['LOCAL_LLM_MODEL'] = config.localLlmModel;
+    }
+    if (config.localLlmApiKey !== undefined) {
+      existingVars['LOCAL_LLM_API_KEY'] = config.localLlmApiKey;
+    }
+    if (config.localLlmTemperature !== undefined) {
+      existingVars['LOCAL_LLM_TEMPERATURE'] = String(config.localLlmTemperature);
+    }
+    if (config.localLlmMaxTokens !== undefined) {
+      existingVars['LOCAL_LLM_MAX_TOKENS'] = String(config.localLlmMaxTokens);
+    }
+    if (config.localLlmTimeout !== undefined) {
+      existingVars['LOCAL_LLM_TIMEOUT'] = String(config.localLlmTimeout);
+    }
+    if (config.localLlmToolMode !== undefined) {
+      existingVars['LOCAL_LLM_TOOL_MODE'] = config.localLlmToolMode;
+    }
+    // Per-phase local model overrides
+    if (config.localLlmPhaseModels) {
+      const pm = config.localLlmPhaseModels;
+      if (pm.spec) existingVars['LOCAL_LLM_MODEL_SPEC'] = pm.spec;
+      if (pm.planning) existingVars['LOCAL_LLM_MODEL_PLANNING'] = pm.planning;
+      if (pm.coding) existingVars['LOCAL_LLM_MODEL_CODING'] = pm.coding;
+      if (pm.qa) existingVars['LOCAL_LLM_MODEL_QA'] = pm.qa;
+    }
+
     // Generate content with sections
     const content = `# Jerry Framework Environment Variables
 # Managed by Jerry UI
@@ -272,6 +306,23 @@ ${existingVars['DEFAULT_BRANCH'] ? `DEFAULT_BRANCH=${existingVars['DEFAULT_BRANC
 # UI SETTINGS (OPTIONAL)
 # =============================================================================
 ${existingVars['ENABLE_FANCY_UI'] !== undefined ? `ENABLE_FANCY_UI=${existingVars['ENABLE_FANCY_UI']}` : '# ENABLE_FANCY_UI=true'}
+
+# =============================================================================
+# LLM PROVIDER (claude = Anthropic cloud, local = on-premise LLM)
+# =============================================================================
+${existingVars['LLM_PROVIDER'] ? `LLM_PROVIDER=${existingVars['LLM_PROVIDER']}` : '# LLM_PROVIDER=claude'}
+${existingVars['LOCAL_LLM_BASE_URL'] ? `LOCAL_LLM_BASE_URL=${existingVars['LOCAL_LLM_BASE_URL']}` : '# LOCAL_LLM_BASE_URL=http://localhost:11434/v1'}
+${existingVars['LOCAL_LLM_MODEL'] ? `LOCAL_LLM_MODEL=${existingVars['LOCAL_LLM_MODEL']}` : '# LOCAL_LLM_MODEL=qwen2.5-coder:32b'}
+${existingVars['LOCAL_LLM_API_KEY'] ? `LOCAL_LLM_API_KEY=${existingVars['LOCAL_LLM_API_KEY']}` : '# LOCAL_LLM_API_KEY=local'}
+${existingVars['LOCAL_LLM_TEMPERATURE'] ? `LOCAL_LLM_TEMPERATURE=${existingVars['LOCAL_LLM_TEMPERATURE']}` : '# LOCAL_LLM_TEMPERATURE=0.0'}
+${existingVars['LOCAL_LLM_MAX_TOKENS'] ? `LOCAL_LLM_MAX_TOKENS=${existingVars['LOCAL_LLM_MAX_TOKENS']}` : '# LOCAL_LLM_MAX_TOKENS=16384'}
+${existingVars['LOCAL_LLM_TIMEOUT'] ? `LOCAL_LLM_TIMEOUT=${existingVars['LOCAL_LLM_TIMEOUT']}` : '# LOCAL_LLM_TIMEOUT=300'}
+${existingVars['LOCAL_LLM_TOOL_MODE'] ? `LOCAL_LLM_TOOL_MODE=${existingVars['LOCAL_LLM_TOOL_MODE']}` : '# LOCAL_LLM_TOOL_MODE=auto'}
+# Per-phase model overrides (optional, defaults to LOCAL_LLM_MODEL)
+${existingVars['LOCAL_LLM_MODEL_SPEC'] ? `LOCAL_LLM_MODEL_SPEC=${existingVars['LOCAL_LLM_MODEL_SPEC']}` : '# LOCAL_LLM_MODEL_SPEC='}
+${existingVars['LOCAL_LLM_MODEL_PLANNING'] ? `LOCAL_LLM_MODEL_PLANNING=${existingVars['LOCAL_LLM_MODEL_PLANNING']}` : '# LOCAL_LLM_MODEL_PLANNING='}
+${existingVars['LOCAL_LLM_MODEL_CODING'] ? `LOCAL_LLM_MODEL_CODING=${existingVars['LOCAL_LLM_MODEL_CODING']}` : '# LOCAL_LLM_MODEL_CODING='}
+${existingVars['LOCAL_LLM_MODEL_QA'] ? `LOCAL_LLM_MODEL_QA=${existingVars['LOCAL_LLM_MODEL_QA']}` : '# LOCAL_LLM_MODEL_QA='}
 
 # =============================================================================
 # MCP SERVER CONFIGURATION (per-project overrides)
@@ -502,6 +553,61 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
           // LadybugDB
           database: vars['GRAPHITI_DATABASE'],
           dbPath: vars['GRAPHITI_DB_PATH'],
+        };
+      }
+
+      // LLM Provider Configuration (per-project or global fallback)
+      if (vars['LLM_PROVIDER']) {
+        config.llmProvider = vars['LLM_PROVIDER'] as 'claude' | 'local';
+      } else if (globalSettings.llmProvider) {
+        config.llmProvider = globalSettings.llmProvider;
+      }
+      if (vars['LOCAL_LLM_BASE_URL']) {
+        config.localLlmBaseUrl = vars['LOCAL_LLM_BASE_URL'];
+      } else if (globalSettings.localLLM?.baseUrl) {
+        config.localLlmBaseUrl = globalSettings.localLLM.baseUrl;
+      }
+      if (vars['LOCAL_LLM_MODEL']) {
+        config.localLlmModel = vars['LOCAL_LLM_MODEL'];
+      } else if (globalSettings.localLLM?.model) {
+        config.localLlmModel = globalSettings.localLLM.model;
+      }
+      if (vars['LOCAL_LLM_API_KEY']) {
+        config.localLlmApiKey = vars['LOCAL_LLM_API_KEY'];
+      } else if (globalSettings.localLLM?.apiKey) {
+        config.localLlmApiKey = globalSettings.localLLM.apiKey;
+      }
+      if (vars['LOCAL_LLM_TEMPERATURE']) {
+        config.localLlmTemperature = parseFloat(vars['LOCAL_LLM_TEMPERATURE']);
+      } else if (globalSettings.localLLM?.temperature !== undefined) {
+        config.localLlmTemperature = globalSettings.localLLM.temperature;
+      }
+      if (vars['LOCAL_LLM_MAX_TOKENS']) {
+        config.localLlmMaxTokens = parseInt(vars['LOCAL_LLM_MAX_TOKENS'], 10);
+      } else if (globalSettings.localLLM?.maxTokens) {
+        config.localLlmMaxTokens = globalSettings.localLLM.maxTokens;
+      }
+      if (vars['LOCAL_LLM_TIMEOUT']) {
+        config.localLlmTimeout = parseInt(vars['LOCAL_LLM_TIMEOUT'], 10);
+      } else if (globalSettings.localLLM?.timeout) {
+        config.localLlmTimeout = globalSettings.localLLM.timeout;
+      }
+      if (vars['LOCAL_LLM_TOOL_MODE']) {
+        config.localLlmToolMode = vars['LOCAL_LLM_TOOL_MODE'];
+      } else if (globalSettings.localLLM?.toolCallingMode) {
+        config.localLlmToolMode = globalSettings.localLLM.toolCallingMode;
+      }
+      // Per-phase local model overrides
+      const phaseSpec = vars['LOCAL_LLM_MODEL_SPEC'] || globalSettings.localLLM?.phaseModels?.spec;
+      const phasePlanning = vars['LOCAL_LLM_MODEL_PLANNING'] || globalSettings.localLLM?.phaseModels?.planning;
+      const phaseCoding = vars['LOCAL_LLM_MODEL_CODING'] || globalSettings.localLLM?.phaseModels?.coding;
+      const phaseQa = vars['LOCAL_LLM_MODEL_QA'] || globalSettings.localLLM?.phaseModels?.qa;
+      if (phaseSpec || phasePlanning || phaseCoding || phaseQa) {
+        config.localLlmPhaseModels = {
+          ...(phaseSpec ? { spec: phaseSpec } : {}),
+          ...(phasePlanning ? { planning: phasePlanning } : {}),
+          ...(phaseCoding ? { coding: phaseCoding } : {}),
+          ...(phaseQa ? { qa: phaseQa } : {}),
         };
       }
 

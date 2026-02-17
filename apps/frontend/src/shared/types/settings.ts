@@ -163,6 +163,12 @@ export type ThinkingLevel = 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
 // Model type shorthand
 export type ModelTypeShort = 'haiku' | 'sonnet' | 'opus';
 
+// LLM provider selection
+export type LLMProvider = 'claude' | 'local';
+
+// Tool calling mode for local LLMs
+export type LocalLLMToolMode = 'auto' | 'native' | 'prompt';
+
 // Phase-based model configuration for Auto profile
 // Each phase can use a different model optimized for that task type
 export interface PhaseModelConfig {
@@ -198,6 +204,25 @@ export interface FeatureThinkingConfig {
   githubIssues: ThinkingLevel;
   githubPrs: ThinkingLevel;
   utility: ThinkingLevel;
+}
+
+// Local LLM configuration for air-gapped / on-premise environments
+// Stored in app settings and written to project .env as LOCAL_LLM_* vars
+export interface LocalLLMSettings {
+  baseUrl: string;          // OpenAI-compatible API endpoint (e.g., http://localhost:11434/v1)
+  model: string;            // Model name as known to the local server
+  apiKey: string;           // API key (most local servers accept any value)
+  temperature: number;      // Sampling temperature (0.0 = deterministic)
+  maxTokens: number;        // Maximum response tokens
+  timeout: number;          // Request timeout in seconds
+  toolCallingMode: LocalLLMToolMode;  // How to handle tool calls
+  // Per-phase model overrides (allows different local models for different phases)
+  phaseModels?: {
+    spec?: string;          // Model for spec creation (e.g., "qwen2.5-coder:32b")
+    planning?: string;      // Model for implementation planning
+    coding?: string;        // Model for coding
+    qa?: string;            // Model for QA review
+  };
 }
 
 // Agent profile for preset model/thinking configurations
@@ -299,6 +324,10 @@ export interface AppSettings {
   sentryEnabled?: boolean;
   // Maximum concurrent task agents (planning + task-execution). Default: 1
   maxConcurrentAgents?: number;
+  // LLM Provider selection: 'claude' (cloud) or 'local' (on-premise)
+  llmProvider?: LLMProvider;
+  // Local LLM configuration (used when llmProvider === 'local')
+  localLLM?: LocalLLMSettings;
 }
 
 // Jerry Source Environment Configuration (for ac-jerry repo .env)

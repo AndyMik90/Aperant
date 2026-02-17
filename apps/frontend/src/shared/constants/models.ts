@@ -3,7 +3,7 @@
  * Claude models, thinking levels, memory backends, and agent profiles
  */
 
-import type { AgentProfile, PhaseModelConfig, FeatureModelConfig, FeatureThinkingConfig } from '../types/settings';
+import type { AgentProfile, PhaseModelConfig, FeatureModelConfig, FeatureThinkingConfig, LocalLLMSettings, LocalLLMToolMode } from '../types/settings';
 
 // ============================================
 // Available Models
@@ -232,6 +232,40 @@ export const DEFAULT_AGENT_PROFILES: AgentProfile[] = [
     phaseThinking: QUICK_PHASE_THINKING
   }
 ];
+
+// ============================================
+// Local LLM Configuration
+// ============================================
+
+// Recommended local models with tool/function calling support
+export const LOCAL_LLM_RECOMMENDED_MODELS = [
+  { value: 'qwen2.5-coder:32b', label: 'Qwen 2.5 Coder 32B', description: 'Best coding + tool calling balance', vram: '~24GB' },
+  { value: 'qwen2.5-coder:14b', label: 'Qwen 2.5 Coder 14B', description: 'Good coding, fits 24GB VRAM', vram: '~12GB' },
+  { value: 'qwen2.5-coder:7b', label: 'Qwen 2.5 Coder 7B', description: 'Lightweight, fits 16GB VRAM', vram: '~6GB' },
+  { value: 'deepseek-coder-v2:16b', label: 'DeepSeek Coder V2 16B', description: 'Strong coding with tool support', vram: '~12GB' },
+  { value: 'llama3.1:70b', label: 'Llama 3.1 70B', description: 'Excellent general + tool calling', vram: '~48GB' },
+  { value: 'llama3.1:8b', label: 'Llama 3.1 8B', description: 'Lightweight general + tool calling', vram: '~6GB' },
+  { value: 'codestral:latest', label: 'Codestral', description: "Mistral's dedicated coding model", vram: '~16GB' },
+  { value: 'mistral-large:latest', label: 'Mistral Large', description: 'Strong reasoning and tool use', vram: '~48GB' },
+] as const;
+
+// Tool calling modes for local LLMs
+export const LOCAL_LLM_TOOL_MODES: { value: LocalLLMToolMode; label: string; description: string }[] = [
+  { value: 'auto', label: 'Auto-Detect', description: 'Detect based on model name' },
+  { value: 'native', label: 'Native', description: 'OpenAI function calling API (requires model support)' },
+  { value: 'prompt', label: 'Prompt-Based', description: 'Inject tools into prompt (works with any model)' },
+];
+
+// Default local LLM settings
+export const DEFAULT_LOCAL_LLM_SETTINGS: LocalLLMSettings = {
+  baseUrl: 'http://localhost:11434/v1',
+  model: 'qwen2.5-coder:32b',
+  apiKey: 'local',
+  temperature: 0.0,
+  maxTokens: 16384,
+  timeout: 300,
+  toolCallingMode: 'auto',
+};
 
 // ============================================
 // Memory Backends

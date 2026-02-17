@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Switch } from '../ui/switch';
 import { SettingsSection } from './SettingsSection';
 import { AgentProfileSettings } from './AgentProfileSettings';
+import { LocalLLMSettings } from './LocalLLMSettings';
 import {
   AVAILABLE_MODELS,
   THINKING_LEVELS,
@@ -123,6 +124,9 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
   if (section === 'agent') {
     return (
       <div className="space-y-8">
+        {/* LLM Provider Selection (Claude vs Local) */}
+        <LocalLLMSettings settings={settings} onSettingsChange={onSettingsChange} />
+
         {/* Agent Profile Selection */}
         <AgentProfileSettings />
 
