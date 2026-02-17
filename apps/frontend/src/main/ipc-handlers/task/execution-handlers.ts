@@ -330,7 +330,9 @@ export function registerTaskExecutionHandlers(
    */
   ipcMain.on(IPC_CHANNELS.TASK_STOP, (_, taskId: string) => {
     agentManager.killTask(taskId);
-    fileWatcher.unwatch(taskId);
+    fileWatcher.unwatch(taskId).catch((err) => {
+      console.error('[TASK_STOP] Failed to unwatch:', err);
+    });
 
     // Find task and project to emit USER_STOPPED with plan context
     const { task, project } = findTaskAndProject(taskId);
@@ -1122,7 +1124,9 @@ export function registerTaskExecutionHandlers(
         }
 
         // Stop file watcher if it was watching this task
-        fileWatcher.unwatch(taskId);
+        fileWatcher.unwatch(taskId).catch((err) => {
+          console.error('[TASK_RECOVER_STUCK] Failed to unwatch:', err);
+        });
 
         // Auto-restart the task if requested
         let autoRestarted = false;

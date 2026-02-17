@@ -45,6 +45,13 @@ export class FileWatcher extends EventEmitter {
         this.watchers.delete(taskId);
       }
 
+      // Check if a newer watch() call has superseded this one while we were awaiting.
+      // If the pending specDir changed, another concurrent watch() took over — bail out
+      // to avoid overwriting the watcher it is about to create.
+      if (this.pendingWatches.get(taskId) !== specDir) {
+        return;
+      }
+
       // Check if unwatch() was called while we were awaiting above.
       if (this.cancelledWatches.has(taskId)) {
         this.cancelledWatches.delete(taskId);
@@ -119,10 +126,12 @@ export class FileWatcher extends EventEmitter {
    * Stop watching a task
    */
   async unwatch(taskId: string): Promise<void> {
-    // If watch() is currently in-flight for this taskId, mark it as cancelled
-    // so it returns early after its next await instead of creating a new watcher.
+    // If watch() is currently in-flight for this taskId, it is already closing the
+    // existing watcher. Just set the cancellation flag and return to avoid a
+    // double-close of the same FSWatcher.
     if (this.pendingWatches.has(taskId)) {
       this.cancelledWatches.add(taskId);
+      return;
     }
     const watcherInfo = this.watchers.get(taskId);
     if (watcherInfo) {
@@ -135,6 +144,11 @@ export class FileWatcher extends EventEmitter {
    * Stop all watchers
    */
   async unwatchAll(): Promise<void> {
+    // Cancel any in-flight watch() calls so they don't create new watchers
+    // after this cleanup completes.
+    for (const taskId of this.pendingWatches.keys()) {
+      this.cancelledWatches.add(taskId);
+    }
     const closePromises = Array.from(this.watchers.values()).map(
       async (info) => {
         await info.watcher.close();
