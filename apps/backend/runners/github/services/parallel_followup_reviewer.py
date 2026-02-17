@@ -1129,7 +1129,8 @@ The SDK will run invoked agents in parallel automatically.
         """Attempt a short SDK call with a minimal schema to recover review data.
 
         This is the Tier 2 recovery step when full structured output validation fails.
-        Uses FollowupExtractionResponse (~6 flat fields) which has near-100% success rate.
+        Uses FollowupExtractionResponse (small schema with ExtractedFindingSummary nesting)
+        which has near-100% success rate.
 
         Returns parsed result dict on success, None on failure.
         """
@@ -1146,7 +1147,8 @@ The SDK will run invoked agents in parallel automatically.
             extraction_prompt = (
                 "Extract the key review data from the following AI analysis output. "
                 "Return the verdict, reasoning, resolved finding IDs, unresolved finding IDs, "
-                "one-line summaries of any new findings, and counts of confirmed/dismissed findings.\n\n"
+                "structured summaries of any new findings (including severity, description, file path, and line number), "
+                "and counts of confirmed/dismissed findings.\n\n"
                 f"--- AI ANALYSIS OUTPUT ---\n{text[:8000]}\n--- END ---"
             )
 
@@ -1205,10 +1207,17 @@ The SDK will run invoked agents in parallel automatically.
             findings = []
             new_finding_ids = []
 
-            # 1. Convert new_finding_summaries to minimal PRReviewFinding objects
-            # Uses shared helper for "SEVERITY: description" parsing and ID generation
-            for i, summary in enumerate(extracted.new_finding_summaries):
-                finding = create_finding_from_summary(summary, i, id_prefix="FU")
+            # 1. Convert new_finding_summaries to PRReviewFinding objects
+            # ExtractedFindingSummary objects carry file/line from extraction
+            for i, summary_obj in enumerate(extracted.new_finding_summaries):
+                finding = create_finding_from_summary(
+                    summary=summary_obj.description,
+                    index=i,
+                    id_prefix="FU",
+                    severity_override=summary_obj.severity,
+                    file=summary_obj.file,
+                    line=summary_obj.line,
+                )
                 new_finding_ids.append(finding.id)
                 findings.append(finding)
 

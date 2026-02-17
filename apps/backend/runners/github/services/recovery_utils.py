@@ -80,6 +80,9 @@ def create_finding_from_summary(
     summary: str,
     index: int,
     id_prefix: str = "FR",
+    severity_override: str | None = None,
+    file: str = "unknown",
+    line: int = 0,
 ) -> PRReviewFinding:
     """Create a PRReviewFinding from an extraction summary string.
 
@@ -90,11 +93,20 @@ def create_finding_from_summary(
         summary: Raw summary string, e.g. "HIGH: Missing null check in parser.py"
         index: The index of the finding in the extraction list.
         id_prefix: ID prefix for traceability. Default "FR" (Followup Recovery).
+        severity_override: If provided, use this severity instead of parsing from summary.
+        file: File path where the issue was found (default "unknown").
+        line: Line number in the file (default 0).
 
     Returns:
         A PRReviewFinding with parsed severity, generated ID, and description.
     """
     severity, description = parse_severity_from_summary(summary)
+
+    # Use severity_override if provided
+    if severity_override is not None:
+        severity_map = {k.rstrip(":"): v for k, v in _EXTRACTION_SEVERITY_MAP}
+        severity = severity_map.get(severity_override.upper(), severity)
+
     finding_id = generate_recovery_finding_id(index, description, prefix=id_prefix)
 
     return PRReviewFinding(
@@ -103,6 +115,6 @@ def create_finding_from_summary(
         category=ReviewCategory.QUALITY,
         title=description[:80],
         description=f"[Recovered via extraction] {description}",
-        file="unknown",
-        line=0,
+        file=file,
+        line=line,
     )
