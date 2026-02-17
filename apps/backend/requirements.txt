@@ -26,6 +26,10 @@ pywin32>=306; sys_platform == "win32"
 # Google AI (optional - for Gemini LLM and embeddings)
 google-generativeai>=0.8.0
 
+# OpenAI-compatible API client (required for local LLM support)
+# Used by LocalLLMClient to talk to Ollama, vLLM, LM Studio, etc.
+openai>=1.12.0
+
 # Pydantic for structured output schemas
 pydantic>=2.0.0
 

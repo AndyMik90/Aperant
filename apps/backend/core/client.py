@@ -2,16 +2,20 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 """
-Claude SDK Client Configuration
-===============================
+LLM Client Configuration
+=========================
 
-Functions for creating and configuring the Claude Agent SDK client.
+Factory functions for creating LLM clients — supports both the Claude Agent SDK
+(cloud) and local LLM backends (Ollama, vLLM, LM Studio, etc.).
 
-All AI interactions should use `create_client()` to ensure consistent OAuth authentication
-and proper tool/MCP configuration. For simple message calls without full agent sessions,
-use `create_simple_client()` from `core.simple_client`.
+The provider is selected via the LLM_PROVIDER environment variable:
+  - LLM_PROVIDER=claude (default) → ClaudeSDKClient via Claude Agent SDK
+  - LLM_PROVIDER=local → LocalLLMClient via OpenAI-compatible API
 
-The client factory now uses AGENT_CONFIGS from agents/tools_pkg/models.py as the
+All AI interactions should use `create_client()` to ensure consistent configuration.
+For simple message calls, use `create_simple_client()` from `core.simple_client`.
+
+The client factory uses AGENT_CONFIGS from agents/tools_pkg/models.py as the
 single source of truth for phase-aware tool and MCP server configuration.
 """
 
@@ -1086,3 +1090,159 @@ def create_client(
         options_kwargs["agents"] = agents
 
     return ClaudeSDKClient(options=ClaudeAgentOptions(**options_kwargs))
+
+
+# =============================================================================
+# Provider Detection & Local LLM Support
+# =============================================================================
+
+
+def get_llm_provider() -> str:
+    """
+    Determine which LLM provider to use.
+
+    Reads LLM_PROVIDER env var:
+      - "claude" (default): Use Claude Agent SDK (cloud)
+      - "local": Use local LLM via OpenAI-compatible API
+
+    Returns:
+        Provider string: "claude" or "local"
+    """
+    provider = os.environ.get("LLM_PROVIDER", "claude").lower().strip()
+    if provider not in ("claude", "local"):
+        logger.warning(f"Unknown LLM_PROVIDER='{provider}', defaulting to 'claude'")
+        return "claude"
+    return provider
+
+
+def is_local_llm_enabled() -> bool:
+    """Check if local LLM mode is enabled."""
+    return get_llm_provider() == "local"
+
+
+def create_local_client(
+    project_dir: Path,
+    spec_dir: Path,
+    model: str | None = None,
+    agent_type: str = "coder",
+    max_thinking_tokens: int | None = None,
+    max_turns: int = 100,
+    is_resume: bool = False,
+    resume_context: str = "",
+) -> "LocalLLMClient":
+    """
+    Create a local LLM client for air-gapped / on-premise environments.
+
+    This is the local equivalent of create_client(). It creates a LocalLLMClient
+    that uses OpenAI-compatible APIs (Ollama, vLLM, LM Studio, etc.) instead of
+    the Claude Agent SDK.
+
+    The client implements the same interface as ClaudeSDKClient:
+      - async context manager (__aenter__/__aexit__)
+      - query(message) to send a prompt
+      - receive_response() async iterator yielding AssistantMessage/UserMessage
+
+    Args:
+        project_dir: Root directory for the project (working directory)
+        spec_dir: Directory containing the spec
+        model: Model identifier for the local server (default: from LOCAL_LLM_MODEL env)
+        agent_type: Agent type identifier from AGENT_CONFIGS
+        max_thinking_tokens: Not used for local LLMs (kept for API compatibility)
+        max_turns: Maximum agentic loop iterations
+        is_resume: If True, append resume context to system prompt
+        resume_context: Progress context for resumed builds
+
+    Returns:
+        Configured LocalLLMClient
+
+    Environment Variables:
+        LOCAL_LLM_BASE_URL: API endpoint (default: http://localhost:11434/v1)
+        LOCAL_LLM_MODEL: Model name (default: qwen2.5-coder:32b)
+        LOCAL_LLM_API_KEY: API key (default: "local")
+        LOCAL_LLM_TEMPERATURE: Sampling temperature (default: 0.0)
+        LOCAL_LLM_MAX_TOKENS: Max response tokens (default: 16384)
+        LOCAL_LLM_TIMEOUT: Request timeout seconds (default: 300)
+        LOCAL_LLM_TOOL_MODE: "native", "prompt", or "auto" (default: "auto")
+    """
+    from core.local_llm import LocalLLMClient, LocalLLMConfig
+
+    # Get allowed tools for this agent type
+    from agents.tools_pkg import get_agent_config
+
+    config = get_agent_config(agent_type)
+    raw_tools = list(config.get("tools", []))
+
+    # Map SDK tool names to local tool names
+    # The SDK uses tool names like "Read", "Write", "Bash", etc.
+    # Filter to only tools we can execute locally
+    local_tool_names = {"Bash", "Read", "Write", "Edit", "Glob", "Grep"}
+    allowed_tools = [t for t in raw_tools if t in local_tool_names]
+
+    # Import security hook for bash validation
+    bash_hook = None
+    try:
+        from security import bash_security_hook
+        bash_hook = bash_security_hook
+    except ImportError:
+        logger.warning("Security module not available — bash commands will not be validated")
+
+    # Build system prompt (same logic as create_client but without SDK-specific parts)
+    base_prompt = (
+        f"You are an expert full-stack developer building production-quality software. "
+        f"Your working directory is: {project_dir.resolve()}\n"
+        f"Your filesystem access is RESTRICTED to this directory only. "
+        f"Use relative paths (starting with ./) for all file operations. "
+        f"Never use absolute paths or try to access files outside your working directory.\n\n"
+        f"You follow existing code patterns, write clean maintainable code, and verify "
+        f"your work through thorough testing. You communicate progress through Git commits "
+        f"and build-progress.txt updates."
+    )
+
+    # Include CLAUDE.md if enabled
+    if should_use_claude_md():
+        claude_md_content = load_claude_md(project_dir)
+        if claude_md_content:
+            base_prompt = f"{base_prompt}\n\n# Project Instructions (from CLAUDE.md)\n\n{claude_md_content}"
+
+    # Resume context
+    if is_resume:
+        resume_section = (
+            "\n\n# RESUMED BUILD SESSION\n\n"
+            "This is a CONTINUED build session — previous sessions have already "
+            "completed subtasks for this task. DO NOT re-read the full spec.md "
+            "unless the prompt explicitly requires it. A spec summary is provided "
+            "in the prompt. Focus on the pending subtasks only."
+        )
+        if resume_context:
+            resume_section += f"\n\n{resume_context}"
+        base_prompt += resume_section
+
+    # Create config
+    llm_config = LocalLLMConfig(
+        model=model or "",  # Empty string triggers env var resolution in __post_init__
+        system_prompt=base_prompt,
+        project_dir=project_dir,
+        max_turns=max_turns,
+        allowed_tools=allowed_tools,
+        bash_security_hook=bash_hook,
+        enable_thinking=max_thinking_tokens is not None and max_thinking_tokens > 0,
+    )
+
+    # Validate config
+    issues = llm_config.validate()
+    if issues:
+        logger.warning(f"Local LLM config issues: {issues}")
+
+    # Print configuration (matches create_client() output style)
+    print(f"Local LLM Client Configuration:")
+    print(f"   - Provider: local ({llm_config.base_url})")
+    print(f"   - Model: {llm_config.model}")
+    print(f"   - Tool calling: {llm_config.tool_calling_mode}")
+    print(f"   - Tools: {', '.join(allowed_tools)}")
+    print(f"   - Max turns: {max_turns}")
+    print(f"   - Project dir: {project_dir.resolve()}")
+    if is_resume:
+        print("   - Resume mode: system prompt optimized for continuation")
+    print()
+
+    return LocalLLMClient(config=llm_config, project_dir=project_dir)
