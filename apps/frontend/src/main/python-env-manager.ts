@@ -6,6 +6,7 @@ import { app } from 'electron';
 import { findPythonCommand, getBundledPythonPath } from './python-detector';
 import { isLinux, isWindows, getPathDelimiter } from './platform';
 import { getIsolatedGitEnv } from './utils/git-isolation';
+import { normalizeEnvPathKey } from './agent/env-utils';
 
 export interface PythonEnvStatus {
   ready: boolean;
@@ -726,17 +727,10 @@ if sys.version_info >= (3, 12):
       const pywin32System32 = path.join(this.sitePackagesPath, 'pywin32_system32');
 
       // Add pywin32_system32 to PATH for DLL loading
-      // Fix PATH case sensitivity: On Windows, env vars are case-insensitive but Node.js
-      // preserves case. If we have both 'PATH' and 'Path', Node.js lexicographically sorts
-      // and uses the first match, causing issues. Normalize to single 'PATH' key.
-      // See: https://github.com/nodejs/node/issues/9157
-      const pathKey = Object.keys(baseEnv).find(k => k.toUpperCase() === 'PATH');
-      const currentPath = pathKey ? baseEnv[pathKey] : '';
-
-      // Remove any existing PATH variants to avoid duplicates
-      if (pathKey && pathKey !== 'PATH') {
-        delete baseEnv[pathKey];
-      }
+      // Normalize to single 'PATH' key before reading/writing, using the shared utility.
+      // This prevents duplicate 'Path'/'PATH' keys that cause DLL-load failures on Windows.
+      normalizeEnvPathKey(baseEnv);
+      const currentPath = baseEnv['PATH'] ?? '';
 
       if (currentPath && !currentPath.includes(pywin32System32)) {
         windowsEnv['PATH'] = `${pywin32System32};${currentPath}`;

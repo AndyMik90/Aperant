@@ -22,7 +22,7 @@ import { pythonEnvManager, getConfiguredPythonPath } from '../python-env-manager
 import { buildMemoryEnvVars } from '../memory-env-builder';
 import { readSettingsFile } from '../settings-utils';
 import type { AppSettings } from '../../shared/types/settings';
-import { getOAuthModeClearVars } from './env-utils';
+import { getOAuthModeClearVars, normalizeEnvPathKey, mergePythonEnvPath } from './env-utils';
 import { getAugmentedEnv } from '../env-utils';
 import { getToolInfo, getClaudeCliPathForSdk } from '../cli-tool-manager';
 import { killProcessGracefully, isWindows, getPathDelimiter } from '../platform';
@@ -683,50 +683,11 @@ export class AgentProcessManager {
     // pythonEnv may contain its own PATH (e.g., on Windows with pywin32_system32 prepended).
     // Simply spreading pythonEnv after env would overwrite the augmented PATH (which includes
     // npm globals, homebrew, etc.), causing "Claude code not found" on Windows (#1661).
-    // Instead, merge PATH entries: prepend pythonEnv-specific paths to the augmented PATH.
+    // mergePythonEnvPath() normalizes PATH key casing and prepends pythonEnv-specific paths.
     const mergedPythonEnv = { ...pythonEnv };
     const pathSep = getPathDelimiter();
 
-    // Normalize env to a single uppercase 'PATH' key to avoid duplicate PATH keys on Windows.
-    // On Windows, process.env spread produces 'Path' (system) while getAugmentedEnv() writes 'PATH'.
-    // Without normalization, Object.keys().find() returns 'Path' first (insertion order), missing
-    // augmented entries, and the final spread produces both 'Path' and 'PATH' keys. (#1661)
-    const envPathKey = 'PATH' in env ? 'PATH' : (Object.keys(env).find(k => k.toUpperCase() === 'PATH') || 'PATH');
-    if (envPathKey !== 'PATH' && envPathKey in env) {
-      env['PATH'] = env[envPathKey] as string;
-      delete env[envPathKey];
-    }
-    // Remove any remaining case-variant PATH keys (e.g., 'Path') that differ from 'PATH'.
-    // getAugmentedEnv() spreads process.env (which has 'Path' on Windows) then writes 'PATH',
-    // leaving both keys in the object. Delete all duplicates so the child process inherits
-    // a single canonical 'PATH' entry with the fully-augmented value.
-    for (const key of Object.keys(env)) {
-      if (key !== 'PATH' && key.toUpperCase() === 'PATH') {
-        delete env[key];
-      }
-    }
-
-    // Also normalize pythonEnv PATH key to uppercase
-    const pythonPathKey = Object.keys(mergedPythonEnv).find(k => k.toUpperCase() === 'PATH');
-    if (pythonPathKey && pythonPathKey !== 'PATH') {
-      mergedPythonEnv['PATH'] = mergedPythonEnv[pythonPathKey] as string;
-      delete mergedPythonEnv[pythonPathKey];
-    }
-
-    if (mergedPythonEnv['PATH'] && env['PATH']) {
-      const augmentedPathEntries = new Set(
-        (env['PATH'] as string).split(pathSep).filter(Boolean)
-      );
-      // Extract only new entries from pythonEnv.PATH that aren't already in the augmented PATH
-      const pythonPathEntries = (mergedPythonEnv['PATH'] as string)
-        .split(pathSep)
-        .filter(entry => entry && !augmentedPathEntries.has(entry));
-
-      // Prepend python-specific paths (e.g., pywin32_system32) to the augmented PATH
-      mergedPythonEnv['PATH'] = pythonPathEntries.length > 0
-        ? [...pythonPathEntries, env['PATH'] as string].join(pathSep)
-        : env['PATH'] as string;
-    }
+    mergePythonEnvPath(env as Record<string, string | undefined>, mergedPythonEnv as Record<string, string | undefined>, pathSep);
 
     // Parse Python command to handle space-separated commands like "py -3"
     const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.getPythonPath());
