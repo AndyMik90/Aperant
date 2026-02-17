@@ -16,7 +16,11 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from claude_agent_sdk import ClaudeSDKClient
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from claude_agent_sdk import ClaudeSDKClient
+    from core.local_llm import LocalLLMClient
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
 from insight_extractor import extract_session_insights
 from linear_updater import (
@@ -424,7 +428,7 @@ async def post_session_processing(
 
 
 async def run_agent_session(
-    client: ClaudeSDKClient,
+    client: "ClaudeSDKClient | LocalLLMClient",
     message: str,
     spec_dir: Path,
     verbose: bool = False,
@@ -433,10 +437,13 @@ async def run_agent_session(
     drift_monitor: "AgentMonitor | None" = None,
 ) -> tuple[str, str]:
     """
-    Run a single agent session using Claude Agent SDK with interruptible execution.
+    Run a single agent session with interruptible execution.
+
+    Supports both Claude Agent SDK and local LLM clients — both implement
+    the same query/receive_response interface with compatible message types.
 
     Args:
-        client: Claude SDK client
+        client: LLM client (ClaudeSDKClient or LocalLLMClient)
         message: The prompt to send
         spec_dir: Spec directory path
         verbose: Whether to show detailed output
@@ -461,7 +468,12 @@ async def run_agent_session(
         prompt_length=len(message),
         prompt_preview=message[:200] + "..." if len(message) > 200 else message,
     )
-    print("Sending prompt to Claude Agent SDK...\n")
+    # Identify which backend is active for user-facing output
+    client_type_name = type(client).__name__
+    if client_type_name == "LocalLLMClient":
+        print("Sending prompt to local LLM...\n")
+    else:
+        print("Sending prompt to Claude Agent SDK...\n")
 
     # Track tool state for matching results to tool calls
     current_tool = None

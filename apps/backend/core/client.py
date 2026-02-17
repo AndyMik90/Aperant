@@ -345,27 +345,22 @@ def clear_claude_cli_cache() -> None:
     logger.debug("Claude CLI cache cleared")
 
 
-from agents.tools_pkg import (
-    CONTEXT7_TOOLS,
-    ELECTRON_TOOLS,
-    GRAPHITI_MCP_TOOLS,
-    LINEAR_TOOLS,
-    PUPPETEER_TOOLS,
-    create_ac_jerry_mcp_server,
-    get_allowed_tools,
-    get_required_mcp_servers,
-    is_tools_available,
-)
-from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
-from claude_agent_sdk.types import HookMatcher
-from core.auth import (
-    get_sdk_env_vars,
-    require_auth_token,
-    validate_token_not_encrypted,
-)
-from linear_updater import is_linear_enabled
+# These imports are safe for both providers (no SDK dependency)
 from prompts_pkg.project_context import detect_project_capabilities, load_project_index
-from security import bash_security_hook
+
+# =============================================================================
+# SDK-Specific Imports (Lazy)
+# =============================================================================
+# Claude Agent SDK and related modules are imported lazily inside functions
+# that need them. This allows local-only environments to use is_local_llm_enabled(),
+# create_local_client(), etc. without having claude_agent_sdk installed.
+#
+# The following are imported inside _create_claude_sdk_client() and helpers:
+#   - claude_agent_sdk (ClaudeAgentOptions, ClaudeSDKClient, HookMatcher)
+#   - core.auth (get_sdk_env_vars, require_auth_token, validate_token_not_encrypted)
+#   - agents.tools_pkg (tool constants, get_allowed_tools, etc.)
+#   - linear_updater (is_linear_enabled)
+#   - security (bash_security_hook)
 
 
 def _validate_custom_mcp_server(server: dict) -> bool:
@@ -666,9 +661,16 @@ def create_client(
     max_turns: int = 100,
     is_resume: bool = False,
     resume_context: str = "",
-) -> ClaudeSDKClient:
+):
     """
-    Create a Claude Agent SDK client with multi-layered security.
+    Create an LLM client for agent sessions.
+
+    Automatically selects the backend based on LLM_PROVIDER env var:
+      - "claude" (default): Claude Agent SDK with OAuth, MCP servers, security hooks
+      - "local": Local LLM via OpenAI-compatible API (Ollama, vLLM, etc.)
+
+    Both backends implement the same interface (query/receive_response) so callers
+    don't need to know which backend is active.
 
     Uses AGENT_CONFIGS for phase-aware tool and MCP server configuration.
     Only starts MCP servers that the agent actually needs, reducing context
@@ -677,7 +679,7 @@ def create_client(
     Args:
         project_dir: Root directory for the project (working directory)
         spec_dir: Directory containing the spec (for settings file)
-        model: Claude model to use
+        model: Model to use (Claude model name or local model name)
         agent_type: Agent type identifier from AGENT_CONFIGS
                    (e.g., 'coder', 'planner', 'qa_reviewer', 'spec_gatherer')
         max_thinking_tokens: Token budget for extended thinking (None = disabled)
@@ -687,18 +689,16 @@ def create_client(
                             - None: disabled (coding)
         output_format: Optional structured output format for validated JSON responses.
                       Use {"type": "json_schema", "schema": Model.model_json_schema()}
-                      See: https://platform.claude.com/docs/en/agent-sdk/structured-outputs
+                      (Claude SDK only — ignored for local LLM)
         agents: Optional dict of subagent definitions for SDK parallel execution.
-               Format: {"agent-name": {"description": "...", "prompt": "...",
-                        "tools": [...], "model": "inherit"}}
-               See: https://platform.claude.com/docs/en/agent-sdk/subagents
+               (Claude SDK only — ignored for local LLM)
         is_resume: If True, append resume-awareness to the system prompt.
                   Tells the agent this is a continued build session.
         resume_context: Optional progress context string to append to system
                        prompt (e.g., "7/12 subtasks completed").
 
     Returns:
-        Configured ClaudeSDKClient
+        Configured client (ClaudeSDKClient or LocalLLMClient)
 
     Raises:
         ValueError: If agent_type is not found in AGENT_CONFIGS
@@ -714,6 +714,47 @@ def create_client(
     MCP servers, security settings, and system prompt. It's a candidate for
     extraction but kept intact to maintain centralized client initialization.
     """
+    # =========================================================================
+    # Provider dispatch — MUST happen before any OAuth/SDK imports
+    # When LLM_PROVIDER=local, we bypass the entire Claude SDK path.
+    # This ensures the two providers never interfere with each other.
+    # =========================================================================
+    if is_local_llm_enabled():
+        return create_local_client(
+            project_dir=project_dir,
+            spec_dir=spec_dir,
+            model=model,
+            agent_type=agent_type,
+            max_thinking_tokens=max_thinking_tokens,
+            max_turns=max_turns,
+            is_resume=is_resume,
+            resume_context=resume_context,
+        )
+    # =========================================================================
+    # Claude SDK path — imports are lazy so local-only environments work
+    # without claude_agent_sdk installed.
+    # =========================================================================
+    from agents.tools_pkg import (
+        CONTEXT7_TOOLS,
+        ELECTRON_TOOLS,
+        GRAPHITI_MCP_TOOLS,
+        LINEAR_TOOLS,
+        PUPPETEER_TOOLS,
+        create_ac_jerry_mcp_server,
+        get_allowed_tools,
+        get_required_mcp_servers,
+        is_tools_available,
+    )
+    from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+    from claude_agent_sdk.types import HookMatcher
+    from core.auth import (
+        get_sdk_env_vars,
+        require_auth_token,
+        validate_token_not_encrypted,
+    )
+    from linear_updater import is_linear_enabled
+    from security import bash_security_hook
+
     logger.debug(f"Creating client for project: {project_dir.resolve()}")
     logger.debug(f"Agent type: {agent_type}, Model: {model}")
 
