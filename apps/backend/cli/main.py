@@ -473,20 +473,20 @@ def _run_cli() -> None:
     if args.unstick:
         from services.recovery import clear_stuck_subtasks, get_stuck_subtasks
 
-        stuck = get_stuck_subtasks(spec_dir, project_dir)
-        if stuck:
-            try:
+        try:
+            stuck = get_stuck_subtasks(spec_dir, project_dir)
+            if stuck:
                 clear_stuck_subtasks(spec_dir, project_dir)
                 print(f"Cleared {len(stuck)} stuck subtasks for {args.spec}")
                 for s in stuck:
                     print(
                         f"  - {s.get('subtask_id', 'unknown')}: {s.get('reason', 'no reason')[:80]}"
                     )
-            except Exception as e:
-                print(f"Failed to clear stuck subtasks: {e}")
-                sys.exit(1)
-        else:
-            print(f"No stuck subtasks found for {args.spec}")
+            else:
+                print(f"No stuck subtasks found for {args.spec}")
+        except Exception as e:
+            print(f"Failed to clear stuck subtasks: {e}")
+            sys.exit(1)
         return
 
     # Normal build flow
