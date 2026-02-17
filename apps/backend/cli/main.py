@@ -475,12 +475,16 @@ def _run_cli() -> None:
 
         stuck = get_stuck_subtasks(spec_dir, project_dir)
         if stuck:
-            clear_stuck_subtasks(spec_dir, project_dir)
-            print(f"Cleared {len(stuck)} stuck subtasks for {args.spec}")
-            for s in stuck:
-                print(
-                    f"  - {s.get('subtask_id', 'unknown')}: {s.get('reason', 'no reason')[:80]}"
-                )
+            try:
+                clear_stuck_subtasks(spec_dir, project_dir)
+                print(f"Cleared {len(stuck)} stuck subtasks for {args.spec}")
+                for s in stuck:
+                    print(
+                        f"  - {s.get('subtask_id', 'unknown')}: {s.get('reason', 'no reason')[:80]}"
+                    )
+            except Exception as e:
+                print(f"Failed to clear stuck subtasks: {e}")
+                sys.exit(1)
         else:
             print(f"No stuck subtasks found for {args.spec}")
         return
