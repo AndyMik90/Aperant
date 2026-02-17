@@ -696,6 +696,15 @@ export class AgentProcessManager {
       env['PATH'] = env[envPathKey] as string;
       delete env[envPathKey];
     }
+    // Remove any remaining case-variant PATH keys (e.g., 'Path') that differ from 'PATH'.
+    // getAugmentedEnv() spreads process.env (which has 'Path' on Windows) then writes 'PATH',
+    // leaving both keys in the object. Delete all duplicates so the child process inherits
+    // a single canonical 'PATH' entry with the fully-augmented value.
+    for (const key of Object.keys(env)) {
+      if (key !== 'PATH' && key.toUpperCase() === 'PATH') {
+        delete env[key];
+      }
+    }
 
     // Also normalize pythonEnv PATH key to uppercase
     const pythonPathKey = Object.keys(mergedPythonEnv).find(k => k.toUpperCase() === 'PATH');
