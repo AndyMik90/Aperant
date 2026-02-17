@@ -159,6 +159,11 @@ Environment Variables:
         action="store_true",
         help="Push branch and create a GitHub Pull Request",
     )
+    build_group.add_argument(
+        "--unstick",
+        action="store_true",
+        help="Clear all stuck subtasks for a spec (allows task to continue after file validation failures)",
+    )
 
     # PR options
     parser.add_argument(
@@ -213,13 +218,6 @@ Environment Variables:
         "--followup",
         action="store_true",
         help="Add follow-up tasks to a completed spec (extends existing implementation plan)",
-    )
-
-    # Stuck subtask recovery
-    parser.add_argument(
-        "--unstick",
-        action="store_true",
-        help="Clear all stuck subtasks for a spec (allows task to continue after file validation failures)",
     )
 
     # Review options
