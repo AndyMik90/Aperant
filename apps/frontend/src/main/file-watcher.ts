@@ -15,19 +15,27 @@ interface WatcherInfo {
  */
 export class FileWatcher extends EventEmitter {
   private watchers: Map<string, WatcherInfo> = new Map();
-  private pendingWatches: Set<string> = new Set();
+  // Maps taskId -> specDir for the in-flight watch() call.
+  // Allows re-watch calls with a different specDir to proceed while
+  // still preventing duplicate calls for the exact same specDir.
+  private pendingWatches: Map<string, string> = new Map();
+  // Tracks taskIds that had unwatch() called while watch() was in-flight.
+  // Checked after each await point in watch() to avoid creating a leaked watcher.
+  private cancelledWatches: Set<string> = new Set();
 
   /**
    * Start watching a task's implementation plan
    */
   async watch(taskId: string, specDir: string): Promise<void> {
-    // Prevent overlapping watch() calls for the same taskId.
+    // Prevent overlapping watch() calls for the same taskId + specDir combination.
     // Since watch() is async, rapid-fire callers could enter concurrently
     // before the first call updates state, creating duplicate watchers.
-    if (this.pendingWatches.has(taskId)) {
+    // A call with a different specDir is a legitimate re-watch and is allowed through.
+    const pendingSpecDir = this.pendingWatches.get(taskId);
+    if (pendingSpecDir !== undefined && pendingSpecDir === specDir) {
       return;
     }
-    this.pendingWatches.add(taskId);
+    this.pendingWatches.set(taskId, specDir);
 
     try {
       // Close any existing watcher for this task
@@ -35,6 +43,12 @@ export class FileWatcher extends EventEmitter {
       if (existing) {
         await existing.watcher.close();
         this.watchers.delete(taskId);
+      }
+
+      // Check if unwatch() was called while we were awaiting above.
+      if (this.cancelledWatches.has(taskId)) {
+        this.cancelledWatches.delete(taskId);
+        return;
       }
 
       const planPath = path.join(specDir, 'implementation_plan.json');
@@ -54,6 +68,13 @@ export class FileWatcher extends EventEmitter {
           pollInterval: 100
         }
       });
+
+      // Check again after the synchronous watcher creation (no await, but defensive).
+      if (this.cancelledWatches.has(taskId)) {
+        this.cancelledWatches.delete(taskId);
+        await watcher.close();
+        return;
+      }
 
       // Store watcher info
       this.watchers.set(taskId, {
@@ -90,6 +111,7 @@ export class FileWatcher extends EventEmitter {
       }
     } finally {
       this.pendingWatches.delete(taskId);
+      this.cancelledWatches.delete(taskId);
     }
   }
 
@@ -97,6 +119,11 @@ export class FileWatcher extends EventEmitter {
    * Stop watching a task
    */
   async unwatch(taskId: string): Promise<void> {
+    // If watch() is currently in-flight for this taskId, mark it as cancelled
+    // so it returns early after its next await instead of creating a new watcher.
+    if (this.pendingWatches.has(taskId)) {
+      this.cancelledWatches.add(taskId);
+    }
     const watcherInfo = this.watchers.get(taskId);
     if (watcherInfo) {
       await watcherInfo.watcher.close();

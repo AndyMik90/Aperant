@@ -125,7 +125,9 @@ export function registerAgenteventsHandlers(
       );
     }
 
-    fileWatcher.unwatch(taskId);
+    fileWatcher.unwatch(taskId).catch((err) => {
+      console.error(`[agent-events-handlers] Failed to unwatch for ${taskId}:`, err);
+    });
 
     if (processType === "spec-creation") {
       console.warn(`[Task ${taskId}] Spec creation completed with code ${code}`);
