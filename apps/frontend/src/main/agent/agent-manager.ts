@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import path from 'path';
-import { existsSync } from 'fs';
+import { existsSync, writeFileSync, appendFileSync } from 'fs';
 import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
@@ -97,6 +97,13 @@ export class AgentManager extends EventEmitter {
    */
   private companionLifecycle: Map<string, CompanionState> = new Map();
 
+  /**
+   * Activity log handlers for supervisor visibility into worker output.
+   * Maps taskId to the 'log' event listener so it can be cleaned up on exit.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private activityLogHandlers: Map<string, (...args: any[]) => void> = new Map();
+
   constructor() {
     super();
 
@@ -140,6 +147,13 @@ export class AgentManager extends EventEmitter {
 
       // Phase 6: Clean up agent mode when process exits
       this.agentModes.delete(taskId);
+
+      // Clean up activity log handler
+      const activityLogHandler = this.activityLogHandlers.get(taskId);
+      if (activityLogHandler) {
+        this.removeListener('log', activityLogHandler);
+        this.activityLogHandlers.delete(taskId);
+      }
 
       // Auto-kill supervisor when coder exits (supervisor only runs alongside coder)
       if (this.supervisorTasks.has(taskId)) {
@@ -518,6 +532,24 @@ export class AgentManager extends EventEmitter {
     this.storeTaskContext(taskId, projectPath, specId, options, false);
 
     await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
+
+    // Set up activity log for supervisor visibility into worker output
+    try {
+      const specDir = path.join(projectPath, '.ac.jerry', 'specs', specId);
+      const activityLogPath = path.join(specDir, 'worker_activity.log');
+      writeFileSync(activityLogPath, `# Worker Activity Log - ${specId}\n# Started: ${new Date().toISOString()}\n\n`, 'utf-8');
+      const activityLogHandler = (logTaskId: string, line: string) => {
+        if (logTaskId !== taskId) return;
+        const trimmed = line.trim();
+        if (trimmed.includes('__SDK_MSG__:') || trimmed.includes('__SUBTASK_') || trimmed.includes('__EXEC_PHASE__')) {
+          try {
+            appendFileSync(activityLogPath, `[${new Date().toISOString()}] ${trimmed}\n`);
+          } catch { /* non-critical */ }
+        }
+      };
+      this.on('log', activityLogHandler);
+      this.activityLogHandlers.set(taskId, activityLogHandler);
+    } catch { /* non-critical - supervisor can still work without activity log */ }
 
     // Phase 6: Track agent mode
     this.agentModes.set(taskId, 'coding');

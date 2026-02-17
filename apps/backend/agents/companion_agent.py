@@ -16,6 +16,7 @@ from typing import Any, Optional
 from core.client import create_client
 from phase_config import COMPANION_CONFIG, get_role_model
 
+from .session import emit_sdk_msg
 from .user_message_queue import UserMessageQueue, get_message_queue
 
 logger = logging.getLogger(__name__)
@@ -199,6 +200,15 @@ You DO NOT have access to Write, Edit, Bash, or Task tools. You cannot modify th
 4. **Read code when asked**: If they ask about specific changes, use Read/Grep to check the actual files
 5. **Don't interfere**: You observe and report — the coding agent handles implementation
 
+## Real-Time Worker Activity
+
+The coding agent writes its activity to a log file in the spec directory:
+  {self.spec_dir}/worker_activity.log
+
+Use the **Read** tool to check this file when the user asks what the coder is doing.
+The log contains timestamped SDK messages showing tool usage, text output, and subtask progress.
+Read the last ~50 lines for the most recent activity.
+
 ## Current Context
 
 Phase: {self.current_phase} (LIVE - coding agent is actively running)
@@ -309,16 +319,15 @@ The user can ask you questions about the task, review the specification, check i
                     # Emit message start marker
                     self._emit_message_start(user_message)
 
-                    # FIX-031: Each message creates a fresh SDK session. The
-                    # conversation_history list maintains context in Python memory,
-                    # but the SDK session has no memory of prior turns. To enable
-                    # true multi-turn conversations, either pass conversation_history
-                    # as prior messages in the system prompt, or switch to a
-                    # persistent SDK session that accumulates messages.
+                    # FIX-031: Inject conversation history into system prompt
+                    # since create_agent_session doesn't support prior_messages.
+                    session_prompt = self._build_session_prompt(
+                        system_prompt, conversation_history[:-1]  # Exclude current user msg (it's the starting_message)
+                    )
                     response = client.create_agent_session(
                         name=f"companion-{self.current_phase}",
                         starting_message=user_message,
-                        system_prompt=system_prompt,
+                        system_prompt=session_prompt,
                     )
 
                     # Stream response through SDK markers
@@ -363,28 +372,31 @@ The user can ask you questions about the task, review the specification, check i
 
         return None
 
+    def _build_session_prompt(self, base_prompt: str, conversation_history: list[dict]) -> str:
+        """Build session prompt with conversation history injected."""
+        if not conversation_history:
+            return base_prompt
+
+        recent = conversation_history[-10:]
+        history_section = "\n\n## Previous Conversation in This Session\n\n"
+        for msg in recent:
+            role = "User" if msg["role"] == "user" else "You (Assistant)"
+            content = msg["content"]
+            if len(content) > 2000:
+                content = content[:2000] + "... [truncated]"
+            history_section += f"**{role}**: {content}\n\n"
+        history_section += "Continue the conversation naturally, referencing prior context when relevant.\n"
+        return base_prompt + history_section
+
     def _emit_message_start(self, content: str) -> None:
-        """Emit SDK marker for user message."""
-        try:
-            payload = {
-                "type": "user_message",
-                "content": content
-            }
-            print(f"__SDK_MSG__:{json.dumps(payload)}", flush=True)
-        except Exception as e:
-            logger.debug(f"Failed to emit message start: {e}")
+        """Log user message receipt (frontend already shows the user's message)."""
+        logger.debug(f"Received user message: {content[:100]}...")
 
     def _emit_response(self, response: Any) -> None:
-        """Emit SDK marker for assistant response."""
+        """Emit SDK marker for assistant response using standard text type."""
         try:
-            # Convert response to string
             response_text = str(response)
-
-            payload = {
-                "type": "assistant_message",
-                "content": response_text
-            }
-            print(f"__SDK_MSG__:{json.dumps(payload)}", flush=True)
+            emit_sdk_msg("text", {"content": response_text})
         except Exception as e:
             logger.debug(f"Failed to emit response: {e}")
 
