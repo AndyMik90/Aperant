@@ -102,7 +102,7 @@
               "required_fields": ["phase", "name", "chunks"],
               "chunks_validation": {
                 "required_fields": ["id", "description", "status"],
-                "status_values": ["pending", "in_progress", "completed", "blocked", "failed"]
+                "status_values": ["pending", "in_progress", "completed", "blocked", "failed", "skipped"]
               }
             }
           }

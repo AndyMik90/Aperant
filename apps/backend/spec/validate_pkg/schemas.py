@@ -66,7 +66,7 @@ IMPLEMENTATION_PLAN_SCHEMA = {
             "session_id",
             "critique_result",
         ],
-        "status_values": ["pending", "in_progress", "completed", "blocked", "failed"],
+        "status_values": ["pending", "in_progress", "completed", "blocked", "failed", "skipped"],
     },
     "verification_schema": {
         "required_fields": ["type"],

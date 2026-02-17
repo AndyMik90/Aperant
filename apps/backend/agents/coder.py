@@ -822,7 +822,19 @@ async def run_autonomous_agent(
                             f"Subtask {batch_st_id} marked as STUCK after {attempt_count} attempts",
                             "error",
                         )
-                        print(muted("Consider: manual intervention or skipping this subtask"))
+                        # Auto-skip if configured (lets dependent phases proceed)
+                        auto_skip = iteration_config.get("auto_skip_stuck", False)
+                        if auto_skip:
+                            recovery_manager.skip_subtask(
+                                batch_st_id,
+                                f"Auto-skipped after {attempt_count} failed attempts",
+                            )
+                            print_status(
+                                f"Subtask {batch_st_id} auto-skipped — dependent phases can proceed",
+                                "warning",
+                            )
+                        else:
+                            print(muted("Consider: manual intervention or skipping this subtask"))
 
                         if linear_is_enabled:
                             await linear_task_stuck(

@@ -297,6 +297,8 @@ export interface AppSettings {
   dangerouslySkipPermissions?: boolean;
   // Anonymous error reporting (Sentry) - enabled by default to help improve the app
   sentryEnabled?: boolean;
+  // Maximum concurrent task agents (planning + task-execution). Default: 1
+  maxConcurrentAgents?: number;
 }
 
 // Jerry Source Environment Configuration (for ac-jerry repo .env)

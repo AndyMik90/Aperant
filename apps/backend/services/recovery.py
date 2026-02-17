@@ -490,6 +490,82 @@ class RecoveryManager:
         except Exception:
             pass  # Best-effort — attempt_history is the source of truth
 
+    def skip_subtask(self, subtask_id: str, reason: str = "Skipped") -> bool:
+        """
+        Mark a subtask as skipped so dependent phases can proceed.
+
+        Unlike 'failed', 'skipped' is treated as 'completed' for phase completion
+        checks, allowing the build to continue past stuck subtasks.
+
+        Captures the full attempt history (why it was stuck, what was tried)
+        in the subtask notes for transparency.
+
+        Args:
+            subtask_id: ID of the subtask to skip
+            reason: Why it's being skipped
+
+        Returns:
+            True if subtask was found and skipped
+        """
+        # Gather attempt history for the stuck reason
+        history = self._load_attempt_history()
+        subtask_history = history.get("subtasks", {}).get(subtask_id, {})
+        attempts = subtask_history.get("attempts", [])
+
+        # Build a summary of what was tried and why it failed
+        failure_summary = ""
+        if attempts:
+            failed_attempts = [a for a in attempts if not a.get("success")]
+            if failed_attempts:
+                failure_lines = []
+                for i, attempt in enumerate(failed_attempts[-3:], 1):  # Last 3 failures
+                    approach = attempt.get("approach", "unknown approach")
+                    error = attempt.get("error", "no error recorded")
+                    failure_lines.append(f"  Attempt {i}: {approach} — {error}")
+                failure_summary = "\n".join(failure_lines)
+
+        # Update attempt_history.json
+        if subtask_id in history.get("subtasks", {}):
+            history["subtasks"][subtask_id]["status"] = "skipped"
+
+        # Remove from stuck_subtasks list (it's been handled)
+        history["stuck_subtasks"] = [
+            s for s in history.get("stuck_subtasks", [])
+            if s["subtask_id"] != subtask_id
+        ]
+        self._save_attempt_history(history)
+
+        # Update implementation_plan.json
+        try:
+            plan_file = self.spec_dir / "implementation_plan.json"
+            if plan_file.exists():
+                plan = json.loads(plan_file.read_text(encoding="utf-8"))
+                found = False
+                for phase in plan.get("phases", []):
+                    for subtask in phase.get("subtasks", []):
+                        if subtask.get("id") == subtask_id:
+                            subtask["status"] = "skipped"
+                            # Include why it was stuck and what was tried
+                            notes = f"Skipped: {reason}"
+                            if failure_summary:
+                                notes += f"\nFailed attempts:\n{failure_summary}"
+                            subtask["notes"] = notes
+                            subtask["skipped_at"] = datetime.now().isoformat()
+                            found = True
+                            break
+                    if found:
+                        break
+
+                if found:
+                    from core.file_utils import write_json_atomic
+
+                    write_json_atomic(plan_file, plan, indent=2)
+                    return True
+        except Exception as e:
+            print(f"Warning: Failed to update plan file for skip: {e}")
+
+        return False
+
     def get_stuck_subtasks(self) -> list[dict]:
         """
         Get all subtasks marked as stuck.

@@ -94,7 +94,7 @@ function checkSubtasksCompletion(plan: Record<string, unknown> | null): {
   const allSubtasks = (plan?.phases as Array<{ subtasks?: Array<{ status: string }> }> | undefined)?.flatMap(phase =>
     phase.subtasks || []
   ) || [];
-  const completedCount = allSubtasks.filter(s => s.status === 'completed').length;
+  const completedCount = allSubtasks.filter(s => s.status === 'completed' || s.status === 'skipped').length;
   const totalCount = allSubtasks.length;
   const allCompleted = totalCount > 0 && completedCount === totalCount;
 
@@ -1935,6 +1935,119 @@ export function registerTaskExecutionHandlers(
       }
     }
   );
+
+  /**
+   * Skip an individual stuck subtask so dependent phases can proceed.
+   * Updates implementation_plan.json (and attempt_history.json if present).
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.TASK_SKIP_SUBTASK,
+    async (
+      _,
+      taskId: string,
+      subtaskId: string,
+      reason?: string
+    ): Promise<IPCResult<{ skipped: boolean; subtaskId: string }>> => {
+      const { task, project } = findTaskAndProject(taskId);
+      if (!task || !project) {
+        return { success: false, error: 'Task not found' };
+      }
+
+      const specDir = task.specsPath || path.join(
+        project.path,
+        getSpecsDir(project.autoBuildPath),
+        task.specId
+      );
+
+      const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+      const planContent = safeReadFileSync(planPath);
+      if (!planContent) {
+        return { success: false, error: 'Plan file not found' };
+      }
+
+      try {
+        const plan = JSON.parse(planContent);
+        let found = false;
+
+        for (const phase of plan.phases || []) {
+          for (const subtask of phase.subtasks || []) {
+            if (subtask.id === subtaskId) {
+              subtask.status = 'skipped';
+              subtask.notes = reason || 'Skipped by user';
+              subtask.skipped_at = new Date().toISOString();
+              found = true;
+              break;
+            }
+          }
+          if (found) break;
+        }
+
+        if (!found) {
+          return { success: false, error: `Subtask ${subtaskId} not found in plan` };
+        }
+
+        plan.updated_at = new Date().toISOString();
+
+        // Write to all plan file locations (main + worktree) for consistency
+        const specsBaseDir = getSpecsDir(project.autoBuildPath);
+        const mainSpecDir = path.join(project.path, specsBaseDir, task.specId);
+        const worktreePath = findTaskWorktree(project.path, task.specId);
+        const worktreeSpecDir = worktreePath ? path.join(worktreePath, specsBaseDir, task.specId) : null;
+
+        const planPathsToUpdate: string[] = [planPath];
+        if (mainSpecDir !== specDir && existsSync(path.join(mainSpecDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN))) {
+          planPathsToUpdate.push(path.join(mainSpecDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN));
+        }
+        if (worktreeSpecDir && worktreeSpecDir !== specDir && existsSync(path.join(worktreeSpecDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN))) {
+          planPathsToUpdate.push(path.join(worktreeSpecDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN));
+        }
+
+        const content = JSON.stringify(plan, null, 2);
+        for (const p of planPathsToUpdate) {
+          atomicWriteFileSync(p, content);
+        }
+
+        // Also update attempt_history.json if it exists
+        const attemptHistoryPath = path.join(specDir, 'memory', 'attempt_history.json');
+        if (existsSync(attemptHistoryPath)) {
+          try {
+            const history = JSON.parse(readFileSync(attemptHistoryPath, 'utf-8'));
+            if (history.subtasks?.[subtaskId]) {
+              history.subtasks[subtaskId].status = 'skipped';
+            }
+            history.stuck_subtasks = (history.stuck_subtasks || []).filter(
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              (s: any) => s.subtask_id !== subtaskId
+            );
+            history.metadata.last_updated = new Date().toISOString();
+            atomicWriteFileSync(attemptHistoryPath, JSON.stringify(history, null, 2));
+          } catch { /* non-critical */ }
+        }
+
+        return {
+          success: true,
+          data: { skipped: true, subtaskId }
+        };
+      } catch (err) {
+        return { success: false, error: `Failed to skip subtask: ${err}` };
+      }
+    }
+  );
+
+  // FIX-029: Forward concurrency queue events to renderer
+  agentManager.on('task-queued', (taskId: string, queuePosition: number) => {
+    const windows = BrowserWindow.getAllWindows();
+    for (const win of windows) {
+      win.webContents.send(IPC_CHANNELS.TASK_QUEUED, taskId, queuePosition);
+    }
+  });
+
+  agentManager.on('task-dequeued', (taskId: string, queueRemaining: number) => {
+    const windows = BrowserWindow.getAllWindows();
+    for (const win of windows) {
+      win.webContents.send(IPC_CHANNELS.TASK_DEQUEUED, taskId, queueRemaining);
+    }
+  });
 
   // Read a file from the spec directory (spec.md, ralph_prompt.md, etc.)
   ipcMain.handle(

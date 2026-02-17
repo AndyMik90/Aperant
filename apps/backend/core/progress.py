@@ -53,7 +53,7 @@ def count_subtasks(spec_dir: Path) -> tuple[int, int]:
         for phase in plan.get("phases", []):
             for subtask in phase.get("subtasks", []):
                 total += 1
-                if subtask.get("status") == "completed":
+                if subtask.get("status") in ("completed", "skipped"):
                     completed += 1
 
         return completed, total
@@ -75,6 +75,7 @@ def count_subtasks_detailed(spec_dir: Path) -> dict:
         "in_progress": 0,
         "pending": 0,
         "failed": 0,
+        "skipped": 0,
         "total": 0,
     }
 
@@ -190,7 +191,7 @@ def print_progress_summary(spec_dir: Path, show_next: bool = True) -> None:
             for phase in plan.get("phases", []):
                 phase_subtasks = phase.get("subtasks", [])
                 phase_completed = sum(
-                    1 for s in phase_subtasks if s.get("status") == "completed"
+                    1 for s in phase_subtasks if s.get("status") in ("completed", "skipped")
                 )
                 phase_total = len(phase_subtasks)
                 phase_name = phase.get("name", phase.get("id", "Unknown"))
@@ -461,7 +462,7 @@ def get_next_subtask(spec_dir: Path) -> dict | None:
             )
             subtasks = phase.get("subtasks", phase.get("chunks", []))
             phase_complete[phase_id_key] = all(
-                s.get("status") == "completed" for s in subtasks
+                s.get("status") in ("completed", "skipped") for s in subtasks
             )
 
         # Find next available subtask
@@ -556,7 +557,7 @@ def get_pending_subtasks_batch(spec_dir: Path, max_batch: int = 10) -> list[dict
             )
             subtasks = phase.get("subtasks", phase.get("chunks", []))
             phase_complete[phase_id_key] = all(
-                s.get("status") == "completed" for s in subtasks
+                s.get("status") in ("completed", "skipped") for s in subtasks
             )
 
         # Detect circular/deadlocked dependencies: if every incomplete phase has

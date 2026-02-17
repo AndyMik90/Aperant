@@ -72,6 +72,11 @@ export const taskMock = {
     }
   }),
 
+  skipSubtask: async (_taskId: string, subtaskId: string) => ({
+    success: true,
+    data: { skipped: true, subtaskId }
+  }),
+
   checkTaskRunning: async () => ({ success: true, data: false }),
 
   sendMessageToTask: async (_taskId: string, _message: string) => ({ success: true, data: true }),

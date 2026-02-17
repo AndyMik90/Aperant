@@ -26,6 +26,9 @@ export const IPC_CHANNELS = {
   TASK_REVIEW: 'task:review',
   TASK_UPDATE_STATUS: 'task:updateStatus',
   TASK_RECOVER_STUCK: 'task:recoverStuck',
+  TASK_SKIP_SUBTASK: 'task:skipSubtask',  // Skip individual stuck subtask
+  TASK_QUEUED: 'task:queued',             // Task queued due to concurrency limit
+  TASK_DEQUEUED: 'task:dequeued',         // Queued task is now starting
   TASK_CHECK_RUNNING: 'task:checkRunning',
   TASK_SEND_MESSAGE: 'task:sendMessage',  // Send chat message to running task agent
   TASK_START_BUILD: 'task:startBuild',  // Phase 4: Transition from planning → coding

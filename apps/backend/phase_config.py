@@ -551,6 +551,8 @@ RALPH_WIGGUM_CONFIG = {
     "flaky_test_retries": 2,  # Normal: 0
     # Force strategy pivot on circular fix detection
     "force_pivot_on_circular": True,  # Normal: False
+    # Auto-skip stuck subtasks so dependent phases can proceed
+    "auto_skip_stuck": True,  # Normal: False
 }
 
 NORMAL_MODE_CONFIG = {
@@ -560,6 +562,7 @@ NORMAL_MODE_CONFIG = {
     "qa_max_iterations": 50,
     "flaky_test_retries": 0,
     "force_pivot_on_circular": False,
+    "auto_skip_stuck": False,
 }
 
 

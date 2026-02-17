@@ -6,6 +6,7 @@ import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
 import { AgentQueueManager } from './agent-queue';
 import { getClaudeProfileManager, initializeClaudeProfileManager } from '../claude-profile-manager';
+import { readSettingsFile } from '../settings-utils';
 import {
   SpecCreationMetadata,
   TaskExecutionOptions,
@@ -17,12 +18,10 @@ import type { IdeationConfig } from '../../shared/types';
 /**
  * Phase 6: Agent mode for multi-agent support
  *
- * FIX-029: Currently, each task spawns its own agent process immediately on
- * creation. Multiple tasks running in parallel compete for CPU, memory, and API
- * rate limits with no coordination. The AgentQueueManager provides basic
- * queuing, but there is no global concurrency limit. Consider adding a
- * configurable max concurrent agents setting (default: 1) to prevent resource
- * contention when users create multiple tasks simultaneously.
+ * FIX-029 (RESOLVED): Concurrency guard implemented. Primary agents
+ * (task-execution and planning) are gated through spawnOrQueue() with a
+ * configurable maxConcurrentAgents setting (default: 1). Queued tasks
+ * auto-dequeue when a running primary agent exits via drainConcurrencyQueue().
  */
 export type AgentMode = 'planning' | 'coding' | 'reviewing' | 'idle' | 'companion';
 
@@ -103,6 +102,17 @@ export class AgentManager extends EventEmitter {
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private activityLogHandlers: Map<string, (...args: any[]) => void> = new Map();
+
+  /**
+   * FIX-029: Concurrency queue for task-execution and planning processes.
+   * When maxConcurrentAgents is reached, new spawn requests are queued
+   * and automatically dequeued when a running primary agent exits.
+   */
+  private concurrencyQueue: Array<{
+    taskId: string;
+    spawnFn: () => Promise<void>;
+    processType: 'task-execution' | 'planning';
+  }> = [];
 
   constructor() {
     super();
@@ -187,6 +197,11 @@ export class AgentManager extends EventEmitter {
 
       // Context cleanup — safe now because companion spawn is complete (or skipped)
       this.cleanupTaskContext(taskId, code);
+
+      // FIX-029: Drain concurrency queue when a primary agent exits
+      if (processType === 'task-execution' || processType === 'planning') {
+        this.drainConcurrencyQueue();
+      }
     });
   }
 
@@ -216,6 +231,78 @@ export class AgentManager extends EventEmitter {
       this.companionLifecycle.delete(taskId);
     }
     // Otherwise keep context for potential restart
+  }
+
+  /**
+   * FIX-029: Count running agents that count toward the concurrency limit.
+   * Only 'task-execution' and 'planning' processTypes count.
+   * Companion, supervisor, and qa-process agents are excluded.
+   */
+  private getActivePrimaryAgentCount(): number {
+    let count = 0;
+    for (const process of this.state.getAllProcesses().values()) {
+      if (process.processType === 'task-execution' || process.processType === 'planning') {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  /**
+   * FIX-029: Read maxConcurrentAgents from settings (default: 1).
+   */
+  private getMaxConcurrentAgents(): number {
+    try {
+      const settings = readSettingsFile();
+      const value = settings?.maxConcurrentAgents;
+      return typeof value === 'number' && value > 0 ? value : 1;
+    } catch {
+      return 1;
+    }
+  }
+
+  /**
+   * FIX-029: Attempt to spawn or queue a primary agent.
+   * If concurrency limit is not reached, executes spawnFn immediately.
+   * Otherwise, queues the task and emits a 'task-queued' event.
+   */
+  private async spawnOrQueue(
+    taskId: string,
+    processType: 'task-execution' | 'planning',
+    spawnFn: () => Promise<void>
+  ): Promise<void> {
+    const max = this.getMaxConcurrentAgents();
+    const active = this.getActivePrimaryAgentCount();
+
+    if (active < max) {
+      await spawnFn();
+    } else {
+      console.log(`[AgentManager] Concurrency limit reached (${active}/${max}), queuing task: ${taskId}`);
+      this.concurrencyQueue.push({ taskId, spawnFn, processType });
+      this.emit('task-queued', taskId, this.concurrencyQueue.length);
+    }
+  }
+
+  /**
+   * FIX-029: Attempt to spawn the next queued task after a primary agent exits.
+   */
+  private async drainConcurrencyQueue(): Promise<void> {
+    const max = this.getMaxConcurrentAgents();
+
+    while (this.concurrencyQueue.length > 0 && this.getActivePrimaryAgentCount() < max) {
+      const next = this.concurrencyQueue.shift();
+      if (!next) break;
+
+      console.log(`[AgentManager] Dequeuing task: ${next.taskId} (queue remaining: ${this.concurrencyQueue.length})`);
+      this.emit('task-dequeued', next.taskId, this.concurrencyQueue.length);
+
+      try {
+        await next.spawnFn();
+      } catch (err) {
+        console.error(`[AgentManager] Failed to spawn queued task ${next.taskId}:`, err);
+        this.emit('error', next.taskId, `Failed to start queued task: ${err instanceof Error ? err.message : 'unknown error'}`);
+      }
+    }
   }
 
   /**
@@ -318,11 +405,12 @@ export class AgentManager extends EventEmitter {
     // Store context for potential restart
     this.storeTaskContext(taskId, projectPath, '', {}, true, taskDescription, specDir, metadata, baseBranch);
 
-    // Note: This is spec-creation but it chains to task-execution via run.py
-    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
-
-    // Phase 6: Track agent mode - spec creation starts as 'coding' (will transition internally)
-    this.agentModes.set(taskId, 'coding');
+    // FIX-029: Gate through concurrency queue
+    await this.spawnOrQueue(taskId, 'task-execution', async () => {
+      await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
+      // Phase 6: Track agent mode - spec creation starts as 'coding' (will transition internally)
+      this.agentModes.set(taskId, 'coding');
+    });
   }
 
   /**
@@ -438,13 +526,14 @@ export class AgentManager extends EventEmitter {
     // Store context for potential restart (mark as planning mode)
     this.storeTaskContext(taskId, projectPath, '', {}, true, taskDescription, specDir, metadata, baseBranch);
 
-    // Spawn the planning agent process
+    // FIX-029: Gate through concurrency queue
     try {
-      await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'planning');
-      console.log('[AgentManager] Planning agent started successfully for task:', taskId);
-
-      // Phase 6: Track agent mode
-      this.agentModes.set(taskId, 'planning');
+      await this.spawnOrQueue(taskId, 'planning', async () => {
+        await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'planning');
+        console.log('[AgentManager] Planning agent started successfully for task:', taskId);
+        // Phase 6: Track agent mode
+        this.agentModes.set(taskId, 'planning');
+      });
 
       return true;
     } catch (error) {
@@ -531,43 +620,46 @@ export class AgentManager extends EventEmitter {
     // Store context for potential restart
     this.storeTaskContext(taskId, projectPath, specId, options, false);
 
-    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
+    // FIX-029: Gate through concurrency queue
+    await this.spawnOrQueue(taskId, 'task-execution', async () => {
+      await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution');
 
-    // Set up activity log for supervisor visibility into worker output
-    try {
-      const specDir = path.join(projectPath, '.ac.jerry', 'specs', specId);
-      const activityLogPath = path.join(specDir, 'worker_activity.log');
-      writeFileSync(activityLogPath, `# Worker Activity Log - ${specId}\n# Started: ${new Date().toISOString()}\n\n`, 'utf-8');
-      const activityLogHandler = (logTaskId: string, line: string) => {
-        if (logTaskId !== taskId) return;
-        const trimmed = line.trim();
-        if (trimmed.includes('__SDK_MSG__:') || trimmed.includes('__SUBTASK_') || trimmed.includes('__EXEC_PHASE__')) {
-          try {
-            appendFileSync(activityLogPath, `[${new Date().toISOString()}] ${trimmed}\n`);
-          } catch { /* non-critical */ }
-        }
-      };
-      this.on('log', activityLogHandler);
-      this.activityLogHandlers.set(taskId, activityLogHandler);
-    } catch { /* non-critical - supervisor can still work without activity log */ }
-
-    // Phase 6: Track agent mode
-    this.agentModes.set(taskId, 'coding');
-
-    // Auto-spawn supervisor agent alongside coder (3s delay for coder to initialize)
-    const supervisorDisabled = process.env.DISABLE_SUPERVISOR_AUTOSPAWN === 'true';
-    if (!supervisorDisabled) {
-      setTimeout(async () => {
-        try {
-          // Only spawn if coder is still running
-          if (this.state.hasProcess(taskId) && !this.supervisorTasks.has(taskId)) {
-            await this.startSupervisor(taskId);
+      // Set up activity log for supervisor visibility into worker output
+      try {
+        const specDir = path.join(projectPath, '.ac.jerry', 'specs', specId);
+        const activityLogPath = path.join(specDir, 'worker_activity.log');
+        writeFileSync(activityLogPath, `# Worker Activity Log - ${specId}\n# Started: ${new Date().toISOString()}\n\n`, 'utf-8');
+        const activityLogHandler = (logTaskId: string, line: string) => {
+          if (logTaskId !== taskId) return;
+          const trimmed = line.trim();
+          if (trimmed.includes('__SDK_MSG__:') || trimmed.includes('__SUBTASK_') || trimmed.includes('__EXEC_PHASE__')) {
+            try {
+              appendFileSync(activityLogPath, `[${new Date().toISOString()}] ${trimmed}\n`);
+            } catch { /* non-critical */ }
           }
-        } catch (err) {
-          console.error('[AgentManager] Failed to auto-spawn supervisor:', err);
-        }
-      }, 3000);
-    }
+        };
+        this.on('log', activityLogHandler);
+        this.activityLogHandlers.set(taskId, activityLogHandler);
+      } catch { /* non-critical - supervisor can still work without activity log */ }
+
+      // Phase 6: Track agent mode
+      this.agentModes.set(taskId, 'coding');
+
+      // Auto-spawn supervisor agent alongside coder (3s delay for coder to initialize)
+      const supervisorDisabled = process.env.DISABLE_SUPERVISOR_AUTOSPAWN === 'true';
+      if (!supervisorDisabled) {
+        setTimeout(async () => {
+          try {
+            // Only spawn if coder is still running
+            if (this.state.hasProcess(taskId) && !this.supervisorTasks.has(taskId)) {
+              await this.startSupervisor(taskId);
+            }
+          } catch (err) {
+            console.error('[AgentManager] Failed to auto-spawn supervisor:', err);
+          }
+        }, 3000);
+      }
+    });
   }
 
   /**
@@ -655,6 +747,8 @@ export class AgentManager extends EventEmitter {
    * Kill a specific task's process
    */
   killTask(taskId: string): boolean {
+    // FIX-029: Remove from concurrency queue if queued
+    this.concurrencyQueue = this.concurrencyQueue.filter(q => q.taskId !== taskId);
     return this.processManager.killProcess(taskId);
   }
 
@@ -1116,6 +1210,8 @@ export class AgentManager extends EventEmitter {
     this.agentModes.clear();
     this.supervisorTasks.clear();
     this.taskExecutionContext.clear();
+    // FIX-029: Clear concurrency queue
+    this.concurrencyQueue = [];
 
     console.log('[AgentManager] Graceful shutdown complete');
   }

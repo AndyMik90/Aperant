@@ -49,6 +49,11 @@ export interface TaskAPI {
     taskId: string,
     options?: import('../../shared/types').TaskRecoveryOptions
   ) => Promise<IPCResult<TaskRecoveryResult>>;
+  skipSubtask: (
+    taskId: string,
+    subtaskId: string,
+    reason?: string
+  ) => Promise<IPCResult<{ skipped: boolean; subtaskId: string }>>;
   checkTaskRunning: (taskId: string) => Promise<IPCResult<boolean>>;
   checkPlanningComplete: (taskId: string) => Promise<IPCResult<{ specExists: boolean; promptExists: boolean; planHasSubtasks: boolean; complete: boolean }>>;
   resetPlanning: (taskId: string, notes?: string) => Promise<IPCResult<boolean>>;
@@ -149,6 +154,13 @@ export const createTaskAPI = (): TaskAPI => ({
     options?: import('../../shared/types').TaskRecoveryOptions
   ): Promise<IPCResult<TaskRecoveryResult>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_RECOVER_STUCK, taskId, options),
+
+  skipSubtask: (
+    taskId: string,
+    subtaskId: string,
+    reason?: string
+  ): Promise<IPCResult<{ skipped: boolean; subtaskId: string }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TASK_SKIP_SUBTASK, taskId, subtaskId, reason),
 
   checkTaskRunning: (taskId: string): Promise<IPCResult<boolean>> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_CHECK_RUNNING, taskId),
