@@ -249,8 +249,12 @@ export function AppDialogs() {
               if (projectToRemove) {
                 try {
                   useDialogStore.getState().setRemoveProjectError(null);
-                  await removeProject(projectToRemove.id);
-                  useDialogStore.getState().closeRemoveProjectDialog();
+                  const success = await removeProject(projectToRemove.id);
+                  if (success) {
+                    useDialogStore.getState().closeRemoveProjectDialog();
+                  } else {
+                    useDialogStore.getState().setRemoveProjectError(t('common:errors.unknownError'));
+                  }
                 } catch (err) {
                   console.error('[App] Failed to remove project:', err);
                   useDialogStore.getState().setRemoveProjectError(
