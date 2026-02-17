@@ -480,7 +480,9 @@ def _run_cli() -> None:
             clear_stuck_subtasks(spec_dir, project_dir)
             print(f"Cleared {len(stuck)} stuck subtasks for {args.spec}")
             for s in stuck:
-                print(f"  - {s.get('subtask_id', 'unknown')}: {s.get('reason', 'no reason')[:80]}")
+                print(
+                    f"  - {s.get('subtask_id', 'unknown')}: {s.get('reason', 'no reason')[:80]}"
+                )
         else:
             print(f"No stuck subtasks found for {args.spec}")
         return
