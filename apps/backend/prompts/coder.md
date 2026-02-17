@@ -214,6 +214,23 @@ Scan `implementation_plan.json` in order:
 
 **If all subtasks are completed**: The build is done!
 
+### TDD-Aware Subtask Ordering
+
+If the subtask has `"tdd_phase": "red"`:
+- This is a **test-writing** subtask — you write tests that define expected behavior
+- Tests SHOULD FAIL after you write them (nothing is implemented yet)
+- Verification: run the test command and confirm failures
+- Do NOT write implementation code in this subtask
+
+If the subtask has `"tdd_phase": "green"`:
+- This is an **implementation** subtask — make the failing tests pass
+- Read the test files first to understand expected behavior
+- Write minimal code to pass all tests
+- After tests pass, refactor for cleanliness while keeping tests green
+- Verification: run the test command and confirm all pass
+
+If the subtask has no `tdd_phase` field, proceed normally (non-TDD workflow).
+
 ---
 
 ## STEP 4: START DEVELOPMENT ENVIRONMENT
@@ -418,6 +435,61 @@ In your response, acknowledge the checklist:
 
 ---
 
+## STEP 5.8: WRITE TESTS FIRST (TDD RED PHASE)
+
+**Only applies when current subtask has `"tdd_phase": "red"`**
+
+If your subtask's `tdd_phase` is `"red"`, your job is to WRITE TESTS, not implementation code.
+
+### 5.8.1: Study Existing Test Patterns
+
+```bash
+# Read test pattern files from patterns_from
+cat [test-pattern-file]
+```
+
+Understand:
+- Test framework (pytest, jest, vitest, etc.)
+- Test file organization
+- Assertion patterns
+- Mock/fixture patterns
+
+### 5.8.2: Write Failing Tests
+
+Based on the subtask description and the spec, write tests that:
+1. Define the expected **inputs and outputs** for the feature
+2. Cover **happy path** — normal expected behavior
+3. Cover **edge cases** — empty inputs, boundary values, invalid data
+4. Cover **error cases** — what should fail and how
+
+### 5.8.3: Verify Tests Fail (Red)
+
+```bash
+# Run the tests — they MUST fail
+[test command from verification]
+```
+
+**Expected**: All tests fail because the implementation doesn't exist yet.
+
+If tests pass unexpectedly, either:
+- The feature already exists (check!)
+- Your tests aren't testing the right thing (fix the tests)
+
+### 5.8.4: Commit Test Files
+
+```bash
+git add [test-files] ':!.ac.jerry'
+git commit -m "ac-jerry: [subtask-id] - Write failing tests for [feature]
+
+- Tests defined: [list test names]
+- All tests fail (red phase - implementation pending)
+- TDD phase: RED"
+```
+
+Mark subtask as completed and move to the next subtask (the green implementation phase).
+
+---
+
 ## STEP 6: IMPLEMENT THE SUBTASK
 
 ### Verify Your Location FIRST
@@ -469,6 +541,30 @@ Use the Task tool to spawn a subagent:
 - You can spawn up to 10 concurrent subagents
 
 **Note:** For simple subtasks, sequential implementation is usually sufficient. Subagents add value when there's genuinely parallel work to be done.
+
+### TDD Green Phase (when `tdd_phase` is `"green"`)
+
+If this subtask has `"tdd_phase": "green"`:
+
+1. **Read the test files FIRST** — understand what the tests expect
+2. **Implement minimal code** to make each test pass one at a time
+3. **Run tests frequently** — after each significant change
+4. **Refactor** once all tests pass — clean up while keeping green
+5. **Never modify the test assertions** to make them pass — fix the implementation instead
+6. **Check coverage** if `minimum_coverage` is set in the plan's `verification_strategy`
+
+```bash
+# Read the tests that define expected behavior
+cat [test-files-from-previous-subtask]
+
+# Implement... then verify
+[test command]
+
+# Check coverage on your modified files (if minimum_coverage is set)
+# Python: pytest --cov=[module] --cov-report=term-missing tests/
+# Node.js: npx jest --coverage
+# If coverage is below the threshold, add more tests or ensure all code paths are exercised
+```
 
 ### Implementation Rules
 

@@ -380,6 +380,28 @@ npx prisma migrate dev --name [name]
 3. Refactor to match pattern
 4. Verify consistency
 
+### Missing Tests (TDD Compliance)
+
+If QA flagged missing or inadequate tests:
+
+1. Read `implementation_plan.json` to check `tdd_mode`
+2. Find existing test files in the project for patterns (`patterns_from` in test subtasks)
+3. Write tests that cover the new functionality:
+   - Happy path (expected inputs → expected outputs)
+   - Edge cases (empty, null, boundary values)
+   - Error cases (invalid input, missing data)
+4. Run tests to verify they pass against the existing implementation
+5. Do NOT modify implementation code — only add/fix tests
+
+```bash
+# Find existing test patterns
+find . -name "test_*" -o -name "*.test.*" | head -10
+
+# Write tests following project conventions
+# Run to verify
+[test command] -v
+```
+
 ---
 
 ## KEY REMINDERS

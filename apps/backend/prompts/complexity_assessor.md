@@ -248,6 +248,8 @@ cat > complexity_assessment.json << 'EOF'
     "test_types_required": ["unit", "integration", "e2e"],
     "security_scan_required": [true|false],
     "staging_deployment_required": [true|false],
+    "tdd_mode": "[skip|recommended|required]",
+    "minimum_coverage": [null|number],
     "reasoning": "[1-2 sentences explaining validation depth choice]"
   },
 
@@ -319,6 +321,36 @@ Set `staging_deployment_required: true` when:
 | HIGH | `["unit", "integration", "e2e"]` |
 | CRITICAL | `["unit", "integration", "e2e", "security"]` |
 
+### TDD Mode by Complexity
+
+| Complexity | tdd_mode | Behavior |
+|------------|----------|----------|
+| SIMPLE | `"skip"` | No TDD — tests optional |
+| STANDARD | `"recommended"` | Planner generates test subtasks; coder writes tests first when feasible |
+| COMPLEX | `"required"` | Mandatory test-first subtasks for every implementation phase |
+
+Set `tdd_mode` in `validation_recommendations` based on the assessed complexity:
+
+```json
+"tdd_mode": "recommended"
+```
+
+### Minimum Test Coverage by Complexity
+
+| Complexity | minimum_coverage | Rationale |
+|------------|-----------------|-----------|
+| SIMPLE | `null` | No coverage requirement — trivial changes |
+| STANDARD | `70` | 70% line coverage on new/modified files |
+| COMPLEX | `85` | 85% line coverage on new/modified files |
+
+Set `minimum_coverage` as a percentage integer (or `null` to skip):
+
+```json
+"minimum_coverage": 70
+```
+
+The QA reviewer will run coverage tools (`pytest --cov`, `jest --coverage`, `npx c8`) and compare against this threshold. Coverage is measured **only on files modified by the task**, not the entire codebase.
+
 ### Output Format
 
 Add this `validation_recommendations` section to your `complexity_assessment.json` output:
@@ -331,6 +363,8 @@ Add this `validation_recommendations` section to your `complexity_assessment.jso
   "test_types_required": ["unit", "integration", "e2e"],
   "security_scan_required": [true|false],
   "staging_deployment_required": [true|false],
+  "tdd_mode": "[skip|recommended|required]",
+  "minimum_coverage": [null|70|85],
   "reasoning": "[1-2 sentences explaining why this validation depth was chosen]"
 }
 ```
@@ -385,6 +419,8 @@ Add this `validation_recommendations` section to your `complexity_assessment.jso
   "test_types_required": ["unit", "integration", "e2e", "security"],
   "security_scan_required": true,
   "staging_deployment_required": true,
+  "tdd_mode": "recommended",
+  "minimum_coverage": 85,
   "reasoning": "Payment processing requires maximum validation depth. Security scan for PCI compliance concerns. Staging deployment to verify Stripe webhooks work correctly."
 }
 ```
@@ -461,6 +497,8 @@ START
     "test_types_required": ["unit"],
     "security_scan_required": false,
     "staging_deployment_required": false,
+    "tdd_mode": "skip",
+    "minimum_coverage": null,
     "reasoning": "Simple CSS change with no security implications. Minimal validation with existing unit tests if present."
   }
 }
@@ -501,6 +539,8 @@ START
     "test_types_required": ["unit", "integration"],
     "security_scan_required": false,
     "staging_deployment_required": false,
+    "tdd_mode": "recommended",
+    "minimum_coverage": 70,
     "reasoning": "New API endpoint requires unit tests for business logic and integration tests for HTTP handling. No auth changes involved."
   }
 }
@@ -581,6 +621,8 @@ START
     "test_types_required": ["unit", "integration", "e2e"],
     "security_scan_required": true,
     "staging_deployment_required": false,
+    "tdd_mode": "recommended",
+    "minimum_coverage": 70,
     "reasoning": "Authentication changes are security-sensitive. Requires comprehensive testing including E2E for login flows and security scan for auth-related vulnerabilities."
   }
 }
@@ -641,6 +683,8 @@ START
     "test_types_required": ["unit", "integration", "e2e"],
     "security_scan_required": true,
     "staging_deployment_required": false,
+    "tdd_mode": "required",
+    "minimum_coverage": 85,
     "reasoning": "Database integration with new dependencies requires full test coverage. Security scan for API key handling. No staging deployment needed since embedded database doesn't require infrastructure setup."
   }
 }

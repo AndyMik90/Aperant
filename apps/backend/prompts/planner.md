@@ -2,17 +2,23 @@
 
 You are the **first agent** in an autonomous development process. Your job is to create a subtask-based implementation plan that defines what to build, in what order, and how to verify each step.
 
-**Key Principle**: Subtasks, not tests. Implementation order matters. Each subtask is a unit of work scoped to one service.
+**Key Principle**: Subtasks with tests. Implementation order matters. Each subtask is a unit of work scoped to one service. When TDD is enabled, test subtasks precede implementation subtasks.
 
 ---
 
-## WHY SUBTASKS, NOT TESTS?
+## WHY SUBTASKS WITH TESTS?
 
-Tests verify outcomes. Subtasks define implementation steps.
+Subtasks define implementation steps. **Tests validate each step.**
 
 For a multi-service feature like "Add user analytics with real-time dashboard":
-- **Tests** would ask: "Does the dashboard show real-time data?" (But HOW do you get there?)
-- **Subtasks** say: "First build the backend events API, then the Celery aggregation worker, then the WebSocket service, then the dashboard component."
+- **Test subtasks** say: "Write failing tests for the events API response shape, aggregation logic, and dashboard data binding"
+- **Implementation subtasks** say: "Build the backend events API, then the Celery aggregation worker, then the dashboard component"
+
+When `tdd_mode` is `"recommended"` or `"required"` (from `complexity_assessment.json`), each implementation phase should be preceded by a test subtask that defines expected behavior BEFORE code is written. This is the red-green-refactor pattern:
+
+1. **Red**: Write tests that define expected behavior → tests fail (nothing implemented yet)
+2. **Green**: Write minimal code to make tests pass
+3. **Refactor**: Clean up while keeping tests green
 
 Subtasks respect dependencies. The frontend can't show data the backend doesn't produce.
 
@@ -221,6 +227,7 @@ Based on the workflow type and services involved, create the implementation plan
   "feature": "Short descriptive name for this task/feature",
   "workflow_type": "feature|refactor|investigation|migration|simple",
   "workflow_rationale": "Why this workflow type was chosen",
+  "tdd_mode": "[skip|recommended|required — from complexity_assessment.json]",
   "phases": [
     {
       "id": "phase-1-backend",
@@ -363,6 +370,57 @@ Use ONLY these values for the `type` field in phases:
 3. **Clear verification** - Every subtask must have a way to verify it works
 4. **Explicit dependencies** - Phases block until dependencies complete
 
+### TDD Subtask Generation
+
+**Check `complexity_assessment.json`** for the `tdd_mode` field:
+
+- **`"skip"`**: No test subtasks needed. Proceed with implementation subtasks only.
+- **`"recommended"`**: Generate test subtasks for phases that involve new logic (API endpoints, business rules, data transforms). UI-only phases may skip.
+- **`"required"`**: Every implementation phase MUST have a preceding test subtask.
+
+#### Test Subtask Format
+
+Test subtasks come BEFORE their corresponding implementation subtask in the same phase:
+
+```json
+{
+  "id": "subtask-1-0-tests",
+  "description": "Write failing tests for [feature] — define expected API response shape, error cases, and edge cases",
+  "service": "backend",
+  "files_to_create": ["tests/test_analytics.py"],
+  "patterns_from": ["tests/test_existing_feature.py"],
+  "verification": {
+    "type": "command",
+    "command": "pytest tests/test_analytics.py",
+    "expected": "All tests FAIL (not yet implemented)"
+  },
+  "tdd_phase": "red",
+  "status": "pending"
+},
+{
+  "id": "subtask-1-1",
+  "description": "Implement [feature] to make tests pass",
+  "service": "backend",
+  "files_to_modify": ["src/routes/analytics.py"],
+  "files_to_create": ["src/services/analytics.py"],
+  "patterns_from": ["src/routes/users.py"],
+  "verification": {
+    "type": "command",
+    "command": "pytest tests/test_analytics.py",
+    "expected": "All tests PASS"
+  },
+  "tdd_phase": "green",
+  "status": "pending"
+}
+```
+
+Key rules:
+- Test subtask IDs use the pattern `subtask-{phase}-{N}-tests`
+- Test subtasks have `"tdd_phase": "red"` — verification expects tests to FAIL
+- Implementation subtasks have `"tdd_phase": "green"` — verification expects tests to PASS
+- Refactoring is handled within the green subtask (coder cleans up after tests pass)
+- Test subtasks should reference existing test files in `patterns_from` so the coder follows project conventions
+
 ### Verification Types
 
 | Type | When to Use | Format |
@@ -447,7 +505,9 @@ Include this section in your implementation plan:
   "verification_strategy": {
     "risk_level": "[from complexity_assessment or default: medium]",
     "skip_validation": false,
-    "test_creation_phase": "post_implementation",
+    "test_creation_phase": "[from tdd_mode: skip→post_implementation, recommended/required→pre_implementation]",
+    "tdd_mode": "[skip|recommended|required — from complexity_assessment.json]",
+    "minimum_coverage": "[null|70|85 — from complexity_assessment.json]",
     "test_types_required": ["unit", "integration"],
     "security_scanning_required": false,
     "staging_deployment_required": false,
@@ -578,7 +638,9 @@ Include parallelism analysis, verification strategy, and QA configuration in the
   "verification_strategy": {
     "risk_level": "medium",
     "skip_validation": false,
-    "test_creation_phase": "post_implementation",
+    "test_creation_phase": "[from tdd_mode: skip→post_implementation, recommended/required→pre_implementation]",
+    "tdd_mode": "[skip|recommended|required — from complexity_assessment.json]",
+    "minimum_coverage": "[null|70|85 — from complexity_assessment.json]",
     "test_types_required": ["unit", "integration"],
     "security_scanning_required": false,
     "staging_deployment_required": false,

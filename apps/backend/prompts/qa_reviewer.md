@@ -126,6 +126,96 @@ E2E TESTS:
 
 ---
 
+## PHASE 3.5: TDD COMPLIANCE CHECK
+
+**Only applies when `implementation_plan.json` has `tdd_mode` set to `"recommended"` or `"required"`.**
+
+Skip this phase entirely if `tdd_mode` is `"skip"` or not present.
+
+### 3.5.1: Verify Test Files Exist
+
+```bash
+# Check that test files were created for each feature area
+find . -name "test_*" -o -name "*.test.*" -o -name "*.spec.*" | head -30
+
+# Check test files mentioned in the plan's test subtasks
+# Cross-reference with files_to_create in tdd_phase: "red" subtasks
+```
+
+### 3.5.2: Verify Tests Cover New Functionality
+
+```bash
+# Run tests with verbose output to see test names
+[test command] -v
+
+# Check that tests exercise the new code paths
+# Look for tests matching the feature name
+```
+
+### 3.5.3: Verify Tests Pass
+
+```bash
+# All tests should be green now (implementation complete)
+[test command]
+```
+
+### 3.5.4: Document TDD Compliance
+
+```
+TDD COMPLIANCE CHECK:
+- tdd_mode: [skip|recommended|required]
+- Test files created: [list]
+- Tests cover new functionality: YES/NO
+- All tests passing: YES/NO
+- Issues: [list or "None"]
+```
+
+**If `tdd_mode` is `"required"` and tests are missing or inadequate, this is a CRITICAL issue that blocks sign-off.**
+
+**If `tdd_mode` is `"recommended"` and tests are missing, this is a MAJOR issue (should fix, but doesn't block).**
+
+### 3.5.5: Measure Test Coverage
+
+**Only applies when `verification_strategy.minimum_coverage` is set (not null).**
+
+Run coverage tools on the files modified by this task:
+
+```bash
+# Get list of modified files (three-dot diff shows only spec branch changes)
+git diff {{BASE_BRANCH}}...HEAD --name-only | grep -E "\.(py|ts|tsx|js|jsx)$"
+
+# Python projects (pytest-cov)
+pytest --cov=. --cov-report=term-missing tests/
+
+# Node.js projects (jest)
+npx jest --coverage
+
+# Node.js projects (vitest)
+npx vitest run --coverage
+
+# Node.js projects (c8/nyc)
+npx c8 npm test
+```
+
+**Check coverage against threshold:**
+- Read `minimum_coverage` from `implementation_plan.json` → `verification_strategy`
+- Compare reported coverage on **modified files only** against the threshold
+- Coverage below threshold is a **MAJOR** issue (should fix)
+- Coverage below threshold by more than 20 points is a **CRITICAL** issue (blocks sign-off)
+
+**Document results:**
+```
+TEST COVERAGE:
+- Coverage tool: [pytest-cov / jest --coverage / c8]
+- Overall coverage: [X]%
+- Coverage on modified files: [X]%
+- Minimum required: [X]% (from verification_strategy)
+- Status: PASS/FAIL
+- Uncovered areas: [list files/functions below threshold]
+```
+
+---
+
 ## PHASE 4: BROWSER VERIFICATION (If Frontend)
 
 For each page/component in the QA Acceptance Criteria:
@@ -358,6 +448,8 @@ Create a comprehensive QA report:
 | Project-Specific Validation | ✓/✗ | [summary based on project type] |
 | Database Verification | ✓/✗ | [summary] |
 | Third-Party API Validation | ✓/✗ | [Context7 verification summary] |
+| TDD Compliance | ✓/✗/N/A | [tdd_mode: X — tests created: Y, passing: Z] |
+| Test Coverage | ✓/✗/N/A | [X% actual vs Y% required on modified files] |
 | Security Review | ✓/✗ | [summary] |
 | Pattern Compliance | ✓/✗ | [summary] |
 | Regression Check | ✓/✗ | [summary] |
