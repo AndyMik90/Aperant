@@ -268,6 +268,10 @@ export interface PRReviewFinding {
   endLine?: number;
   suggestedFix?: string;
   fixable: boolean;
+  validationStatus?: "confirmed_valid" | "dismissed_false_positive" | "needs_human_review" | null;
+  validationExplanation?: string;
+  sourceAgents?: string[];
+  crossValidated?: boolean;
 }
 
 /**
@@ -1341,6 +1345,10 @@ function getReviewResult(project: Project, prNumber: number): PRReviewResult | n
           endLine: f.end_line,
           suggestedFix: f.suggested_fix,
           fixable: f.fixable ?? false,
+          validationStatus: f.validation_status ?? null,
+          validationExplanation: f.validation_explanation ?? undefined,
+          sourceAgents: f.source_agents ?? [],
+          crossValidated: f.cross_validated ?? false,
         })) ?? [],
       summary: data.summary ?? "",
       overallStatus: data.overall_status ?? "comment",

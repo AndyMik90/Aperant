@@ -402,6 +402,10 @@
     "verifyChanges": "Verify Changes",
     "verifyAnyway": "Verify",
     "runFollowupAnyway": "Run follow-up verification even though no files overlap",
+    "disputed": "Disputed",
+    "disputedByValidator": "Disputed by Validator ({{count}})",
+    "crossValidatedBy": "Confirmed by {{count}} agents",
+    "disputedSectionHint": "These findings were reported by specialists but disputed by the validator. You can still select and post them.",
     "logs": {
       "agentActivity": "Agent Activity",
       "showMore": "Show {{count}} more",
