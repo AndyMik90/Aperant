@@ -1,7 +1,8 @@
-import { useRef, useEffect, useState, KeyboardEvent, ClipboardEvent } from 'react';
-import { ArrowUp, Square, X } from 'lucide-react';
+import { useRef, useEffect, useState, KeyboardEvent, ClipboardEvent, DragEvent } from 'react';
+import { ArrowUp, Square, X, ImagePlus } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
+import { cn } from '../../lib/utils';
 import type { PastedImage } from '../chat';
 
 interface ChatInputProps {
@@ -27,6 +28,8 @@ export function ChatInput({
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [pendingImages, setPendingImages] = useState<PastedImage[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounter = useRef(0);
 
   // Focus textarea on mount
   useEffect(() => {
@@ -53,6 +56,51 @@ export function ChatInput({
         reader.readAsDataURL(blob);
         break; // Only handle the first image
       }
+    }
+  };
+
+  const handleDragEnter = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+    if (e.dataTransfer.types.includes('Files')) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDragOver = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    dragCounter.current = 0;
+
+    const files = e.dataTransfer.files;
+    if (!files || files.length === 0) return;
+
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith('image/')) continue;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = reader.result as string;
+        const id = `drop-${Date.now()}-${++pasteCounter}`;
+        setPendingImages((prev) => [...prev, { id, dataUrl, filename: file.name }]);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -94,7 +142,26 @@ export function ChatInput({
   const canSend = value.trim().length > 0 || pendingImages.length > 0;
 
   return (
-    <div className="border border-border rounded-lg bg-background overflow-hidden">
+    <div
+      className={cn(
+        "border rounded-lg bg-background overflow-hidden relative",
+        isDragging ? "border-primary border-dashed" : "border-border"
+      )}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {/* Drop overlay */}
+      {isDragging && (
+        <div className="absolute inset-0 z-10 bg-primary/10 flex items-center justify-center pointer-events-none rounded-lg">
+          <div className="flex items-center gap-2 text-primary text-sm font-medium">
+            <ImagePlus className="h-5 w-5" />
+            Drop image here
+          </div>
+        </div>
+      )}
+
       {/* Pasted image previews */}
       {pendingImages.length > 0 && (
         <div className="flex flex-wrap gap-2 px-3 pt-3">

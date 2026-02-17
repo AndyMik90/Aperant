@@ -281,6 +281,14 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
     const result = await persistTaskStatus(task.id, 'done');
     if (result.success) {
       onOpenChange(false);
+    } else if (result.worktreeExists) {
+      // Merge already happened — safe to force cleanup of the worktree
+      const retry = await persistTaskStatus(task.id, 'done', { forceCleanup: true });
+      if (retry.success) {
+        onOpenChange(false);
+      } else {
+        state.setWorkspaceError(retry.error || 'Failed to mark task as done');
+      }
     } else {
       state.setWorkspaceError(result.error || 'Failed to mark task as done');
     }
@@ -697,7 +705,12 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                 {/* Files Tab */}
                 {showFilesTab && (
                   <TabsContent value="files" className="flex-1 min-h-0 overflow-hidden mt-0">
-                    <TaskFiles task={task} />
+                    <TaskFiles
+                      task={task}
+                      worktreeDiff={state.worktreeDiff}
+                      worktreeStatus={state.worktreeStatus}
+                      isLoadingWorktree={state.isLoadingWorktree}
+                    />
                   </TabsContent>
                 )}
 

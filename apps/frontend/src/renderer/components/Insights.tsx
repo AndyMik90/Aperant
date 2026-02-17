@@ -15,7 +15,8 @@ import {
   FileText,
   Terminal,
   Search,
-  FolderSearch
+  FolderSearch,
+  Brain
 } from 'lucide-react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -44,6 +45,7 @@ import { TaskQueueSidebar } from './insights/TaskQueueSidebar';
 import { ChatInput } from './insights/ChatInput';
 import { ResizeHandle } from './insights/ResizeHandle';
 import { useNavigation } from '../contexts/NavigationContext';
+import { toast } from '../hooks/use-toast';
 import { ToolBlock } from './chat';
 import type { ToolData, PastedImage } from './chat';
 import type { InsightsChatMessage, InsightsModelConfig } from '../../shared/types';
@@ -149,6 +151,7 @@ export function Insights({ projectId }: InsightsProps) {
   const [leftSidebarWidth, setLeftSidebarWidth] = useState(256); // Chat History width
   const [rightSidebarWidth, setRightSidebarWidth] = useState(240); // Task Queue width
   const [accumulatedTools, setAccumulatedTools] = useState<ToolData[]>([]); // Track tools during streaming
+  const [hasMemory, setHasMemory] = useState(false); // Whether project has persistent memory
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -195,6 +198,10 @@ export function Insights({ projectId }: InsightsProps) {
   // Load session and set up listeners on mount
   useEffect(() => {
     loadInsightsSession(projectId);
+    // Check if persistent memory exists
+    window.electronAPI.loadInsightsMemory(projectId).then(result => {
+      setHasMemory(!!result.data);
+    }).catch(() => { /* non-critical */ });
     // Pass projectId to filter events - only process events for THIS project
     const cleanup = setupInsightsListeners(projectId);
     return cleanup;
@@ -250,6 +257,16 @@ export function Insights({ projectId }: InsightsProps) {
       .find(msg => msg.role === 'assistant' && msg.suggestedTask && !msg.taskCreatedId);
 
     if (lastSuggestionMessage && lastSuggestionMessage.suggestedTask) {
+      // Check if this task title was previously dismissed — don't re-queue
+      const isDismissed = useInsightsTaskQueueStore.getState().isDismissed(
+        lastSuggestionMessage.suggestedTask.title
+      );
+      if (isDismissed) {
+        // Mark as dismissed on disk so we don't check again
+        markTaskCreatedPersistent(projectId, session.id, lastSuggestionMessage.id, 'dismissed');
+        return;
+      }
+
       // Auto-queue the suggestion
       createTaskFromSuggestion(
         projectId,
@@ -260,26 +277,44 @@ export function Insights({ projectId }: InsightsProps) {
 
       // Mark as queued to prevent re-queueing
       markTaskCreatedPersistent(projectId, session.id, lastSuggestionMessage.id, 'auto-queued');
+
+      // Toast notification for auto-queued task
+      toast({
+        title: 'Task Queued',
+        description: lastSuggestionMessage.suggestedTask.title,
+      });
+
       console.log('[Insights] Auto-queued task suggestion:', lastSuggestionMessage.suggestedTask.title);
     }
   }, [session?.messages, projectId, session?.id]);
 
   // Accumulate tools during streaming - add to list when currentTool changes
+  // Track _startTime transiently for elapsed time calculation
+  type StreamingToolData = ToolData & { _startTime?: number };
   useEffect(() => {
     if (currentTool && status.phase === 'streaming') {
-      const toolData: ToolData = {
+      const toolData: StreamingToolData = {
         toolName: currentTool.name,
         input: currentTool.input || undefined,
         status: 'running',
+        _startTime: Date.now(),
       };
 
       // Only add if it's not already the last tool (avoid duplicates)
       setAccumulatedTools(prev => {
-        const lastTool = prev[prev.length - 1];
+        const lastTool = prev[prev.length - 1] as StreamingToolData | undefined;
         if (lastTool?.toolName === currentTool.name && lastTool?.status === 'running') {
           return prev; // Same tool still running, don't duplicate
         }
-        return [...prev, toolData];
+        // Mark previous running tools as complete with elapsed time
+        const updated = prev.map(t => {
+          const st = t as StreamingToolData;
+          if (st.status === 'running' && st._startTime) {
+            return { ...st, status: 'success' as const, elapsedMs: Date.now() - st._startTime };
+          }
+          return t;
+        });
+        return [...updated, toolData];
       });
     }
   }, [currentTool, status.phase]);
@@ -515,6 +550,7 @@ export function Insights({ projectId }: InsightsProps) {
             onSelectSession={handleSelectSession}
             onDeleteSession={handleDeleteSession}
             onRenameSession={handleRenameSession}
+            onExportSession={(sessionId) => window.electronAPI.exportInsightsSession(projectId, sessionId)}
             width={leftSidebarWidth}
           />
           <ResizeHandle onResize={handleLeftSidebarResize} />
@@ -539,6 +575,12 @@ export function Insights({ projectId }: InsightsProps) {
             )}
           </Button>
           <div className="flex items-center gap-2">
+            {hasMemory && (
+              <Badge variant="outline" className="text-xs gap-1 text-muted-foreground" title="Jerry has persistent memory for this project">
+                <Brain className="h-3 w-3" />
+                Memory
+              </Badge>
+            )}
             <InsightsModelSelector
               currentConfig={session?.modelConfig}
               onConfigChange={handleModelConfigChange}

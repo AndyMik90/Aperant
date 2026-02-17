@@ -395,9 +395,10 @@ export function registerTaskExecutionHandlers(
             `Failed to start planning agent: ${errMsg}`
           );
         }
-      } else if (task.status === 'coding') {
-        // Coding tasks use the task execution agent
-        console.warn('[TASK_START] Starting task execution for:', task.specId);
+      } else if (task.status === 'coding' || task.status === 'ai_review') {
+        // Coding and ai_review tasks use the task execution agent
+        // ai_review tasks: run.py detects all subtasks complete and re-enters QA loop
+        console.warn('[TASK_START] Starting task execution for:', task.specId, 'status:', task.status);
 
         // METRICS-1A: Record coding_started timestamp
         const planPath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
@@ -426,13 +427,13 @@ export function registerTaskExecutionHandlers(
           );
         }
       } else {
-        // Other statuses (todo, ai_review, human_review, pr_created, done, archived)
+        // Other statuses (todo, human_review, pr_created, done, archived)
         // should not start any agent via TASK_START
         console.warn('[TASK_START] Cannot start task with status:', task.status);
         mainWindow.webContents.send(
           IPC_CHANNELS.TASK_ERROR,
           taskId,
-          `Cannot start task with status '${task.status}'. Only 'planning' and 'coding' tasks can be started.`
+          `Cannot start task with status '${task.status}'. Only 'planning', 'coding', and 'ai_review' tasks can be started.`
         );
         return;
       }
@@ -465,9 +466,10 @@ export function registerTaskExecutionHandlers(
       const ipcSentAt = Date.now();
       const DEBUG = process.env.DEBUG === 'true';
 
-      if (task.status === 'coding') {
+      if (task.status === 'coding' || task.status === 'ai_review') {
         // Notify status change IMMEDIATELY (don't wait for file write)
         // This provides instant UI feedback while file persistence happens in background
+        // ai_review tasks transition back to coding when resumed (run.py re-enters QA)
         mainWindow.webContents.send(
           IPC_CHANNELS.TASK_STATUS_CHANGE,
           taskId,
@@ -975,7 +977,7 @@ export function registerTaskExecutionHandlers(
       _,
       taskId: string,
       status: TaskStatus,
-      options?: { forceCleanup?: boolean }
+      options?: { forceCleanup?: boolean; keepWorktree?: boolean }
     ): Promise<IPCResult & { worktreeExists?: boolean; worktreePath?: string }> => {
       // Find task and project first (needed for worktree check)
       const { task, project } = findTaskAndProject(taskId);
@@ -992,7 +994,11 @@ export function registerTaskExecutionHandlers(
         const worktreePath = findTaskWorktree(project.path, task.specId);
         const hasWorktree = worktreePath !== null;
 
-        if (hasWorktree) {
+        if (hasWorktree && options?.keepWorktree) {
+          // User explicitly wants to keep worktree but mark done (e.g. "Mark Done Only")
+          console.warn(`[TASK_UPDATE_STATUS] Marking done with worktree kept for task ${taskId}`);
+          // Fall through to status update below
+        } else if (hasWorktree) {
           if (options?.forceCleanup) {
             // User confirmed cleanup - delete worktree and branch
             console.warn(`[TASK_UPDATE_STATUS] Cleaning up worktree for task ${taskId} (user confirmed)`);

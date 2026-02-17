@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
-import { PanelLeftClose, PanelLeft, ListTodo, Trash2, Lightbulb, Settings, CheckCircle2, ChevronDown, ChevronRight } from 'lucide-react';
+import { PanelLeftClose, PanelLeft, ListTodo, Trash2, Lightbulb, Settings, CheckCircle2, ChevronDown, ChevronRight, GitBranch } from 'lucide-react';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { cn } from '../../lib/utils';
 import { useInsightsTaskQueueStore, type InsightsQueuedTask } from '../../stores/insights-task-queue-store';
 import { TaskQueueCard } from './TaskQueueCard';
+import { TaskQueuePreviewDialog } from './TaskQueuePreviewDialog';
+import { DependencyGraphView } from './DependencyGraphView';
 import { TaskDetailModal } from './TaskDetailModal';
 import { useNavigation } from '../../contexts/NavigationContext';
-import { createTask, startTask, useTaskStore } from '../../stores/task-store';
-import { useInsightsStore } from '../../stores/insights-store';
+import { createTask, startTask, persistTaskDependencies, useTaskStore } from '../../stores/task-store';
+import { useInsightsStore, markTaskCreatedPersistent } from '../../stores/insights-store';
 import { useProjectStore } from '../../stores/project-store';
 import type { Task, TaskMetadata } from '../../../shared/types';
 
@@ -42,6 +44,7 @@ interface CollapsibleSectionProps {
   onToggle: () => void;
   children: React.ReactNode;
   accentColor?: string;
+  headerAction?: React.ReactNode;
 }
 
 function CollapsibleSection({
@@ -51,7 +54,8 @@ function CollapsibleSection({
   collapsed,
   onToggle,
   children,
-  accentColor = 'text-muted-foreground'
+  accentColor = 'text-muted-foreground',
+  headerAction
 }: CollapsibleSectionProps) {
   if (count === 0) return null;
 
@@ -67,6 +71,7 @@ function CollapsibleSection({
           <span className="text-xs font-semibold uppercase tracking-wide">{title}</span>
         </div>
         <div className="flex items-center gap-2">
+          {headerAction}
           <span className="text-xs text-muted-foreground font-mono">{count}</span>
           {collapsed ? (
             <ChevronRight className="w-3 h-3 text-muted-foreground" />
@@ -104,6 +109,17 @@ export function TaskQueueSidebar({ width = 240 }: TaskQueueSidebarProps = {}) {
 
   // Task detail modal state
   const [detailModalTask, setDetailModalTask] = useState<Task | null>(null);
+  // Dismissed completed task IDs (hides them from "Recently Completed" section)
+  const [dismissedCompletedIds, setDismissedCompletedIds] = useState<Set<string>>(new Set());
+
+  // Preview dialog state for pending/failed queued tasks
+  const [previewTask, setPreviewTask] = useState<InsightsQueuedTask | null>(null);
+  // Dependency graph toggle
+  const [showDependencyGraph, setShowDependencyGraph] = useState(false);
+  const hasDependencies = useMemo(() =>
+    queueTasks.some(t => t.projectId === projectId && t.status === 'pending' && t.metadata?.dependencies?.length),
+    [queueTasks, projectId]
+  );
 
   // Filter tasks into 3 sections
   const suggestedTasks = useMemo(() => {
@@ -135,13 +151,14 @@ export function TaskQueueSidebar({ width = 240 }: TaskQueueSidebarProps = {}) {
       .filter(t => {
         if (t.projectId !== projectId) return false;
         if (t.status !== 'done') return false;
+        if (dismissedCompletedIds.has(t.id)) return false;
 
         // Check if completed within last 24 hours
         const completedAt = t.updatedAt?.getTime() || 0;
         return (now - completedAt) < DAY_MS;
       })
       .slice(0, 5); // Limit to 5 most recent
-  }, [mainTasks, projectId]);
+  }, [mainTasks, projectId, dismissedCompletedIds]);
 
   // Build lookup map for linking queue tasks to real tasks
   const mainTaskMap = useMemo(() => {
@@ -219,6 +236,34 @@ export function TaskQueueSidebar({ width = 240 }: TaskQueueSidebarProps = {}) {
         // Update queue with actual task ID
         updateTaskStatus(queuedTaskId, 'running', task.id);
 
+        // Resolve title-based dependencies from Jerry's batch suggestions
+        const rawDeps = queuedTask.metadata?.dependencies;
+        if (rawDeps && rawDeps.length > 0) {
+          const allTasks = useTaskStore.getState().tasks;
+          const resolvedDeps: string[] = [];
+          for (const dep of rawDeps) {
+            // Check if dep is already a specId (matches existing task)
+            const byId = allTasks.find(t => t.id === dep || t.specId === dep);
+            if (byId) {
+              resolvedDeps.push(byId.id);
+            } else {
+              // Try matching by title (case-insensitive substring)
+              const byTitle = allTasks.find(t =>
+                t.title.toLowerCase().includes(dep.toLowerCase()) ||
+                dep.toLowerCase().includes(t.title.toLowerCase())
+              );
+              if (byTitle) {
+                resolvedDeps.push(byTitle.id);
+              }
+            }
+          }
+          if (resolvedDeps.length > 0) {
+            persistTaskDependencies(task.id, resolvedDeps).catch(err => {
+              console.warn('[TaskQueueSidebar] Failed to set dependencies:', err);
+            });
+          }
+        }
+
         // Start the task (don't auto-navigate - user can click card to go to kanban)
         startTask(task.id);
       } else {
@@ -241,25 +286,31 @@ export function TaskQueueSidebar({ width = 240 }: TaskQueueSidebarProps = {}) {
 
   const handleDeleteTask = (queuedTaskId: string) => {
     const queuedTask = queueTasks.find((t) => t.id === queuedTaskId);
-    removeTask(queuedTaskId);
 
-    // Mark as dismissed to prevent auto-queueing again
-    if (queuedTask) {
+    // Use dismissTask instead of removeTask — adds title to persistent dismissed list
+    useInsightsTaskQueueStore.getState().dismissTask(queuedTaskId);
+
+    // Also persist dismissal to the session on disk so auto-queue won't re-add it
+    if (queuedTask && projectId) {
       const insightsStore = useInsightsStore.getState();
       const session = insightsStore.session;
       if (session) {
         const message = session.messages.find(
-          (m) => m.suggestedTask && m.suggestedTask.title === queuedTask.title && m.taskCreatedId
+          (m) => m.suggestedTask && m.suggestedTask.title === queuedTask.title
         );
         if (message) {
-          // Mark as dismissed instead of clearing - prevents re-queuing
           insightsStore.markTaskCreated(message.id, 'dismissed');
+          markTaskCreatedPersistent(projectId, session.id, message.id, 'dismissed');
         }
       }
     }
   };
 
   const handleClearCompleted = () => {
+    // Dismiss completed tasks from the sidebar view
+    // (These are main tasks shown for convenience — they stay in the kanban)
+    setDismissedCompletedIds(new Set(completedTasks.map(t => t.id)));
+    // Also clear any orphaned queue tasks with 'complete' status
     clearCompletedTasks();
   };
 
@@ -298,6 +349,7 @@ export function TaskQueueSidebar({ width = 240 }: TaskQueueSidebarProps = {}) {
                 onStart={handleStartTask}
                 onDelete={handleDeleteTask}
                 onView={handleViewTask}
+                onPreview={setPreviewTask}
                 isCollapsed={true}
               />
             ))}
@@ -309,6 +361,7 @@ export function TaskQueueSidebar({ width = 240 }: TaskQueueSidebarProps = {}) {
                 onStart={handleStartTask}
                 onDelete={handleDeleteTask}
                 onView={handleViewTask}
+                onPreview={setPreviewTask}
                 isCollapsed={true}
               />
             ))}
@@ -374,25 +427,61 @@ export function TaskQueueSidebar({ width = 240 }: TaskQueueSidebarProps = {}) {
         ) : (
           <div className="flex flex-col">
             {/* Section 1: Suggested by Jerry */}
-            <CollapsibleSection
-              title="Suggested by Jerry"
-              icon={<Lightbulb className="w-3.5 h-3.5" />}
-              count={totalCounts.suggested}
-              collapsed={suggestedCollapsed}
-              onToggle={() => setSuggestedCollapsed(!suggestedCollapsed)}
-              accentColor="text-purple-500"
-            >
-              {suggestedTasks.map((task) => (
-                <TaskQueueCard
-                  key={task.id}
-                  task={task}
-                  linkedTask={task.taskId ? mainTaskMap.get(task.taskId) : undefined}
-                  onStart={handleStartTask}
-                  onDelete={handleDeleteTask}
-                  onView={handleViewTask}
+            {showDependencyGraph && hasDependencies ? (
+              <div className="border-b border-border">
+                <div className="px-3 py-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <GitBranch className="w-3.5 h-3.5 text-purple-500" />
+                    <span className="text-xs font-semibold uppercase tracking-wide">Dependency Order</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={() => setShowDependencyGraph(false)}
+                    title="Switch to list view"
+                  >
+                    <ListTodo className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <DependencyGraphView
+                  tasks={suggestedTasks}
+                  onTaskClick={(task) => setPreviewTask(task)}
                 />
-              ))}
-            </CollapsibleSection>
+              </div>
+            ) : (
+              <CollapsibleSection
+                title="Suggested by Jerry"
+                icon={<Lightbulb className="w-3.5 h-3.5" />}
+                count={totalCounts.suggested}
+                collapsed={suggestedCollapsed}
+                onToggle={() => setSuggestedCollapsed(!suggestedCollapsed)}
+                accentColor="text-purple-500"
+                headerAction={hasDependencies ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0"
+                    onClick={(e) => { e.stopPropagation(); setShowDependencyGraph(true); }}
+                    title="Show dependency graph"
+                  >
+                    <GitBranch className="w-3.5 h-3.5" />
+                  </Button>
+                ) : undefined}
+              >
+                {suggestedTasks.map((task) => (
+                  <TaskQueueCard
+                    key={task.id}
+                    task={task}
+                    linkedTask={task.taskId ? mainTaskMap.get(task.taskId) : undefined}
+                    onStart={handleStartTask}
+                    onDelete={handleDeleteTask}
+                    onView={handleViewTask}
+                    onPreview={setPreviewTask}
+                  />
+                ))}
+              </CollapsibleSection>
+            )}
 
             {/* Section 2: In Progress */}
             <CollapsibleSection
@@ -411,6 +500,7 @@ export function TaskQueueSidebar({ width = 240 }: TaskQueueSidebarProps = {}) {
                   onStart={handleStartTask}
                   onDelete={handleDeleteTask}
                   onView={handleViewTask}
+                  onPreview={setPreviewTask}
                 />
               ))}
             </CollapsibleSection>
@@ -432,6 +522,7 @@ export function TaskQueueSidebar({ width = 240 }: TaskQueueSidebarProps = {}) {
                   onStart={handleStartTask}
                   onDelete={handleDeleteTask}
                   onView={handleViewTask}
+                  onPreview={setPreviewTask}
                 />
               ))}
             </CollapsibleSection>
@@ -454,11 +545,20 @@ export function TaskQueueSidebar({ width = 240 }: TaskQueueSidebarProps = {}) {
         </div>
       )}
 
-      {/* Task Detail Modal */}
+      {/* Task Detail Modal (for running/complete tasks) */}
       <TaskDetailModal
         task={detailModalTask}
         open={!!detailModalTask}
         onClose={() => setDetailModalTask(null)}
+      />
+
+      {/* Preview Dialog (for pending/failed queued tasks) */}
+      <TaskQueuePreviewDialog
+        task={previewTask}
+        open={!!previewTask}
+        onOpenChange={(open) => { if (!open) setPreviewTask(null); }}
+        onStart={handleStartTask}
+        onDelete={handleDeleteTask}
       />
     </div>
   );

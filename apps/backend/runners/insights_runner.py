@@ -166,14 +166,23 @@ def load_project_context(project_dir: str) -> str:
     )
 
 
-def build_system_prompt(project_dir: str) -> str:
+def build_system_prompt(project_dir: str, memory_context: str | None = None) -> str:
     """Build the system prompt for the insights agent."""
     context = load_project_context(project_dir)
+
+    memory_section = ""
+    if memory_context and memory_context.strip():
+        memory_section = f"""
+
+## Jerry's Persistent Memory
+The following notes were saved from previous conversations. Use them to provide continuity.
+{memory_context}
+"""
 
     return f"""You are Jerry, an AI assistant helping developers understand and work with their codebase. Always introduce yourself as Jerry, never as Claude.
 You have access to the following project context:
 
-{context}
+{context}{memory_section}
 
 Your capabilities:
 1. Answer questions about the codebase structure, patterns, and architecture
@@ -188,13 +197,19 @@ Valid categories: feature, bug_fix, refactoring, documentation, security, perfor
 Valid complexity: trivial, small, medium, large, complex
 Valid impact: low, medium, high, critical
 
-TASK DEPENDENCIES:
+TASK DEPENDENCIES — CRITICAL FOR BATCHES:
 - The "dependencies" field is an array of existing task IDs (spec IDs) that must complete before this new task can start.
-- Only include dependencies if the new task genuinely requires another task to be finished first.
 - Reference task IDs from the "Existing Tasks" section in the project context above.
 - Example: if a task needs the auth system (task ID "003-auth-system") done first, set "dependencies": ["003-auth-system"]
 - Leave as an empty array [] if there are no dependencies.
-- When creating multiple related tasks, suggest dependencies between them if there's a natural ordering.
+- When creating multiple related tasks, you MUST set dependencies between them if there's a natural ordering.
+- For a batch of N sequential tasks, each task after the first should depend on the previous task's title (the system will resolve titles to IDs).
+- Example batch: task1 deps=[], task2 deps=["Title of task 1"], task3 deps=["Title of task 2"]
+
+EDITING QUEUED TASKS:
+When asked to edit, rename, or update a queued task, output an edit command in this exact format on a SINGLE LINE:
+__TASK_EDIT__:{{"match": "original task title or substring to find", "title": "New title (optional)", "description": "Updated description (optional)"}}
+Only provide fields that should be changed. The "match" field is used to find the task by title substring match.
 
 EXECUTION RULES:
 - When asked to create, write, or modify files, you MUST actually use the Write/Edit tools to do so. Do not just describe what you would do.
@@ -202,6 +217,13 @@ EXECUTION RULES:
 - Each message you receive is an independent request. Previous conversation is provided as summary context only — you may need to re-read files or redo work that was done in a prior turn.
 - If a task requires creating multiple files, create ALL of them before giving your response.
 - Never say "I've already done this" based on conversation history alone — verify with tools and complete any missing work.
+
+SAVING MEMORIES:
+When you learn something important that should be remembered across conversations (key decisions, user preferences, project insights, important context), output a memory save in this exact format on a SINGLE LINE:
+__MEMORY_SAVE__:{{"section": "Key Decisions", "content": "Brief note about what to remember"}}
+
+Valid sections: Key Decisions, Project Insights, User Preferences, Important Context
+Only save genuinely important information — do not save every detail. Save when the user explicitly asks you to remember something, or when you discover a significant project insight.
 
 Be conversational and helpful. Focus on providing actionable insights and clear explanations.
 Keep responses concise but informative."""
@@ -214,6 +236,7 @@ async def run_with_sdk(
     model: str = "sonnet",  # Shorthand - resolved via API Profile if configured
     thinking_level: str = "medium",
     image_paths: list[str] | None = None,
+    memory_context: str | None = None,
 ) -> None:
     """Run the chat using Claude SDK with streaming."""
     if not SDK_AVAILABLE:
@@ -232,7 +255,7 @@ async def run_with_sdk(
     # Ensure SDK can find the token
     ensure_claude_code_oauth_token()
 
-    system_prompt = build_system_prompt(project_dir)
+    system_prompt = build_system_prompt(project_dir, memory_context)
     project_path = Path(project_dir).resolve()
 
     # Build conversation context from history
@@ -514,6 +537,11 @@ def main():
         default=None,
         help="JSON array of image file paths for multimodal input",
     )
+    parser.add_argument(
+        "--memory-file-path",
+        default=None,
+        help="Path to text file containing persistent memory context",
+    )
     args = parser.parse_args()
 
     debug_section("insights_runner", "Starting Insights Chat")
@@ -563,10 +591,20 @@ def main():
         except json.JSONDecodeError:
             debug_error("insights_runner", "Failed to parse --images JSON")
 
+    # Load memory context if provided
+    memory_context: str | None = None
+    if args.memory_file_path:
+        try:
+            with open(args.memory_file_path, encoding="utf-8") as f:
+                memory_context = f.read()
+            debug("insights_runner", "Loaded memory context", length=len(memory_context))
+        except (FileNotFoundError, OSError) as e:
+            debug_error("insights_runner", f"Failed to load memory file: {e}")
+
     # Run the async SDK function
     debug("insights_runner", "Running SDK query")
     asyncio.run(
-        run_with_sdk(project_dir, user_message, history, model, thinking_level, image_paths)
+        run_with_sdk(project_dir, user_message, history, model, thinking_level, image_paths, memory_context)
     )
     debug_success("insights_runner", "Query completed")
 

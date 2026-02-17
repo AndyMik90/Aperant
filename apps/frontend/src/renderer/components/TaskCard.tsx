@@ -230,15 +230,15 @@ export const TaskCard = memo(function TaskCard({
   const isCheckingProcesses = useTaskStore((state) => state.isCheckingProcesses);
   // Check if planning is complete (spec + prompt exist)
   const planningComplete = useTaskStore((state) => state.planningCompleteCache.get(task.id) ?? false);
-  // Coding tasks have active execution agents (but not if agent was stopped/interrupted)
-  const isRunning = task.status === 'coding' && !isAgentStopped;
+  // Coding and ai_review tasks have active execution agents (but not if agent was stopped/interrupted)
+  const isRunning = (task.status === 'coding' || task.status === 'ai_review') && !isAgentStopped;
   // Phase 2: Planning tasks may have active planning agents
   const isPlanning = task.status === 'planning';
   // Check if companion agent is active
   const hasCompanion = useTaskStore((state) => state.hasCompanion(task.id));
-  // Both planning and coding tasks can be considered "active" for visual purposes
+  // Planning, coding, and ai_review tasks can be considered "active" for visual purposes
   // But only if agent hasn't been stopped
-  const hasActiveAgent = (task.status === 'coding' || task.status === 'planning') && !isAgentStopped;
+  const hasActiveAgent = (task.status === 'coding' || task.status === 'planning' || task.status === 'ai_review') && !isAgentStopped;
   const executionPhase = task.executionProgress?.phase;
   const hasActiveExecution = executionPhase && executionPhase !== 'idle' && executionPhase !== 'complete' && executionPhase !== 'failed';
 
@@ -1070,7 +1070,7 @@ export const TaskCard = memo(function TaskCard({
                   </TooltipProvider>
                 )}
               </div>
-            ) : task.status === 'coding' ? (
+            ) : task.status === 'coding' || task.status === 'ai_review' ? (
               isCheckingProcesses ? (
                 <div className="flex items-center gap-1.5">
                   <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />

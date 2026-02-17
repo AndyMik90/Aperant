@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Plus,
@@ -8,7 +8,9 @@ import {
   Check,
   X,
   MoreVertical,
-  Loader2
+  Loader2,
+  Search,
+  Download
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -41,6 +43,7 @@ interface ChatHistorySidebarProps {
   onSelectSession: (sessionId: string) => void;
   onDeleteSession: (sessionId: string) => Promise<boolean>;
   onRenameSession: (sessionId: string, newTitle: string) => Promise<boolean>;
+  onExportSession?: (sessionId: string) => void;
   width?: number; // Width in pixels
 }
 
@@ -52,12 +55,21 @@ export function ChatHistorySidebar({
   onSelectSession,
   onDeleteSession,
   onRenameSession,
+  onExportSession,
   width = 256
 }: ChatHistorySidebarProps) {
   const { t } = useTranslation('common');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [deleteSessionId, setDeleteSessionId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filter sessions by search query
+  const filteredSessions = useMemo(() => {
+    if (!searchQuery.trim()) return sessions;
+    const query = searchQuery.toLowerCase();
+    return sessions.filter(s => s.title.toLowerCase().includes(query));
+  }, [sessions, searchQuery]);
 
   const handleStartEdit = (session: InsightsSessionSummary) => {
     setEditingId(session.id);
@@ -101,8 +113,8 @@ export function ChatHistorySidebar({
     }
   };
 
-  // Group sessions by date
-  const groupedSessions = sessions.reduce((groups, session) => {
+  // Group filtered sessions by date
+  const groupedSessions = filteredSessions.reduce((groups, session) => {
     const dateLabel = formatDate(session.updatedAt);
     if (!groups[dateLabel]) {
       groups[dateLabel] = [];
@@ -132,6 +144,29 @@ export function ChatHistorySidebar({
         </Tooltip>
       </div>
 
+      {/* Search input */}
+      {sessions.length > 0 && (
+        <div className="px-2 py-1.5 border-b border-border">
+          <div className="relative">
+            <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t('chat.searchPlaceholder', { defaultValue: 'Search conversations...' })}
+              className="h-7 text-xs pl-7 pr-7"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Session list */}
       <ScrollArea className="flex-1">
         {isLoading ? (
@@ -141,6 +176,10 @@ export function ChatHistorySidebar({
         ) : sessions.length === 0 ? (
           <div className="px-3 py-8 text-center text-sm text-muted-foreground">
             {t('chat.noConversations', { defaultValue: 'No conversations yet' })}
+          </div>
+        ) : filteredSessions.length === 0 && searchQuery ? (
+          <div className="px-3 py-8 text-center text-sm text-muted-foreground">
+            {t('chat.noSearchResults', { defaultValue: 'No conversations match your search' })}
           </div>
         ) : (
           <div className="py-2">
@@ -162,6 +201,7 @@ export function ChatHistorySidebar({
                     onCancelEdit={handleCancelEdit}
                     onEditTitleChange={setEditTitle}
                     onDelete={() => setDeleteSessionId(session.id)}
+                    onExport={onExportSession ? () => onExportSession(session.id) : undefined}
                   />
                 ))}
               </div>
@@ -200,6 +240,7 @@ interface SessionItemProps {
   onCancelEdit: () => void;
   onEditTitleChange: (title: string) => void;
   onDelete: () => void;
+  onExport?: () => void;
 }
 
 function SessionItem({
@@ -212,7 +253,8 @@ function SessionItem({
   onSaveEdit,
   onCancelEdit,
   onEditTitleChange,
-  onDelete
+  onDelete,
+  onExport
 }: SessionItemProps) {
   const { t } = useTranslation('common');
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -304,6 +346,12 @@ function SessionItem({
             <Pencil className="mr-2 h-3.5 w-3.5" />
             {t('chat.rename', { defaultValue: 'Rename' })}
           </DropdownMenuItem>
+          {onExport && (
+            <DropdownMenuItem onSelect={onExport}>
+              <Download className="mr-2 h-3.5 w-3.5" />
+              {t('chat.export', { defaultValue: 'Export' })}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem
             onSelect={onDelete}
             className="text-destructive focus:text-destructive"

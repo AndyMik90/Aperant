@@ -993,7 +993,7 @@ export interface PersistStatusResult {
 export async function persistTaskStatus(
   taskId: string,
   status: TaskStatus,
-  options?: { forceCleanup?: boolean }
+  options?: { forceCleanup?: boolean; keepWorktree?: boolean }
 ): Promise<PersistStatusResult> {
   const store = useTaskStore.getState();
 

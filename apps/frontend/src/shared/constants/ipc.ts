@@ -171,6 +171,7 @@ export const IPC_CHANNELS = {
   // Shell operations
   SHELL_OPEN_EXTERNAL: 'shell:openExternal',
   SHELL_OPEN_TERMINAL: 'shell:openTerminal',
+  SHELL_OPEN_FOLDER: 'shell:openFolder',
 
   // Roadmap operations
   ROADMAP_GET: 'roadmap:get',
@@ -484,6 +485,10 @@ export const IPC_CHANNELS = {
   INSIGHTS_UPDATE_MODEL_CONFIG: 'insights:updateModelConfig',
   INSIGHTS_MARK_TASK_CREATED: 'insights:markTaskCreated',
   INSIGHTS_CANCEL: 'insights:cancel',
+  INSIGHTS_EXPORT_SESSION: 'insights:exportSession',
+  INSIGHTS_LOAD_MEMORY: 'insights:loadMemory',
+  INSIGHTS_APPEND_MEMORY: 'insights:appendMemory',
+  INSIGHTS_CLEAR_MEMORY: 'insights:clearMemory',
 
   // Insights events (main -> renderer)
   INSIGHTS_STREAM_CHUNK: 'insights:streamChunk',

@@ -107,6 +107,10 @@ export const insightsMock = {
 
   markInsightsTaskCreated: async () => ({ success: true }),
   cancelInsights: async () => ({ success: true }),
+  exportInsightsSession: async () => ({ success: true, data: '' }),
+  loadInsightsMemory: async () => ({ success: true, data: null }),
+  appendInsightsMemory: async () => ({ success: true }),
+  clearInsightsMemory: async () => ({ success: true }),
 
   onInsightsStreamChunk: () => () => {},
   onInsightsStatus: () => () => {},

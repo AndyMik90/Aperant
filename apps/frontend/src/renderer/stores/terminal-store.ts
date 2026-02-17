@@ -1215,12 +1215,12 @@ export async function recreateTaskMonitorTerminals(
       // FIX-3/FIX-4: Coding tasks should NOT auto-restart on app restart
       // User must click "Resume" button to restart a coding task
       // This prevents unwanted auto-execution after interruption
-      if (task.status === 'coding') {
+      if (task.status === 'coding' || task.status === 'ai_review') {
         try {
           const runningResult = await window.electronAPI.checkTaskRunning(task.id);
           if (runningResult.success && runningResult.data === false) {
             // Don't auto-restart - just log that it's interrupted
-            console.log(`[TerminalStore] Task ${task.id} is coding but no process running (interrupted state - requires manual resume)`);
+            console.log(`[TerminalStore] Task ${task.id} is ${task.status} but no process running (interrupted state - requires manual resume)`);
             // DO NOT add to tasksToRestart - user must click Resume
           } else if (runningResult.success && runningResult.data === true) {
             console.log(`[TerminalStore] Task ${task.id} process is already running`);

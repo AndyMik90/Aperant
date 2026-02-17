@@ -126,11 +126,14 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
         for (const attachment of attachments) {
           if (attachment.type === "image" && attachment.data) {
             try {
-              // Extract base64 from data URL (data:image/png;base64,...)
-              const base64Match = attachment.data.match(/^data:image\/\w+;base64,(.+)$/);
+              // Extract format and base64 from data URL (data:image/png;base64,...)
+              const base64Match = attachment.data.match(/^data:image\/(\w+);base64,(.+)$/);
               if (base64Match) {
-                const buffer = Buffer.from(base64Match[1], "base64");
-                const filePath = path.join(tmpDir, `${attachment.id}.png`);
+                const format = base64Match[1];
+                const extensionMap: Record<string, string> = { jpeg: 'jpg', jpg: 'jpg', png: 'png', webp: 'webp', gif: 'gif' };
+                const ext = extensionMap[format.toLowerCase()] || 'png';
+                const buffer = Buffer.from(base64Match[2], "base64");
+                const filePath = path.join(tmpDir, `${attachment.id}.${ext}`);
                 writeFileSync(filePath, buffer);
                 imagePaths.push(filePath);
                 console.log("[Insights Handler] Saved pasted image:", filePath);
@@ -495,6 +498,104 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
   insightsService.on("sdk-rate-limit", (rateLimitInfo: unknown) => {
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.CLAUDE_SDK_RATE_LIMIT, rateLimitInfo);
   });
+
+  // Export session as markdown
+  ipcMain.handle(
+    IPC_CHANNELS.INSIGHTS_EXPORT_SESSION,
+    async (_, projectId: string, sessionId: string): Promise<IPCResult<string>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: "Project not found" };
+      }
+
+      try {
+        const session = insightsService.getSessionById(project.path, sessionId);
+        if (!session) {
+          return { success: false, error: "Session not found" };
+        }
+
+        const markdown = insightsService.exportSessionAsMarkdown(session);
+
+        const { dialog } = await import('electron');
+        const sanitizedTitle = (session.title || 'jerry-chat').replace(/[^a-zA-Z0-9]/g, '-').slice(0, 50);
+        const { canceled, filePath: savePath } = await dialog.showSaveDialog({
+          title: 'Export Conversation',
+          defaultPath: `${sanitizedTitle}.md`,
+          filters: [
+            { name: 'Markdown', extensions: ['md'] },
+            { name: 'All Files', extensions: ['*'] }
+          ]
+        });
+
+        if (canceled || !savePath) {
+          return { success: true, data: '' };
+        }
+
+        writeFileSync(savePath, markdown, 'utf-8');
+        return { success: true, data: savePath };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return { success: false, error: `Failed to export session: ${errorMessage}` };
+      }
+    }
+  );
+
+  // Load persistent memory for a project
+  ipcMain.handle(
+    IPC_CHANNELS.INSIGHTS_LOAD_MEMORY,
+    async (_, projectId: string): Promise<IPCResult<string | null>> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: "Project not found" };
+      }
+
+      try {
+        const memory = insightsService.loadMemory(project.path);
+        return { success: true, data: memory };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return { success: false, error: `Failed to load memory: ${errorMessage}` };
+      }
+    }
+  );
+
+  // Append to persistent memory
+  ipcMain.handle(
+    IPC_CHANNELS.INSIGHTS_APPEND_MEMORY,
+    async (_, projectId: string, section: string, content: string, source: string): Promise<IPCResult> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: "Project not found" };
+      }
+
+      try {
+        const success = insightsService.appendMemory(project.path, section, content, source);
+        return { success };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return { success: false, error: `Failed to append memory: ${errorMessage}` };
+      }
+    }
+  );
+
+  // Clear persistent memory
+  ipcMain.handle(
+    IPC_CHANNELS.INSIGHTS_CLEAR_MEMORY,
+    async (_, projectId: string): Promise<IPCResult> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: "Project not found" };
+      }
+
+      try {
+        insightsService.clearMemory(project.path);
+        return { success: true };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return { success: false, error: `Failed to clear memory: ${errorMessage}` };
+      }
+    }
+  );
 
   // Cancel/abort insights generation
   ipcMain.handle(

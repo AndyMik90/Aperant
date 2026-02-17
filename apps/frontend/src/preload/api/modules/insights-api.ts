@@ -38,6 +38,10 @@ export interface InsightsAPI {
   updateInsightsModelConfig: (projectId: string, sessionId: string, modelConfig: InsightsModelConfig) => Promise<IPCResult>;
   markInsightsTaskCreated: (projectId: string, sessionId: string, messageId: string, taskId: string) => Promise<IPCResult>;
   cancelInsights: (projectId: string) => Promise<IPCResult>;
+  exportInsightsSession: (projectId: string, sessionId: string) => Promise<IPCResult<string>>;
+  loadInsightsMemory: (projectId: string) => Promise<IPCResult<string | null>>;
+  appendInsightsMemory: (projectId: string, section: string, content: string, source: string) => Promise<IPCResult>;
+  clearInsightsMemory: (projectId: string) => Promise<IPCResult>;
 
   // Event Listeners
   onInsightsStreamChunk: (
@@ -101,6 +105,18 @@ export const createInsightsAPI = (): InsightsAPI => ({
 
   cancelInsights: (projectId: string): Promise<IPCResult> =>
     invokeIpc(IPC_CHANNELS.INSIGHTS_CANCEL, projectId),
+
+  exportInsightsSession: (projectId: string, sessionId: string): Promise<IPCResult<string>> =>
+    invokeIpc(IPC_CHANNELS.INSIGHTS_EXPORT_SESSION, projectId, sessionId),
+
+  loadInsightsMemory: (projectId: string): Promise<IPCResult<string | null>> =>
+    invokeIpc(IPC_CHANNELS.INSIGHTS_LOAD_MEMORY, projectId),
+
+  appendInsightsMemory: (projectId: string, section: string, content: string, source: string): Promise<IPCResult> =>
+    invokeIpc(IPC_CHANNELS.INSIGHTS_APPEND_MEMORY, projectId, section, content, source),
+
+  clearInsightsMemory: (projectId: string): Promise<IPCResult> =>
+    invokeIpc(IPC_CHANNELS.INSIGHTS_CLEAR_MEMORY, projectId),
 
   // Event Listeners
   onInsightsStreamChunk: (

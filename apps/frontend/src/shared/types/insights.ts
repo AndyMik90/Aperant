@@ -173,6 +173,7 @@ export interface InsightsToolUsage {
   name: string;
   input?: Record<string, unknown>;
   timestamp: Date;
+  elapsedMs?: number;
 }
 
 export interface InsightsChatMessage {
@@ -220,16 +221,29 @@ export interface InsightsChatStatus {
 }
 
 export interface InsightsStreamChunk {
-  type: 'text' | 'task_suggestion' | 'tool_start' | 'tool_end' | 'done' | 'error';
+  type: 'text' | 'task_suggestion' | 'task_edit' | 'tool_start' | 'tool_end' | 'done' | 'error' | 'timeout_warning' | 'memory_save';
   content?: string;
   suggestedTask?: {
     title: string;
     description: string;
     metadata?: TaskMetadata;
   };
+  taskEdit?: {
+    match: string;
+    title?: string;
+    description?: string;
+  };
   tool?: {
     name: string;
     input?: Record<string, unknown>;  // Full tool input dict for rich rendering
   };
   error?: string;
+  timeoutWarning?: {
+    percentUsed: number;
+    remainingSeconds: number;
+  };
+  memorySave?: {
+    section: string;
+    content: string;
+  };
 }

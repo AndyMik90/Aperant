@@ -147,7 +147,15 @@
     "errorLoadingContent": "Échec du chargement du contenu du fichier",
     "retry": "Réessayer",
     "selectFile": "Sélectionnez un fichier pour voir son contenu",
-    "openInIDE": "Ouvrir dans l'IDE"
+    "openInIDE": "Ouvrir dans l'IDE",
+    "openFolder": "Ouvrir le dossier",
+    "openFolderTooltip": "Ouvrir dans le gestionnaire de fichiers",
+    "codeChanges": "Changements de code",
+    "specFiles": "Fichiers spec",
+    "noChangedFiles": "Aucun fichier modifié",
+    "noWorktreeHint": "Les changements de code apparaissent ici une fois que la tâche commence à modifier des fichiers.",
+    "additions": "ajouts",
+    "deletions": "suppressions"
   },
   "metadata": {
     "severity": "sévérité",

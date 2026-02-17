@@ -457,10 +457,31 @@ export async function createTaskFromSuggestion(
   description: string,
   metadata?: TaskMetadata
 ): Promise<Task | null> {
+  const queueStore = useInsightsTaskQueueStore.getState();
+
+  // Auto-number batch tasks: count pending tasks for this project
+  const pendingForProject = queueStore.tasks.filter(
+    t => t.projectId === projectId && t.status === 'pending'
+  );
+
+  let numberedTitle = title;
+  if (pendingForProject.length === 1) {
+    // Second task arriving — retroactively number the first one
+    const firstTask = pendingForProject[0];
+    if (!firstTask.title.match(/^\d+\.\s/)) {
+      queueStore.updateTask(firstTask.id, { title: `1. ${firstTask.title}` });
+    }
+    numberedTitle = `2. ${title}`;
+  } else if (pendingForProject.length > 1) {
+    // Third+ task — just add the next number
+    numberedTitle = `${pendingForProject.length + 1}. ${title}`;
+  }
+  // First task (length === 0) gets no number — may be a single task
+
   // Instead of creating task immediately, add it to the sidebar queue
-  const queuedTaskId = useInsightsTaskQueueStore.getState().addTask({
+  const queuedTaskId = queueStore.addTask({
     projectId,
-    title,
+    title: numberedTitle,
     description,
     metadata: {
       category: metadata?.category,
@@ -522,6 +543,46 @@ export function setupInsightsListeners(currentProjectId: string): () => void {
           // Finalize the message with task suggestion
           store().setCurrentTool(null);
           store().finalizeStreamingMessage(chunk.suggestedTask);
+          break;
+        case 'task_edit': {
+          // Jerry wants to edit a queued task — find by title match and update
+          const edit = chunk.taskEdit;
+          if (edit?.match) {
+            const queueStore = useInsightsTaskQueueStore.getState();
+            const matchedTask = queueStore.tasks.find(t =>
+              t.projectId === currentProjectId &&
+              t.status === 'pending' &&
+              t.title.toLowerCase().includes(edit.match.toLowerCase())
+            );
+            if (matchedTask) {
+              const updates: Partial<Pick<typeof matchedTask, 'title' | 'description'>> = {};
+              if (edit.title) updates.title = edit.title;
+              if (edit.description) updates.description = edit.description;
+              queueStore.updateTask(matchedTask.id, updates);
+              console.log('[Insights] Task edited via Jerry:', matchedTask.id, updates);
+            }
+          }
+          break;
+        }
+        case 'timeout_warning':
+          if (chunk.timeoutWarning) {
+            const pct = chunk.timeoutWarning.percentUsed;
+            const remaining = chunk.timeoutWarning.remainingSeconds;
+            store().appendStreamingContent(
+              `\n\n---\n> **Warning:** ${pct}% of execution time used. ~${remaining}s remaining before session ends.\n\n---\n\n`
+            );
+          }
+          break;
+        case 'memory_save':
+          if (chunk.memorySave) {
+            // Persist memory via IPC (main process handles the actual file write)
+            window.electronAPI.appendInsightsMemory(
+              currentProjectId,
+              chunk.memorySave.section,
+              chunk.memorySave.content,
+              `Chat ${new Date().toISOString().split('T')[0]}`
+            ).catch(() => { /* non-critical */ });
+          }
           break;
         case 'done':
           // Finalize any remaining content

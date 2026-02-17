@@ -19,6 +19,7 @@ export interface ToolData {
   input?: Record<string, unknown>;
   output?: string;
   status?: 'running' | 'success' | 'error';
+  elapsedMs?: number;
 }
 
 function StatusIndicator({ status }: { status?: string }) {
@@ -26,6 +27,11 @@ function StatusIndicator({ status }: { status?: string }) {
   if (status === 'error') return <span className="text-red-500 ml-1">&#10007;</span>;
   if (status === 'running') return <span className="text-blue-400 ml-1 animate-pulse">&#9679;</span>;
   return null;
+}
+
+function ElapsedTime({ ms }: { ms?: number }) {
+  if (ms == null) return null;
+  return <span className="text-muted-foreground/50 text-[10px] ml-1">{(ms / 1000).toFixed(1)}s</span>;
 }
 
 function shouldCollapseByDefault(output: string | undefined): boolean {
@@ -60,6 +66,7 @@ export function ToolBlock({ tool, searchQuery, highlightMatches }: ToolBlockProp
           <div className="flex items-center gap-2 px-3 py-2 bg-purple-500/10 border-b border-border">
             <span className="text-purple-400 font-medium">Bash</span>
             <span className="text-muted-foreground/70 truncate flex-1">{command || 'command'}</span>
+            <ElapsedTime ms={tool.elapsedMs} />
             <StatusIndicator status={tool.status} />
             {hasOutput && isCollapsible && (
               <button onClick={() => setIsExpanded(!isExpanded)} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
@@ -101,6 +108,7 @@ export function ToolBlock({ tool, searchQuery, highlightMatches }: ToolBlockProp
           <div className="flex items-center gap-2 px-3 py-2 bg-green-500/10 border-b border-border">
             <span className="text-green-400 font-medium">Edit</span>
             <span className="text-muted-foreground/70 truncate flex-1">{fileName}</span>
+            <ElapsedTime ms={tool.elapsedMs} />
             <StatusIndicator status={tool.status} />
             {hasDiff && (
               <button onClick={() => setIsExpanded(!isExpanded)} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
@@ -142,6 +150,7 @@ export function ToolBlock({ tool, searchQuery, highlightMatches }: ToolBlockProp
             <span className="text-green-400 font-medium">Write</span>
             <span className="text-muted-foreground/70 truncate flex-1">{fileName}</span>
             <span className="text-muted-foreground/50 text-[10px]">+{lineCount} lines</span>
+            <ElapsedTime ms={tool.elapsedMs} />
             <StatusIndicator status={tool.status} />
             {hasContent && (
               <button onClick={() => setIsExpanded(!isExpanded)} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
@@ -181,6 +190,7 @@ export function ToolBlock({ tool, searchQuery, highlightMatches }: ToolBlockProp
             <span className="text-blue-400 font-medium">Read</span>
             <span className="text-muted-foreground/70 truncate flex-1">{fileName}</span>
             {lineRange && <span className="text-muted-foreground/50 text-[10px]">{lineRange}</span>}
+            <ElapsedTime ms={tool.elapsedMs} />
             <StatusIndicator status={tool.status} />
             {hasOutput && isCollapsible && (
               <button onClick={() => setIsExpanded(!isExpanded)} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
@@ -222,6 +232,7 @@ export function ToolBlock({ tool, searchQuery, highlightMatches }: ToolBlockProp
                 {matchCount} {matchCount === 1 ? 'match' : 'matches'}
               </span>
             )}
+            <ElapsedTime ms={tool.elapsedMs} />
             <StatusIndicator status={tool.status} />
             {hasOutput && isCollapsible && (
               <button onClick={() => setIsExpanded(!isExpanded)} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
@@ -265,6 +276,7 @@ export function ToolBlock({ tool, searchQuery, highlightMatches }: ToolBlockProp
                 {fileCount} {fileCount === 1 ? 'file' : 'files'}
               </span>
             )}
+            <ElapsedTime ms={tool.elapsedMs} />
             <StatusIndicator status={tool.status} />
             {hasOutput && isCollapsible && (
               <button onClick={() => setIsExpanded(!isExpanded)} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
@@ -302,6 +314,7 @@ export function ToolBlock({ tool, searchQuery, highlightMatches }: ToolBlockProp
           <div className="flex items-center gap-2 px-3 py-2 bg-indigo-500/10 border-b border-border">
             <span className="text-indigo-400 font-medium">Task</span>
             <span className="text-muted-foreground/70 truncate flex-1">{description || 'subagent'}</span>
+            <ElapsedTime ms={tool.elapsedMs} />
             <StatusIndicator status={tool.status} />
             {hasOutput && isCollapsible && (
               <button onClick={() => setIsExpanded(!isExpanded)} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">

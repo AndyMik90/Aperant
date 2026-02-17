@@ -466,11 +466,11 @@ export function App() {
         const planningTaskIds: string[] = [];
 
         for (const task of currentTasks) {
-          if (task.status === 'coding' || task.status === 'planning') {
+          if (task.status === 'coding' || task.status === 'planning' || task.status === 'ai_review') {
             const promise = window.electronAPI.checkTaskRunning(task.id).then(result => {
               if (result.success && result.data === false) {
                 taskStore.setAgentStopped(task.id, true);
-                if (task.status === 'coding') {
+                if (task.status === 'coding' || task.status === 'ai_review') {
                   interruptedCoding.push(task.id);
                 }
                 // Track stopped planning tasks for planning-complete check

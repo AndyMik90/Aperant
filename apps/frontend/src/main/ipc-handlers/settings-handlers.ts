@@ -526,6 +526,54 @@ export function registerSettingsHandlers(
     }
   );
 
+  ipcMain.handle(
+    IPC_CHANNELS.SHELL_OPEN_FOLDER,
+    async (_, dirPath: string): Promise<IPCResult<void>> => {
+      try {
+        if (!dirPath || typeof dirPath !== 'string' || dirPath.trim() === '') {
+          return {
+            success: false,
+            error: 'Directory path is required and must be a non-empty string'
+          };
+        }
+
+        const resolvedPath = path.resolve(dirPath);
+
+        if (!existsSync(resolvedPath)) {
+          return {
+            success: false,
+            error: `Directory does not exist: ${resolvedPath}`
+          };
+        }
+
+        try {
+          if (!statSync(resolvedPath).isDirectory()) {
+            return {
+              success: false,
+              error: `Path is not a directory: ${resolvedPath}`
+            };
+          }
+        } catch (statError) {
+          return {
+            success: false,
+            error: `Cannot access path: ${resolvedPath}`
+          };
+        }
+
+        // shell.openPath opens folders in the native file manager
+        // (Explorer on Windows, Finder on macOS, Files on Linux)
+        await shell.openPath(resolvedPath);
+        return { success: true };
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        return {
+          success: false,
+          error: `Failed to open folder: ${errorMsg}`
+        };
+      }
+    }
+  );
+
   // ============================================
   // Auto-Build Source Environment Operations
   // ============================================

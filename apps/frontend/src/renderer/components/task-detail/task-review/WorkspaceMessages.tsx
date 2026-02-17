@@ -139,7 +139,7 @@ export function StagedInProjectMessage({ task, projectPath, hasWorktree = false,
     setError(null);
 
     try {
-      await persistTaskStatus(task.id, 'done');
+      await persistTaskStatus(task.id, 'done', { keepWorktree: true });
       onClose?.();
     } catch (err) {
       console.error('Error marking task as done:', err);

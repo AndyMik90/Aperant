@@ -183,5 +183,10 @@ export const infrastructureMock = {
   openTerminal: async (dirPath: string) => {
     console.warn('[Browser Mock] openTerminal:', dirPath);
     return { success: true };
+  },
+
+  openFolder: async (dirPath: string) => {
+    console.warn('[Browser Mock] openFolder:', dirPath);
+    return { success: true };
   }
 };

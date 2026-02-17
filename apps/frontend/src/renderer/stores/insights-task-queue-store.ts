@@ -23,21 +23,26 @@ export interface InsightsQueuedTask {
 
 interface InsightsTaskQueueState {
   tasks: InsightsQueuedTask[];
+  dismissedTitles: string[]; // Titles of tasks explicitly dismissed — prevents auto-re-queue
   isCollapsed: boolean;
 
   // Actions
   addTask: (task: Omit<InsightsQueuedTask, 'id' | 'createdAt' | 'status'>) => string;
   removeTask: (id: string) => void;
+  dismissTask: (id: string) => void; // Remove + add title to dismissedTitles
+  updateTask: (id: string, updates: Partial<Pick<InsightsQueuedTask, 'title' | 'description' | 'metadata'>>) => void;
   updateTaskStatus: (id: string, status: InsightsQueuedTask['status'], taskId?: string) => void;
   setTaskStarted: (id: string) => void;
   setTaskCompleted: (id: string) => void;
   setTaskFailed: (id: string) => void;
   clearCompletedTasks: () => void;
+  isDismissed: (title: string) => boolean;
   toggleCollapsed: () => void;
   loadFromStorage: () => void;
 }
 
 const STORAGE_KEY = 'insights-task-queue';
+const DISMISSED_STORAGE_KEY = 'insights-task-queue-dismissed';
 
 /**
  * Load tasks from localStorage
@@ -73,6 +78,29 @@ function saveTasksToStorage(tasks: InsightsQueuedTask[]): void {
 }
 
 /**
+ * Load dismissed titles from localStorage
+ */
+function loadDismissedFromStorage(): string[] {
+  try {
+    const stored = localStorage.getItem(DISMISSED_STORAGE_KEY);
+    if (!stored) return [];
+    return JSON.parse(stored);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Save dismissed titles to localStorage
+ */
+function saveDismissedToStorage(titles: string[]): void {
+  try {
+    // Keep only the last 100 to prevent unbounded growth
+    localStorage.setItem(DISMISSED_STORAGE_KEY, JSON.stringify(titles.slice(-100)));
+  } catch { /* non-critical */ }
+}
+
+/**
  * Generate unique task ID
  */
 function generateTaskId(): string {
@@ -81,6 +109,7 @@ function generateTaskId(): string {
 
 export const useInsightsTaskQueueStore = create<InsightsTaskQueueState>((set, get) => ({
   tasks: [],
+  dismissedTitles: [],
   isCollapsed: false,
 
   addTask: (taskData) => {
@@ -109,6 +138,36 @@ export const useInsightsTaskQueueStore = create<InsightsTaskQueueState>((set, ge
       return { tasks };
     });
     console.log('[InsightsTaskQueue] Task removed:', id);
+  },
+
+  dismissTask: (id) => {
+    const task = get().tasks.find((t) => t.id === id);
+    set((state) => {
+      const tasks = state.tasks.filter((t) => t.id !== id);
+      saveTasksToStorage(tasks);
+      if (task) {
+        const dismissedTitles = [...state.dismissedTitles, task.title];
+        saveDismissedToStorage(dismissedTitles);
+        return { tasks, dismissedTitles };
+      }
+      return { tasks };
+    });
+    console.log('[InsightsTaskQueue] Task dismissed:', id, task?.title);
+  },
+
+  isDismissed: (title) => {
+    return get().dismissedTitles.includes(title);
+  },
+
+  updateTask: (id, updates) => {
+    set((state) => {
+      const tasks = state.tasks.map((t) =>
+        t.id === id ? { ...t, ...updates } : t
+      );
+      saveTasksToStorage(tasks);
+      return { tasks };
+    });
+    console.log('[InsightsTaskQueue] Task updated:', id, Object.keys(updates));
   },
 
   updateTaskStatus: (id, status, taskId) => {
@@ -158,8 +217,9 @@ export const useInsightsTaskQueueStore = create<InsightsTaskQueueState>((set, ge
 
   loadFromStorage: () => {
     const tasks = loadTasksFromStorage();
-    set({ tasks });
-    console.log('[InsightsTaskQueue] Loaded from storage:', tasks.length, 'tasks');
+    const dismissedTitles = loadDismissedFromStorage();
+    set({ tasks, dismissedTitles });
+    console.log('[InsightsTaskQueue] Loaded from storage:', tasks.length, 'tasks,', dismissedTitles.length, 'dismissed');
   },
 }));
 

@@ -157,6 +157,65 @@ export class SessionStorage {
   }
 
   /**
+   * Export a session as markdown
+   */
+  exportSessionAsMarkdown(session: InsightsSession): string {
+    const lines: string[] = [];
+
+    lines.push(`# ${session.title || 'Jerry Conversation'}`);
+    lines.push('');
+    lines.push(`**Date:** ${new Date(session.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}`);
+    lines.push(`**Session ID:** ${session.id}`);
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+
+    for (const message of session.messages) {
+      const role = message.role === 'user' ? '**You**' : '**Jerry**';
+      const timestamp = new Date(message.timestamp).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+
+      lines.push(`### ${role} *${timestamp}*`);
+      lines.push('');
+
+      if (message.toolsUsed && message.toolsUsed.length > 0) {
+        lines.push('<details>');
+        lines.push(`<summary>Tools used (${message.toolsUsed.length})</summary>`);
+        lines.push('');
+        for (const tool of message.toolsUsed) {
+          lines.push(`- **${tool.name}**`);
+          if (tool.input) {
+            for (const [k, v] of Object.entries(tool.input)) {
+              const val = typeof v === 'string' ? v.slice(0, 100) : JSON.stringify(v).slice(0, 100);
+              lines.push(`  - ${k}: ${val}`);
+            }
+          }
+        }
+        lines.push('');
+        lines.push('</details>');
+        lines.push('');
+      }
+
+      lines.push(message.content);
+      lines.push('');
+
+      if (message.suggestedTask) {
+        lines.push('> **Suggested Task:** ' + message.suggestedTask.title);
+        if (message.suggestedTask.description) {
+          lines.push('> ' + message.suggestedTask.description);
+        }
+        lines.push('');
+      }
+
+      lines.push('---');
+      lines.push('');
+    }
+
+    lines.push(`*Exported from AC Jerry on ${new Date().toLocaleDateString()}*`);
+
+    return lines.join('\n');
+  }
+
+  /**
    * Get current session ID for a project
    */
   getCurrentSessionId(projectPath: string): string | null {

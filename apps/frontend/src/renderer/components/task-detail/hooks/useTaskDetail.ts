@@ -95,7 +95,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
 
   const selectedProject = useProjectStore((state) => state.getSelectedProject());
   const isAgentStopped = useTaskStore((state) => state.isAgentStopped(task.id));
-  const isRunning = task.status === 'coding' && !isAgentStopped;
+  const isRunning = (task.status === 'coding' || task.status === 'ai_review') && !isAgentStopped;
   // isActiveTask includes ai_review for stuck detection (CHANGELOG documents this feature)
   // but only when the agent hasn't been deliberately stopped
   const isActiveTask = (task.status === 'coding' || task.status === 'ai_review') && !isAgentStopped;
@@ -183,9 +183,12 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     setFeedbackImages([]);
   }, [task.id]);
 
-  // Load worktree status when task is in human_review
+  // Statuses where a worktree may exist (for Files tab code changes view)
+  const hasWorktree = ['coding', 'ai_review', 'human_review', 'pr_created'].includes(task.status);
+
+  // Load worktree status when task may have a worktree
   useEffect(() => {
-    if (needsReview) {
+    if (hasWorktree) {
       setIsLoadingWorktree(true);
       setWorkspaceError(null);
 
@@ -208,7 +211,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
       setWorktreeStatus(null);
       setWorktreeDiff(null);
     }
-  }, [task.id, needsReview]);
+  }, [task.id, hasWorktree]);
 
   // Load and watch phase logs
   useEffect(() => {

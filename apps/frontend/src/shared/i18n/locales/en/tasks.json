@@ -147,7 +147,15 @@
     "errorLoadingContent": "Failed to load file content",
     "retry": "Retry",
     "selectFile": "Select a file to view its contents",
-    "openInIDE": "Open in IDE"
+    "openInIDE": "Open in IDE",
+    "openFolder": "Open Folder",
+    "openFolderTooltip": "Open in file manager",
+    "codeChanges": "Code Changes",
+    "specFiles": "Spec Files",
+    "noChangedFiles": "No files changed",
+    "noWorktreeHint": "Code changes appear here once the task starts modifying files.",
+    "additions": "additions",
+    "deletions": "deletions"
   },
   "metadata": {
     "severity": "severity",

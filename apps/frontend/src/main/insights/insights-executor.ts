@@ -29,6 +29,9 @@ interface ProcessorResult {
 const MAX_EXECUTION_MS = 15 * 60 * 1000;
 // Kill process if no stdout/stderr activity for this long (3 minutes — Claude thinking can take a while)
 const ACTIVITY_TIMEOUT_MS = 3 * 60 * 1000;
+// Timeout warning thresholds
+const TIMEOUT_WARNING_80_MS = MAX_EXECUTION_MS * 0.8;  // 12 minutes
+const TIMEOUT_WARNING_90_MS = MAX_EXECUTION_MS * 0.9;  // 13.5 minutes
 
 /**
  * Kill a process and all its children by process group.
@@ -56,7 +59,7 @@ function killProcessTree(proc: ChildProcess): void {
 export class InsightsExecutor extends EventEmitter {
   private config: InsightsConfig;
   private activeSessions: Map<string, ChildProcess> = new Map();
-  private activeTimers: Map<string, { hard: ReturnType<typeof setTimeout>; activity: ReturnType<typeof setTimeout> }> = new Map();
+  private activeTimers: Map<string, { hard: ReturnType<typeof setTimeout>; activity: ReturnType<typeof setTimeout>; warning80?: ReturnType<typeof setTimeout>; warning90?: ReturnType<typeof setTimeout> }> = new Map();
 
   constructor(config: InsightsConfig) {
     super();
@@ -91,6 +94,8 @@ export class InsightsExecutor extends EventEmitter {
     if (timers) {
       clearTimeout(timers.hard);
       clearTimeout(timers.activity);
+      if (timers.warning80) clearTimeout(timers.warning80);
+      if (timers.warning90) clearTimeout(timers.warning90);
       this.activeTimers.delete(projectId);
     }
   }
@@ -120,7 +125,8 @@ export class InsightsExecutor extends EventEmitter {
     message: string,
     conversationHistory: Array<{ role: string; content: string }>,
     modelConfig?: InsightsModelConfig,
-    imagePaths?: string[]
+    imagePaths?: string[],
+    memoryContext?: string
   ): Promise<ProcessorResult> {
     // Cancel any existing session
     this.cancelSession(projectId);
@@ -179,6 +185,19 @@ export class InsightsExecutor extends EventEmitter {
       args.push('--images', JSON.stringify(imagePaths));
     }
 
+    // Add memory context if available
+    let memoryFile: string | undefined;
+    if (memoryContext) {
+      memoryFile = path.join(os.tmpdir(), `insights-memory-${projectId}-${Date.now()}.txt`);
+      try {
+        writeFileSync(memoryFile, memoryContext, 'utf-8');
+        args.push('--memory-file-path', memoryFile);
+      } catch (err) {
+        console.error('[Insights] Failed to write memory file:', err);
+        memoryFile = undefined;
+      }
+    }
+
     // Spawn Python process in its own process group (detached) so we can
     // kill the entire tree (Python + Claude SDK binary) on timeout/cancel.
     // Do NOT unref() — we need stdio pipes to stay open while reading output.
@@ -207,7 +226,24 @@ export class InsightsExecutor extends EventEmitter {
       killProcessTree(proc);
     }, ACTIVITY_TIMEOUT_MS);
 
-    this.activeTimers.set(projectId, { hard: hardTimer, activity: activityTimer });
+    // Warning timers at 80% and 90% of max execution time
+    const warning80Timer = setTimeout(() => {
+      const remainingSec = Math.round((MAX_EXECUTION_MS - TIMEOUT_WARNING_80_MS) / 1000);
+      this.emit('stream-chunk', projectId, {
+        type: 'timeout_warning',
+        timeoutWarning: { percentUsed: 80, remainingSeconds: remainingSec }
+      } as InsightsStreamChunk);
+    }, TIMEOUT_WARNING_80_MS);
+
+    const warning90Timer = setTimeout(() => {
+      const remainingSec = Math.round((MAX_EXECUTION_MS - TIMEOUT_WARNING_90_MS) / 1000);
+      this.emit('stream-chunk', projectId, {
+        type: 'timeout_warning',
+        timeoutWarning: { percentUsed: 90, remainingSeconds: remainingSec }
+      } as InsightsStreamChunk);
+    }, TIMEOUT_WARNING_90_MS);
+
+    this.activeTimers.set(projectId, { hard: hardTimer, activity: activityTimer, warning80: warning80Timer, warning90: warning90Timer });
 
     return new Promise((resolve, reject) => {
       let fullResponse = '';
@@ -236,6 +272,10 @@ export class InsightsExecutor extends EventEmitter {
                 textSinceLastSuggestion = '';
               }
             });
+          } else if (line.startsWith('__TASK_EDIT__:')) {
+            this.handleTaskEdit(projectId, line);
+          } else if (line.startsWith('__MEMORY_SAVE__:')) {
+            this.handleMemorySave(projectId, line);
           } else if (line.startsWith('__TOOL_START__:')) {
             this.handleToolStart(projectId, line, toolsUsed);
           } else if (line.startsWith('__TOOL_END__:')) {
@@ -265,13 +305,18 @@ export class InsightsExecutor extends EventEmitter {
         this.clearTimers(projectId);
         this.activeSessions.delete(projectId);
 
-        // Cleanup temp file
+        // Cleanup temp files
         if (historyFileCreated && existsSync(historyFile)) {
           try {
             unlinkSync(historyFile);
           } catch (cleanupErr) {
             console.error('[Insights] Failed to cleanup history file:', cleanupErr);
           }
+        }
+        if (memoryFile && existsSync(memoryFile)) {
+          try {
+            unlinkSync(memoryFile);
+          } catch { /* non-critical */ }
         }
 
         // Check for rate limit if process failed
@@ -321,13 +366,16 @@ export class InsightsExecutor extends EventEmitter {
         this.clearTimers(projectId);
         this.activeSessions.delete(projectId);
 
-        // Cleanup temp file
+        // Cleanup temp files
         if (historyFileCreated && existsSync(historyFile)) {
           try {
             unlinkSync(historyFile);
           } catch (cleanupErr) {
             console.error('[Insights] Failed to cleanup history file:', cleanupErr);
           }
+        }
+        if (memoryFile && existsSync(memoryFile)) {
+          try { unlinkSync(memoryFile); } catch { /* non-critical */ }
         }
 
         this.emit('error', projectId, err.message);
@@ -354,6 +402,22 @@ export class InsightsExecutor extends EventEmitter {
       } as InsightsStreamChunk);
     } catch {
       // Not valid JSON, treat as normal text (should not emit here as it's already handled)
+    }
+  }
+
+  /**
+   * Handle task edit from output
+   */
+  private handleTaskEdit(projectId: string, line: string): void {
+    try {
+      const editJson = line.substring('__TASK_EDIT__:'.length);
+      const taskEdit = JSON.parse(editJson);
+      this.emit('stream-chunk', projectId, {
+        type: 'task_edit',
+        taskEdit
+      } as InsightsStreamChunk);
+    } catch {
+      // Not valid JSON, ignore
     }
   }
 
@@ -401,6 +465,25 @@ export class InsightsExecutor extends EventEmitter {
       } as InsightsStreamChunk);
     } catch {
       // Ignore parse errors for tool markers
+    }
+  }
+
+  /**
+   * Handle memory save from output
+   */
+  private handleMemorySave(projectId: string, line: string): void {
+    try {
+      const memoryJson = line.substring('__MEMORY_SAVE__:'.length);
+      const memoryData = JSON.parse(memoryJson);
+      this.emit('stream-chunk', projectId, {
+        type: 'memory_save',
+        memorySave: {
+          section: memoryData.section,
+          content: memoryData.content
+        }
+      } as InsightsStreamChunk);
+    } catch {
+      // Not valid JSON, ignore
     }
   }
 

@@ -10,6 +10,7 @@ import { InsightsPaths } from './insights/paths';
 import { SessionStorage } from './insights/session-storage';
 import { SessionManager } from './insights/session-manager';
 import { InsightsExecutor } from './insights/insights-executor';
+import { MemoryStorage } from './insights/memory-storage';
 
 /**
  * Service for AI-powered codebase insights chat
@@ -27,6 +28,7 @@ export class InsightsService extends EventEmitter {
   private storage: SessionStorage;
   private sessionManager: SessionManager;
   private executor: InsightsExecutor;
+  private memory: MemoryStorage;
 
   constructor() {
     super();
@@ -37,12 +39,28 @@ export class InsightsService extends EventEmitter {
     this.storage = new SessionStorage(this.paths);
     this.sessionManager = new SessionManager(this.storage, this.paths);
     this.executor = new InsightsExecutor(this.config);
+    this.memory = new MemoryStorage(this.paths);
 
     // Forward executor events
     this.executor.on('status', (projectId, status) => {
       this.emit('status', projectId, status);
     });
     this.executor.on('stream-chunk', (projectId, chunk) => {
+      // Persist memory saves before forwarding to renderer
+      if (chunk.type === 'memory_save' && chunk.memorySave) {
+        try {
+          const { projectStore } = require('./project-store');
+          const project = projectStore.getProject(projectId);
+          if (project) {
+            this.memory.appendMemory(
+              project.path,
+              chunk.memorySave.section,
+              chunk.memorySave.content,
+              `Session ${new Date().toISOString().split('T')[0]}`
+            );
+          }
+        } catch { /* non-critical */ }
+      }
       this.emit('stream-chunk', projectId, chunk);
     });
     this.executor.on('error', (projectId, error) => {
@@ -103,6 +121,41 @@ export class InsightsService extends EventEmitter {
   }
 
   /**
+   * Load a specific session by ID (for export)
+   */
+  getSessionById(projectPath: string, sessionId: string): InsightsSession | null {
+    return this.storage.loadSessionById(projectPath, sessionId);
+  }
+
+  /**
+   * Export a session as markdown
+   */
+  exportSessionAsMarkdown(session: InsightsSession): string {
+    return this.storage.exportSessionAsMarkdown(session);
+  }
+
+  /**
+   * Load persistent memory for a project
+   */
+  loadMemory(projectPath: string): string | null {
+    return this.memory.loadMemory(projectPath);
+  }
+
+  /**
+   * Append to persistent memory
+   */
+  appendMemory(projectPath: string, section: string, content: string, source: string): boolean {
+    return this.memory.appendMemory(projectPath, section, content, source);
+  }
+
+  /**
+   * Clear persistent memory
+   */
+  clearMemory(projectPath: string): void {
+    this.memory.clearMemory(projectPath);
+  }
+
+  /**
    * Clear current session (delete messages but keep the session)
    */
   clearSession(projectId: string, projectPath: string): void {
@@ -160,6 +213,9 @@ export class InsightsService extends EventEmitter {
     // Use provided modelConfig or fall back to session's config
     const configToUse = modelConfig || session.modelConfig;
 
+    // Load persistent memory for context
+    const memoryContext = this.memory.loadMemory(projectPath) || undefined;
+
     try {
       // Execute insights query
       const result = await this.executor.execute(
@@ -168,7 +224,8 @@ export class InsightsService extends EventEmitter {
         message,
         conversationHistory,
         configToUse,
-        imagePaths
+        imagePaths,
+        memoryContext
       );
 
       // Add assistant message(s) to session

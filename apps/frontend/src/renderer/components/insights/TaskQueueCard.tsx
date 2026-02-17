@@ -15,6 +15,7 @@ interface TaskQueueCardProps {
   onStart: (taskId: string) => void;
   onDelete: (taskId: string) => void;
   onView: (taskId: string) => void;
+  onPreview: (task: InsightsQueuedTask) => void;
   isCollapsed?: boolean;
 }
 
@@ -76,7 +77,7 @@ const statusConfig = {
   },
 };
 
-export function TaskQueueCard({ task, linkedTask, onStart, onDelete, onView, isCollapsed }: TaskQueueCardProps) {
+export function TaskQueueCard({ task, linkedTask, onStart, onDelete, onView, onPreview, isCollapsed }: TaskQueueCardProps) {
   const baseConfig = statusConfig[task.status];
   const phase = linkedTask?.executionProgress?.phase;
 
@@ -107,8 +108,10 @@ export function TaskQueueCard({ task, linkedTask, onStart, onDelete, onView, isC
                 'hover:bg-accent/50 cursor-pointer transition-colors'
               )}
               onClick={() => {
-                if (task.status === 'complete' && task.taskId) {
+                if (task.taskId && (task.status === 'running' || task.status === 'complete')) {
                   onView(task.taskId);
+                } else {
+                  onPreview(task);
                 }
               }}
             >
@@ -127,13 +130,12 @@ export function TaskQueueCard({ task, linkedTask, onStart, onDelete, onView, isC
 
   return (
     <div
-      className={cn(
-        'p-3 border-b border-border/50 hover:bg-accent/30 transition-colors overflow-hidden min-w-0',
-        hasKanbanLink && 'cursor-pointer'
-      )}
+      className="p-3 border-b border-border/50 hover:bg-accent/30 transition-colors overflow-hidden min-w-0 cursor-pointer"
       onClick={() => {
         if (hasKanbanLink) {
           onView(task.taskId!);
+        } else {
+          onPreview(task);
         }
       }}
     >
