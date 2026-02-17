@@ -844,6 +844,7 @@ def create_client(
                     WINDOWS_MAX_SYSTEM_PROMPT_CHARS
                     - len(base_prompt)
                     - len(WINDOWS_TRUNCATION_MESSAGE)
+                    - len("\n\n# Project Instructions (from CLAUDE.md)\n\n")
                 )
                 if len(claude_md_content) > max_claude_md_chars > 0:
                     claude_md_content = (

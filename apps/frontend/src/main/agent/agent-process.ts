@@ -691,7 +691,7 @@ export class AgentProcessManager {
     // On Windows, process.env spread produces 'Path' (system) while getAugmentedEnv() writes 'PATH'.
     // Without normalization, Object.keys().find() returns 'Path' first (insertion order), missing
     // augmented entries, and the final spread produces both 'Path' and 'PATH' keys. (#1661)
-    const envPathKey = Object.keys(env).find(k => k.toUpperCase() === 'PATH') || 'PATH';
+    const envPathKey = 'PATH' in env ? 'PATH' : (Object.keys(env).find(k => k.toUpperCase() === 'PATH') || 'PATH');
     if (envPathKey !== 'PATH' && envPathKey in env) {
       env['PATH'] = env[envPathKey] as string;
       delete env[envPathKey];
