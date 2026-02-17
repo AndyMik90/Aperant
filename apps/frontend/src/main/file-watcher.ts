@@ -126,12 +126,10 @@ export class FileWatcher extends EventEmitter {
       // can proceed correctly.
       if (this.pendingWatches.get(taskId) === specDir) {
         this.pendingWatches.delete(taskId);
-        // Only clear the cancellation flag when there is no longer any
-        // in-flight watch() for this taskId. If unwatch() set the flag
-        // for the superseding call, that call still needs to see it.
-        if (!this.pendingWatches.has(taskId)) {
-          this.cancelledWatches.delete(taskId);
-        }
+        // The delete above guarantees has() is now false, so there is no
+        // longer any in-flight watch() for this taskId. Clear the
+        // cancellation flag so it doesn't linger for future watch() calls.
+        this.cancelledWatches.delete(taskId);
       }
     }
   }
@@ -163,6 +161,12 @@ export class FileWatcher extends EventEmitter {
     for (const taskId of this.pendingWatches.keys()) {
       this.cancelledWatches.add(taskId);
     }
+    this.pendingWatches.clear();
+    // Clear cancellation flags now that pendingWatches is empty: the in-flight
+    // calls will bail via the supersession check (pendingWatches.get() returns
+    // undefined) and will not clean up cancelledWatches themselves. Clearing
+    // here ensures the instance is fully reset for subsequent use.
+    this.cancelledWatches.clear();
     const closePromises = Array.from(this.watchers.values()).map(
       async (info) => {
         await info.watcher.close();

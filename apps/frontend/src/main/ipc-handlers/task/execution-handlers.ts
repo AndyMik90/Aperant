@@ -89,7 +89,10 @@ async function ensureProfileManagerInitialized(): Promise<
 function getSpecDirForWatcher(projectPath: string, specsBaseDir: string, specId: string): string {
   const worktreePath = findTaskWorktree(projectPath, specId);
   if (worktreePath) {
-    return path.join(worktreePath, specsBaseDir, specId);
+    const worktreeSpecDir = path.join(worktreePath, specsBaseDir, specId);
+    if (existsSync(path.join(worktreeSpecDir, 'implementation_plan.json'))) {
+      return worktreeSpecDir;
+    }
   }
   return path.join(projectPath, specsBaseDir, specId);
 }
