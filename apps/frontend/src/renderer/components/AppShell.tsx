@@ -14,19 +14,19 @@ export function AppShell() {
   const selectedProject = useProjectStore(selectCurrentProject);
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-sidebar">
-      <TopNavBar
-        onProjectClose={handleProjectTabClose}
-        onAddProject={() => useDialogStore.getState().openAddProjectModal()}
+    <div className="flex flex-row h-screen overflow-hidden bg-sidebar pb-4 px-4 gap-4">
+      <Sidebar
+        onSettingsClick={() => useDialogStore.getState().openSettings()}
+        onNewTaskClick={() => useDialogStore.getState().openNewTaskDialog()}
+        activeView={activeView}
+        onViewChange={setActiveView}
       />
-      <div className="flex flex-1 h-full">
-        <Sidebar
-          onSettingsClick={() => useDialogStore.getState().openSettings()}
-          onNewTaskClick={() => useDialogStore.getState().openNewTaskDialog()}
-          activeView={activeView}
-          onViewChange={setActiveView}
+      <div className="flex flex-1 flex-col gap-4 min-w-0">
+        <TopNavBar
+          onProjectClose={handleProjectTabClose}
+          onAddProject={() => useDialogStore.getState().openAddProjectModal()}
         />
-        <main className="flex flex-1 overflow-hidden bg-card shadow-sm shadow-shadow rounded-[var(--radius)] border border-border mt-4">
+        <main className="flex flex-1 overflow-hidden bg-background shadow-sm rounded-lg border border-border">
           {selectedProject ? (
             <div className="flex flex-col h-full w-full">
               <ViewSwitcher projectPath={selectedProject.path} />

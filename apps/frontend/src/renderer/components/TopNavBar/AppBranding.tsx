@@ -7,8 +7,8 @@ export function AppBranding() {
 
   return (
     <div className="flex items-center px-3 select-none shrink-0">
-      <Badge variant="secondary" className="gap-1.5 px-2 py-1 font-normal">
-        <img src={appIcon} alt="" className="h-4 w-4" draggable={false} />
+      <Badge variant="secondary" className="gap-1.5 px-3 py-1.5 text-sm font-medium">
+        <img src={appIcon} alt="" className="h-5 w-5" draggable={false} />
         {t('appTitle')}
       </Badge>
     </div>

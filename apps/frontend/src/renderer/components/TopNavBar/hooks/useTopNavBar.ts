@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import {
   PointerSensor,
   useSensor,
@@ -10,10 +10,24 @@ import { useProjectStore } from '@/stores/project-store';
 import type { Project } from '@shared/types';
 
 export function useTopNavBar() {
-  const projectTabs = useProjectStore((state) => state.getProjectTabs());
+  // Subscribe to the data that getProjectTabs() depends on, then compute tabs
+  // at render time. Calling getProjectTabs() inside a selector creates a new
+  // array reference every render, which causes an infinite re-render loop.
+  const projects = useProjectStore((state) => state.projects);
+  const openProjectIds = useProjectStore((state) => state.openProjectIds);
+  const tabOrder = useProjectStore((state) => state.tabOrder);
   const activeProjectId = useProjectStore((state) => state.activeProjectId);
   const setActiveProject = useProjectStore((state) => state.setActiveProject);
   const reorderTabs = useProjectStore((state) => state.reorderTabs);
+
+  const projectTabs = useMemo(() => {
+    const orderedProjects = tabOrder
+      .map(id => projects.find(p => p.id === id))
+      .filter(Boolean) as Project[];
+    const remainingProjects = projects
+      .filter(p => openProjectIds.includes(p.id) && !tabOrder.includes(p.id));
+    return [...orderedProjects, ...remainingProjects];
+  }, [projects, openProjectIds, tabOrder]);
 
   // Setup drag sensors
   const sensors = useSensors(

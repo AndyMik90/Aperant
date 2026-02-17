@@ -16,6 +16,7 @@ import {
   TooltipTrigger
 } from '../ui/tooltip';
 import { cn } from '../../lib/utils';
+import appIcon from '@/assets/app-icon-32.png';
 import { GitSetupModal } from '../GitSetupModal';
 import { RateLimitIndicator } from '../RateLimitIndicator';
 import { ClaudeCodeStatusBadge } from '../ClaudeCodeStatusBadge';
@@ -104,43 +105,52 @@ export function Sidebar({
         "flex h-full flex-col bg-sidebar transition-all duration-300 overflow-hidden",
         isCollapsed ? "w-16" : "w-64"
       )}>
-        {/* Drag region for macOS traffic lights */}
-        {window.platform?.isMacOS && <div className="electron-drag h-6 shrink-0" />}
+        {/* Branding + collapse toggle — h-12 matches TopNavBar */}
+        <div className={cn(
+          "flex items-center shrink-0 h-12 pt-2 transition-all duration-300",
+          isCollapsed ? "justify-center px-2" : "justify-between px-4"
+        )}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className={cn(
+                  "flex items-center select-none transition-all duration-200",
+                  isCollapsed ? "justify-center" : "gap-2"
+                )}
+                onClick={isCollapsed ? toggleSidebar : undefined}
+                aria-label={isCollapsed ? t('actions.expandSidebar') : undefined}
+              >
+                <img src={appIcon} alt="" className={cn("shrink-0 transition-all duration-200", isCollapsed ? "h-7 w-7" : "h-6 w-6")} draggable={false} />
+                {!isCollapsed && (
+                  <span className="text-sm font-semibold whitespace-nowrap">{t('common:appTitle')}</span>
+                )}
+              </button>
+            </TooltipTrigger>
+            {isCollapsed && (
+              <TooltipContent side="right">{t('common:appTitle')}</TooltipContent>
+            )}
+          </Tooltip>
+          {!isCollapsed && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className="flex items-center justify-center rounded-lg electron-no-drag shrink-0 h-7 w-7 p-1.5 transition-all duration-200 hover:bg-accent hover:text-accent-foreground text-muted-foreground"
+                  onClick={toggleSidebar}
+                  aria-label={t('actions.collapseSidebar')}
+                >
+                  <PanelLeftClose className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">{t('actions.collapseSidebar')}</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
 
         {/* Navigation */}
         <ScrollArea className="flex-1">
-          <div className={cn("py-4 transition-all duration-300", isCollapsed ? "px-2" : "px-3")}>
-            {/* Section header with toggle */}
-            <div className={cn(
-              "flex flex-row items-center whitespace-nowrap mb-1",
-              isCollapsed ? "justify-center px-2" : "justify-between px-3"
-            )}>
-              {!isCollapsed && (
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {t('sections.project')}
-                </h3>
-              )}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    className={cn(
-                      "flex items-center justify-center rounded-lg electron-no-drag shrink-0 transition-all duration-200",
-                      "hover:bg-accent hover:text-accent-foreground text-muted-foreground",
-                      isCollapsed ? "h-9 w-9 p-2.5" : "h-7 w-7 p-1.5"
-                    )}
-                    onClick={toggleSidebar}
-                    aria-label={isCollapsed ? t('actions.expandSidebar') : t('actions.collapseSidebar')}
-                  >
-                    {isCollapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="right">
-                  {isCollapsed ? t('actions.expandSidebar') : t('actions.collapseSidebar')}
-                </TooltipContent>
-              </Tooltip>
-            </div>
-
+          <div className={cn("py-2 transition-all duration-300", isCollapsed ? "px-2" : "px-3")}>
             {/* Nav items */}
             <nav className="space-y-1">
               {visibleNavItems.map(renderNavItem)}

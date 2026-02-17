@@ -67,8 +67,6 @@ export function SortableProjectTab({
             className={cn(
               'cursor-pointer gap-1.5 pr-1.5 select-none',
               'max-w-[160px] sm:max-w-[200px] md:max-w-[240px]',
-              'px-3 py-1.5',
-              isActive && 'bg-secondary text-secondary-foreground',
               !isActive && [
                 'bg-transparent hover:bg-secondary/50',
                 'text-muted-foreground hover:text-foreground'
@@ -77,7 +75,7 @@ export function SortableProjectTab({
             onClick={onSelect}
           >
             {/* Project name */}
-            <span className="truncate text-sm font-medium">
+            <span className="truncate">
               {project.name}
             </span>
 

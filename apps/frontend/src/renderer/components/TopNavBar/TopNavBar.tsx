@@ -7,9 +7,7 @@ import {
   SortableContext,
   horizontalListSortingStrategy
 } from '@dnd-kit/sortable';
-import { cn } from '@/lib/utils';
 import { ProjectTabBar } from './ProjectTabBar';
-import { AppBranding } from './AppBranding';
 import { WindowControls } from './WindowControls';
 import { useTopNavBar } from './hooks/useTopNavBar';
 
@@ -35,12 +33,7 @@ export function TopNavBar({
   const isMacOS = window.platform?.isMacOS;
 
   return (
-    <div className={cn(
-      "flex items-center w-full h-10 z-10 pt-2 electron-drag",
-      isMacOS && "pl-[75px]"
-    )}>
-      <AppBranding />
-
+    <div className="flex flex-row items-center w-full h-12 pt-2 z-10 electron-drag">
       {projectTabs.length > 0 ? (
         <div className="flex-1 min-w-0">
           <DndContext
@@ -62,9 +55,8 @@ export function TopNavBar({
             {/* Drag overlay - shows what's being dragged */}
             <DragOverlay>
               {activeDragProject && (
-                <div className="flex items-center gap-2 bg-card border border-border rounded-full px-4 py-2 shadow-lg max-w-[200px]">
-                  <div className="w-1 h-4 bg-muted-foreground rounded-full" />
-                  <span className="truncate font-medium text-sm">{activeDragProject.name}</span>
+                <div className="inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-0.5 text-xs font-semibold text-secondary-foreground shadow-lg max-w-[200px]">
+                  <span className="truncate">{activeDragProject.name}</span>
                 </div>
               )}
             </DragOverlay>
