@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { arrayMove } from '@dnd-kit/sortable';
-import type { Task, TaskStatus, SubtaskStatus, ImplementationPlan, Subtask, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft, ImageAttachment, TaskOrderState } from '../../shared/types';
+import type { Task, TaskStatus, SubtaskStatus, ImplementationPlan, Subtask, TaskMetadata, ExecutionProgress, ExecutionPhase, ReviewReason, TaskDraft, ImageAttachment, TaskOrderState, StuckSubtaskInfo } from '../../shared/types';
 import { debugLog, debugWarn } from '../../shared/utils/debug-logger';
 import { useProjectStore } from './project-store';
 
@@ -967,7 +967,7 @@ export async function recoverStuckTask(
 export async function getStuckInfo(
   projectId: string,
   specId: string
-): Promise<{ success: boolean; stuckSubtasks?: Array<{ subtask_id: string; reason: string; escalated_at: string; attempt_count: number }>; error?: string }> {
+): Promise<{ success: boolean; stuckSubtasks?: StuckSubtaskInfo[]; error?: string }> {
   try {
     const result = await window.electronAPI.getStuckInfo(projectId, specId);
     if (result.success && result.data) {
@@ -991,7 +991,10 @@ export async function unstickSubtasks(
 ): Promise<{ success: boolean; cleared?: number; error?: string }> {
   try {
     const result = await window.electronAPI.unstickSubtasks(projectId, specId);
-    return result;
+    if (result.success && result.data) {
+      return { success: true, cleared: result.data.cleared };
+    }
+    return { success: false, error: result.error };
   } catch (error) {
     console.error('Error unsticking subtasks:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };

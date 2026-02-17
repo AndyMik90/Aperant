@@ -2,15 +2,9 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, Play, RotateCcw, Loader2, Unlock } from 'lucide-react';
 import { Button } from '../ui/button';
-import { getStuckInfo, unstickSubtasks } from '../../stores/task-store';
-import { useToast } from '../../hooks/use-toast';
-
-interface StuckSubtask {
-  subtask_id: string;
-  reason: string;
-  escalated_at: string;
-  attempt_count: number;
-}
+import { getStuckInfo, unstickSubtasks } from '@/stores/task-store';
+import { useToast } from '@/hooks/use-toast';
+import type { StuckSubtaskInfo } from '@shared/types/task';
 
 interface TaskWarningsProps {
   isStuck: boolean;
@@ -35,24 +29,26 @@ export function TaskWarnings({
 }: TaskWarningsProps) {
   const { t } = useTranslation('tasks');
   const { toast } = useToast();
-  const [stuckSubtasks, setStuckSubtasks] = useState<StuckSubtask[]>([]);
+  const [stuckSubtasks, setStuckSubtasks] = useState<StuckSubtaskInfo[]>([]);
   const [isLoadingStuck, setIsLoadingStuck] = useState(false);
   const [isUnsticking, setIsUnsticking] = useState(false);
 
   // Load stuck subtask info when stuck
   useEffect(() => {
+    let ignore = false;
     if (isStuck && projectId && specId) {
       setIsLoadingStuck(true);
       getStuckInfo(projectId, specId)
         .then(result => {
-          if (result.success && result.stuckSubtasks) {
+          if (!ignore && result.success && result.stuckSubtasks) {
             setStuckSubtasks(result.stuckSubtasks);
           }
         })
-        .finally(() => setIsLoadingStuck(false));
+        .finally(() => { if (!ignore) setIsLoadingStuck(false); });
     } else {
       setStuckSubtasks([]);
     }
+    return () => { ignore = true; };
   }, [isStuck, projectId, specId]);
 
   const handleUnstick = async () => {

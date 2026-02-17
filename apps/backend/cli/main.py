@@ -473,12 +473,11 @@ def _run_cli() -> None:
 
     # Handle --unstick command
     if args.unstick:
-        from services.recovery import get_stuck_subtasks as get_stuck
-        from services.recovery import clear_stuck_subtasks as clear_stuck
+        from services.recovery import clear_stuck_subtasks, get_stuck_subtasks
 
-        stuck = get_stuck(spec_dir, project_dir)
+        stuck = get_stuck_subtasks(spec_dir, project_dir)
         if stuck:
-            clear_stuck(spec_dir, project_dir)
+            clear_stuck_subtasks(spec_dir, project_dir)
             print(f"Cleared {len(stuck)} stuck subtasks for {args.spec}")
             for s in stuck:
                 print(f"  - {s.get('subtask_id', 'unknown')}: {s.get('reason', 'no reason')[:80]}")

@@ -506,6 +506,13 @@ export interface WorktreeListResult {
 }
 
 // Stuck task recovery types
+export interface StuckSubtaskInfo {
+  subtask_id: string;
+  reason: string;
+  escalated_at: string;
+  attempt_count: number;
+}
+
 export interface StuckTaskInfo {
   taskId: string;
   specId: string;

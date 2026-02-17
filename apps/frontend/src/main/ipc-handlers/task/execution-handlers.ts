@@ -1238,10 +1238,6 @@ export function registerTaskExecutionHandlers(
         const specDir = path.join(project.path, specsBaseDir, specId);
         const attemptHistoryPath = path.join(specDir, 'memory', 'attempt_history.json');
 
-        if (!existsSync(attemptHistoryPath)) {
-          return { success: true, data: { stuckSubtasks: [] } };
-        }
-
         const historyContent = safeReadFileSync(attemptHistoryPath);
         if (!historyContent) {
           return { success: true, data: { stuckSubtasks: [] } };
@@ -1272,10 +1268,6 @@ export function registerTaskExecutionHandlers(
         const specDir = path.join(project.path, specsBaseDir, specId);
         const attemptHistoryPath = path.join(specDir, 'memory', 'attempt_history.json');
 
-        if (!existsSync(attemptHistoryPath)) {
-          return { success: true, data: { cleared: 0 } };
-        }
-
         const historyContent = safeReadFileSync(attemptHistoryPath);
         if (!historyContent) {
           return { success: true, data: { cleared: 0 } };
@@ -1288,9 +1280,9 @@ export function registerTaskExecutionHandlers(
         history.stuck_subtasks = [];
 
         // Reset any subtasks marked as 'stuck' to 'pending'
-        if (history.subtasks) {
-          for (const subtaskId in history.subtasks) {
-            if (history.subtasks[subtaskId].status === 'stuck') {
+        if (history.subtasks && typeof history.subtasks === 'object') {
+          for (const subtaskId of Object.keys(history.subtasks)) {
+            if (history.subtasks[subtaskId]?.status === 'stuck') {
               history.subtasks[subtaskId].status = 'pending';
             }
           }

@@ -514,16 +514,6 @@ class RecoveryManager:
 
         self._save_attempt_history(history)
 
-    def get_stuck_subtasks(self) -> list[dict]:
-        """
-        Get all subtasks marked as stuck.
-
-        Returns:
-            List of stuck subtask entries
-        """
-        history = self._load_attempt_history()
-        return history.get("stuck_subtasks", [])
-
     def get_subtask_history(self, subtask_id: str) -> dict:
         """
         Get the attempt history for a specific subtask.
