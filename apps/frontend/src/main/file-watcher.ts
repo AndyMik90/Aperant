@@ -38,11 +38,14 @@ export class FileWatcher extends EventEmitter {
     this.pendingWatches.set(taskId, specDir);
 
     try {
-      // Close any existing watcher for this task
+      // Close any existing watcher for this task.
+      // Delete from the map BEFORE awaiting close so that a concurrent watch()
+      // call entering after the await cannot obtain the same FSWatcher reference
+      // and attempt a second close() on the same object.
       const existing = this.watchers.get(taskId);
       if (existing) {
-        await existing.watcher.close();
         this.watchers.delete(taskId);
+        await existing.watcher.close();
       }
 
       // Check if a newer watch() call has superseded this one while we were awaiting.
@@ -117,8 +120,19 @@ export class FileWatcher extends EventEmitter {
         // Initial read failed - not critical
       }
     } finally {
-      this.pendingWatches.delete(taskId);
-      this.cancelledWatches.delete(taskId);
+      // Only clean up if this call still owns the entry. If a superseding
+      // concurrent watch() call has already updated pendingWatches with a
+      // different specDir, leave that entry intact so the superseding call
+      // can proceed correctly.
+      if (this.pendingWatches.get(taskId) === specDir) {
+        this.pendingWatches.delete(taskId);
+        // Only clear the cancellation flag when there is no longer any
+        // in-flight watch() for this taskId. If unwatch() set the flag
+        // for the superseding call, that call still needs to see it.
+        if (!this.pendingWatches.has(taskId)) {
+          this.cancelledWatches.delete(taskId);
+        }
+      }
     }
   }
 
