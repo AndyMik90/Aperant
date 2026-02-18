@@ -633,13 +633,77 @@ Report findings with specific file paths, line numbers, and code evidence.
                 logger.error(
                     f"[Specialist:{specialist_name}] Failed to parse structured output: {e}"
                 )
-                # Fall through to text parsing
+                # Attempt to extract findings from raw dict before falling to text parsing
+                findings = self._extract_specialist_partial_data(
+                    specialist_name, structured_output
+                )
+                if findings:
+                    logger.info(
+                        f"[Specialist:{specialist_name}] Recovered {len(findings)} findings from partial extraction"
+                    )
 
         if not findings and result_text:
             # Fallback to text parsing
             findings = self._parse_text_output(result_text)
             for f in findings:
                 f.source_agents = [specialist_name]
+
+        return findings
+
+    def _extract_specialist_partial_data(
+        self,
+        specialist_name: str,
+        data: dict[str, Any],
+    ) -> list[PRReviewFinding]:
+        """Extract findings from raw specialist dict when Pydantic validation fails.
+
+        Defensively extracts each finding individually so partial results are preserved
+        even if some findings have validation issues.
+        """
+        findings = []
+        raw_findings = data.get("findings", [])
+        if not isinstance(raw_findings, list):
+            return findings
+
+        for f in raw_findings:
+            if not isinstance(f, dict):
+                continue
+            try:
+                file_path = f.get("file", "unknown")
+                line = f.get("line", 0) or 0
+                title = f.get("title", "Unknown issue")
+
+                finding_id = hashlib.md5(
+                    f"{file_path}:{line}:{title}".encode(),
+                    usedforsecurity=False,
+                ).hexdigest()[:12]
+
+                category = map_category(f.get("category", "quality"))
+
+                try:
+                    severity = ReviewSeverity(str(f.get("severity", "medium")).lower())
+                except ValueError:
+                    severity = ReviewSeverity.MEDIUM
+
+                finding = PRReviewFinding(
+                    id=finding_id,
+                    file=file_path,
+                    line=line,
+                    end_line=f.get("end_line"),
+                    title=title,
+                    description=f.get("description", ""),
+                    category=category,
+                    severity=severity,
+                    suggested_fix=f.get("suggested_fix", ""),
+                    evidence=f.get("evidence"),
+                    source_agents=[specialist_name],
+                    is_impact_finding=bool(f.get("is_impact_finding", False)),
+                )
+                findings.append(finding)
+            except Exception as e:
+                logger.debug(
+                    f"[Specialist:{specialist_name}] Skipping malformed finding: {e}"
+                )
 
         return findings
 
@@ -910,13 +974,15 @@ The SDK will run invoked agents in parallel automatically.
         except ValueError:
             severity = ReviewSeverity.MEDIUM
 
-        # Extract evidence: prefer verification.code_examined, fallback to evidence field
-        evidence = finding_data.evidence
+        # Extract evidence from verification.code_examined if available
+        evidence = None
         if hasattr(finding_data, "verification") and finding_data.verification:
-            # Structured verification has more detailed evidence
             verification = finding_data.verification
             if hasattr(verification, "code_examined") and verification.code_examined:
                 evidence = verification.code_examined
+        # Fallback to evidence field if present (e.g. from dict-based parsing)
+        if not evidence:
+            evidence = getattr(finding_data, "evidence", None)
 
         # Extract end_line if present
         end_line = getattr(finding_data, "end_line", None)
@@ -1223,12 +1289,30 @@ The SDK will run invoked agents in parallel automatically.
                 f"{len(filtered_findings)} filtered"
             )
 
-            # No confidence routing - validation is binary via finding-validator
-            unique_findings = validated_findings
-            logger.info(f"[PRReview] Final findings: {len(unique_findings)} validated")
+            # Separate active findings (drive verdict) from dismissed (shown in UI only)
+            active_findings = []
+            dismissed_findings = []
+            for f in validated_findings:
+                if f.validation_status == "dismissed_false_positive":
+                    dismissed_findings.append(f)
+                else:
+                    active_findings.append(f)
 
+            safe_print(
+                f"[ParallelOrchestrator] Final: {len(active_findings)} active, "
+                f"{len(dismissed_findings)} disputed by validator",
+                flush=True,
+            )
             logger.info(
-                f"[ParallelOrchestrator] Review complete: {len(unique_findings)} findings"
+                f"[PRReview] Final findings: {len(active_findings)} active, "
+                f"{len(dismissed_findings)} disputed"
+            )
+
+            # All findings (active + dismissed) go in the result for UI display
+            all_review_findings = validated_findings
+            logger.info(
+                f"[ParallelOrchestrator] Review complete: {len(all_review_findings)} findings "
+                f"({len(active_findings)} active, {len(dismissed_findings)} disputed)"
             )
 
             # Fetch CI status for verdict consideration
@@ -1238,9 +1322,9 @@ The SDK will run invoked agents in parallel automatically.
                 f"{ci_status.get('failing', 0)} failing, {ci_status.get('pending', 0)} pending"
             )
 
-            # Generate verdict (includes merge conflict check, branch-behind check, and CI status)
+            # Generate verdict from ACTIVE findings only (dismissed don't affect verdict)
             verdict, verdict_reasoning, blockers = self._generate_verdict(
-                unique_findings,
+                active_findings,
                 has_merge_conflicts=context.has_merge_conflicts,
                 merge_state_status=context.merge_state_status,
                 ci_status=ci_status,
@@ -1251,7 +1335,7 @@ The SDK will run invoked agents in parallel automatically.
                 verdict=verdict,
                 verdict_reasoning=verdict_reasoning,
                 blockers=blockers,
-                findings=unique_findings,
+                findings=all_review_findings,
                 agents_invoked=agents_invoked,
             )
 
@@ -1296,7 +1380,7 @@ The SDK will run invoked agents in parallel automatically.
                 pr_number=context.pr_number,
                 repo=self.config.repo,
                 success=True,
-                findings=unique_findings,
+                findings=all_review_findings,
                 summary=summary,
                 overall_status=overall_status,
                 verdict=verdict,
@@ -1785,6 +1869,7 @@ For EACH finding above:
                             or "concurrency" in error_str
                             or "circuit breaker" in error_str
                             or "tool_use" in error_str
+                            or "structured_output" in error_str
                         )
 
                         if is_retryable and attempt < MAX_VALIDATION_RETRIES:
@@ -1805,6 +1890,7 @@ For EACH finding above:
                         break
 
             except Exception as e:
+                # Part of retry loop structure - handles retryable errors
                 error_str = str(e).lower()
                 is_retryable = (
                     "400" in error_str
@@ -1869,12 +1955,38 @@ For EACH finding above:
                 validated_findings.append(finding)
 
             elif validation.validation_status == "dismissed_false_positive":
-                # Dismiss - do not include
-                dismissed_count += 1
-                logger.info(
-                    f"[PRReview] Dismissed {finding.id} as false positive: "
-                    f"{validation.explanation[:100]}"
-                )
+                # Protect cross-validated findings from dismissal —
+                # if multiple specialists independently found the same issue,
+                # a single validator should not override that consensus
+                if finding.cross_validated:
+                    finding.validation_status = "confirmed_valid"
+                    finding.validation_evidence = validation.code_evidence
+                    finding.validation_explanation = (
+                        f"[Auto-kept: cross-validated by {len(finding.source_agents)} agents] "
+                        f"{validation.explanation}"
+                    )
+                    validated_findings.append(finding)
+                    safe_print(
+                        f"[FindingValidator] Kept cross-validated finding '{finding.title}' "
+                        f"despite dismissal (agents={finding.source_agents})",
+                        flush=True,
+                    )
+                else:
+                    # Keep finding but mark as dismissed (user can see it in UI)
+                    finding.validation_status = "dismissed_false_positive"
+                    finding.validation_evidence = validation.code_evidence
+                    finding.validation_explanation = validation.explanation
+                    validated_findings.append(finding)
+                    dismissed_count += 1
+                    safe_print(
+                        f"[FindingValidator] Disputed '{finding.title}': "
+                        f"{validation.explanation} (file={finding.file}:{finding.line})",
+                        flush=True,
+                    )
+                    logger.info(
+                        f"[PRReview] Disputed {finding.id}: "
+                        f"{validation.explanation[:200]}"
+                    )
 
             elif validation.validation_status == "needs_human_review":
                 # Keep but flag
@@ -2059,11 +2171,16 @@ For EACH finding above:
                 sev = f.severity.value
                 emoji = severity_emoji.get(sev, "⚪")
 
+                is_disputed = f.validation_status == "dismissed_false_positive"
+
                 # Finding header with location
                 line_range = f"L{f.line}"
                 if f.end_line and f.end_line != f.line:
                     line_range = f"L{f.line}-L{f.end_line}"
-                lines.append(f"#### {emoji} [{sev.upper()}] {f.title}")
+                if is_disputed:
+                    lines.append(f"#### ⚪ [DISPUTED] ~~{f.title}~~")
+                else:
+                    lines.append(f"#### {emoji} [{sev.upper()}] {f.title}")
                 lines.append(f"**File:** `{f.file}` ({line_range})")
 
                 # Cross-validation badge
@@ -2093,6 +2210,7 @@ For EACH finding above:
                     status_label = {
                         "confirmed_valid": "Confirmed",
                         "needs_human_review": "Needs human review",
+                        "dismissed_false_positive": "Disputed by validator",
                     }.get(f.validation_status, f.validation_status)
                     lines.append("")
                     lines.append(f"**Validation:** {status_label}")
@@ -2114,18 +2232,27 @@ For EACH finding above:
 
                 lines.append("")
 
-            # Findings count summary
+            # Findings count summary (exclude dismissed from active count)
+            active_count = 0
+            dismissed_count = 0
             by_severity: dict[str, int] = {}
             for f in findings:
+                if f.validation_status == "dismissed_false_positive":
+                    dismissed_count += 1
+                    continue
+                active_count += 1
                 sev = f.severity.value
                 by_severity[sev] = by_severity.get(sev, 0) + 1
             summary_parts = []
             for sev in ["critical", "high", "medium", "low"]:
                 if sev in by_severity:
                     summary_parts.append(f"{by_severity[sev]} {sev}")
-            lines.append(
-                f"**Total:** {len(findings)} finding(s) ({', '.join(summary_parts)})"
+            count_text = (
+                f"**Total:** {active_count} finding(s) ({', '.join(summary_parts)})"
             )
+            if dismissed_count > 0:
+                count_text += f" + {dismissed_count} disputed"
+            lines.append(count_text)
             lines.append("")
 
         lines.append("---")

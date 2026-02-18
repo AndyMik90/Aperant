@@ -1,11 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Group,
-  Panel,
-  Separator,
-} from 'react-resizable-panels';
-import {
   DndContext,
   DragOverlay,
   type DragEndEvent,
@@ -399,6 +394,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
           });
         }
 
+        // Refit terminals after dnd-kit CSS transitions settle
         setTimeout(() => {
           window.dispatchEvent(new CustomEvent('terminal-refit-all'));
         }, TERMINAL_DOM_UPDATE_DELAY_MS);
@@ -436,18 +432,6 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
     if (count <= 9) return { rows: 3, cols: 3 };
     return { rows: 3, cols: 4 }; // Max 12 terminals = 3x4
   }, [terminals.length]);
-
-  // Group terminals into rows
-  const terminalRows = useMemo(() => {
-    const rows: typeof terminals[] = [];
-    const { cols } = gridLayout;
-    if (cols === 0) return rows;
-
-    for (let i = 0; i < terminals.length; i += cols) {
-      rows.push(terminals.slice(i, i + cols));
-    }
-    return rows;
-  }, [terminals, gridLayout]);
 
   // Terminal IDs for SortableContext
   const terminalIds = useMemo(() => terminals.map(t => t.id), [terminals]);
@@ -612,45 +596,38 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
                 );
               })()
             ) : (
-              // Show the normal grid layout
+              // Flat CSS Grid layout — all terminals are siblings of the same parent.
+              // This prevents React from unmounting/remounting terminal components during
+              // drag-drop reorder. With the old nested Group/Panel structure from
+              // react-resizable-panels, terminals that changed rows got new parents,
+              // causing React to unmount → dispose xterm → blank screen.
+              // With a flat grid, React just reorders siblings (no unmount needed).
               <SortableContext items={terminalIds} strategy={rectSortingStrategy}>
-                <Group orientation="vertical" className="h-full">
-                  {terminalRows.map((row, rowIndex) => (
-                    <React.Fragment key={rowIndex}>
-                      <Panel id={`row-${rowIndex}`} defaultSize={100 / terminalRows.length} minSize={15}>
-                        <Group orientation="horizontal" className="h-full">
-                          {row.map((terminal, colIndex) => (
-                            <React.Fragment key={terminal.id}>
-                              <Panel id={terminal.id} defaultSize={100 / row.length} minSize={10}>
-                                <div className="h-full p-1">
-                                  <SortableTerminalWrapper
-                                    id={terminal.id}
-                                    cwd={terminal.cwd || projectPath}
-                                    projectPath={projectPath}
-                                    isActive={terminal.id === activeTerminalId}
-                                    onClose={() => handleCloseTerminal(terminal.id)}
-                                    onActivate={() => setActiveTerminal(terminal.id)}
-                                    tasks={tasks}
-                                    onNewTaskClick={onNewTaskClick}
-                                    terminalCount={terminals.length}
-                                    isExpanded={false}
-                                    onToggleExpand={() => handleToggleExpand(terminal.id)}
-                                  />
-                                </div>
-                              </Panel>
-                              {colIndex < row.length - 1 && (
-                                <Separator className="w-1 hover:bg-primary/30 transition-colors" />
-                              )}
-                            </React.Fragment>
-                          ))}
-                        </Group>
-                      </Panel>
-                      {rowIndex < terminalRows.length - 1 && (
-                        <Separator className="h-1 hover:bg-primary/30 transition-colors" />
-                      )}
-                    </React.Fragment>
+                <div
+                  className="h-full grid"
+                  style={{
+                    gridTemplateColumns: `repeat(${gridLayout.cols}, 1fr)`,
+                    gridTemplateRows: `repeat(${gridLayout.rows}, 1fr)`,
+                  }}
+                >
+                  {terminals.map((terminal) => (
+                    <div key={terminal.id} className="p-1 min-h-0 min-w-0">
+                      <SortableTerminalWrapper
+                        id={terminal.id}
+                        cwd={terminal.cwd || projectPath}
+                        projectPath={projectPath}
+                        isActive={terminal.id === activeTerminalId}
+                        onClose={() => handleCloseTerminal(terminal.id)}
+                        onActivate={() => setActiveTerminal(terminal.id)}
+                        tasks={tasks}
+                        onNewTaskClick={onNewTaskClick}
+                        terminalCount={terminals.length}
+                        isExpanded={false}
+                        onToggleExpand={() => handleToggleExpand(terminal.id)}
+                      />
+                    </div>
                   ))}
-                </Group>
+                </div>
               </SortableContext>
             )}
           </div>

@@ -8,6 +8,7 @@
 [![Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/KCXaPBr4Dj)
 [![YouTube](https://img.shields.io/badge/YouTube-Subscribe-FF0000?style=flat-square&logo=youtube&logoColor=white)](https://www.youtube.com/@AndreMikalsen)
 [![CI](https://img.shields.io/github/actions/workflow/status/AndyMik90/Auto-Claude/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/AndyMik90/Auto-Claude/actions)
+[![Mentioned in Awesome Claude Code](https://awesome.re/mentioned-badge-flat.svg)](https://github.com/hesreallyhim/awesome-claude-code)
 
 ---
 
@@ -35,18 +36,18 @@
 > ⚠️ Beta releases may contain bugs and breaking changes. [View all releases](https://github.com/AndyMik90/Auto-Claude/releases)
 
 <!-- BETA_VERSION_BADGE -->
-[![Beta](https://img.shields.io/badge/beta-2.7.6--beta.2-orange?style=flat-square)](https://github.com/AndyMik90/Auto-Claude/releases/tag/v2.7.6-beta.2)
+[![Beta](https://img.shields.io/badge/beta-2.7.6--beta.5-orange?style=flat-square)](https://github.com/AndyMik90/Auto-Claude/releases/tag/v2.7.6-beta.5)
 <!-- BETA_VERSION_BADGE_END -->
 
 <!-- BETA_DOWNLOADS -->
 | Platform | Download |
 |----------|----------|
-| **Windows** | [Auto-Claude-2.7.6-beta.2-win32-x64.exe](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.6-beta.2/Auto-Claude-2.7.6-beta.2-win32-x64.exe) |
-| **macOS (Apple Silicon)** | [Auto-Claude-2.7.6-beta.2-darwin-arm64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.6-beta.2/Auto-Claude-2.7.6-beta.2-darwin-arm64.dmg) |
-| **macOS (Intel)** | [Auto-Claude-2.7.6-beta.2-darwin-x64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.6-beta.2/Auto-Claude-2.7.6-beta.2-darwin-x64.dmg) |
-| **Linux** | [Auto-Claude-2.7.6-beta.2-linux-x86_64.AppImage](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.6-beta.2/Auto-Claude-2.7.6-beta.2-linux-x86_64.AppImage) |
-| **Linux (Debian)** | [Auto-Claude-2.7.6-beta.2-linux-amd64.deb](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.6-beta.2/Auto-Claude-2.7.6-beta.2-linux-amd64.deb) |
-| **Linux (Flatpak)** | [Auto-Claude-2.7.6-beta.2-linux-x86_64.flatpak](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.6-beta.2/Auto-Claude-2.7.6-beta.2-linux-x86_64.flatpak) |
+| **Windows** | [Auto-Claude-2.7.6-beta.5-win32-x64.exe](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.6-beta.5/Auto-Claude-2.7.6-beta.5-win32-x64.exe) |
+| **macOS (Apple Silicon)** | [Auto-Claude-2.7.6-beta.5-darwin-arm64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.6-beta.5/Auto-Claude-2.7.6-beta.5-darwin-arm64.dmg) |
+| **macOS (Intel)** | [Auto-Claude-2.7.6-beta.5-darwin-x64.dmg](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.6-beta.5/Auto-Claude-2.7.6-beta.5-darwin-x64.dmg) |
+| **Linux** | [Auto-Claude-2.7.6-beta.5-linux-x86_64.AppImage](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.6-beta.5/Auto-Claude-2.7.6-beta.5-linux-x86_64.AppImage) |
+| **Linux (Debian)** | [Auto-Claude-2.7.6-beta.5-linux-amd64.deb](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.6-beta.5/Auto-Claude-2.7.6-beta.5-linux-amd64.deb) |
+| **Linux (Flatpak)** | [Auto-Claude-2.7.6-beta.5-linux-x86_64.flatpak](https://github.com/AndyMik90/Auto-Claude/releases/download/v2.7.6-beta.5/Auto-Claude-2.7.6-beta.5-linux-x86_64.flatpak) |
 <!-- BETA_DOWNLOADS_END -->
 
 > All releases include SHA256 checksums and VirusTotal scan results for security verification.

@@ -449,7 +449,7 @@ def _handle_build_interrupt(
         if choice == "skip":
             print()
             print_status("Resuming build...", "info")
-            status_manager.update(state=BuildState.RUNNING)
+            status_manager.update(state=BuildState.BUILDING)
             asyncio.run(
                 run_autonomous_agent(
                     project_dir=working_dir,

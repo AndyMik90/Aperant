@@ -400,10 +400,9 @@
     "resetToProfileDefaults": "Reset to {{profile}} defaults",
     "customized": "Customized",
     "phaseConfigNote": "These settings will be used as defaults when creating new tasks with this profile. You can override them per-task in the task creation wizard.",
-    "fastMode": {
-      "label": "Fast Mode",
-      "description": "Same Opus 4.6 model with faster output. Higher cost per token.",
-      "extraUsageNotice": "Requires \"extra usage\" enabled on your Claude subscription. Falls back to standard speed automatically if unavailable."
+    "adaptiveThinking": {
+      "badge": "Adaptive",
+      "tooltip": "Opus uses adaptive thinking — it dynamically decides how much to think within the budget cap set by the thinking level."
     },
     "phases": {
       "spec": {

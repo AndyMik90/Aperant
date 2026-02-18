@@ -11,11 +11,12 @@
  */
 import { useRef, useState, useEffect, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronUp, Image as ImageIcon, X, Camera } from 'lucide-react';
+import { ChevronDown, ChevronUp, Image as ImageIcon, X, Camera, Zap, Info } from 'lucide-react';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Checkbox } from '../ui/checkbox';
+import { Switch } from '../ui/switch';
 import { Button } from '../ui/button';
 import { AgentProfileSelector } from '../AgentProfileSelector';
 import { ClassificationFields } from './ClassificationFields';
@@ -86,6 +87,11 @@ interface TaskFormFieldsProps {
   requireReviewBeforeCoding: boolean;
   onRequireReviewChange: (require: boolean) => void;
 
+  // Fast mode
+  fastMode?: boolean;
+  onFastModeChange?: (value: boolean) => void;
+  showFastModeToggle?: boolean;
+
   // Form state
   disabled?: boolean;
   error?: string | null;
@@ -135,6 +141,9 @@ export function TaskFormFields({
   onImagesChange,
   requireReviewBeforeCoding,
   onRequireReviewChange,
+  fastMode = false,
+  onFastModeChange,
+  showFastModeToggle = false,
   disabled = false,
   error,
   onError,
@@ -532,6 +541,38 @@ export function TaskFormFields({
             </p>
           </div>
         </div>
+
+        {/* Fast Mode Toggle - shown when any phase uses an Opus model */}
+        {showFastModeToggle && onFastModeChange && (
+          <div className="rounded-lg border border-border bg-card p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-500/10 shrink-0">
+                  <Zap className="h-5 w-5 text-amber-500" />
+                </div>
+                <div>
+                  <Label className="text-sm font-medium text-foreground">
+                    {t('tasks:form.fastModeLabel')}
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {t('tasks:form.fastModeDescription')}
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={fastMode}
+                onCheckedChange={onFastModeChange}
+                disabled={disabled}
+              />
+            </div>
+            <div className="mt-3 flex items-start gap-2 rounded-md bg-amber-500/5 border border-amber-500/20 p-2.5">
+              <Info className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
+              <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                {t('tasks:form.fastModeNotice')}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Error Display */}
         {error && (

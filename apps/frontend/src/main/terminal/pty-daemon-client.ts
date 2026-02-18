@@ -10,6 +10,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import { spawn, ChildProcess } from 'child_process';
 import { isWindows, GRACEFUL_KILL_TIMEOUT_MS } from '../platform';
+import { getTaskkillExePath } from '../utils/windows-paths';
 import { getIsShuttingDown } from './pty-manager';
 
 // ESM-compatible __dirname
@@ -430,7 +431,7 @@ class PtyDaemonClient {
       try {
         if (isWindows()) {
           // Windows: use taskkill to force kill process tree
-          spawn('taskkill', ['/pid', this.daemonProcess.pid.toString(), '/f', '/t'], {
+          spawn(getTaskkillExePath(), ['/pid', this.daemonProcess.pid.toString(), '/f', '/t'], {
             stdio: 'ignore',
             detached: true
           }).unref();

@@ -430,6 +430,22 @@ def requires_shell(command: str) -> bool:
     return ext.lower() in {".cmd", ".bat", ".ps1"}
 
 
+def get_where_exe_path() -> str:
+    """Get full path to where.exe on Windows.
+
+    Using the full path ensures where.exe works even when System32 isn't in PATH,
+    which can happen in restricted environments or when the app doesn't inherit
+    the full system PATH.
+
+    Returns:
+        Full path to where.exe (e.g., C:\\Windows\\System32\\where.exe)
+    """
+    system_root = os.environ.get(
+        "SystemRoot", os.environ.get("SYSTEMROOT", "C:\\Windows")
+    )
+    return os.path.join(system_root, "System32", "where.exe")
+
+
 def get_comspec_path() -> str:
     """
     Get the path to cmd.exe on Windows.

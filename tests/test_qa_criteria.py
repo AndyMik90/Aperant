@@ -18,7 +18,7 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -520,53 +520,60 @@ class TestGetQAIterationCount:
 
 
 class TestShouldRunQA:
-    """Tests for should_run_qa function.
-
-    Note: We patch qa.criteria.is_build_complete directly to avoid issues with
-    module-level mock pollution from other test files (e.g., qa_report_helpers.py).
-    """
+    """Tests for should_run_qa function."""
 
     def test_should_run_qa_build_not_complete(self, spec_dir: Path):
         """Returns False when build not complete."""
+        from unittest.mock import patch
+
         plan = {"feature": "Test", "phases": []}
         save_implementation_plan(spec_dir, plan)
 
         with patch('qa.criteria.is_build_complete', return_value=False):
             result = should_run_qa(spec_dir)
-        assert result is False
+            assert result is False
 
     def test_should_run_qa_already_approved(self, spec_dir: Path, qa_signoff_approved: dict):
         """Returns False when already approved."""
+        from unittest.mock import patch
+
         plan = {"feature": "Test", "qa_signoff": qa_signoff_approved}
         save_implementation_plan(spec_dir, plan)
 
         with patch('qa.criteria.is_build_complete', return_value=True):
             result = should_run_qa(spec_dir)
-        assert result is False
+            assert result is False
 
     def test_should_run_qa_build_complete_not_approved(self, spec_dir: Path):
         """Returns True when build complete but not approved."""
-        plan = {"feature": "Test", "phases": []}
-        save_implementation_plan(spec_dir, plan)
-
+        # Explicitly patch is_build_complete to return True
+        from unittest.mock import patch
         with patch('qa.criteria.is_build_complete', return_value=True):
+            plan = {"feature": "Test", "phases": []}
+            save_implementation_plan(spec_dir, plan)
+
             result = should_run_qa(spec_dir)
-        assert result is True
+            assert result is True
 
     def test_should_run_qa_rejected_status(self, spec_dir: Path, qa_signoff_rejected: dict):
         """Returns True when rejected (needs re-review after fixes)."""
+        from unittest.mock import patch
+
+        qa_signoff_rejected["qa_session"] = 1
         plan = {"feature": "Test", "qa_signoff": qa_signoff_rejected}
         save_implementation_plan(spec_dir, plan)
 
         with patch('qa.criteria.is_build_complete', return_value=True):
             result = should_run_qa(spec_dir)
-        assert result is True
+            assert result is True
 
     def test_should_run_qa_no_plan(self, spec_dir: Path):
         """Returns False when no plan exists (build not complete)."""
+        from unittest.mock import patch
+
         with patch('qa.criteria.is_build_complete', return_value=False):
             result = should_run_qa(spec_dir)
-        assert result is False
+            assert result is False
 
 
 class TestShouldRunFixes:
@@ -887,87 +894,90 @@ class TestQAStateMachine:
 
 
 class TestQAIntegration:
-    """Integration tests for QA criteria logic.
-
-    Note: We patch qa.criteria.is_build_complete directly to avoid issues with
-    module-level mock pollution from other test files.
-    """
+    """Integration tests for QA criteria logic."""
 
     def test_full_qa_workflow_approved_first_try(self, spec_dir: Path):
         """Full workflow where QA approves on first try."""
-        with patch('qa.criteria.is_build_complete', return_value=True):
-            # Build complete
-            plan = {"feature": "Test Feature", "phases": []}
-            save_implementation_plan(spec_dir, plan)
+        from unittest.mock import patch
 
-            # Should run QA
+        # Build complete
+        plan = {"feature": "Test Feature", "phases": []}
+        save_implementation_plan(spec_dir, plan)
+
+        # Should run QA
+        with patch('qa.criteria.is_build_complete', return_value=True):
             assert should_run_qa(spec_dir) is True
 
-            # QA approves
-            plan["qa_signoff"] = {
-                "status": "approved",
-                "qa_session": 1,
-                "tests_passed": {"unit": True, "integration": True, "e2e": True},
-            }
-            save_implementation_plan(spec_dir, plan)
+        # QA approves
+        plan["qa_signoff"] = {
+            "status": "approved",
+            "qa_session": 1,
+            "tests_passed": {"unit": True, "integration": True, "e2e": True},
+        }
+        save_implementation_plan(spec_dir, plan)
 
-            # Should not run QA again or fixes
+        # Should not run QA again or fixes
+        with patch('qa.criteria.is_build_complete', return_value=True):
             assert should_run_qa(spec_dir) is False
-            assert should_run_fixes(spec_dir) is False
-            assert is_qa_approved(spec_dir) is True
+        assert should_run_fixes(spec_dir) is False
+        assert is_qa_approved(spec_dir) is True
 
     def test_full_qa_workflow_with_fixes(self, spec_dir: Path):
         """Full workflow with reject-fix-approve cycle."""
-        with patch('qa.criteria.is_build_complete', return_value=True):
-            # Build complete
-            plan = {"feature": "Test Feature", "phases": []}
-            save_implementation_plan(spec_dir, plan)
+        from unittest.mock import patch
 
-            # Should run QA
+        # Build complete
+        plan = {"feature": "Test Feature", "phases": []}
+        save_implementation_plan(spec_dir, plan)
+
+        # Should run QA
+        with patch('qa.criteria.is_build_complete', return_value=True):
             assert should_run_qa(spec_dir) is True
 
-            # QA rejects
-            plan["qa_signoff"] = {
-                "status": "rejected",
-                "qa_session": 1,
-                "issues_found": [{"title": "Missing test", "type": "unit_test"}],
-            }
-            save_implementation_plan(spec_dir, plan)
+        # QA rejects
+        plan["qa_signoff"] = {
+            "status": "rejected",
+            "qa_session": 1,
+            "issues_found": [{"title": "Missing test", "type": "unit_test"}],
+        }
+        save_implementation_plan(spec_dir, plan)
 
-            assert should_run_fixes(spec_dir) is True
-            assert is_qa_rejected(spec_dir) is True
+        assert should_run_fixes(spec_dir) is True
+        assert is_qa_rejected(spec_dir) is True
 
-            # Fixes applied
-            plan["qa_signoff"]["status"] = "fixes_applied"
-            plan["qa_signoff"]["ready_for_qa_revalidation"] = True
-            save_implementation_plan(spec_dir, plan)
+        # Fixes applied
+        plan["qa_signoff"]["status"] = "fixes_applied"
+        plan["qa_signoff"]["ready_for_qa_revalidation"] = True
+        save_implementation_plan(spec_dir, plan)
 
-            assert is_fixes_applied(spec_dir) is True
+        assert is_fixes_applied(spec_dir) is True
 
-            # QA approves on second attempt
-            plan["qa_signoff"] = {
-                "status": "approved",
-                "qa_session": 2,
-                "tests_passed": {"unit": True, "integration": True, "e2e": True},
-            }
-            save_implementation_plan(spec_dir, plan)
+        # QA approves on second attempt
+        plan["qa_signoff"] = {
+            "status": "approved",
+            "qa_session": 2,
+            "tests_passed": {"unit": True, "integration": True, "e2e": True},
+        }
+        save_implementation_plan(spec_dir, plan)
 
-            assert is_qa_approved(spec_dir) is True
-            assert get_qa_iteration_count(spec_dir) == 2
+        assert is_qa_approved(spec_dir) is True
+        assert get_qa_iteration_count(spec_dir) == 2
 
     def test_qa_workflow_max_iterations(self, spec_dir: Path):
         """Test behavior when max iterations are reached."""
-        with patch('qa.criteria.is_build_complete', return_value=True):
-            plan = {
-                "feature": "Test",
-                "qa_signoff": {
-                    "status": "rejected",
-                    "qa_session": 50,
-                },
-            }
-            save_implementation_plan(spec_dir, plan)
+        from unittest.mock import patch
 
-            # Should not run more fixes after max iterations
-            assert should_run_fixes(spec_dir) is False
-            # But QA can still be run (to re-check)
+        plan = {
+            "feature": "Test",
+            "qa_signoff": {
+                "status": "rejected",
+                "qa_session": 50,
+            },
+        }
+        save_implementation_plan(spec_dir, plan)
+
+        # Should not run more fixes after max iterations
+        assert should_run_fixes(spec_dir) is False
+        # But QA can still be run (to re-check)
+        with patch('qa.criteria.is_build_complete', return_value=True):
             assert should_run_qa(spec_dir) is True
