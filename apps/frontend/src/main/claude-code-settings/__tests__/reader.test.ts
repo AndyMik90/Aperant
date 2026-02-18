@@ -64,7 +64,7 @@ describe('reader', () => {
   describe('readUserGlobalSettings', () => {
     it('returns settings when file exists and is valid JSON', () => {
       const expectedSettings: ClaudeCodeSettings = {
-        model: 'claude-sonnet-4-5-20250929',
+        model: 'claude-sonnet-4-6-20250929',
         env: { USER_VAR: 'value' },
       };
 

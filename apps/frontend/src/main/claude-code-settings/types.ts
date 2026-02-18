@@ -28,7 +28,7 @@ export interface ClaudeCodePermissions {
  */
 export interface ClaudeCodeSettings {
   permissions?: ClaudeCodePermissions;
-  /** Model override (e.g. "claude-sonnet-4-5-20250929") */
+  /** Model override (e.g. "claude-sonnet-4-6-20250929") */
   model?: string;
   /** Whether to enable extended thinking by default */
   alwaysThinkingEnabled?: boolean;

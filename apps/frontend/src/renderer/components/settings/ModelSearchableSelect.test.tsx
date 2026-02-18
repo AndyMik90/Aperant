@@ -46,20 +46,20 @@ describe('ModelSearchableSelect', () => {
   it('should render with initial value', () => {
     render(
       <ModelSearchableSelect
-        value="claude-sonnet-4-5-20250929"
+        value="claude-sonnet-4-6-20250929"
         onChange={mockOnChange}
         baseUrl="https://api.anthropic.com"
         apiKey="sk-test-key-12chars"
       />
     );
 
-    const input = screen.getByDisplayValue('claude-sonnet-4-5-20250929');
+    const input = screen.getByDisplayValue('claude-sonnet-4-6-20250929');
     expect(input).toBeInTheDocument();
   });
 
   it('should fetch models when dropdown opens', async () => {
     mockDiscoverModels.mockResolvedValue([
-      { id: 'claude-sonnet-4-5-20250929', display_name: 'Claude Sonnet 4.5' },
+      { id: 'claude-sonnet-4-6-20250929', display_name: 'Claude Sonnet 4.6' },
       { id: 'claude-haiku-4-5-20251001', display_name: 'Claude Haiku 4.5' }
     ]);
 
@@ -111,7 +111,7 @@ describe('ModelSearchableSelect', () => {
 
   it('should display fetched models in dropdown', async () => {
     mockDiscoverModels.mockResolvedValue([
-      { id: 'claude-sonnet-4-5-20250929', display_name: 'Claude Sonnet 4.5' },
+      { id: 'claude-sonnet-4-6-20250929', display_name: 'Claude Sonnet 4.6' },
       { id: 'claude-haiku-4-5-20251001', display_name: 'Claude Haiku 4.5' }
     ]);
 
@@ -128,14 +128,14 @@ describe('ModelSearchableSelect', () => {
     fireEvent.focus(input);
 
     await waitFor(() => {
-      expect(screen.getByText('Claude Sonnet 4.5')).toBeInTheDocument();
-      expect(screen.getByText('claude-sonnet-4-5-20250929')).toBeInTheDocument();
+      expect(screen.getByText('Claude Sonnet 4.6')).toBeInTheDocument();
+      expect(screen.getByText('claude-sonnet-4-6-20250929')).toBeInTheDocument();
     });
   });
 
   it('should render dropdown above the input', async () => {
     mockDiscoverModels.mockResolvedValue([
-      { id: 'claude-sonnet-4-5-20250929', display_name: 'Claude Sonnet 4.5' }
+      { id: 'claude-sonnet-4-6-20250929', display_name: 'Claude Sonnet 4.6' }
     ]);
 
     render(
@@ -160,7 +160,7 @@ describe('ModelSearchableSelect', () => {
 
   it('should select model and close dropdown', async () => {
     mockDiscoverModels.mockResolvedValue([
-      { id: 'claude-sonnet-4-5-20250929', display_name: 'Claude Sonnet 4.5' }
+      { id: 'claude-sonnet-4-6-20250929', display_name: 'Claude Sonnet 4.6' }
     ]);
 
     render(
@@ -176,11 +176,11 @@ describe('ModelSearchableSelect', () => {
     fireEvent.focus(input);
 
     await waitFor(() => {
-      const modelButton = screen.getByText('Claude Sonnet 4.5');
+      const modelButton = screen.getByText('Claude Sonnet 4.6');
       fireEvent.click(modelButton);
     });
 
-    expect(mockOnChange).toHaveBeenCalledWith('claude-sonnet-4-5-20250929');
+    expect(mockOnChange).toHaveBeenCalledWith('claude-sonnet-4-6-20250929');
   });
 
   it('should allow manual text input', async () => {
@@ -201,7 +201,7 @@ describe('ModelSearchableSelect', () => {
 
   it('should filter models based on search query', async () => {
     mockDiscoverModels.mockResolvedValue([
-      { id: 'claude-sonnet-4-5-20250929', display_name: 'Claude Sonnet 4.5' },
+      { id: 'claude-sonnet-4-6-20250929', display_name: 'Claude Sonnet 4.6' },
       { id: 'claude-haiku-4-5-20251001', display_name: 'Claude Haiku 4.5' },
       { id: 'claude-3-opus-20240229', display_name: 'Claude Opus 3' }
     ]);
@@ -220,7 +220,7 @@ describe('ModelSearchableSelect', () => {
 
     // Wait for models to load
     await waitFor(() => {
-      expect(screen.getByText('Claude Sonnet 4.5')).toBeInTheDocument();
+      expect(screen.getByText('Claude Sonnet 4.6')).toBeInTheDocument();
     });
 
     // Type search query
@@ -230,7 +230,7 @@ describe('ModelSearchableSelect', () => {
     // Should only show Haiku
     await waitFor(() => {
       expect(screen.getByText('Claude Haiku 4.5')).toBeInTheDocument();
-      expect(screen.queryByText('Claude Sonnet 4.5')).not.toBeInTheDocument();
+      expect(screen.queryByText('Claude Sonnet 4.6')).not.toBeInTheDocument();
       expect(screen.queryByText('Claude Opus 3')).not.toBeInTheDocument();
     });
   });
@@ -281,7 +281,7 @@ describe('ModelSearchableSelect', () => {
 
   it('should show no results message when search does not match', async () => {
     mockDiscoverModels.mockResolvedValue([
-      { id: 'claude-sonnet-4-5-20250929', display_name: 'Claude Sonnet 4.5' }
+      { id: 'claude-sonnet-4-6-20250929', display_name: 'Claude Sonnet 4.6' }
     ]);
 
     render(
@@ -297,7 +297,7 @@ describe('ModelSearchableSelect', () => {
     fireEvent.focus(input);
 
     await waitFor(() => {
-      expect(screen.getByText('Claude Sonnet 4.5')).toBeInTheDocument();
+      expect(screen.getByText('Claude Sonnet 4.6')).toBeInTheDocument();
     });
 
     // Search for non-existent model
@@ -326,32 +326,32 @@ describe('ModelSearchableSelect', () => {
 
   it('should highlight selected model', async () => {
     mockDiscoverModels.mockResolvedValue([
-      { id: 'claude-sonnet-4-5-20250929', display_name: 'Claude Sonnet 4.5' },
+      { id: 'claude-sonnet-4-6-20250929', display_name: 'Claude Sonnet 4.6' },
       { id: 'claude-haiku-4-5-20251001', display_name: 'Claude Haiku 4.5' }
     ]);
 
     render(
       <ModelSearchableSelect
-        value="claude-sonnet-4-5-20250929"
+        value="claude-sonnet-4-6-20250929"
         onChange={mockOnChange}
         baseUrl="https://api.anthropic.com"
         apiKey="sk-test-key-12chars"
       />
     );
 
-    const input = screen.getByDisplayValue('claude-sonnet-4-5-20250929');
+    const input = screen.getByDisplayValue('claude-sonnet-4-6-20250929');
     fireEvent.focus(input);
 
     await waitFor(() => {
       // Selected model should have Check icon indicator (via background color)
-      const sonnetButton = screen.getByText('Claude Sonnet 4.5').closest('button');
+      const sonnetButton = screen.getByText('Claude Sonnet 4.6').closest('button');
       expect(sonnetButton).toHaveClass('bg-accent');
     });
   });
 
   it('should close dropdown when clicking outside', async () => {
     mockDiscoverModels.mockResolvedValue([
-      { id: 'claude-sonnet-4-5-20250929', display_name: 'Claude Sonnet 4.5' }
+      { id: 'claude-sonnet-4-6-20250929', display_name: 'Claude Sonnet 4.6' }
     ]);
 
     render(
@@ -370,14 +370,14 @@ describe('ModelSearchableSelect', () => {
     fireEvent.focus(input);
 
     await waitFor(() => {
-      expect(screen.getByText('Claude Sonnet 4.5')).toBeInTheDocument();
+      expect(screen.getByText('Claude Sonnet 4.6')).toBeInTheDocument();
     });
 
     // Click outside
     fireEvent.mouseDown(screen.getByTestId('outside-element'));
 
     await waitFor(() => {
-      expect(screen.queryByText('Claude Sonnet 4.5')).not.toBeInTheDocument();
+      expect(screen.queryByText('Claude Sonnet 4.6')).not.toBeInTheDocument();
     });
   });
 });

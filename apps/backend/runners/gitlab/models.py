@@ -208,7 +208,7 @@ class GitLabRunnerConfig:
     instance_url: str = "https://gitlab.com"
 
     # Model settings
-    model: str = "claude-sonnet-4-5-20250929"
+    model: str = "claude-sonnet-4-6-20250929"
     thinking_level: str = "medium"
     fast_mode: bool = False
 

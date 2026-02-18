@@ -31,7 +31,7 @@ describe('ProfileEditDialog - Edit Mode', () => {
     baseUrl: 'https://api.example.com',
     apiKey: 'sk-ant-api123-test-key-abc123',
     models: {
-      default: 'claude-sonnet-4-5-20250929',
+      default: 'claude-sonnet-4-6-20250929',
       haiku: 'claude-haiku-4-5-20251001'
     },
     createdAt: 1700000000000,

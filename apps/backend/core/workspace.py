@@ -1702,7 +1702,7 @@ CRITICAL RULES:
 
 # Model constants for AI merge two-tier strategy (ACS-194)
 MERGE_FAST_MODEL = "claude-haiku-4-5-20251001"  # Fast model for simple merges
-MERGE_CAPABLE_MODEL = "claude-sonnet-4-5-20250929"  # Capable model for complex merges
+MERGE_CAPABLE_MODEL = "claude-sonnet-4-6-20250929"  # Capable model for complex merges
 MERGE_FAST_THINKING = 1024  # Lower thinking for fast/simple merges
 MERGE_COMPLEX_THINKING = 16000  # Higher thinking for complex merges
 

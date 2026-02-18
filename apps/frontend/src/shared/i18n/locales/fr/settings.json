@@ -104,9 +104,9 @@
       "haikuLabel": "Modèle Haiku (optionnel)",
       "sonnetLabel": "Modèle Sonnet (optionnel)",
       "opusLabel": "Modèle Opus (optionnel)",
-      "defaultPlaceholder": "ex. : claude-sonnet-4-5-20250929",
+      "defaultPlaceholder": "ex. : claude-sonnet-4-6-20250929",
       "haikuPlaceholder": "ex. : claude-haiku-4-5-20251001",
-      "sonnetPlaceholder": "ex. : claude-sonnet-4-5-20250929",
+      "sonnetPlaceholder": "ex. : claude-sonnet-4-6-20250929",
       "opusPlaceholder": "ex. : claude-opus-4-6",
       "opus1mPlaceholder": "ex. : claude-opus-4-6 (contexte 1M)"
     },
@@ -168,7 +168,7 @@
   },
   "modelSelect": {
     "placeholder": "Sélectionner un modèle ou saisir manuellement",
-    "placeholderManual": "Saisir le nom du modèle (ex. : claude-sonnet-4-5-20250929)",
+    "placeholderManual": "Saisir le nom du modèle (ex. : claude-sonnet-4-6-20250929)",
     "searchPlaceholder": "Rechercher des modèles...",
     "noResults": "Aucun modèle ne correspond à votre recherche",
     "discoveryNotAvailable": "Découverte de modèles indisponible. Saisissez le nom du modèle manuellement."

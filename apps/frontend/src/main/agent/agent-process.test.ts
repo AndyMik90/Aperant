@@ -233,9 +233,9 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
 
     it('should inject model env vars when active profile has models configured', async () => {
       const mockApiProfileEnv = {
-        ANTHROPIC_MODEL: 'claude-sonnet-4-5-20250929',
+        ANTHROPIC_MODEL: 'claude-sonnet-4-6-20250929',
         ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-haiku-4-5-20251001',
-        ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-5-20250929',
+        ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-6-20250929',
         ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-opus-4-5-20251101'
       };
 
@@ -245,9 +245,9 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
 
       expect(spawnCalls).toHaveLength(1);
       expect(spawnCalls[0].options.env).toMatchObject({
-        ANTHROPIC_MODEL: 'claude-sonnet-4-5-20250929',
+        ANTHROPIC_MODEL: 'claude-sonnet-4-6-20250929',
         ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-haiku-4-5-20251001',
-        ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-5-20250929',
+        ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-6-20250929',
         ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-opus-4-5-20251101'
       });
     });
@@ -870,7 +870,7 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
       const mockApiProfileEnv = {
         ANTHROPIC_AUTH_TOKEN: 'sk-api-profile-key',
         ANTHROPIC_BASE_URL: 'https://custom-api.example.com',
-        ANTHROPIC_MODEL: 'claude-sonnet-4-5-20250929'
+        ANTHROPIC_MODEL: 'claude-sonnet-4-6-20250929'
       };
       vi.mocked(profileService.getAPIProfileEnv).mockResolvedValue(mockApiProfileEnv);
 
@@ -890,7 +890,7 @@ describe('AgentProcessManager - API Profile Env Injection (Story 2.3)', () => {
       // ANTHROPIC_* vars from API profile should be passed through
       expect(envArg.ANTHROPIC_AUTH_TOKEN).toBe('sk-api-profile-key');
       expect(envArg.ANTHROPIC_BASE_URL).toBe('https://custom-api.example.com');
-      expect(envArg.ANTHROPIC_MODEL).toBe('claude-sonnet-4-5-20250929');
+      expect(envArg.ANTHROPIC_MODEL).toBe('claude-sonnet-4-6-20250929');
 
       // CLAUDE_CONFIG_DIR should NOT be present since profile didn't provide it
       expect(envArg.CLAUDE_CONFIG_DIR).toBeUndefined();

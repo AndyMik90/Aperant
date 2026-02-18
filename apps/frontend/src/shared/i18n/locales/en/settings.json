@@ -104,9 +104,9 @@
       "haikuLabel": "Haiku Model (Optional)",
       "sonnetLabel": "Sonnet Model (Optional)",
       "opusLabel": "Opus Model (Optional)",
-      "defaultPlaceholder": "e.g., claude-sonnet-4-5-20250929",
+      "defaultPlaceholder": "e.g., claude-sonnet-4-6-20250929",
       "haikuPlaceholder": "e.g., claude-haiku-4-5-20251001",
-      "sonnetPlaceholder": "e.g., claude-sonnet-4-5-20250929",
+      "sonnetPlaceholder": "e.g., claude-sonnet-4-6-20250929",
       "opusPlaceholder": "e.g., claude-opus-4-6",
       "opus1mPlaceholder": "e.g., claude-opus-4-6 (1M context)"
     },
@@ -168,7 +168,7 @@
   },
   "modelSelect": {
     "placeholder": "Select a model or type manually",
-    "placeholderManual": "Enter model name (e.g., claude-sonnet-4-5-20250929)",
+    "placeholderManual": "Enter model name (e.g., claude-sonnet-4-6-20250929)",
     "searchPlaceholder": "Search models...",
     "noResults": "No models match your search",
     "discoveryNotAvailable": "Model discovery not available. Enter model name manually."

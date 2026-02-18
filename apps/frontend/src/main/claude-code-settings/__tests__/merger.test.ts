@@ -45,7 +45,7 @@ describe('mergeClaudeCodeSettings', () => {
       projectShared: undefined,
       projectLocal: undefined,
       managed: {
-        model: 'claude-sonnet-4-5-20250929',
+        model: 'claude-sonnet-4-6-20250929',
         permissions: {
           deny: ['rm', 'rmdir'],
         },
@@ -56,7 +56,7 @@ describe('mergeClaudeCodeSettings', () => {
     const result = mergeClaudeCodeSettings(hierarchy);
 
     expect(result).toEqual({
-      model: 'claude-sonnet-4-5-20250929',
+      model: 'claude-sonnet-4-6-20250929',
       permissions: {
         deny: ['rm', 'rmdir'],
       },
@@ -66,7 +66,7 @@ describe('mergeClaudeCodeSettings', () => {
   it('overrides scalar model: user haiku, project sonnet → sonnet', () => {
     const hierarchy: ClaudeCodeSettingsHierarchy = {
       user: { model: 'claude-haiku-3-5-20250107' },
-      projectShared: { model: 'claude-sonnet-4-5-20250929' },
+      projectShared: { model: 'claude-sonnet-4-6-20250929' },
       projectLocal: undefined,
       managed: undefined,
       merged: {},
@@ -74,7 +74,7 @@ describe('mergeClaudeCodeSettings', () => {
 
     const result = mergeClaudeCodeSettings(hierarchy);
 
-    expect(result.model).toBe('claude-sonnet-4-5-20250929');
+    expect(result.model).toBe('claude-sonnet-4-6-20250929');
   });
 
   it('overrides alwaysThinkingEnabled: user true, project false → false', () => {

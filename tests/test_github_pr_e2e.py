@@ -53,7 +53,7 @@ def mock_github_config():
     return GitHubRunnerConfig(
         repo="test-owner/test-repo",
         token="ghp_test_token_12345",
-        model="claude-sonnet-4-5-20250929",
+        model="claude-sonnet-4-6-20250929",
         thinking_level="medium",
     )
 

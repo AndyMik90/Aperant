@@ -74,7 +74,7 @@ async def spawn_security_review(
     pr_context: PRContext,
     project_dir: Path,
     github_dir: Path,
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "claude-sonnet-4-6-20250929",
     betas: list[str] | None = None,
     fast_mode: bool = False,
 ) -> list[PRReviewFinding]:
@@ -167,7 +167,7 @@ async def spawn_quality_review(
     pr_context: PRContext,
     project_dir: Path,
     github_dir: Path,
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "claude-sonnet-4-6-20250929",
     betas: list[str] | None = None,
     fast_mode: bool = False,
 ) -> list[PRReviewFinding]:
@@ -253,7 +253,7 @@ async def spawn_deep_analysis(
     pr_context: PRContext,
     project_dir: Path,
     github_dir: Path,
-    model: str = "claude-sonnet-4-5-20250929",
+    model: str = "claude-sonnet-4-6-20250929",
     betas: list[str] | None = None,
     fast_mode: bool = False,
 ) -> list[PRReviewFinding]:

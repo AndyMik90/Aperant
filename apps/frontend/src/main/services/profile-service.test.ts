@@ -192,7 +192,7 @@ describe('profile-service', () => {
         baseUrl: 'https://api.anthropic.com',
         apiKey: 'sk-ant-test-key',
         models: {
-          default: 'claude-sonnet-4-5-20250929'
+          default: 'claude-sonnet-4-6-20250929'
         }
       };
 
@@ -204,7 +204,7 @@ describe('profile-service', () => {
         baseUrl: 'https://api.anthropic.com',
         apiKey: 'sk-ant-test-key',
         models: {
-          default: 'claude-sonnet-4-5-20250929'
+          default: 'claude-sonnet-4-6-20250929'
         }
       });
       expect(result.createdAt).toBeGreaterThan(0);
@@ -303,7 +303,7 @@ describe('profile-service', () => {
         name: 'New Name',
         baseUrl: 'https://new-api.example.com',
         apiKey: 'sk-new-api-key-123',
-        models: { default: 'claude-sonnet-4-5-20250929' }
+        models: { default: 'claude-sonnet-4-6-20250929' }
       };
 
       const result = await updateProfile(input);
@@ -311,7 +311,7 @@ describe('profile-service', () => {
       expect(result.name).toBe('New Name');
       expect(result.baseUrl).toBe('https://new-api.example.com');
       expect(result.apiKey).toBe('sk-new-api-key-123');
-      expect(result.models).toEqual({ default: 'claude-sonnet-4-5-20250929' });
+      expect(result.models).toEqual({ default: 'claude-sonnet-4-6-20250929' });
       expect(result.updatedAt).toBeGreaterThan(1000000); // updatedAt should be refreshed
       expect(result.createdAt).toBe(1000000); // createdAt should remain unchanged
     });
@@ -522,9 +522,9 @@ describe('profile-service', () => {
             baseUrl: 'https://api.custom.com',
             apiKey: 'sk-test-key-12345678',
             models: {
-              default: 'claude-sonnet-4-5-20250929',
+              default: 'claude-sonnet-4-6-20250929',
               haiku: 'claude-haiku-4-5-20251001',
-              sonnet: 'claude-sonnet-4-5-20250929',
+              sonnet: 'claude-sonnet-4-6-20250929',
               opus: 'claude-opus-4-5-20251101'
             },
             createdAt: Date.now(),
@@ -543,9 +543,9 @@ describe('profile-service', () => {
       expect(result).toEqual({
         ANTHROPIC_BASE_URL: 'https://api.custom.com',
         ANTHROPIC_AUTH_TOKEN: 'sk-test-key-12345678',
-        ANTHROPIC_MODEL: 'claude-sonnet-4-5-20250929',
+        ANTHROPIC_MODEL: 'claude-sonnet-4-6-20250929',
         ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-haiku-4-5-20251001',
-        ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-5-20250929',
+        ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-6-20250929',
         ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-opus-4-5-20251101'
       });
     });
@@ -559,7 +559,7 @@ describe('profile-service', () => {
             baseUrl: '',
             apiKey: 'sk-test-key-12345678',
             models: {
-              default: 'claude-sonnet-4-5-20250929',
+              default: 'claude-sonnet-4-6-20250929',
               haiku: '',
               sonnet: ''
             },
@@ -584,7 +584,7 @@ describe('profile-service', () => {
       // Non-empty values should be present
       expect(result).toEqual({
         ANTHROPIC_AUTH_TOKEN: 'sk-test-key-12345678',
-        ANTHROPIC_MODEL: 'claude-sonnet-4-5-20250929'
+        ANTHROPIC_MODEL: 'claude-sonnet-4-6-20250929'
       });
     });
 
@@ -629,7 +629,7 @@ describe('profile-service', () => {
             baseUrl: 'https://api.example.com',
             apiKey: 'sk-test-key-12345678',
             models: {
-              default: 'claude-sonnet-4-5-20250929'
+              default: 'claude-sonnet-4-6-20250929'
               // Only default model set
             },
             createdAt: Date.now(),
@@ -648,7 +648,7 @@ describe('profile-service', () => {
       expect(result).toEqual({
         ANTHROPIC_BASE_URL: 'https://api.example.com',
         ANTHROPIC_AUTH_TOKEN: 'sk-test-key-12345678',
-        ANTHROPIC_MODEL: 'claude-sonnet-4-5-20250929'
+        ANTHROPIC_MODEL: 'claude-sonnet-4-6-20250929'
       });
       expect(result).not.toHaveProperty('ANTHROPIC_DEFAULT_HAIKU_MODEL');
       expect(result).not.toHaveProperty('ANTHROPIC_DEFAULT_SONNET_MODEL');
@@ -671,7 +671,7 @@ describe('profile-service', () => {
             name: 'Profile Two',
             baseUrl: 'https://api2.example.com',
             apiKey: 'sk-key-two-12345678',
-            models: { default: 'claude-sonnet-4-5-20250929' },
+            models: { default: 'claude-sonnet-4-6-20250929' },
             createdAt: Date.now(),
             updatedAt: Date.now()
           },
@@ -696,7 +696,7 @@ describe('profile-service', () => {
       expect(result).toEqual({
         ANTHROPIC_BASE_URL: 'https://api2.example.com',
         ANTHROPIC_AUTH_TOKEN: 'sk-key-two-12345678',
-        ANTHROPIC_MODEL: 'claude-sonnet-4-5-20250929'
+        ANTHROPIC_MODEL: 'claude-sonnet-4-6-20250929'
       });
     });
 

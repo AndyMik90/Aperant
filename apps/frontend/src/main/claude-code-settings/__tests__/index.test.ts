@@ -40,11 +40,11 @@ describe('getClaudeCodeEnv', () => {
 
   it('returns empty object when merged settings have no env', () => {
     const hierarchy: ClaudeCodeSettingsHierarchy = {
-      user: { model: 'claude-sonnet-4-5-20250929' },
+      user: { model: 'claude-sonnet-4-6-20250929' },
       projectShared: undefined,
       projectLocal: undefined,
       managed: undefined,
-      merged: { model: 'claude-sonnet-4-5-20250929' },
+      merged: { model: 'claude-sonnet-4-6-20250929' },
     };
 
     mockReadAllSettings.mockReturnValue(hierarchy);

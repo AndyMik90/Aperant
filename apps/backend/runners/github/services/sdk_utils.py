@@ -30,7 +30,7 @@ def _short_model_name(model: str | None) -> str:
     """Convert full model name to a short display name for logs.
 
     Examples:
-        claude-sonnet-4-5-20250929 -> sonnet-4.5
+        claude-sonnet-4-6-20250929 -> sonnet-4.6
         claude-opus-4-5-20251101 -> opus-4.5
         claude-3-5-sonnet-20241022 -> sonnet-3.5
     """
@@ -47,8 +47,8 @@ def _short_model_name(model: str | None) -> str:
         return "opus-4.6"
     if "opus-4-5" in model_lower or "opus-4.5" in model_lower:
         return "opus-4.5"
-    if "sonnet-4-5" in model_lower or "sonnet-4.5" in model_lower:
-        return "sonnet-4.5"
+    if "sonnet-4-6" in model_lower or "sonnet-4.6" in model_lower:
+        return "sonnet-4.6"
     if "haiku-4" in model_lower:
         return "haiku-4"
 
@@ -257,7 +257,7 @@ async def process_sdk_stream(
         on_text: Callback for text output - receives text string
         on_structured_output: Callback for structured output - receives dict
         context_name: Name for logging (e.g., "ParallelOrchestrator", "ParallelFollowup")
-        model: Model name for logging (e.g., "claude-sonnet-4-5-20250929")
+        model: Model name for logging (e.g., "claude-sonnet-4-6-20250929")
         max_messages: Optional override for max message count circuit breaker (default: MAX_MESSAGE_COUNT)
 
     Returns:

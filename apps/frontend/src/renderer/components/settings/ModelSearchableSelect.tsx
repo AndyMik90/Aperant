@@ -47,7 +47,7 @@ interface ModelSearchableSelectProps {
  * @example
  * ```tsx
  * <ModelSearchableSelect
- *   value="claude-sonnet-4-5-20250929"
+ *   value="claude-sonnet-4-6-20250929"
  *   onChange={(modelId) => setModel(modelId)}
  *   baseUrl="https://api.anthropic.com"
  *   apiKey="sk-ant-..."

@@ -193,7 +193,7 @@ class TestGitHubRunnerConfigModelDefaults:
         # Verify the default is "sonnet" (shorthand), not a hardcoded full model ID
         assert 'model: str = "sonnet"' in content
         # Verify the old hardcoded fallback is NOT present
-        assert 'model: str = "claude-sonnet-4-5-20250929"' not in content
+        assert 'model: str = "claude-sonnet-4-6-20250929"' not in content
 
     def test_load_settings_default_model_is_shorthand(self, models_file: Path):
         """GitHubRunnerConfig.load_settings() uses shorthand 'sonnet' as default."""
@@ -275,8 +275,8 @@ class TestClaudeBatchAnalyzerModelResolution:
         content = batch_issues_file.read_text(encoding="utf-8")
 
         # Verify the old hardcoded model is NOT present
-        assert 'model="claude-sonnet-4-5-20250929"' not in content
-        assert 'model = "claude-sonnet-4-5-20250929"' not in content
+        assert 'model="claude-sonnet-4-6-20250929"' not in content
+        assert 'model = "claude-sonnet-4-6-20250929"' not in content
 
         # Verify resolve_model_id is imported and used
         assert "from phase_config import resolve_model_id" in content
@@ -323,8 +323,8 @@ class TestParallelReviewerImportResolution:
         followup_content = followup_file.read_text(encoding="utf-8")
 
         # Verify the old hardcoded fallback is NOT present (negative assertion)
-        assert 'or "claude-sonnet-4-5-20250929"' not in orchestrator_content
-        assert 'or "claude-sonnet-4-5-20250929"' not in followup_content
+        assert 'or "claude-sonnet-4-6-20250929"' not in orchestrator_content
+        assert 'or "claude-sonnet-4-6-20250929"' not in followup_content
 
         # Verify the new pattern IS present (shorthand fallback)
         assert 'model_shorthand = self.config.model or "sonnet"' in orchestrator_content
@@ -460,8 +460,8 @@ class TestIsAdaptiveModel:
         assert is_adaptive_model("claude-opus-4-6") is True
 
     def test_sonnet_is_not_adaptive(self):
-        """claude-sonnet-4-5-20250929 is not an adaptive thinking model."""
-        assert is_adaptive_model("claude-sonnet-4-5-20250929") is False
+        """claude-sonnet-4-6-20250929 is not an adaptive thinking model."""
+        assert is_adaptive_model("claude-sonnet-4-6-20250929") is False
 
     def test_haiku_is_not_adaptive(self):
         """claude-haiku-4-5-20251001 is not an adaptive thinking model."""
@@ -501,7 +501,7 @@ class TestGetThinkingKwargsForModel:
 
     def test_sonnet_no_effort_level(self):
         """Sonnet model gets only max_thinking_tokens, no effort_level."""
-        result = get_thinking_kwargs_for_model("claude-sonnet-4-5-20250929", "medium")
+        result = get_thinking_kwargs_for_model("claude-sonnet-4-6-20250929", "medium")
         assert "max_thinking_tokens" in result
         assert "effort_level" not in result
         assert result["max_thinking_tokens"] == 4096

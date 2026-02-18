@@ -28,7 +28,7 @@ Environment Variables:
 
     # Anthropic (LLM only - needs separate embedder)
     ANTHROPIC_API_KEY: Required for Anthropic provider
-    GRAPHITI_ANTHROPIC_MODEL: Model for LLM (default: claude-sonnet-4-5)
+    GRAPHITI_ANTHROPIC_MODEL: Model for LLM (default: claude-sonnet-4-6)
 
     # Azure OpenAI
     AZURE_OPENAI_API_KEY: Required for Azure provider
@@ -126,7 +126,7 @@ class GraphitiConfig:
 
     # Anthropic settings (LLM only)
     anthropic_api_key: str = ""
-    anthropic_model: str = "claude-sonnet-4-5"
+    anthropic_model: str = "claude-sonnet-4-6"
 
     # Azure OpenAI settings
     azure_openai_api_key: str = ""
@@ -182,7 +182,7 @@ class GraphitiConfig:
         # Anthropic settings
         anthropic_api_key = os.environ.get("ANTHROPIC_API_KEY", "")
         anthropic_model = os.environ.get(
-            "GRAPHITI_ANTHROPIC_MODEL", "claude-sonnet-4-5"
+            "GRAPHITI_ANTHROPIC_MODEL", "claude-sonnet-4-6"
         )
 
         # Azure OpenAI settings
