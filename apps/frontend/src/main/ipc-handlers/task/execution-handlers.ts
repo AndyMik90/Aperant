@@ -259,7 +259,6 @@ export function registerTaskExecutionHandlers(
 
       // Check if spec.md exists (indicates spec creation was already done or in progress)
       // Check main project path for spec file (spec is created before worktree)
-      const specDir = path.join(project.path, specsBaseDir, task.specId);
       const specFilePath = path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE);
       const hasSpec = existsSync(specFilePath);
 
