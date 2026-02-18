@@ -9,9 +9,10 @@ import type { PRReviewFinding } from '../hooks/useGitHubPRs';
 interface FindingsSummaryProps {
   findings: PRReviewFinding[];
   selectedCount: number;
+  disputedCount?: number;
 }
 
-export function FindingsSummary({ findings, selectedCount }: FindingsSummaryProps) {
+export function FindingsSummary({ findings, selectedCount, disputedCount = 0 }: FindingsSummaryProps) {
   const { t } = useTranslation('common');
 
   // Count findings by severity
@@ -44,6 +45,11 @@ export function FindingsSummary({ findings, selectedCount }: FindingsSummaryProp
         {counts.low > 0 && (
           <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/30">
             {counts.low} {t('prReview.severity.low')}
+          </Badge>
+        )}
+        {disputedCount > 0 && (
+          <Badge variant="outline" className="bg-purple-500/10 text-purple-500 border-purple-500/30">
+            {disputedCount} {t('prReview.disputed')}
           </Badge>
         )}
       </div>
