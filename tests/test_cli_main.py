@@ -654,6 +654,7 @@ class TestRunCliPRCommand:
                 target_branch=None,
                 title=None,
                 draft=False,
+                base_branch=None,
             )
 
     def test_create_pr_with_all_options(self, mock_utils, mock_debug):
@@ -683,6 +684,7 @@ class TestRunCliPRCommand:
                 target_branch="develop",
                 title="My PR Title",
                 draft=True,
+                base_branch=None,
             )
 
     def test_create_pr_failure_exits(self, mock_utils, mock_debug):
