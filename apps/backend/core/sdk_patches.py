@@ -18,29 +18,35 @@ def apply_claude_agent_sdk_patches() -> None:
     - _internal.client.parse_message (the already-bound module-level name that
       the client's receive_response() generator actually calls via
       `from .message_parser import parse_message` at import time)
+
+    Idempotent — safe to call multiple times from different entry points.
     """
     try:
         from claude_agent_sdk._internal import client as _ic
         from claude_agent_sdk._internal import message_parser as _mp
         from claude_agent_sdk.types import SystemMessage as _SystemMessage
 
+        if getattr(_mp, "_rate_limit_patched", False):
+            logger.debug("claude_agent_sdk already patched — skipping")
+            return
+
         _orig_parse = _mp.parse_message
 
         def _patched_parse(data: dict) -> object:
-            try:
-                return _orig_parse(data)
-            except Exception:
-                if isinstance(data, dict) and data.get("type") == "rate_limit_event":
-                    logger.warning(
-                        "Rate limit event received from Claude Code — "
-                        "returning as SystemMessage so the stream stays open: %s",
-                        data,
-                    )
-                    return _SystemMessage(subtype="rate_limit_event", data=data)
-                raise
+            if isinstance(data, dict) and data.get("type") == "rate_limit_event":
+                logger.warning(
+                    "Rate limit event received from Claude Code — "
+                    "returning as SystemMessage so the stream stays open: %s",
+                    data,
+                )
+                return _SystemMessage(subtype="rate_limit_event", data=data)
+            return _orig_parse(data)
+
+        _patched_parse.__wrapped__ = _orig_parse  # type: ignore[attr-defined]
 
         _mp.parse_message = _patched_parse
         _ic.parse_message = _patched_parse
+        _mp._rate_limit_patched = True  # type: ignore[attr-defined]
         logger.debug("claude_agent_sdk patched to handle rate_limit_event")
     except Exception:
         logger.warning(

@@ -62,6 +62,10 @@ from core.dependency_validator import validate_platform_dependencies
 
 validate_platform_dependencies()
 
+from core.sdk_patches import apply_claude_agent_sdk_patches
+
+apply_claude_agent_sdk_patches()
+
 # Load .env file with centralized error handling
 from cli.utils import import_dotenv
 
