@@ -56,6 +56,7 @@ def is_rate_limit_error(error: Exception) -> bool:
         for p in [
             "limit reached",
             "rate limit",
+            "rate_limit",  # Catches "Unknown message type: rate_limit_event" from claude_agent_sdk
             "too many requests",
             "usage limit",
             "quota exceeded",

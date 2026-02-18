@@ -83,6 +83,49 @@ if sys.platform == "win32":
 # Add auto-claude to path (parent of runners/)
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+
+def _patch_claude_agent_sdk_rate_limit():
+    """Monkey-patch claude_agent_sdk to handle rate_limit_event gracefully.
+
+    The bundled SDK raises MessageParseError for unknown message types including
+    rate_limit_event. This patch returns a SystemMessage instead of raising,
+    allowing the session to continue and retry after rate limit resets.
+
+    Must patch claude_agent_sdk._internal.client.parse_message (the already-bound
+    module-level name), not just message_parser.parse_message, because the client
+    uses `from .message_parser import parse_message` at the top level — a direct
+    name binding that is unaffected by replacing the module attribute alone.
+    """
+    try:
+        from claude_agent_sdk._internal import message_parser as _mp
+        from claude_agent_sdk._internal import client as _ic
+        from claude_agent_sdk.types import SystemMessage as _SystemMessage
+        import logging as _logging
+
+        _logger = _logging.getLogger("claude_agent_sdk.patch")
+        _orig_parse = _mp.parse_message
+
+        def _patched_parse(data):
+            try:
+                return _orig_parse(data)
+            except Exception:
+                if isinstance(data, dict) and data.get("type") == "rate_limit_event":
+                    _logger.warning(
+                        "Rate limit event received from Claude Code — "
+                        "returning as SystemMessage to allow retry: %s", data
+                    )
+                    return _SystemMessage(subtype="rate_limit_event", data=data)
+                raise
+
+        # Patch both the module attribute AND the already-bound name in _internal.client
+        _mp.parse_message = _patched_parse
+        _ic.parse_message = _patched_parse
+    except Exception:
+        pass  # Never break startup if patch fails
+
+
+_patch_claude_agent_sdk_rate_limit()
+
 # Validate platform-specific dependencies BEFORE any imports that might
 # trigger graphiti_core -> real_ladybug -> pywintypes import chain (ACS-253)
 from core.dependency_validator import validate_platform_dependencies
