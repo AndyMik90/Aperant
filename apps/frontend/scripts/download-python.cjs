@@ -825,17 +825,39 @@ function installPackages(pythonBin, requirementsPath, targetSitePackages) {
     '-r', requirementsPath,
   ];
 
-  console.log(`[download-python] Running: ${pythonBin} ${pipArgs.join(' ')}`);
+  // Determine execution context (local vs cross-compile)
+  const isWindowsTarget = targetSitePackages.includes('win');
+  const isLinuxHost = process.platform === 'linux';
+  const isCrossCompile = isLinuxHost && isWindowsTarget;
 
-  const result = spawnSync(pythonBin, pipArgs, {
+  let execBin = pythonBin;
+  const execEnv = {
+    ...process.env,
+    PYTHONDONTWRITEBYTECODE: '1',
+    PYTHONIOENCODING: 'utf-8',
+  };
+
+  if (isCrossCompile) {
+    console.log('[download-python] Cross-compiling for Windows on Linux host');
+    execBin = 'python3'; // Use system python
+
+    // Add platform-specific flags for pip to download correct wheels
+    pipArgs.push('--platform', 'win_amd64');
+    pipArgs.push('--python-version', '3.12');
+    pipArgs.push('--only-binary=:all:');
+
+    // Force install pywin32 for Windows targets because sys_platform marker fails on Linux host
+    // sys_platform marker in requirements.txt evaluates to 'linux' on build host, skipping pywin32
+    if (isWindowsTarget) {
+      pipArgs.push('pywin32>=306');
+    }
+  }
+
+  console.log(`[download-python] Running: ${execBin} ${pipArgs.join(' ')}`);
+
+  const result = spawnSync(execBin, pipArgs, {
     stdio: 'inherit',
-    env: {
-      ...process.env,
-      // Disable bytecode writing
-      PYTHONDONTWRITEBYTECODE: '1',
-      // Use UTF-8 encoding
-      PYTHONIOENCODING: 'utf-8',
-    },
+    env: execEnv,
   });
 
   if (result.error) {
@@ -947,8 +969,12 @@ async function downloadPython(targetPlatform, targetArch, options = {}) {
 
     // Verify Python works
     try {
-      const version = verifyPythonBinary(pythonBin);
-      console.log(`[download-python] Verified: ${version}`);
+      if (info.nodePlatform === process.platform) {
+        const version = verifyPythonBinary(pythonBin);
+        console.log(`[download-python] Verified: ${version}`);
+      } else {
+        console.log(`[download-python] Verified (skipped execution check due to cross-compile)`);
+      }
 
       // Verify critical packages exist (fixes GitHub issue #416)
       // Without this check, corrupted caches with missing packages would be accepted
@@ -982,8 +1008,12 @@ async function downloadPython(targetPlatform, targetArch, options = {}) {
   if (fs.existsSync(pythonBin)) {
     // Verify existing Python
     try {
-      const version = verifyPythonBinary(pythonBin);
-      console.log(`[download-python] Found existing Python: ${version}`);
+      if (info.nodePlatform === process.platform) {
+        const version = verifyPythonBinary(pythonBin);
+        console.log(`[download-python] Found existing Python: ${version}`);
+      } else {
+        console.log(`[download-python] Found existing Python (skipped check due to cross-compile)`);
+      }
       needsPythonDownload = false;
     } catch {
       console.log(`[download-python] Existing Python is broken, re-downloading...`);
@@ -1031,9 +1061,13 @@ async function downloadPython(targetPlatform, targetArch, options = {}) {
       fs.chmodSync(pythonBin, 0o755);
     }
 
-    // Verify it works
-    const version = verifyPythonBinary(pythonBin);
-    console.log(`[download-python] Installed Python: ${version}`);
+    // Verify it works (skip on cross-compile)
+    if (info.nodePlatform === process.platform) {
+      const version = verifyPythonBinary(pythonBin);
+      console.log(`[download-python] Installed Python: ${version}`);
+    } else {
+      console.log(`[download-python] Skipping Python verification (cross-compile)`);
+    }
   }
 
   // Install packages unless skipped
