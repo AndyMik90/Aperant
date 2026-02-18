@@ -533,10 +533,26 @@ class FindingValidationResponse(BaseModel):
 # =============================================================================
 
 
+class ExtractedFindingSummary(BaseModel):
+    """Per-finding summary with file location for extraction recovery."""
+
+    severity: str = Field(description="Severity level: LOW, MEDIUM, HIGH, or CRITICAL")
+    description: str = Field(description="One-line description of the finding")
+    file: str = Field(
+        default="unknown", description="File path where the issue was found"
+    )
+    line: int = Field(default=0, description="Line number in the file (0 if unknown)")
+
+    @field_validator("severity", mode="before")
+    @classmethod
+    def _normalize_severity(cls, v: str) -> str:
+        return _normalize_severity(v)
+
+
 class FollowupExtractionResponse(BaseModel):
     """Minimal extraction schema for recovering data when full structured output fails.
 
-    Deliberately kept small (~6 fields, no nesting) for near-100% validation success.
+    Uses ExtractedFindingSummary for new findings to preserve file/line information.
     Used as an intermediate recovery step before falling back to raw text parsing.
     """
 
@@ -552,9 +568,9 @@ class FollowupExtractionResponse(BaseModel):
         default_factory=list,
         description="IDs of previous findings that remain unresolved",
     )
-    new_finding_summaries: list[str] = Field(
+    new_finding_summaries: list[ExtractedFindingSummary] = Field(
         default_factory=list,
-        description="One-line summary of each new finding (e.g. 'HIGH: cleanup deletes QA-rejected specs in batch_commands.py')",
+        description="Structured summary of each new finding with file location",
     )
     confirmed_finding_count: int = Field(
         0, description="Number of findings confirmed as valid"
