@@ -648,6 +648,18 @@ async def run_agent_session(
 
                         current_tool = None
 
+            # Handle rate_limit_event SystemMessage from sdk_patches
+            elif msg_type == "SystemMessage" and getattr(msg, "subtype", None) == "rate_limit_event":
+                debug("session", "Rate limit event received — Claude Code is paused, stream remains open")
+                print("[Rate limit] Claude Code is waiting for rate limit reset...", flush=True)
+                if task_logger:
+                    task_logger.log(
+                        "Rate limit reached — waiting for reset (stream remains open)",
+                        LogEntryType.INFO,
+                        phase,
+                        print_to_console=False,
+                    )
+
         print("\n" + "-" * 70 + "\n")
 
         # Check if build is complete
