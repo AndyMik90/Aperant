@@ -9,8 +9,14 @@ Standalone runner system for GitHub automation:
 
 This is SEPARATE from the main task execution pipeline (spec_runner, run.py, etc.)
 to maintain modularity and avoid breaking existing features.
+
+LAZY IMPORTS: To enable testing and coverage tracking of individual modules,
+the orchestrator is only imported when actually accessed (not at package import time).
 """
 
+from __future__ import annotations
+
+# Import models directly - they have minimal dependencies
 from .models import (
     AutoFixState,
     AutoFixStatus,
@@ -22,12 +28,22 @@ from .models import (
     TriageCategory,
     TriageResult,
 )
-from .orchestrator import GitHubOrchestrator
+
+# Lazy import for orchestrator to avoid loading heavy dependencies at package import time
+# This enables testing individual modules (like gh_client) without triggering
+# the entire dependency tree
+def __getattr__(name: str):
+    """Lazy import orchestrator only when actually accessed."""
+    if name == "GitHubOrchestrator":
+        from .orchestrator import GitHubOrchestrator
+        return GitHubOrchestrator
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 __all__ = [
-    # Orchestrator
+    # Orchestrator (lazy loaded)
     "GitHubOrchestrator",
-    # Models
+    # Models (eagerly loaded)
     "PRReviewResult",
     "PRReviewFinding",
     "TriageResult",
