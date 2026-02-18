@@ -238,6 +238,42 @@ class SpecOrchestrator:
         task_logger.start_phase(LogPhase.PLANNING, "Starting spec creation process")
         TaskEventEmitter.from_spec_dir(self.spec_dir).emit("PLANNING_STARTED")
 
+        try:
+            return await self._run_phases(interactive, auto_approve, task_logger, ui)
+        except Exception as e:
+            # Emit PLANNING_FAILED so the frontend XState machine transitions to error state
+            # instead of leaving the task stuck in "planning" forever
+            try:
+                task_emitter = TaskEventEmitter.from_spec_dir(self.spec_dir)
+                task_emitter.emit(
+                    "PLANNING_FAILED",
+                    {"error": str(e), "recoverable": True},
+                )
+            except Exception:
+                pass  # Don't mask the original error
+            try:
+                task_logger.end_phase(
+                    LogPhase.PLANNING,
+                    success=False,
+                    message=f"Spec creation crashed: {e}",
+                )
+            except Exception:
+                pass  # Best effort - don't mask the original error when logging fails
+            raise
+
+    async def _run_phases(
+        self,
+        interactive: bool,
+        auto_approve: bool,
+        task_logger,
+        ui,
+    ) -> bool:
+        """Internal method that runs all spec creation phases.
+
+        Separated from run() so that run() can wrap this in a try/except
+        to emit PLANNING_FAILED on unhandled exceptions.
+        """
+
         print(
             box(
                 f"Spec Directory: {self.spec_dir}\n"
@@ -294,6 +330,7 @@ class SpecOrchestrator:
             task_logger.end_phase(
                 LogPhase.PLANNING, success=False, message="Discovery failed"
             )
+            self._emit_planning_failed("Discovery phase failed")
             return False
         # Store summary for subsequent phases (compaction)
         await self._store_phase_summary("discovery")
@@ -310,12 +347,20 @@ class SpecOrchestrator:
                 success=False,
                 message="Requirements gathering failed",
             )
+            self._emit_planning_failed("Requirements gathering failed")
             return False
         # Store summary for subsequent phases (compaction)
         await self._store_phase_summary("requirements")
 
         # Rename spec folder with better name from requirements
-        rename_spec_dir_from_requirements(self.spec_dir)
+        # IMPORTANT: Update self.spec_dir after rename so subsequent phases use the correct path
+        new_spec_dir = rename_spec_dir_from_requirements(self.spec_dir)
+        if new_spec_dir != self.spec_dir:
+            self.spec_dir = new_spec_dir
+            self.validator = SpecValidator(self.spec_dir)
+            # Update phase executor to use the renamed directory
+            phase_executor.spec_dir = self.spec_dir
+            phase_executor.spec_validator = self.validator
 
         # Update task description from requirements
         req = requirements.load_requirements(self.spec_dir)
@@ -338,6 +383,7 @@ class SpecOrchestrator:
             task_logger.end_phase(
                 LogPhase.PLANNING, success=False, message="Complexity assessment failed"
             )
+            self._emit_planning_failed("Complexity assessment failed")
             return False
 
         # Map of all available phases
@@ -400,6 +446,9 @@ class SpecOrchestrator:
                     LogPhase.PLANNING,
                     success=False,
                     message=f"Phase {phase_name} failed",
+                )
+                self._emit_planning_failed(
+                    f"Phase '{phase_name}' failed: {'; '.join(result.errors)}"
                 )
                 return False
 
@@ -638,6 +687,25 @@ class SpecOrchestrator:
             )
         )
 
+    def _emit_planning_failed(self, error: str) -> None:
+        """Emit PLANNING_FAILED event so the frontend transitions to error state.
+
+        Without this, the task stays stuck in 'planning' / 'in_progress' forever
+        when spec creation fails, because the XState machine never receives a
+        terminal event.
+
+        Args:
+            error: Human-readable error description
+        """
+        try:
+            task_emitter = TaskEventEmitter.from_spec_dir(self.spec_dir)
+            task_emitter.emit(
+                "PLANNING_FAILED",
+                {"error": error, "recoverable": True},
+            )
+        except Exception:
+            pass  # Best effort - don't mask the original failure
+
     def _run_review_checkpoint(self, auto_approve: bool) -> bool:
         """Run the human review checkpoint.
 
@@ -696,19 +764,25 @@ class SpecOrchestrator:
         The functionality has been moved to models.rename_spec_dir_from_requirements.
 
         Returns:
-            True if successful or not needed, False on error
+            True if successful or not needed, False if prerequisites are missing
         """
-        result = rename_spec_dir_from_requirements(self.spec_dir)
-        # Update self.spec_dir if it was renamed
-        if result and self.spec_dir.name.endswith("-pending"):
-            # Find the renamed directory
-            parent = self.spec_dir.parent
-            prefix = self.spec_dir.name[:4]  # e.g., "001-"
-            for candidate in parent.iterdir():
-                if (
-                    candidate.name.startswith(prefix)
-                    and "pending" not in candidate.name
-                ):
-                    self.spec_dir = candidate
-                    break
-        return result
+        # Check prerequisites first
+        requirements_file = self.spec_dir / "requirements.json"
+        if not requirements_file.exists():
+            return False
+
+        try:
+            with open(requirements_file, encoding="utf-8") as f:
+                req = json.load(f)
+            task_desc = req.get("task_description", "")
+            if not task_desc:
+                return False
+        except (json.JSONDecodeError, OSError):
+            return False
+
+        # Attempt rename
+        new_spec_dir = rename_spec_dir_from_requirements(self.spec_dir)
+        if new_spec_dir != self.spec_dir:
+            self.spec_dir = new_spec_dir
+            self.validator = SpecValidator(self.spec_dir)
+        return True
