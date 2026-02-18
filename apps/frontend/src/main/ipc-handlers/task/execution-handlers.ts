@@ -177,6 +177,11 @@ export function registerTaskExecutionHandlers(
 
       console.warn('[TASK_START] Found task:', task.specId, 'status:', task.status, 'reviewReason:', task.reviewReason, 'subtasks:', task.subtasks.length);
 
+      // Clear stale tracking state from any previous execution so that:
+      // - terminalEventSeen doesn't suppress future PROCESS_EXITED events
+      // - lastSequenceByTask doesn't drop events from the new process
+      taskStateManager.prepareForRestart(taskId);
+
       // Check if implementation_plan.json has valid subtasks BEFORE XState handling.
       // This is more reliable than task.subtasks.length which may not be loaded yet.
       const specsBaseDir = getSpecsDir(project.autoBuildPath);
@@ -360,6 +365,9 @@ export function registerTaskExecutionHandlers(
       task,
       project
     );
+
+    // Clear stale tracking state so a subsequent restart works correctly
+    taskStateManager.prepareForRestart(taskId);
   });
 
   /**
@@ -528,6 +536,9 @@ export function registerTaskExecutionHandlers(
           console.error('[TASK_REVIEW] Failed to write QA fix request:', error);
           return { success: false, error: 'Failed to write QA fix request file' };
         }
+
+        // Clear stale tracking state before starting new QA process
+        taskStateManager.prepareForRestart(taskId);
 
         // Restart QA process - use worktree path if it exists, otherwise main project
         // The QA process needs to run where the implementation_plan.json with completed subtasks is
@@ -703,6 +714,8 @@ export function registerTaskExecutionHandlers(
 
         // Auto-start task when status changes to 'in_progress' and no process is running
         if (status === 'in_progress' && !agentManager.isRunning(taskId)) {
+          // Clear stale tracking state before starting a new process
+          taskStateManager.prepareForRestart(taskId);
           const mainWindow = getMainWindow();
 
           // Check git status before auto-starting
@@ -1133,6 +1146,8 @@ export function registerTaskExecutionHandlers(
         // Auto-restart the task if requested
         let autoRestarted = false;
         if (autoRestart) {
+          // Clear stale tracking state before restarting
+          taskStateManager.prepareForRestart(taskId);
           // Check git status before auto-restarting
           const gitStatusForRestart = checkGitStatus(project.path);
           if (!gitStatusForRestart.isGitRepo || !gitStatusForRestart.hasCommits) {
