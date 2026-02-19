@@ -20,7 +20,8 @@ import { isWindows, isMacOS } from '../../../platform';
 import { getEffectiveSourcePath } from '../../../updater/path-resolver';
 import { pythonEnvManager, getConfiguredPythonPath } from '../../../python-env-manager';
 import { getTaskkillExePath, getWhereExePath } from '../../../utils/windows-paths';
-import { safeCaptureException } from '../../../sentry';
+import { safeCaptureException, safeBreadcrumb } from '../../../sentry';
+import { getToolInfo } from '../../../cli-tool-manager';
 
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
@@ -559,6 +560,7 @@ export interface GitHubModuleValidation {
   pythonEnvValid: boolean;
   error?: string;
   backendPath?: string;
+  ghCliPath?: string;
 }
 
 /**
@@ -622,33 +624,36 @@ export async function validateGitHubModule(project: Project): Promise<GitHubModu
     return result;
   }
 
-  // 2. Check gh CLI installation (cross-platform)
-  try {
-    if (isWindows()) {
-      await execFileAsync(getWhereExePath(), ['gh'], { timeout: 5000 });
-    } else {
-      await execAsync('which gh');
-    }
+  // 2. Check gh CLI installation (uses CLI tool manager for bundled app compatibility)
+  const ghInfo = getToolInfo('gh');
+  safeBreadcrumb({
+    category: 'github.validation',
+    message: `gh CLI lookup: found=${ghInfo.found}, path=${ghInfo.path ?? 'none'}, source=${ghInfo.source ?? 'none'}`,
+    level: ghInfo.found ? 'info' : 'warning',
+    data: { found: ghInfo.found, path: ghInfo.path ?? null, source: ghInfo.source ?? null },
+  });
+  if (ghInfo.found && ghInfo.path) {
     result.ghCliInstalled = true;
-  } catch (error: unknown) {
+    result.ghCliPath = ghInfo.path;
+  } else {
     result.ghCliInstalled = false;
-    const errCode = (error as NodeJS.ErrnoException).code;
-    if (errCode === 'ENOENT' && isWindows()) {
-      result.error = `System utility 'where.exe' not found. Check Windows installation.`;
-    } else {
-      const installInstructions = isWindows()
-        ? 'winget install --id GitHub.cli'
-        : isMacOS()
-          ? 'brew install gh'
-          : 'See https://cli.github.com/';
-      result.error = `GitHub CLI (gh) is not installed. Install it with:\n  ${installInstructions}`;
-    }
+    const installInstructions = isWindows()
+      ? 'winget install --id GitHub.cli'
+      : isMacOS()
+        ? 'brew install gh'
+        : 'See https://cli.github.com/';
+    result.error = `GitHub CLI (gh) is not installed. Install it with:\n  ${installInstructions}`;
+    safeCaptureException(new Error('gh CLI not found in bundled app'), {
+      tags: { component: 'github-validation' },
+      extra: { ghInfo, isPackaged: require('electron').app?.isPackaged ?? 'unknown' },
+    });
     return result;
   }
 
-  // 3. Check gh authentication
+  // 3. Check gh authentication (use resolved path for bundled app compatibility)
   try {
-    await execAsync('gh auth status 2>&1');
+    const ghPath = result.ghCliPath || 'gh';
+    await execAsync(`"${ghPath}" auth status 2>&1`);
     result.ghAuthenticated = true;
   } catch (error: any) {
     // gh auth status returns non-zero when not authenticated

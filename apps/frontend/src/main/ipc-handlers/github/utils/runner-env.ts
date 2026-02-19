@@ -3,7 +3,8 @@ import { getAPIProfileEnv } from '../../../services/profile';
 import { getBestAvailableProfileEnv } from '../../../rate-limit-detector';
 import { pythonEnvManager } from '../../../python-env-manager';
 import { getGitHubTokenForSubprocess } from '../utils';
-import { getSentryEnvForSubprocess } from '../../../sentry';
+import { getSentryEnvForSubprocess, safeBreadcrumb } from '../../../sentry';
+import { getToolInfo } from '../../../cli-tool-manager';
 
 /**
  * Get environment variables for Python runner subprocesses.
@@ -43,12 +44,30 @@ export async function getRunnerEnv(
   const githubToken = await getGitHubTokenForSubprocess();
   const githubEnv: Record<string, string> = githubToken ? { GITHUB_TOKEN: githubToken } : {};
 
+  // Resolve gh CLI path so Python subprocess can find it in bundled apps
+  // (bundled Electron apps have a stripped PATH that doesn't include Homebrew etc.)
+  const ghInfo = getToolInfo('gh');
+  const ghCliEnv: Record<string, string> = ghInfo.found && ghInfo.path ? { GITHUB_CLI_PATH: ghInfo.path } : {};
+  safeBreadcrumb({
+    category: 'github.runner-env',
+    message: `gh CLI for subprocess: found=${ghInfo.found}, path=${ghInfo.path ?? 'none'}, source=${ghInfo.source ?? 'none'}`,
+    level: ghInfo.found ? 'info' : 'warning',
+    data: {
+      found: ghInfo.found,
+      path: ghInfo.path ?? null,
+      source: ghInfo.source ?? null,
+      willSetGITHUB_CLI_PATH: !!(ghInfo.found && ghInfo.path),
+      hasGITHUB_TOKEN: !!githubToken,
+    },
+  });
+
   return {
     ...pythonEnv,  // Python environment including PYTHONPATH (fixes #139)
     ...apiProfileEnv,
     ...oauthModeClearVars,
     ...profileEnv,  // OAuth token from profile manager (fixes #563, rate-limit aware)
     ...githubEnv,  // Fresh GitHub token from gh CLI (fixes #151)
+    ...ghCliEnv,  // gh CLI path for bundled apps (Python backend uses GITHUB_CLI_PATH)
     ...getSentryEnvForSubprocess(),  // Sentry DSN + sample rates for Python subprocess
     ...extraEnv,  // extraEnv last so callers can still override
   };
