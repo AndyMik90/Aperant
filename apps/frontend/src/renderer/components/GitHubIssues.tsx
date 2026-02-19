@@ -87,12 +87,10 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     error,
     selectedIssueNumber,
     selectedIssue,
-    filterState,
     hasMore,
     selectIssue,
     getOpenIssuesCount,
     handleRefresh,
-    handleFilterChange,
     handleLoadMore,
     handleSearchStart,
     handleSearchClear,
@@ -101,7 +99,16 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
   // Investigation store — multi-issue keyed state
   // Subscribe only to the investigations object for state, use store for methods
   const investigations = useInvestigationStore((s) => s.investigations);
-  const investigationStore = useInvestigationStore(); // For method calls only
+  const getInvestigationState = useInvestigationStore((s) => s.getInvestigationState);
+  const syncTaskState = useInvestigationStore((s) => s.syncTaskState);
+  const clearLinkedTask = useInvestigationStore((s) => s.clearLinkedTask);
+  const getInvestigationSettings = useInvestigationStore((s) => s.getSettings);
+  const setInvestigationSettings = useInvestigationStore((s) => s.setSettings);
+  const markStaleInvestigations = useInvestigationStore((s) => s.markStaleInvestigations);
+  const setInvestigationSpecId = useInvestigationStore((s) => s.setSpecId);
+  const dismissInvestigation = useInvestigationStore((s) => s.dismiss);
+  const setInvestigationGithubCommentId = useInvestigationStore((s) => s.setGithubCommentId);
+  const getDerivedInvestigationState = useInvestigationStore((s) => s.getDerivedState);
 
   const storeIssues = useIssuesStore((s) => s.issues);
 
@@ -361,16 +368,38 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
   // Fetch repo labels & collaborators for mutation UI
   const [repoLabels, setRepoLabels] = useState<Array<{ name: string; color: string }>>([]);
   const [collaborators, setCollaborators] = useState<string[]>([]);
+  const repoMetaLoadedProjectRef = useRef<string | null>(null);
 
+  // Reset repo metadata cache on project change
   useEffect(() => {
-    if (!selectedProject?.id) return;
-    window.electronAPI.github.getRepoLabels(selectedProject.id).then((res) => {
-      if (res.success && res.data) setRepoLabels(res.data);
-    });
-    window.electronAPI.github.getRepoCollaborators(selectedProject.id).then((res) => {
-      if (res.success && res.data) setCollaborators(res.data);
-    });
+    repoMetaLoadedProjectRef.current = null;
+    setRepoLabels([]);
+    setCollaborators([]);
   }, [selectedProject?.id]);
+
+  // Lazily load labels/collaborators only when an issue is selected.
+  useEffect(() => {
+    if (!selectedProject?.id || !selectedIssue) return;
+    if (repoMetaLoadedProjectRef.current === selectedProject.id) return;
+    repoMetaLoadedProjectRef.current = selectedProject.id;
+
+    let cancelled = false;
+    Promise.all([
+      window.electronAPI.github.getRepoLabels(selectedProject.id),
+      window.electronAPI.github.getRepoCollaborators(selectedProject.id),
+    ]).then(([labelsRes, collaboratorsRes]) => {
+      if (cancelled) return;
+      if (labelsRes.success && labelsRes.data) setRepoLabels(labelsRes.data);
+      if (collaboratorsRes.success && collaboratorsRes.data) setCollaborators(collaboratorsRes.data);
+    }).catch(() => {
+      // Non-critical metadata loading failure
+      repoMetaLoadedProjectRef.current = null;
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProject?.id, selectedIssue]);
 
   // Load persisted investigation state and settings from disk on project change
   useEffect(() => {
@@ -379,17 +408,17 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     // Hydrate investigation settings (including labelConsentGiven) into the store
     window.electronAPI?.github?.getInvestigationSettings?.(selectedProject.id).then((res) => {
       if (res?.success && res.data) {
-        investigationStore.setSettings(selectedProject.id, res.data);
+        setInvestigationSettings(selectedProject.id, res.data);
       }
     }).catch(() => { /* non-critical */ });
-  }, [selectedProject?.id, investigationStore.setSettings]);
+  }, [selectedProject?.id, setInvestigationSettings]);
 
   // Mark stale investigations: cross-reference investigations with fetched issues
   useEffect(() => {
     if (!selectedProject?.id || storeIssues.length === 0) return;
     const activeIssueNumbers = new Set(storeIssues.map((issue) => issue.number));
-    investigationStore.markStaleInvestigations(selectedProject.id, activeIssueNumbers);
-  }, [storeIssues, selectedProject?.id, investigationStore]);
+    markStaleInvestigations(selectedProject.id, activeIssueNumbers);
+  }, [storeIssues, selectedProject?.id, markStaleInvestigations]);
 
   // Clear selection when filters change
     useEffect(() => {
@@ -435,11 +464,11 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
       if (!issueNumber || !task.status) continue;
 
       // Only sync if there's a corresponding investigation with a specId
-      const inv = investigationStore.getInvestigationState(projectId, issueNumber);
+      const inv = getInvestigationState(projectId, issueNumber);
       if (!inv?.specId) continue;
 
       // Sync task state to investigation store
-      investigationStore.syncTaskState(projectId, issueNumber, task.status);
+      syncTaskState(projectId, issueNumber, task.status);
     }
 
     // Detect deleted tasks: if an investigation has a specId but no matching task exists
@@ -447,17 +476,17 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     for (const inv of Object.values(investigations)) {
       if (inv.projectId !== projectId || !inv.specId) continue;
       if (!taskSpecIds.has(inv.specId)) {
-        investigationStore.clearLinkedTask(projectId, inv.issueNumber);
+        clearLinkedTask(projectId, inv.issueNumber);
       }
     }
-  }, [debouncedTasks, selectedProject?.id, investigationStore]);
+  }, [debouncedTasks, selectedProject?.id, getInvestigationState, syncTaskState, clearLinkedTask]);
 
   // Auto-close GitHub issues when linked task reaches "done" and autoCloseIssues is enabled
   const autoClosedRef = useRef<Set<number>>(new Set());
   useEffect(() => {
     if (!selectedProject?.id) return;
     const projectId = selectedProject.id;
-    const settings = investigationStore.getSettings(projectId);
+    const settings = getInvestigationSettings(projectId);
     if (!settings?.autoCloseIssues) return;
 
     for (const task of tasks) {
@@ -471,7 +500,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
       if (autoClosedRef.current.has(issueNumber)) continue;
 
       // Check that there's an investigation for this issue (auto-close only applies to investigated issues)
-      const state = investigationStore.getDerivedState(projectId, issueNumber);
+      const state = getDerivedInvestigationState(projectId, issueNumber);
       if (state !== 'done') continue;
 
       // Mark as auto-closed to prevent duplicate close attempts
@@ -489,42 +518,38 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         }
       });
     }
-  }, [tasks, selectedProject?.id, investigationStore]);
+  }, [tasks, selectedProject?.id, getInvestigationSettings, getDerivedInvestigationState]);
 
   // Clear auto-closed tracking on project change
   useEffect(() => {
     autoClosedRef.current = new Set();
-  }, []);
+  }, [selectedProject?.id]);
 
   // Reset local state on project change
   useEffect(() => {
-    return () => {
-      setSelectedIssueNumbers(new Set());
-      setRepoLabels([]);
-      setCollaborators([]);
-      setInvestigationStateFilter([]);
-      setShowDismissed(false);
-      useMutationStore.getState().clearBulkResult();
-    };
-  }, []);
+    setSelectedIssueNumbers(new Set());
+    setInvestigationStateFilter([]);
+    setShowDismissed(false);
+    useMutationStore.getState().clearBulkResult();
+  }, [selectedProject?.id]);
 
   // Helper: check if label consent is needed before investigating
   const needsLabelConsent = useCallback(() => {
     if (!selectedProject?.id) return false;
-    const settings = investigationStore.getSettings(selectedProject.id);
+    const settings = getInvestigationSettings(selectedProject.id);
     return !settings?.labelConsentGiven;
-  }, [selectedProject?.id, investigationStore]);
+  }, [selectedProject?.id, getInvestigationSettings]);
 
   // Helper: grant label consent and persist
   const grantLabelConsent = useCallback(() => {
     if (!selectedProject?.id) return;
-    const current = investigationStore.getSettings(selectedProject.id);
+    const current = getInvestigationSettings(selectedProject.id);
     const updated = { ...(current ?? { autoCreateTasks: false, autoStartTasks: false, pipelineMode: 'full' as const, autoPostToGitHub: false, autoCloseIssues: false, maxParallelInvestigations: 3, labelIncludeFilter: [] as string[], labelExcludeFilter: [] as string[] }), labelConsentGiven: true };
-    investigationStore.setSettings(selectedProject.id, updated);
+    setInvestigationSettings(selectedProject.id, updated);
     if (window.electronAPI?.github?.saveInvestigationSettings) {
       window.electronAPI.github.saveInvestigationSettings(selectedProject.id, updated).catch((err) => console.warn('Failed to persist label consent:', err));
     }
-  }, [selectedProject?.id, investigationStore]);
+  }, [selectedProject?.id, getInvestigationSettings, setInvestigationSettings]);
 
   // Investigation callbacks for selected issue
   const handleInvestigate = useCallback((issue: GitHubIssue) => {
@@ -583,7 +608,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
       // This prevents the tasks-changed effect from clearing the specId due to race condition
       await loadTasks(selectedProject.id);
       // Update the investigation store with the specId so the UI knows a task was created
-      investigationStore.setSpecId(selectedProject.id, selectedIssue.number, result.data.specId);
+      setInvestigationSpecId(selectedProject.id, selectedIssue.number, result.data.specId);
     } else if (!result.success) {
       toast({
         title: 'Failed to create task',
@@ -591,13 +616,13 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         variant: 'destructive',
       });
     }
-  }, [selectedProject?.id, selectedIssue, investigationStore, toast]);
+  }, [selectedProject?.id, selectedIssue, setInvestigationSpecId, toast]);
 
   const handleDismissIssue = useCallback(async (reason: InvestigationDismissReason) => {
     if (!selectedProject?.id || !selectedIssue) return;
     await window.electronAPI.github.dismissIssue(selectedProject.id, selectedIssue.number, reason);
-    investigationStore.dismiss(selectedProject.id, selectedIssue.number, reason);
-  }, [selectedProject?.id, selectedIssue, investigationStore]);
+    dismissInvestigation(selectedProject.id, selectedIssue.number, reason);
+  }, [selectedProject?.id, selectedIssue, dismissInvestigation]);
 
   const handlePostToGitHub = useCallback(async () => {
     if (!selectedProject?.id || !selectedIssue) return;
@@ -605,7 +630,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     if (result?.success) {
       // Track that we posted — use the comment ID if available, or a timestamp marker
       const commentId = result.data?.commentId ?? Date.now();
-      investigationStore.setGithubCommentId(selectedProject.id, selectedIssue.number, commentId);
+      setInvestigationGithubCommentId(selectedProject.id, selectedIssue.number, commentId);
       toast({
         title: t('investigation.toast.postedToGitHub', { issueNumber: selectedIssue.number }),
       });
@@ -616,7 +641,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         variant: 'destructive',
       });
     }
-  }, [selectedProject?.id, selectedIssue, investigationStore, toast, t]);
+  }, [selectedProject?.id, selectedIssue, setInvestigationGithubCommentId, toast, t]);
 
   const [isPostingToGitHub, setIsPostingToGitHub] = useState(false);
   const handlePostToGitHubWrapped = useCallback(async () => {
@@ -639,8 +664,8 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
   // Derive the state machine value from the entry
   const selectedIssueInvestigationState = useMemo(() => {
     if (!selectedProject?.id || !selectedIssue) return undefined;
-    return investigationStore.getDerivedState(selectedProject.id, selectedIssue.number);
-  }, [selectedProject?.id, selectedIssue, investigationStore]);
+    return getDerivedInvestigationState(selectedProject.id, selectedIssue.number);
+  }, [selectedProject?.id, selectedIssue, getDerivedInvestigationState]);
 
   // Not connected state
   if (!syncStatus?.connected) {

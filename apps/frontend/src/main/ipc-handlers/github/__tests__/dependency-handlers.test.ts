@@ -1,19 +1,15 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Mock child_process
-const mockExecFileSync = vi.fn();
-vi.mock('child_process', () => ({
-  execFileSync: (...args: unknown[]) => mockExecFileSync(...args),
-}));
+const mockGithubFetch = vi.fn();
+const mockGetGitHubConfig = vi.fn();
+const mockNormalizeRepoReference = vi.fn();
 
-// Mock electron
 vi.mock('electron', () => ({
   ipcMain: {
     handle: vi.fn(),
   },
 }));
 
-// Mock project-middleware
 const mockProject = { id: 'test-project', path: '/fake/project', name: 'Test' };
 vi.mock('../utils/project-middleware', () => ({
   withProject: vi.fn((_id: string, handler: (p: typeof mockProject) => Promise<unknown>) =>
@@ -21,14 +17,14 @@ vi.mock('../utils/project-middleware', () => ({
   ),
 }));
 
-// Mock env-utils
-vi.mock('../../../env-utils', () => ({
-  getAugmentedEnv: vi.fn(() => ({ PATH: '/usr/bin', GH_TOKEN: 'test-token' })),
-}));
-
-// Mock logger
 vi.mock('../utils/logger', () => ({
   createContextLogger: () => ({ debug: vi.fn() }),
+}));
+
+vi.mock('../utils', () => ({
+  getGitHubConfig: (...args: unknown[]) => mockGetGitHubConfig(...args),
+  githubFetch: (...args: unknown[]) => mockGithubFetch(...args),
+  normalizeRepoReference: (...args: unknown[]) => mockNormalizeRepoReference(...args),
 }));
 
 import { ipcMain } from 'electron';
@@ -40,25 +36,35 @@ const handlers: Record<string, HandlerFn> = {};
 beforeEach(() => {
   vi.clearAllMocks();
 
+  mockGetGitHubConfig.mockReturnValue({
+    token: 'test-token',
+    repo: 'owner/repo',
+  });
+  mockNormalizeRepoReference.mockReturnValue('owner/repo');
+
   (ipcMain.handle as ReturnType<typeof vi.fn>).mockImplementation((channel: string, handler: HandlerFn) => {
     handlers[channel] = handler;
   });
 
-  registerDependencyHandlers(() => null as never);
+  registerDependencyHandlers(() => null);
 });
 
 describe('fetchDependencies handler', () => {
   it('returns tracks and trackedBy arrays', async () => {
-    mockExecFileSync.mockReturnValue(JSON.stringify({
+    mockGithubFetch.mockResolvedValue({
       data: {
         repository: {
           issue: {
-            trackedIssues: { nodes: [{ number: 10, title: 'Sub-task A', state: 'OPEN' }] },
-            trackedInIssues: { nodes: [{ number: 5, title: 'Parent', state: 'CLOSED' }] },
+            trackedIssues: {
+              nodes: [{ number: 10, title: 'Sub-task A', state: 'OPEN' }],
+            },
+            trackedInIssues: {
+              nodes: [{ number: 5, title: 'Parent', state: 'CLOSED' }],
+            },
           },
         },
       },
-    }));
+    });
 
     const result = await handlers['github:deps:fetch']({}, 'test-project', 42) as {
       tracks: unknown[];
@@ -67,11 +73,12 @@ describe('fetchDependencies handler', () => {
 
     expect(result.tracks).toHaveLength(1);
     expect(result.trackedBy).toHaveLength(1);
+    expect(mockGithubFetch).toHaveBeenCalledTimes(1);
   });
 
   it('handles GraphQL field error (unavailable API)', async () => {
-    mockExecFileSync.mockImplementation(() => {
-      throw new Error('GraphQL: Field trackedIssues does not exist');
+    mockGithubFetch.mockResolvedValue({
+      errors: [{ message: 'GraphQL: Field trackedIssues does not exist' }],
     });
 
     const result = await handlers['github:deps:fetch']({}, 'test-project', 42) as {
@@ -79,11 +86,12 @@ describe('fetchDependencies handler', () => {
       unavailable: boolean;
     };
 
+    expect(result.error).toContain('does not exist');
     expect(result.unavailable).toBe(true);
   });
 
   it('handles empty dependencies', async () => {
-    mockExecFileSync.mockReturnValue(JSON.stringify({
+    mockGithubFetch.mockResolvedValue({
       data: {
         repository: {
           issue: {
@@ -92,7 +100,7 @@ describe('fetchDependencies handler', () => {
           },
         },
       },
-    }));
+    });
 
     const result = await handlers['github:deps:fetch']({}, 'test-project', 42) as {
       tracks: unknown[];
@@ -106,30 +114,36 @@ describe('fetchDependencies handler', () => {
   it('validates issue number', async () => {
     const result = await handlers['github:deps:fetch']({}, 'test-project', -1) as { error: string };
     expect(result.error).toBeTruthy();
+    expect(mockGithubFetch).not.toHaveBeenCalled();
   });
 
   it('handles auth error', async () => {
-    mockExecFileSync.mockImplementation(() => {
-      throw new Error('HTTP 401: Bad credentials');
-    });
+    mockGithubFetch.mockRejectedValue(new Error('HTTP 401: Bad credentials'));
 
     const result = await handlers['github:deps:fetch']({}, 'test-project', 42) as { error: string };
     expect(result.error).toContain('401');
   });
 
   it('handles cross-repo dependencies', async () => {
-    mockExecFileSync.mockReturnValue(JSON.stringify({
+    mockGithubFetch.mockResolvedValue({
       data: {
         repository: {
           issue: {
-            trackedIssues: { nodes: [
-              { number: 10, title: 'Sub-task', state: 'OPEN', repository: { nameWithOwner: 'org/other-repo' } },
-            ] },
+            trackedIssues: {
+              nodes: [
+                {
+                  number: 10,
+                  title: 'Sub-task',
+                  state: 'OPEN',
+                  repository: { nameWithOwner: 'org/other-repo' },
+                },
+              ],
+            },
             trackedInIssues: { nodes: [] },
           },
         },
       },
-    }));
+    });
 
     const result = await handlers['github:deps:fetch']({}, 'test-project', 42) as {
       tracks: Array<{ repo?: string }>;

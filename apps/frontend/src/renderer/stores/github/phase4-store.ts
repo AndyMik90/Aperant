@@ -52,10 +52,14 @@ export const usePhase4Store = create<Phase4State>((set, get) => ({
 
   // Dependency actions
   setDependencies: (issueNumber, deps) =>
-    set((state) => ({
-      dependencies: { ...state.dependencies, [issueNumber]: deps },
-      dependencyErrors: { ...state.dependencyErrors, [issueNumber]: undefined as unknown as string },
-    })),
+    set((state) => {
+      const { [issueNumber]: _removedError, ...remainingErrors } = state.dependencyErrors;
+      return {
+        dependencies: { ...state.dependencies, [issueNumber]: deps },
+        dependencyLoading: { ...state.dependencyLoading, [issueNumber]: false },
+        dependencyErrors: remainingErrors,
+      };
+    }),
 
   setDependencyLoading: (issueNumber, loading) =>
     set((state) => ({

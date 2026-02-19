@@ -6,7 +6,7 @@ import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type { IPCResult, GitHubIssue, PaginatedIssuesResult } from '../../../shared/types';
 import { projectStore } from '../../project-store';
-import { getGitHubConfig, githubFetch, normalizeRepoReference } from './utils';
+import { getGitHubConfig, githubFetch, githubFetchWithETag, normalizeRepoReference } from './utils';
 import type { GitHubAPIIssue, GitHubAPIComment } from './types';
 import { debugLog } from '../../../shared/utils/debug-logger';
 
@@ -100,18 +100,20 @@ export function registerGetIssues(): void {
           while (apiPage <= MAX_PAGES_FETCH_ALL) {
             debugLog('[GitHub Issues] Fetching page', apiPage, '(fetchAll mode)');
 
-            const pageIssues = await githubFetch(
+            const pageIssuesResult = await githubFetchWithETag(
               config.token,
               `/repos/${normalizedRepo}/issues?state=${state}&per_page=${GITHUB_API_PER_PAGE}&sort=updated&page=${apiPage}`
             );
+            const pageIssues = pageIssuesResult.data;
 
             if (!Array.isArray(pageIssues) || pageIssues.length === 0) {
               break;
             }
 
-            allIssues.push(...pageIssues);
+            const typedPageIssues = pageIssues as GitHubAPIIssue[];
+            allIssues.push(...typedPageIssues);
 
-            if (pageIssues.length < GITHUB_API_PER_PAGE) {
+            if (typedPageIssues.length < GITHUB_API_PER_PAGE) {
               break;
             }
 
@@ -141,10 +143,11 @@ export function registerGetIssues(): void {
         while (collectedIssues.length < targetEndIndex && apiPage <= maxPagesPerRequest && hasMoreFromAPI) {
           debugLog('[GitHub Issues] Fetching API page', apiPage, 'collected so far:', collectedIssues.length);
 
-          const pageItems = await githubFetch(
+          const pageItemsResult = await githubFetchWithETag(
             config.token,
             `/repos/${normalizedRepo}/issues?state=${state}&per_page=${GITHUB_API_PER_PAGE}&sort=updated&page=${apiPage}`
           );
+          const pageItems = pageItemsResult.data;
 
           if (!Array.isArray(pageItems)) {
             debugLog('[GitHub Issues] Unexpected response format:', typeof pageItems);
@@ -156,13 +159,15 @@ export function registerGetIssues(): void {
             break;
           }
 
+          const typedPageItems = pageItems as GitHubAPIIssue[];
+
           // Filter out PRs and add to collected issues
-          const issuesFromPage = pageItems.filter((issue: GitHubAPIIssue) => !issue.pull_request);
+          const issuesFromPage = typedPageItems.filter((issue: GitHubAPIIssue) => !issue.pull_request);
           collectedIssues.push(...issuesFromPage);
 
-          debugLog('[GitHub Issues] API page', apiPage, ':', pageItems.length, 'items,', issuesFromPage.length, 'actual issues');
+          debugLog('[GitHub Issues] API page', apiPage, ':', typedPageItems.length, 'items,', issuesFromPage.length, 'actual issues');
 
-          if (pageItems.length < GITHUB_API_PER_PAGE) {
+          if (typedPageItems.length < GITHUB_API_PER_PAGE) {
             hasMoreFromAPI = false;
           }
 

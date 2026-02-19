@@ -6,7 +6,7 @@ import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type { IPCResult, GitHubRepository, GitHubSyncStatus } from '../../../shared/types';
 import { projectStore } from '../../project-store';
-import { getGitHubConfig, githubFetch, normalizeRepoReference } from './utils';
+import { getGitHubConfig, githubFetch, githubFetchWithETag, normalizeRepoReference } from './utils';
 import type { GitHubAPIRepository } from './types';
 
 /**
@@ -46,18 +46,11 @@ export function registerCheckConnection(): void {
         }
 
         // Fetch repo info
-        const repoData = await githubFetch(
+        const repoDataResult = await githubFetchWithETag(
           config.token,
           `/repos/${normalizedRepo}`
-        ) as { full_name: string; description?: string };
-
-        // Count open issues
-        const issuesData = await githubFetch(
-          config.token,
-          `/repos/${normalizedRepo}/issues?state=open&per_page=1`
-        ) as unknown[];
-
-        const openCount = Array.isArray(issuesData) ? issuesData.length : 0;
+        );
+        const repoData = repoDataResult.data as { full_name: string; description?: string };
 
         return {
           success: true,
@@ -65,7 +58,6 @@ export function registerCheckConnection(): void {
             connected: true,
             repoFullName: repoData.full_name,
             repoDescription: repoData.description,
-            issueCount: openCount,
             lastSyncedAt: new Date().toISOString()
           }
         };

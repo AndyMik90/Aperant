@@ -907,14 +907,17 @@ export function App() {
                 {activeView === 'insights' && (activeProjectId || selectedProjectId) && (
                   <Insights projectId={activeProjectId || selectedProjectId!} />
                 )}
-                {activeView === 'github-issues' && (activeProjectId || selectedProjectId) && (
-                  <GitHubIssues
-                    onOpenSettings={() => {
-                      setSettingsInitialProjectSection('github');
-                      setIsSettingsDialogOpen(true);
-                    }}
-                    onNavigateToTask={handleGoToTask}
-                  />
+                {/* GitHubIssues is always mounted but hidden when not active to preserve issue state */}
+                {(activeProjectId || selectedProjectId) && (
+                  <div className={activeView === 'github-issues' ? 'h-full' : 'hidden'}>
+                    <GitHubIssues
+                      onOpenSettings={() => {
+                        setSettingsInitialProjectSection('github');
+                        setIsSettingsDialogOpen(true);
+                      }}
+                      onNavigateToTask={handleGoToTask}
+                    />
+                  </div>
                 )}
                 {activeView === 'gitlab-issues' && (activeProjectId || selectedProjectId) && (
                   <GitLabIssues

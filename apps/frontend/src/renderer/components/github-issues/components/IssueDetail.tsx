@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -72,6 +72,15 @@ export function IssueDetail({
   const [isClosing, setIsClosing] = useState(false);
   const [isReopening, setIsReopening] = useState(false);
   const [showOriginal, setShowOriginal] = useState(false);
+
+  const renderedBody = useMemo(() => {
+    if (!issue.body) return null;
+    return (
+      <div className="prose prose-sm dark:prose-invert max-w-none">
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{issue.body}</ReactMarkdown>
+      </div>
+    );
+  }, [issue.body]);
 
   // Use new investigation state if available, fall back to old
   const derivedState = investigationState ?? 'new';
@@ -371,10 +380,8 @@ export function IssueDetail({
                 ariaLabel={t('mutations.editBody')}
                 multiline
               />
-            ) : issue.body ? (
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{issue.body}</ReactMarkdown>
-              </div>
+            ) : renderedBody ? (
+              renderedBody
             ) : (
               <p className="text-sm text-muted-foreground italic">
                 {t('phase5.noDescription')}

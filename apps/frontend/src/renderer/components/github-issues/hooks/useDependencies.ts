@@ -19,8 +19,14 @@ export function useDependencies(issueNumber: number | null) {
   const isLoading = issueNumber ? loadingMap[issueNumber] ?? false : false;
   const error = issueNumber ? errorsMap[issueNumber] ?? null : null;
 
-  const fetchDependencies = useCallback(async () => {
+  const fetchDependencies = useCallback(async (force = false) => {
     if (!projectId || !issueNumber) return;
+
+    const state = usePhase4Store.getState();
+    if (!force) {
+      if (state.dependencyLoading[issueNumber]) return;
+      if (state.dependencies[issueNumber]) return;
+    }
 
     usePhase4Store.getState().setDependencyLoading(issueNumber, true);
     try {
@@ -52,6 +58,6 @@ export function useDependencies(issueNumber: number | null) {
     dependencies,
     isLoading,
     error,
-    refetch: fetchDependencies,
+    refetch: () => fetchDependencies(true),
   };
 }

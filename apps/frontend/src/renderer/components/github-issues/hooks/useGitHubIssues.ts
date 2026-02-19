@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, useMemo, useState } from "react";
+import { useEffect, useCallback, useMemo, useState } from "react";
 import {
   useIssuesStore,
   useSyncStatusStore,
@@ -23,23 +23,19 @@ export function useGitHubIssues(projectId: string | undefined) {
 
   const syncStatus = useSyncStatusStore((s) => s.syncStatus);
 
-  // Track if we've checked connection for this mount
-  const hasCheckedRef = useRef(false);
-
   // Track if search is active (need to load all issues for search)
   const [isSearchActive, setIsSearchActive] = useState(false);
 
   // Reset search state when projectId changes to prevent incorrect fetchAll mode
   useEffect(() => {
     setIsSearchActive(false);
-  }, []);
+  }, [projectId]);
 
   // Always check connection when component mounts or projectId changes
   useEffect(() => {
     if (projectId) {
       // Always check connection on mount (in case settings changed)
       checkGitHubConnection(projectId);
-      hasCheckedRef.current = true;
     }
   }, [projectId]);
 
@@ -98,7 +94,7 @@ export function useGitHubIssues(projectId: string | undefined) {
     return issues.find((i) => i.number === selectedIssueNumber) || null;
   }, [issues, selectedIssueNumber]);
 
-    const getOpenIssuesCount = useCallback(() => useIssuesStore.getState().getOpenIssuesCount(), []);
+  const getOpenIssuesCount = useCallback(() => useIssuesStore.getState().getOpenIssuesCount(), []);
 
   return {
     issues,

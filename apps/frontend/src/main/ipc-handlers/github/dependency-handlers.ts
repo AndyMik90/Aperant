@@ -5,12 +5,11 @@
 
 import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
-import { execFileSync } from 'child_process';
 import { withProject } from './utils/project-middleware';
-import { getAugmentedEnv } from '../../env-utils';
 import { createContextLogger } from './utils/logger';
 import { IPC_CHANNELS } from '../../../shared/constants/ipc';
 import type { IssueDependency, IssueDependencies } from '../../../shared/types/dependencies';
+import { getGitHubConfig, githubFetch, normalizeRepoReference } from './utils';
 
 const logger = createContextLogger('Dependencies');
 
@@ -68,36 +67,58 @@ export function registerDependencyHandlers(
       }
 
       return withProject(projectId, async (project) => {
-        const env = getAugmentedEnv();
-
         try {
-          // Get owner/repo from gh CLI
-          const repoJson = execFileSync('gh', [
-            'repo', 'view', '--json', 'nameWithOwner', '--jq', '.nameWithOwner',
-          ], { env, cwd: project.path, encoding: 'utf-8' }).trim();
+          const config = getGitHubConfig(project);
+          if (!config) {
+            return { error: 'GitHub token/repository not configured', tracks: [], trackedBy: [] };
+          }
 
-          const [owner, repo] = repoJson.split('/');
+          const normalizedRepo = normalizeRepoReference(config.repo);
+          const [owner, repo] = normalizedRepo.split('/');
+          if (!owner || !repo) {
+            return { error: 'Invalid repository format. Use owner/repo or GitHub URL.', tracks: [], trackedBy: [] };
+          }
 
-          const result = execFileSync('gh', [
-            'api', 'graphql',
-            '-f', `query=${DEPS_QUERY}`,
-            '-f', `owner=${owner}`,
-            '-f', `repo=${repo}`,
-            '-F', `number=${issueNumber}`,
-          ], { env, cwd: project.path, encoding: 'utf-8' });
-
-          const parsed = JSON.parse(result) as {
+          const parsed = await githubFetch(
+            config.token,
+            'https://api.github.com/graphql',
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                query: DEPS_QUERY,
+                variables: {
+                  owner,
+                  repo,
+                  number: issueNumber,
+                },
+              }),
+            },
+          ) as {
             data: {
               repository: {
                 issue: {
                   trackedIssues: { nodes: GraphQLIssueNode[] };
                   trackedInIssues: { nodes: GraphQLIssueNode[] };
-                };
-              };
+                } | null;
+              } | null;
             };
+            errors?: Array<{ message?: string }>;
           };
 
-          const issue = parsed.data.repository.issue;
+          if (parsed.errors?.length) {
+            const message = parsed.errors.map((e) => e.message).filter(Boolean).join('; ');
+            if (message.includes('does not exist') || message.includes('not found')) {
+              return { error: message || 'GraphQL query failed', unavailable: true, tracks: [], trackedBy: [] };
+            }
+            return { error: message || 'GraphQL query failed', tracks: [], trackedBy: [] };
+          }
+
+          const issue = parsed.data.repository?.issue;
+          if (!issue) {
+            return { error: 'Issue not found in repository', tracks: [], trackedBy: [] };
+          }
+
           const ownerRepo = `${owner}/${repo}`;
 
           const deps: IssueDependencies = {

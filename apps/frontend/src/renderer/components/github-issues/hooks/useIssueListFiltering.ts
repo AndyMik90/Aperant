@@ -14,26 +14,47 @@ const DEFAULT_FILTERS: IssueFilterState = {
   sortBy: 'newest',
 };
 
+interface IndexedIssue {
+  issue: GitHubIssue;
+  createdAtMs: number;
+  titleLower: string;
+  bodyLower: string;
+  issueNumberString: string;
+  authorLogin: string;
+}
+
 export function useIssueListFiltering(issues: GitHubIssue[]) {
   const [filters, setFiltersState] = useState<IssueFilterState>(DEFAULT_FILTERS);
+
+  // Precompute expensive per-issue values once per issues update.
+  const indexedIssues = useMemo<IndexedIssue[]>(() => {
+    return issues.map((issue) => ({
+      issue,
+      createdAtMs: Date.parse(issue.createdAt),
+      titleLower: issue.title.toLowerCase(),
+      bodyLower: issue.body?.toLowerCase() ?? '',
+      issueNumberString: issue.number.toString(),
+      authorLogin: issue.author?.login ?? '',
+    }));
+  }, [issues]);
 
   // Derive unique reporters (authors) from issue data
   const reporters = useMemo(() => {
     const authorSet = new Set<string>();
-    for (const issue of issues) {
-      if (issue.author?.login) {
-        authorSet.add(issue.author.login);
+    for (const indexed of indexedIssues) {
+      if (indexed.authorLogin) {
+        authorSet.add(indexed.authorLogin);
       }
     }
     return Array.from(authorSet).sort((a, b) =>
       a.toLowerCase().localeCompare(b.toLowerCase())
     );
-  }, [issues]);
+  }, [indexedIssues]);
 
   // Filter and sort issues - memoized to avoid recomputation
   const filteredIssues = useMemo(() => {
     // Apply status filter first (this is the most common filter)
-    const statusFiltered = issues.filter((issue) => {
+    const statusFiltered = indexedIssues.filter(({ issue }) => {
       if (filters.statuses.length === 0) return true;
       return filters.statuses.includes(issue.state as IssueStatusFilter);
     });
@@ -45,20 +66,19 @@ export function useIssueListFiltering(issues: GitHubIssue[]) {
       filters.sortBy === 'newest'
     ) {
       // Just apply sorting
-      return statusFiltered.slice().sort((a, b) => {
-        const aTime = new Date(a.createdAt).getTime();
-        const bTime = new Date(b.createdAt).getTime();
-        return bTime - aTime;
-      });
+      return statusFiltered
+        .slice()
+        .sort((a, b) => b.createdAtMs - a.createdAtMs)
+        .map((indexed) => indexed.issue);
     }
 
-    const filtered = statusFiltered.filter((issue) => {
-      // Search filter — matches title, body, and issue number
+    const filtered = statusFiltered.filter((indexed) => {
+      // Search filter - matches title, body, and issue number
       if (filters.searchQuery) {
         const query = filters.searchQuery.toLowerCase();
-        const matchesTitle = issue.title.toLowerCase().includes(query);
-        const matchesBody = issue.body?.toLowerCase().includes(query);
-        const matchesNumber = issue.number.toString().includes(query);
+        const matchesTitle = indexed.titleLower.includes(query);
+        const matchesBody = indexed.bodyLower.includes(query);
+        const matchesNumber = indexed.issueNumberString.includes(query);
         if (!matchesTitle && !matchesBody && !matchesNumber) {
           return false;
         }
@@ -66,7 +86,7 @@ export function useIssueListFiltering(issues: GitHubIssue[]) {
 
       // Reporter filter (multi-select)
       if (filters.reporters.length > 0) {
-        const authorLogin = issue.author?.login;
+        const authorLogin = indexed.authorLogin;
         if (!authorLogin || !filters.reporters.includes(authorLogin)) {
           return false;
         }
@@ -76,25 +96,24 @@ export function useIssueListFiltering(issues: GitHubIssue[]) {
     });
 
     // Sort with stable timestamp cache
-    return filtered.sort((a, b) => {
-      const aTime = new Date(a.createdAt).getTime();
-      const bTime = new Date(b.createdAt).getTime();
-
-      switch (filters.sortBy) {
-        case 'newest':
-          return bTime - aTime;
-        case 'oldest':
-          return aTime - bTime;
-        case 'most_commented': {
-          const diff = (b.commentsCount || 0) - (a.commentsCount || 0);
-          if (diff !== 0) return diff;
-          return bTime - aTime;
+    return filtered
+      .sort((a, b) => {
+        switch (filters.sortBy) {
+          case 'newest':
+            return b.createdAtMs - a.createdAtMs;
+          case 'oldest':
+            return a.createdAtMs - b.createdAtMs;
+          case 'most_commented': {
+            const diff = (b.issue.commentsCount || 0) - (a.issue.commentsCount || 0);
+            if (diff !== 0) return diff;
+            return b.createdAtMs - a.createdAtMs;
+          }
+          default:
+            return 0;
         }
-        default:
-          return 0;
-      }
-    });
-  }, [issues, filters]);
+      })
+      .map((indexed) => indexed.issue);
+  }, [indexedIssues, filters]);
 
   const setSearchQuery = useCallback((query: string) => {
     setFiltersState((prev) => ({ ...prev, searchQuery: query }));
@@ -120,7 +139,7 @@ export function useIssueListFiltering(issues: GitHubIssue[]) {
   }, []);
 
   const hasActiveFilters = useMemo(() => {
-    // Compare against defaults — status 'open' is the default, not an active filter
+    // Compare against defaults - status 'open' is the default, not an active filter
     const statusChanged =
       filters.statuses.length !== DEFAULT_FILTERS.statuses.length ||
       filters.statuses.some((s, i) => s !== DEFAULT_FILTERS.statuses[i]);

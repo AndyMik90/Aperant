@@ -40,7 +40,6 @@ export function IssueList({
     count: issues.length,
     getScrollElement: () => viewportElement,
     estimateSize: () => itemHeight,
-    measureElement: (el) => el.getBoundingClientRect().height,
     overscan: 5,
   });
 
@@ -99,7 +98,6 @@ export function IssueList({
           return (
             <div
               key={issue.id}
-              ref={virtualizer.measureElement}
               data-index={virtualRow.index}
               style={{
                 position: 'absolute',
