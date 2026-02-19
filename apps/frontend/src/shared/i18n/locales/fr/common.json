@@ -371,6 +371,7 @@
     "followup": "Suivi",
     "initial": "Initial",
     "rerunFollowup": "Relancer la revue de suivi",
+    "retryReview": "Réessayer la revue",
     "rerunReview": "Relancer la revue",
     "updateBranch": "Mettre à jour la branche",
     "updatingBranch": "Mise à jour...",

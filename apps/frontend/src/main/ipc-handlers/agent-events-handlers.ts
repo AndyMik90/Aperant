@@ -98,7 +98,23 @@ export function registerAgenteventsHandlers(
 
     // Send final plan state to renderer BEFORE unwatching
     // This ensures the renderer has the final subtask data (fixes 0/0 subtask bug)
-    const finalPlan = fileWatcher.getCurrentPlan(taskId);
+    // Try the file watcher's current path first, then fall back to worktree path
+    let finalPlan = fileWatcher.getCurrentPlan(taskId);
+    if (!finalPlan && exitTask && exitProject) {
+      // File watcher may have been watching the wrong path (main vs worktree)
+      // Try reading directly from the worktree
+      const worktreePath = findTaskWorktree(exitProject.path, exitTask.specId);
+      if (worktreePath) {
+        const specsBaseDir = getSpecsDir(exitProject.autoBuildPath);
+        const worktreePlanPath = path.join(worktreePath, specsBaseDir, exitTask.specId, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+        try {
+          const content = readFileSync(worktreePlanPath, 'utf-8');
+          finalPlan = JSON.parse(content);
+        } catch {
+          // Worktree plan file not readable - not critical
+        }
+      }
+    }
     if (finalPlan) {
       safeSendToRenderer(
         getMainWindow,
@@ -109,7 +125,9 @@ export function registerAgenteventsHandlers(
       );
     }
 
-    fileWatcher.unwatch(taskId);
+    fileWatcher.unwatch(taskId).catch((err) => {
+      console.error(`[agent-events-handlers] Failed to unwatch for ${taskId}:`, err);
+    });
 
     if (processType === "spec-creation") {
       console.warn(`[Task ${taskId}] Spec creation completed with code ${code}`);
@@ -211,14 +229,25 @@ export function registerAgenteventsHandlers(
       const worktreePath = findTaskWorktree(project.path, task.specId);
       if (worktreePath) {
         const specsBaseDir = getSpecsDir(project.autoBuildPath);
+        const worktreeSpecDir = path.join(worktreePath, specsBaseDir, task.specId);
         const worktreePlanPath = path.join(
-          worktreePath,
-          specsBaseDir,
-          task.specId,
+          worktreeSpecDir,
           AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN
         );
         if (existsSync(worktreePlanPath)) {
           persistPlanPhaseSync(worktreePlanPath, progress.phase, project.id);
+        }
+
+        // Re-watch the worktree path if the file watcher is still watching the main project path.
+        // This handles the case where the task started before the worktree existed:
+        // the initial watch fell back to the main project spec dir, but now the worktree
+        // is available and implementation_plan.json is being written there.
+        const currentWatchDir = fileWatcher.getWatchedSpecDir(taskId);
+        if (currentWatchDir && currentWatchDir !== worktreeSpecDir && existsSync(worktreePlanPath)) {
+          console.warn(`[agent-events-handlers] Re-watching worktree path for ${taskId}: ${worktreeSpecDir}`);
+          fileWatcher.watch(taskId, worktreeSpecDir).catch((err) => {
+            console.error(`[agent-events-handlers] Failed to re-watch worktree for ${taskId}:`, err);
+          });
         }
       }
     } else if (xstateInTerminalState && progress.phase) {

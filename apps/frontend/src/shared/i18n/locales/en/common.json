@@ -362,6 +362,7 @@
     "followup": "Follow-up",
     "initial": "Initial",
     "rerunFollowup": "Re-run follow-up review",
+    "retryReview": "Retry Review",
     "rerunReview": "Re-run review",
     "updateBranch": "Update Branch",
     "updatingBranch": "Updating...",

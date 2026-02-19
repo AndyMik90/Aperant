@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle, Circle, CircleDot, Play, RefreshCw } from 'lucide-react';
+import { AlertCircle, CheckCircle, Circle, CircleDot, Play, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../ui/button';
 import { cn } from '../../../lib/utils';
@@ -26,6 +26,7 @@ export interface ReviewStatusTreeProps {
   reviewResult: PRReviewResult | null;
   previousReviewResult: PRReviewResult | null;
   postedCount: number;
+  reviewError?: string | null;
   onRunReview: () => void;
   onRunFollowupReview: () => void;
   onCancelReview: () => void;
@@ -45,6 +46,7 @@ export function ReviewStatusTree({
   reviewResult,
   previousReviewResult,
   postedCount,
+  reviewError,
   onRunReview,
   onRunFollowupReview,
   onCancelReview,
@@ -57,8 +59,26 @@ export function ReviewStatusTree({
   // Determine if this is a follow-up review in progress (for edge case handling)
   const isFollowupInProgress = isReviewing && (previousReviewResult !== null || reviewResult?.isFollowupReview);
 
-  // If not reviewed, show simple status
+  // If not reviewed, show simple status (with error if present)
   if (status === 'not_reviewed' && !isReviewing) {
+    if (reviewError) {
+      return (
+        <div className="flex flex-wrap items-center justify-between gap-y-3 p-4 border rounded-lg bg-card shadow-sm border-destructive/30">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-destructive" />
+            <div className="min-w-0">
+              <span className="font-medium text-destructive truncate block">{t('prReview.reviewFailed')}</span>
+              <span className="text-xs text-muted-foreground truncate block mt-0.5">{reviewError}</span>
+            </div>
+          </div>
+          <Button onClick={onRunReview} size="sm" variant="outline" className="gap-2 shrink-0 ml-auto sm:ml-0">
+            <RefreshCw className="h-3.5 w-3.5" />
+            {t('prReview.retryReview')}
+          </Button>
+        </div>
+      );
+    }
+
     return (
       <div className="flex flex-wrap items-center justify-between gap-y-3 p-4 border rounded-lg bg-card shadow-sm">
         <div className="flex items-center gap-3 min-w-0">
