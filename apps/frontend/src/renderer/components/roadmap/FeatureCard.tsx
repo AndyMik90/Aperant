@@ -48,7 +48,7 @@ export function FeatureCard({
               variant="outline"
               className={`text-xs ${ROADMAP_IMPACT_COLORS[feature.impact]}`}
             >
-              {feature.impact} impact
+              {t('featureCard.impactLabel', { impact: feature.impact })}
             </Badge>
             {hasCompetitorInsight && (
               <Tooltip>
@@ -102,7 +102,7 @@ export function FeatureCard({
                             }
                           }}
                           disabled={isMissing}
-                          title={isMissing ? `Dependency '${depId}' not found in roadmap` : depFeature?.title}
+                          title={isMissing ? t('featureDetailPanel.dependenciesSection.notFound', { id: depId }) : depFeature?.title}
                         >
                           {isMissing && <AlertTriangle className="w-3 h-3" />}
                           <span>{depFeature?.title || depId}</span>

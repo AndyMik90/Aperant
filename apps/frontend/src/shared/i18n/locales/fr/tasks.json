@@ -21,7 +21,13 @@
     "viewPR": "Voir la PR",
     "moveTo": "Déplacer vers",
     "taskActions": "Actions de la tâche",
-    "selectTask": "Sélectionner la tâche : {{title}}"
+    "selectTask": "Sélectionner la tâche : {{title}}",
+    "startTask": "Démarrer la tâche",
+    "stopTask": "Arrêter la tâche",
+    "recoverTask": "Récupérer la tâche",
+    "resumeTask": "Reprendre la tâche",
+    "deleteTask": "Supprimer la tâche",
+    "close": "Fermer"
   },
   "labels": {
     "running": "En cours",
@@ -32,7 +38,9 @@
     "incomplete": "Incomplet",
     "recovering": "Récupération...",
     "needsRecovery": "Récupération requise",
-    "needsResume": "Reprise requise"
+    "needsResume": "Reprise requise",
+    "loadingPlan": "Chargement du plan...",
+    "close": "Fermer"
   },
   "reviewReason": {
     "completed": "Terminé",
@@ -306,7 +314,10 @@
     }
   },
   "subtasks": {
-    "untitled": "Sous-tâche sans titre"
+    "untitled": "Sous-tâche sans titre",
+    "progress": "{{completed}}/{{total}} sous-tâches",
+    "tab": "Sous-tâches ({{count}})",
+    "tabLabel": "Sous-tâches"
   },
   "bulkPR": {
     "selectAllInColumn": "Sélectionner toutes les tâches de la colonne",
@@ -349,5 +360,12 @@
   "referenceImages": {
     "title": "Images de référence (facultatif)",
     "description": "Ajoutez des références visuelles comme des captures d'écran ou des conceptions pour aider l'IA à comprendre vos exigences."
+  },
+  "detail": {
+    "tabs": {
+      "overview": "Aperçu",
+      "subtasks": "Sous-tâches ({{count}})",
+      "logs": "Journaux"
+    }
   }
 }

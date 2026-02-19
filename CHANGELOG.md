@@ -1,3 +1,22 @@
+## [Unreleased]
+
+### ✨ New Features
+
+- Roadmap dependency visualization with forward and reverse dependencies display
+- Clickable dependency chips for easy navigation between related features
+- Feature titles displayed instead of technical IDs for better UX
+- Visual indicators for missing dependencies in roadmap
+- DependencyDetailSidePanel component for detailed dependency view
+- Consistent dependency display across Kanban, All Features, and Feature Detail views
+
+### 🛠️ Improvements
+
+- Added `reverseDependencies` field to RoadmapFeature type for tracking dependent features
+- Added `dependencyValidation` field to RoadmapFeature for validation metadata
+- Optimized circular dependency detection algorithm to O(V+E) complexity
+
+---
+
 ## 2.7.5 - Security & Platform Improvements
 
 ### ✨ New Features

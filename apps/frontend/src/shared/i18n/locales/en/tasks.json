@@ -21,7 +21,13 @@
     "viewPR": "View PR",
     "moveTo": "Move to",
     "taskActions": "Task actions",
-    "selectTask": "Select task: {{title}}"
+    "selectTask": "Select task: {{title}}",
+    "startTask": "Start Task",
+    "stopTask": "Stop Task",
+    "recoverTask": "Recover Task",
+    "resumeTask": "Resume Task",
+    "deleteTask": "Delete Task",
+    "close": "Close"
   },
   "labels": {
     "running": "Running",
@@ -32,7 +38,9 @@
     "incomplete": "Incomplete",
     "recovering": "Recovering...",
     "needsRecovery": "Needs Recovery",
-    "needsResume": "Needs Resume"
+    "needsResume": "Needs Resume",
+    "loadingPlan": "Loading Plan...",
+    "close": "Close"
   },
   "reviewReason": {
     "completed": "Completed",
@@ -306,7 +314,10 @@
     }
   },
   "subtasks": {
-    "untitled": "Untitled subtask"
+    "untitled": "Untitled subtask",
+    "progress": "{{completed}}/{{total}} subtasks",
+    "tab": "Subtasks ({{count}})",
+    "tabLabel": "Subtasks"
   },
   "bulkPR": {
     "selectAllInColumn": "Select all tasks in column",
@@ -349,5 +360,12 @@
   "referenceImages": {
     "title": "Reference Images (optional)",
     "description": "Add visual references like screenshots or designs to help the AI understand your requirements."
+  },
+  "detail": {
+    "tabs": {
+      "overview": "Overview",
+      "subtasks": "Subtasks ({{count}})",
+      "logs": "Logs"
+    }
   }
 }

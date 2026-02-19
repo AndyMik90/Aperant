@@ -61,8 +61,18 @@ class DependencyValidator:
         return sorted(missing)
 
     def _detect_circular_deps(self, features: list[RoadmapFeature]) -> list[list[str]]:
-        """Detect circular dependencies using DFS."""
+        """Detect circular dependencies using coloring-based DFS.
+
+        Uses WHITE/GRAY/BLACK coloring for O(V+E) complexity instead of
+        O(n²) from copying path/visited sets on each recursive call.
+        """
+        # Color constants for DFS traversal
+        WHITE = 0  # Not visited
+        GRAY = 1  # Currently in recursion stack (being explored)
+        BLACK = 2  # Fully processed
+
         graph = {f.id: f.dependencies for f in features}
+        colors = dict.fromkeys(graph, WHITE)
         circular_paths = []
         seen_cycles = set()  # Track normalized cycles
 
@@ -79,34 +89,38 @@ class DependencyValidator:
             rotated = cycle_without_dup[min_idx:] + cycle_without_dup[:min_idx]
             return ",".join(rotated)
 
-        def dfs(node: str, path: list[str], visited: set[str]) -> bool:
-            if node in path:
-                # Found a cycle
-                cycle_start = path.index(node)
-                cycle = path[cycle_start:] + [node]
-                # Normalize and check if we've seen this cycle
-                normalized = normalize_cycle(cycle)
-                if normalized not in seen_cycles:
-                    seen_cycles.add(normalized)
-                    circular_paths.append(cycle)
-                return True
+        def dfs(node: str, path: list[str]) -> None:
+            """DFS with coloring to detect back edges (cycles).
 
-            if node in visited:
-                return False
-
-            visited.add(node)
-            path.append(node)
+            Args:
+                node: Current node being visited
+                path: Nodes in current recursion stack (excluding node)
+            """
+            colors[node] = GRAY
+            current_path = path + [node]  # Include current node in path
 
             for neighbor in graph.get(node, []):
-                if neighbor in graph:  # Only check existing nodes
-                    dfs(neighbor, path.copy(), visited.copy())
+                if neighbor not in graph:
+                    continue  # Skip non-existent nodes
 
-            return False
+                if colors[neighbor] == GRAY:
+                    # Back edge found - cycle detected
+                    # Find where the neighbor is in our path
+                    if neighbor in current_path:
+                        cycle_start = current_path.index(neighbor)
+                        cycle = current_path[cycle_start:] + [neighbor]
+                        normalized = normalize_cycle(cycle)
+                        if normalized not in seen_cycles:
+                            seen_cycles.add(normalized)
+                            circular_paths.append(cycle)
+                elif colors[neighbor] == WHITE:
+                    dfs(neighbor, current_path)
 
-        visited = set()
+            colors[node] = BLACK
+
         for feature_id in graph:
-            if feature_id not in visited:
-                dfs(feature_id, [], set())
+            if colors[feature_id] == WHITE:
+                dfs(feature_id, [])
 
         return circular_paths
 
@@ -114,17 +128,18 @@ class DependencyValidator:
         self, features: list[RoadmapFeature]
     ) -> dict[str, list[str]]:
         """Calculate which features depend on each feature."""
-        reverse_deps = {}
+        reverse_deps: dict[str, set[str]] = {}
 
-        # Initialize all features with empty list
+        # Initialize all features with empty set
         for feature in features:
-            reverse_deps[feature.id] = []
+            reverse_deps[feature.id] = set()
 
-        # Build reverse dependency map
+        # Build reverse dependency map (using sets to dedupe)
         for feature in features:
             for dep_id in feature.dependencies:
                 if dep_id not in reverse_deps:
-                    reverse_deps[dep_id] = []
-                reverse_deps[dep_id].append(feature.id)
+                    reverse_deps[dep_id] = set()
+                reverse_deps[dep_id].add(feature.id)
 
-        return reverse_deps
+        # Convert sets to sorted lists for consistent output
+        return {k: sorted(v) for k, v in reverse_deps.items()}

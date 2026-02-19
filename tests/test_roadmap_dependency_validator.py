@@ -198,3 +198,102 @@ def test_feature_with_no_dependencies():
     assert result.has_missing == False
     assert result.has_circular == False
     assert result.reverse_deps_map["feat-1"] == []
+
+
+def test_self_dependency_detection():
+    """Test detecting a feature that depends on itself (cycle of length 1).
+
+    Self-dependency is the simplest possible cycle where a feature
+    incorrectly references itself as a dependency.
+    """
+    features = [
+        RoadmapFeature(
+            id="feat-1",
+            title="Self-referential feature",
+            description="A feature that incorrectly depends on itself",
+            dependencies=["feat-1"],  # Self-dependency!
+            status="planned"
+        )
+    ]
+
+    validator = DependencyValidator()
+    result = validator.validate_all(features)
+
+    # Self-dependency is detected as a circular dependency
+    assert result.has_circular == True
+    assert len(result.circular_paths) == 1
+    # The cycle path contains feat-1 appearing twice (start and end)
+    assert result.circular_paths[0] == ["feat-1", "feat-1"]
+    # Also appears in reverse deps (feat-1 depends on itself)
+    assert "feat-1" in result.reverse_deps_map["feat-1"]
+
+
+def test_multiple_missing_dependencies_from_single_feature():
+    """Test detecting multiple non-existent dependencies from a single feature."""
+    features = [
+        RoadmapFeature(
+            id="feat-1",
+            title="Feature 1",
+            description="A feature with multiple missing dependencies",
+            dependencies=["feat-2", "feat-3", "feat-4"],  # None of these exist
+            status="planned"
+        )
+    ]
+
+    validator = DependencyValidator()
+    result = validator.validate_all(features)
+
+    assert result.has_missing == True
+    assert len(result.missing_ids) == 3
+    assert "feat-2" in result.missing_ids
+    assert "feat-3" in result.missing_ids
+    assert "feat-4" in result.missing_ids
+
+
+def test_multiple_independent_circular_dependency_cycles():
+    """Test detecting two disjoint cycles (A->B->A and C->D->C)."""
+    features = [
+        # First cycle: feat-1 -> feat-2 -> feat-1
+        RoadmapFeature(
+            id="feat-1",
+            title="Feature 1",
+            description="First cycle start",
+            dependencies=["feat-2"],
+            status="planned"
+        ),
+        RoadmapFeature(
+            id="feat-2",
+            title="Feature 2",
+            description="First cycle end",
+            dependencies=["feat-1"],
+            status="planned"
+        ),
+        # Second cycle: feat-3 -> feat-4 -> feat-3
+        RoadmapFeature(
+            id="feat-3",
+            title="Feature 3",
+            description="Second cycle start",
+            dependencies=["feat-4"],
+            status="planned"
+        ),
+        RoadmapFeature(
+            id="feat-4",
+            title="Feature 4",
+            description="Second cycle end",
+            dependencies=["feat-3"],
+            status="planned"
+        )
+    ]
+
+    validator = DependencyValidator()
+    result = validator.validate_all(features)
+
+    assert result.has_circular == True
+    assert len(result.circular_paths) >= 2
+    # Verify both cycles are detected
+    cycle_ids = set()
+    for path in result.circular_paths:
+        cycle_ids.update(path)
+    # Both cycles should have their IDs present
+    assert "feat-1" in cycle_ids or "feat-2" in cycle_ids  # First cycle
+    assert "feat-3" in cycle_ids or "feat-4" in cycle_ids  # Second cycle

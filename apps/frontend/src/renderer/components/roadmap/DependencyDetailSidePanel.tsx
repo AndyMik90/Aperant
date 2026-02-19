@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next';
 
 interface DependencyDetailSidePanelProps {
   feature: RoadmapFeature | null;
+  features?: RoadmapFeature[];
   isOpen?: boolean;
   onClose: () => void;
   onGoToFeature?: (featureId: string) => void;
@@ -17,6 +18,7 @@ interface DependencyDetailSidePanelProps {
 
 export function DependencyDetailSidePanel({
   feature,
+  features = [],
   isOpen = true,
   onClose,
   onGoToFeature,
@@ -25,6 +27,11 @@ export function DependencyDetailSidePanel({
   const { t } = useTranslation(['roadmap', 'common']);
   const panelRef = useRef<HTMLDivElement>(null);
   const previousActiveElementRef = useRef<HTMLElement | null>(null);
+
+  // Helper to resolve feature ID to title
+  const getFeatureTitle = (id: string) => {
+    return features.find(f => f.id === id)?.title || id;
+  };
 
   // Handle ESC key to close panel
   useEffect(() => {
@@ -74,12 +81,14 @@ export function DependencyDetailSidePanel({
 
   // Trap focus within panel when open
   useEffect(() => {
-    if (!isOpen || !panelRef.current) return;
+    // Capture the panel element at effect setup to avoid stale references
+    const panelEl = panelRef.current;
+    if (!isOpen || !panelEl) return;
 
     const handleTab = (event: KeyboardEvent) => {
       if (event.key !== 'Tab') return;
 
-      const focusableElements = panelRef.current?.querySelectorAll(
+      const focusableElements = panelEl.querySelectorAll(
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
       );
 
@@ -211,7 +220,7 @@ export function DependencyDetailSidePanel({
                 {feature.dependencies.map(depId => (
                   <li key={depId} className="text-sm flex items-center gap-2">
                     <span className="text-muted-foreground">•</span>
-                    <span className="font-mono text-xs">{depId}</span>
+                    <span>{getFeatureTitle(depId)}</span>
                   </li>
                 ))}
               </ul>
@@ -228,7 +237,7 @@ export function DependencyDetailSidePanel({
                 {feature.reverseDependencies.map(depId => (
                   <li key={depId} className="text-sm flex items-center gap-2">
                     <span className="text-muted-foreground">•</span>
-                    <span className="font-mono text-xs">{depId}</span>
+                    <span>{getFeatureTitle(depId)}</span>
                   </li>
                 ))}
               </ul>

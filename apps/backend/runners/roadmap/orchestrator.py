@@ -202,21 +202,32 @@ class RoadmapOrchestrator:
             "roadmap_orchestrator",
             "Enriching features with dependency validation",
         )
-        self._enrich_roadmap_features()
+        enrichment_success = self._enrich_roadmap_features()
+        if not enrichment_success:
+            debug_warning(
+                "roadmap_orchestrator",
+                "Feature enrichment had issues but continuing",
+            )
         debug_success("roadmap_orchestrator", "Feature enrichment complete")
 
         # Summary
         self._print_summary()
         return True
 
-    def _enrich_roadmap_features(self):
-        """Enrich features with dependency validation and reverse dependencies."""
+    def _enrich_roadmap_features(self) -> bool:
+        """Enrich features with dependency validation and reverse dependencies.
+
+        Returns:
+            True if enrichment succeeded, False if there were issues (file not found,
+            parse error, etc.). Note: enrichment issues don't fail the entire roadmap
+            generation, but the caller is informed via the return value.
+        """
         roadmap_file = self.output_dir / "roadmap.json"
         if not roadmap_file.exists():
             debug_warning(
                 "roadmap_orchestrator", "Roadmap file not found for enrichment"
             )
-            return
+            return False
 
         try:
             with open(roadmap_file) as f:
@@ -225,7 +236,7 @@ class RoadmapOrchestrator:
             features_data = roadmap_data.get("features", [])
             if not features_data:
                 debug_warning("roadmap_orchestrator", "No features found in roadmap")
-                return
+                return False
 
             # Convert dict features to RoadmapFeature objects
             features = []
@@ -299,6 +310,7 @@ class RoadmapOrchestrator:
                 "Enriched roadmap features",
                 features_count=len(enriched_features),
             )
+            return True
 
         except Exception as e:
             debug_error(
@@ -306,6 +318,7 @@ class RoadmapOrchestrator:
                 "Failed to enrich roadmap features",
                 error=str(e),
             )
+            return False
 
     def _print_summary(self):
         """Print the final roadmap generation summary."""

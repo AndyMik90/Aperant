@@ -28,7 +28,8 @@
     "taskAriaLabel": "Go to linked task",
     "goToTask": "Go to Task",
     "depsCount": "{{count}} deps",
-    "requiredByCount": "{{count}} required by"
+    "requiredByCount": "{{count}} required by",
+    "impactLabel": "{{impact}} impact"
   },
   "featureDetailPanel": {
     "title": "Feature Details",

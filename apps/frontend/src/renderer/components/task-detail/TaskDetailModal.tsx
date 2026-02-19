@@ -253,12 +253,12 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
           {state.isRecovering ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Recovering...
+              {t('tasks:labels.recovering')}
             </>
           ) : (
             <>
               <RotateCcw className="mr-2 h-4 w-4" />
-              Recover Task
+              {t('tasks:actions.recoverTask')}
             </>
           )}
         </Button>
@@ -271,12 +271,12 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
           {state.isLoadingPlan ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Loading Plan...
+              {t('tasks:labels.loadingPlan')}
             </>
           ) : (
             <>
               <Play className="mr-2 h-4 w-4" />
-              Resume Task
+              {t('tasks:actions.resumeTask')}
             </>
           )}
         </Button>
@@ -292,12 +292,12 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
           {state.isRunning ? (
             <>
               <Square className="mr-2 h-4 w-4" />
-              Stop Task
+              {t('tasks:actions.stopTask')}
             </>
           ) : (
             <>
               <Play className="mr-2 h-4 w-4" />
-              Start Task
+              {t('tasks:actions.startTask')}
             </>
           )}
         </Button>
@@ -415,7 +415,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                       {/* Compact progress indicator */}
                       {totalSubtasks > 0 && (
                         <span className="text-xs text-muted-foreground ml-1">
-                          {completedSubtasks}/{totalSubtasks} subtasks
+                          {t('tasks:subtasks.progress', { completed: completedSubtasks, total: totalSubtasks })}
                         </span>
                       )}
                     </div>
@@ -445,7 +445,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                       className="hover:bg-muted transition-colors"
                     >
                       <X className="h-5 w-5" />
-                      <span className="sr-only">Close</span>
+                      <span className="sr-only">{t('tasks:labels.close')}</span>
                     </Button>
                   </DialogPrimitive.Close>
                 </div>
@@ -482,19 +482,19 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                     value="overview"
                     className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm"
                   >
-                    Overview
+                    {t('tasks:detail.tabs.overview')}
                   </TabsTrigger>
                   <TabsTrigger
                     value="subtasks"
                     className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm"
                   >
-                    Subtasks ({task.subtasks.length})
+                    {t('tasks:detail.tabs.subtasks', { count: task.subtasks.length })}
                   </TabsTrigger>
                   <TabsTrigger
                     value="logs"
                     className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm"
                   >
-                    Logs
+                    {t('tasks:detail.tabs.logs')}
                   </TabsTrigger>
                   {showFilesTab && (
                     <TabsTrigger
@@ -601,12 +601,12 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                 disabled={state.isRunning && !state.isStuck}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Delete Task
+                {t('tasks:actions.deleteTask')}
               </Button>
               <div className="flex-1" />
               {renderPrimaryAction()}
               <Button variant="outline" onClick={handleClose}>
-                Close
+                {t('tasks:actions.close')}
               </Button>
             </div>
           </DialogPrimitive.Content>

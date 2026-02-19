@@ -28,13 +28,14 @@
     "taskAriaLabel": "Aller à la tâche liée",
     "goToTask": "Aller à la tâche",
     "depsCount": "{{count}} dép.",
-    "requiredByCount": "{{count}} requis par"
+    "requiredByCount": "{{count}} requis par",
+    "impactLabel": "Impact {{impact}}"
   },
   "featureDetailPanel": {
     "title": "Détails de la fonctionnalité",
     "descriptionLabel": "Description",
     "rationale": "Justification",
-    "userStories": "User stories",
+    "userStories": "Histoires utilisateur",
     "acceptanceCriteria": "Critères d'acceptation",
     "metrics": {
       "complexity": "Complexité",
