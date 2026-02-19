@@ -145,7 +145,7 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
       )}
 
       {/* Dependency Detail Side Panel */}
-      {roadmap && dependencyDetailFeatureId && (
+      {dependencyDetailFeatureId && (
         <DependencyDetailSidePanel
           feature={roadmap.features.find(f => f.id === dependencyDetailFeatureId) || null}
           features={roadmap.features}
@@ -154,6 +154,13 @@ export function Roadmap({ projectId, onGoToTask }: RoadmapProps) {
             const feature = roadmap.features.find(f => f.id === featureId);
             if (feature) {
               setSelectedFeature(feature);
+              closeDependencyDetail();
+            }
+          }}
+          onConvertToSpec={(featureId) => {
+            const feature = roadmap.features.find(f => f.id === featureId);
+            if (feature) {
+              handleConvertToSpec(feature);
               closeDependencyDetail();
             }
           }}
