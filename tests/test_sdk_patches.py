@@ -15,7 +15,6 @@ import sys
 
 # Ensure backend is on the path
 from pathlib import Path
-from types import ModuleType
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -121,9 +120,7 @@ class TestApplyClaudeAgentSdkPatches:
             apply_claude_agent_sdk_patches()
 
         result = ic.parse_message({"type": "rate_limit_event", "retry_after": 30})
-        assert type(result).__name__ == "FakeSystemMessage" or hasattr(
-            result, "subtype"
-        )
+        assert type(result).__name__ == "_FakeSystemMessage"
         assert result.subtype == "rate_limit_event"
 
     def test_other_unknown_types_still_raise(self):

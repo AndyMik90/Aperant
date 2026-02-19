@@ -70,9 +70,9 @@ if sys.platform == "win32":
     if "_new_stream" in dir():
         del _new_stream
 
-from core.sdk_patches import apply_claude_agent_sdk_patches
+from core.sdk_patches import apply_claude_agent_sdk_patches  # pragma: no cover
 
-apply_claude_agent_sdk_patches()
+apply_claude_agent_sdk_patches()  # pragma: no cover
 
 
 # Validate platform-specific dependencies BEFORE any imports that might

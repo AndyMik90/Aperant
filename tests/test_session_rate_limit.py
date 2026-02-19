@@ -30,14 +30,6 @@ class SystemMessage:
         self.data = data
 
 
-class ResultMessage:
-    """Fake ResultMessage — signals end of stream."""
-
-    subtype = "success"
-    is_error = False
-    result = ""
-
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -102,7 +94,7 @@ class TestSessionRateLimitHandler:
         from agents.session import run_agent_session
 
         status, _, _ = await run_agent_session(client, "test prompt", self.spec_dir)
-        assert status in ("continue", "complete", "error")
+        assert status in ("continue", "complete"), f"Expected session to continue, got '{status}'"
 
     @pytest.mark.asyncio
     async def test_rate_limit_event_logs_to_task_logger(self):
@@ -130,23 +122,21 @@ class TestSessionRateLimitHandler:
 
         # Should not raise
         status, _, _ = await run_agent_session(client, "test prompt", self.spec_dir)
-        assert status in ("continue", "complete", "error")
+        assert status in ("continue", "complete"), f"Expected session to continue, got '{status}'"
 
     @pytest.mark.asyncio
     async def test_stream_continues_after_rate_limit_event(self):
         """Messages after the rate_limit_event are still processed."""
-        from unittest.mock import MagicMock as MM
-
         rate_limit_msg = SystemMessage(
             subtype="rate_limit_event", data={"retry_after": 1}
         )
         # Follow with a plain assistant message to confirm loop continues
-        text_block = MM()
+        text_block = MagicMock()
         text_block.__class__.__name__ = "TextBlock"
         type(text_block).__name__ = "TextBlock"
         text_block.text = "hello"
 
-        assistant_msg = MM()
+        assistant_msg = MagicMock()
         type(assistant_msg).__name__ = "AssistantMessage"
         assistant_msg.content = [text_block]
 
