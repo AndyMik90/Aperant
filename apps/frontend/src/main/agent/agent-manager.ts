@@ -329,7 +329,9 @@ export class AgentManager extends EventEmitter {
     this.registerTaskWithOperationRegistry(taskId, 'spec-creation', { projectPath, taskDescription, specDir });
 
     // Note: This is spec-creation but it chains to task-execution via run.py
-    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution', projectId);
+    // Use projectPath as cwd instead of autoBuildSource to avoid cross-drive file access
+    // issues on Windows. The script path is absolute so Python finds its modules via sys.path[0]. (#1661)
+    await this.processManager.spawnProcess(taskId, projectPath, args, combinedEnv, 'task-execution', projectId);
   }
 
   /**
@@ -410,7 +412,10 @@ export class AgentManager extends EventEmitter {
     // Register with unified OperationRegistry for proactive swap support
     this.registerTaskWithOperationRegistry(taskId, 'task-execution', { projectPath, specId, options });
 
-    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'task-execution', projectId);
+    // Use projectPath as cwd instead of autoBuildSource to avoid cross-drive file access
+    // issues on Windows. The script path (runPath) is absolute so Python finds its modules
+    // via sys.path[0] which is set to the script's directory. (#1661)
+    await this.processManager.spawnProcess(taskId, projectPath, args, combinedEnv, 'task-execution', projectId);
   }
 
   /**
@@ -448,7 +453,8 @@ export class AgentManager extends EventEmitter {
 
     const args = [runPath, '--spec', specId, '--project-dir', projectPath, '--qa'];
 
-    await this.processManager.spawnProcess(taskId, autoBuildSource, args, combinedEnv, 'qa-process', projectId);
+    // Use projectPath as cwd instead of autoBuildSource to avoid cross-drive issues on Windows (#1661)
+    await this.processManager.spawnProcess(taskId, projectPath, args, combinedEnv, 'qa-process', projectId);
   }
 
   /**

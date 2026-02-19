@@ -14,6 +14,7 @@ interface FindingItemProps {
   finding: PRReviewFinding;
   selected: boolean;
   posted?: boolean;
+  disputed?: boolean;
   onToggle: () => void;
 }
 
@@ -33,7 +34,7 @@ function getCategoryTranslationKey(category: string): string {
   return categoryMap[category.toLowerCase()] || category;
 }
 
-export function FindingItem({ finding, selected, posted = false, onToggle }: FindingItemProps) {
+export function FindingItem({ finding, selected, posted = false, disputed = false, onToggle }: FindingItemProps) {
   const { t } = useTranslation('common');
   const CategoryIcon = getCategoryIcon(finding.category);
 
@@ -45,8 +46,9 @@ export function FindingItem({ finding, selected, posted = false, onToggle }: Fin
     <div
       className={cn(
         "rounded-lg border bg-background p-3 space-y-2 transition-colors",
-        selected && !posted && "ring-2 ring-primary/50",
-        posted && "opacity-60"
+        selected && !posted && !disputed && "ring-2 ring-primary/50",
+        selected && disputed && "ring-2 ring-purple-500/50",
+        (posted || (disputed && !selected)) && "opacity-60"
       )}
     >
       {/* Finding Header */}
@@ -72,6 +74,16 @@ export function FindingItem({ finding, selected, posted = false, onToggle }: Fin
                 {t('prReview.posted')}
               </Badge>
             )}
+            {disputed && (
+              <Badge variant="outline" className="text-xs shrink-0 bg-purple-500/10 text-purple-500 border-purple-500/30">
+                {t('prReview.disputed')}
+              </Badge>
+            )}
+            {finding.crossValidated && finding.sourceAgents && finding.sourceAgents.length > 1 && (
+              <Badge variant="outline" className="text-xs shrink-0 bg-green-500/10 text-green-500 border-green-500/30">
+                {t('prReview.crossValidatedBy', { count: finding.sourceAgents.length })}
+              </Badge>
+            )}
             <span className="font-medium text-sm break-words">
               {finding.title}
             </span>
@@ -79,6 +91,11 @@ export function FindingItem({ finding, selected, posted = false, onToggle }: Fin
           <p className="text-sm text-muted-foreground break-words">
             {finding.description}
           </p>
+          {disputed && finding.validationExplanation && (
+            <p className="text-xs text-purple-500/80 italic break-words">
+              {finding.validationExplanation}
+            </p>
+          )}
           <div className="text-xs text-muted-foreground">
             <code className="bg-muted px-1 py-0.5 rounded break-all">
               {finding.file}:{finding.line}

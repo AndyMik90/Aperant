@@ -203,19 +203,19 @@ def generate_spec_name(task_description: str) -> str:
     return "-".join(name_parts) if name_parts else "spec"
 
 
-def rename_spec_dir_from_requirements(spec_dir: Path) -> bool:
+def rename_spec_dir_from_requirements(spec_dir: Path) -> Path:
     """Rename spec directory based on requirements.json task description.
 
     Args:
         spec_dir: The current spec directory
 
     Returns:
-        Tuple of (success, new_spec_dir). If success is False, new_spec_dir is the original.
+        The new spec directory path (or the original if no rename was needed/possible).
     """
     requirements_file = spec_dir / "requirements.json"
 
     if not requirements_file.exists():
-        return False
+        return spec_dir
 
     try:
         with open(requirements_file, encoding="utf-8") as f:
@@ -223,7 +223,7 @@ def rename_spec_dir_from_requirements(spec_dir: Path) -> bool:
 
         task_desc = req.get("task_description", "")
         if not task_desc:
-            return False
+            return spec_dir
 
         # Generate new name
         new_name = generate_spec_name(task_desc)
@@ -240,11 +240,11 @@ def rename_spec_dir_from_requirements(spec_dir: Path) -> bool:
 
         # Don't rename if it's already a good name (not "pending")
         if "pending" not in current_name:
-            return True
+            return spec_dir
 
         # Don't rename if target already exists
         if new_spec_dir.exists():
-            return True
+            return spec_dir
 
         # Rename the directory
         shutil.move(str(spec_dir), str(new_spec_dir))
@@ -253,11 +253,11 @@ def rename_spec_dir_from_requirements(spec_dir: Path) -> bool:
         update_task_logger_path(new_spec_dir)
 
         print_status(f"Spec folder: {highlight(new_dir_name)}", "success")
-        return True
+        return new_spec_dir
 
     except (json.JSONDecodeError, OSError) as e:
         print_status(f"Could not rename spec folder: {e}", "warning")
-        return False
+        return spec_dir
 
 
 # Phase display configuration

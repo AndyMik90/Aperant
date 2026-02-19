@@ -886,7 +886,8 @@ Analyze this follow-up review context and provide your structured response.
         """Attempt a short SDK call with minimal schema to recover review data.
 
         This is the extraction recovery step when full structured output validation fails.
-        Uses FollowupExtractionResponse (~6 flat fields) which has near-100% success rate.
+        Uses FollowupExtractionResponse (small schema with ExtractedFindingSummary nesting)
+        which has near-100% success rate.
 
         Uses create_client() + process_sdk_stream() for proper OAuth handling,
         matching the pattern in parallel_followup_reviewer.py.
@@ -900,7 +901,8 @@ Analyze this follow-up review context and provide your structured response.
             extraction_prompt = (
                 "Extract the key review data from the following AI analysis output. "
                 "Return the verdict, reasoning, resolved finding IDs, unresolved finding IDs, "
-                "one-line summaries of any new findings, and counts of confirmed/dismissed findings.\n\n"
+                "structured summaries of any new findings (including severity, description, file path, and line number), "
+                "and counts of confirmed/dismissed findings.\n\n"
                 f"--- AI ANALYSIS OUTPUT ---\n{text[:8000]}\n--- END ---"
             )
 
@@ -946,9 +948,16 @@ Analyze this follow-up review context and provide your structured response.
 
             # Convert extraction to internal format with reconstructed findings
             new_findings = []
-            for i, summary in enumerate(extracted.new_finding_summaries):
+            for i, summary_obj in enumerate(extracted.new_finding_summaries):
                 new_findings.append(
-                    create_finding_from_summary(summary, i, id_prefix="FR")
+                    create_finding_from_summary(
+                        summary=summary_obj.description,
+                        index=i,
+                        id_prefix="FR",
+                        severity_override=summary_obj.severity,
+                        file=summary_obj.file,
+                        line=summary_obj.line,
+                    )
                 )
 
             # Build finding_resolutions from extraction data for _apply_ai_resolutions

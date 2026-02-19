@@ -376,6 +376,10 @@ export interface PRReviewFinding {
   endLine?: number;
   suggestedFix?: string;
   fixable: boolean;
+  validationStatus?: 'confirmed_valid' | 'dismissed_false_positive' | 'needs_human_review' | null;
+  validationExplanation?: string;
+  sourceAgents?: string[];
+  crossValidated?: boolean;
 }
 
 /**
