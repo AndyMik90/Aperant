@@ -8,7 +8,6 @@
 import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
 import { spawn } from 'child_process';
-import crypto from 'crypto';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -26,12 +25,12 @@ const MAX_TITLE_LENGTH = 256;
 
 /**
  * Write content to a temp file and return the path.
- * Uses crypto.randomBytes for secure unique filename generation.
+ * Uses mkdtempSync for secure temp directory creation.
  */
 function writeTempFile(prefix: string, content: string): string {
-  const randomSuffix = crypto.randomBytes(8).toString('hex');
-  const tmpPath = path.join(os.tmpdir(), `${prefix}-${Date.now()}-${randomSuffix}`);
-  fs.writeFileSync(tmpPath, content, 'utf-8');
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `${prefix}-`));
+  const tmpPath = path.join(tmpDir, 'content.txt');
+  fs.writeFileSync(tmpPath, content, { encoding: 'utf-8', mode: 0o600 });
   return tmpPath;
 }
 
@@ -41,6 +40,10 @@ function writeTempFile(prefix: string, content: string): string {
 function cleanupTempFile(tmpPath: string): void {
   try {
     fs.unlinkSync(tmpPath);
+    const tmpDir = path.dirname(tmpPath);
+    if (tmpDir !== os.tmpdir()) {
+      fs.rmdirSync(tmpDir);
+    }
   } catch {
           // Already cleaned up or never created
   }

@@ -81,19 +81,14 @@ function getActivityLogPath(projectPath: string, issueNumber: number): string {
 function appendActivityLogEntry(projectPath: string, issueNumber: number, event: string): void {
   try {
     const logPath = getActivityLogPath(projectPath, issueNumber);
-    const dir = path.dirname(logPath);
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true });
-    }
+    fs.mkdirSync(path.dirname(logPath), { recursive: true });
 
     let entries: ActivityLogEntry[] = [];
-    if (fs.existsSync(logPath)) {
-      try {
-        const data = JSON.parse(fs.readFileSync(logPath, 'utf-8'));
-        if (Array.isArray(data)) entries = data;
-      } catch {
-              // Corrupt file, start fresh
-      }
+    try {
+      const data = JSON.parse(fs.readFileSync(logPath, 'utf-8'));
+      if (Array.isArray(data)) entries = data;
+    } catch {
+            // File doesn't exist or is corrupt, start fresh
     }
 
     entries.push({ event, timestamp: new Date().toISOString() });
@@ -119,7 +114,6 @@ function appendActivityLogEntry(projectPath: string, issueNumber: number, event:
 function loadActivityLog(projectPath: string, issueNumber: number): ActivityLogEntry[] {
   try {
     const logPath = getActivityLogPath(projectPath, issueNumber);
-    if (!fs.existsSync(logPath)) return [];
     const data = JSON.parse(fs.readFileSync(logPath, 'utf-8'));
     return Array.isArray(data) ? data : [];
   } catch {

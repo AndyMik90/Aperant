@@ -10,7 +10,6 @@
 import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
 import { execFileSync } from 'child_process';
-import crypto from 'node:crypto';
 import path from 'node:path';
 import os from 'node:os';
 import fs from 'node:fs';
@@ -42,16 +41,16 @@ const MAX_TEMP_FILE_SIZE = 65_536; // Match GitHub's limit
 
 /**
  * Write content to a temp file, returning the path.
- * Uses crypto.randomBytes for secure unique filename generation.
+ * Uses mkdtempSync for secure temp directory creation.
  * Caller is responsible for cleanup via cleanupTempFile.
  */
 function writeTempFile(prefix: string, content: string): string {
   if (Buffer.byteLength(content, 'utf-8') > MAX_TEMP_FILE_SIZE) {
     throw new Error(`Content exceeds maximum size of ${MAX_TEMP_FILE_SIZE} bytes`);
   }
-  const randomSuffix = crypto.randomBytes(8).toString('hex');
-  const tmpPath = path.join(os.tmpdir(), `${prefix}-${Date.now()}-${randomSuffix}`);
-  fs.writeFileSync(tmpPath, content, 'utf-8');
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `${prefix}-`));
+  const tmpPath = path.join(tmpDir, 'content.txt');
+  fs.writeFileSync(tmpPath, content, { encoding: 'utf-8', mode: 0o600 });
   return tmpPath;
 }
 
@@ -61,6 +60,11 @@ function writeTempFile(prefix: string, content: string): string {
 function cleanupTempFile(tmpPath: string): void {
   try {
     fs.unlinkSync(tmpPath);
+    // Also remove the parent temp directory created by mkdtempSync
+    const tmpDir = path.dirname(tmpPath);
+    if (tmpDir !== os.tmpdir()) {
+      fs.rmdirSync(tmpDir);
+    }
   } catch {
           // Already cleaned up or never created
   }
