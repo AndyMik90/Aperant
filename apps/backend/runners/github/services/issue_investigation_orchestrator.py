@@ -34,6 +34,11 @@ try:
         get_thinking_budget,
         resolve_model_id,
     )
+    from ..sanitize import (
+        get_prompt_safety_prefix,
+        sanitize_github_content,
+        wrap_for_prompt,
+    )
     from .investigation_hooks import emit_json_event
     from .investigation_models import (
         FixAdvice,
@@ -52,6 +57,11 @@ try:
     from .sdk_utils import _get_tool_detail
 except (ImportError, ValueError, SystemError):
     try:
+        from sanitize import (
+            get_prompt_safety_prefix,
+            sanitize_github_content,
+            wrap_for_prompt,
+        )
         from services.investigation_hooks import emit_json_event
         from services.investigation_models import (
             FixAdvice,
@@ -87,6 +97,11 @@ except (ImportError, ValueError, SystemError):
         )
         from io_utils import safe_print
         from parallel_agent_base import ParallelAgentOrchestrator, SpecialistConfig
+        from sanitize import (
+            get_prompt_safety_prefix,
+            sanitize_github_content,
+            wrap_for_prompt,
+        )
         from sdk_utils import _get_tool_detail
     from phase_config import (
         get_thinking_budget,
@@ -513,10 +528,20 @@ class IssueInvestigationOrchestrator(ParallelAgentOrchestrator):
         """Build the issue context string injected into all specialist prompts.
 
         Extracts and lists any image URLs found in the issue body or comments.
+        All user-controlled content (title, body, comments) is sanitized to
+        prevent prompt injection attacks.
         """
         labels_str = ", ".join(issue_labels) if issue_labels else "(none)"
 
-        # Extract image URLs from issue body
+        # Sanitize user-controlled inputs before interpolation
+        safe_title = sanitize_github_content(issue_title, "issue_body").content
+        safe_body = (
+            sanitize_github_content(issue_body, "issue_body").content
+            if issue_body
+            else ""
+        )
+
+        # Extract image URLs before sanitization (from original content)
         body_images = extract_image_urls(issue_body)
 
         # Extract image URLs from comments
@@ -543,8 +568,13 @@ class IssueInvestigationOrchestrator(ParallelAgentOrchestrator):
         if issue_comments:
             comments_list = []
             for i, comment in enumerate(issue_comments[:10], 1):
-                # Truncate long comments
-                truncated = comment[:500] + "..." if len(comment) > 500 else comment
+                # Sanitize and truncate each comment
+                safe_comment = sanitize_github_content(comment, "comment").content
+                truncated = (
+                    safe_comment[:500] + "..."
+                    if len(safe_comment) > 500
+                    else safe_comment
+                )
                 comments_list.append(f"**Comment {i}:**\n{truncated}")
             comments_section = f"""
 ### Comments ({len(issue_comments)} total)
@@ -554,14 +584,16 @@ class IssueInvestigationOrchestrator(ParallelAgentOrchestrator):
         # Fetch recent git commits for context
         commits_section = self._get_recent_commits(project_root, max_count=20)
 
+        # Wrap user content in delimiters with prompt hardening
         return f"""
+{get_prompt_safety_prefix()}
 ## GitHub Issue #{issue_number}
 
-**Title:** {issue_title}
+**Title:** {safe_title}
 **Labels:** {labels_str}
 {images_section}
 ### Description
-{issue_body or "(No description provided)"}
+{wrap_for_prompt(safe_body or "(No description provided)", "issue_body")}
 {comments_section}
 {commits_section}
 """

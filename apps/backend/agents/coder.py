@@ -1199,10 +1199,10 @@ async def run_autonomous_agent(
                     inv_prompt += "**Code Paths:**\n"
                     for path in inv["root_cause"]["code_paths"]:
                         file_ref = path.get("file", "unknown")
-                        start = path.get("start_line", "")
-                        end = path.get("end_line", "")
+                        start = path.get("start_line")
+                        end = path.get("end_line") or start
                         desc = path.get("description", "")
-                        line_range = f":{start}-{end}" if start and end else ""
+                        line_range = f":{start}-{end}" if start is not None else ""
                         inv_prompt += f"- `{file_ref}{line_range}`"
                         if desc:
                             inv_prompt += f" — {desc}"

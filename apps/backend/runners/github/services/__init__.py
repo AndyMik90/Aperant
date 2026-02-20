@@ -11,6 +11,30 @@ The circular import chain was: orchestrator → context_gatherer → services.io
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .autofix_processor import AutoFixProcessor
+    from .batch_processor import BatchProcessor
+    from .enrichment_engine import EnrichmentEngine
+    from .investigation_label_manager import InvestigationLabelManager
+    from .investigation_models import (
+        FixAdvice,
+        ImpactAssessment,
+        InvestigationReport,
+        InvestigationState,
+        ReproductionAnalysis,
+        RootCauseAnalysis,
+    )
+    from .investigation_report_builder import build_github_comment, build_summary
+    from .issue_investigation_orchestrator import IssueInvestigationOrchestrator
+    from .parallel_agent_base import ParallelAgentOrchestrator, SpecialistConfig
+    from .pr_review_engine import PRReviewEngine
+    from .prompt_manager import PromptManager
+    from .response_parsers import ResponseParser
+    from .split_engine import SplitEngine
+    from .triage_engine import TriageEngine
+
 # Lazy import mapping - classes are loaded on first access
 _LAZY_IMPORTS: dict[str, tuple[str, str]] = {
     "AutoFixProcessor": (".autofix_processor", "AutoFixProcessor"),

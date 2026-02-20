@@ -626,10 +626,10 @@ class GHClient:
                 raise ValueError("Empty response from GitHub API")
 
             comment_id = int(stdout)
-            if comment_id:
+            if comment_id > 0:
                 return comment_id
             else:
-                raise ValueError(f"Invalid comment ID returned: {stdout}")
+                raise ValueError(f"Invalid comment ID returned: {comment_id}")
         except (ValueError, json.JSONDecodeError) as e:
             logger.error(
                 "Failed to parse comment ID response for issue #%d: %s", issue_number, e
