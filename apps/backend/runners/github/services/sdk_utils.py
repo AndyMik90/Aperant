@@ -138,6 +138,7 @@ MAX_MESSAGE_COUNT = 500
 RECOVERABLE_ERRORS = {
     "structured_output_validation_failed",
     "tool_use_concurrency_error",
+    "rate_limit_reached",  # Allow retry with different profile/account
 }
 
 # Abort after 1 consecutive repeat (2 total identical responses).
@@ -277,12 +278,15 @@ async def process_sdk_stream(
         Dictionary with:
         - result_text: Accumulated text output
         - structured_output: Final structured output (if any)
+        - structured_output_candidate: Last unvalidated structured payload when
+          structured output retries were exhausted
         - agents_invoked: List of agent names invoked via Task tool
         - msg_count: Total message count
         - subagent_tool_ids: Mapping of tool_id -> agent_name
         - error: Error message if stream processing failed (None on success)
         - error_recoverable: Boolean indicating if the error is recoverable (fallback possible) vs fatal
         - last_assistant_text: Last non-empty assistant text block (for cleaner fallback parsing)
+        - tool_activity: Bounded recent tool activity lines for fallback extraction
     """
     result_text = ""
     last_assistant_text = ""  # Last assistant text block (for cleaner fallback parsing)
@@ -295,6 +299,10 @@ async def process_sdk_stream(
     completed_agent_tool_ids: set[str] = set()  # tool_ids of completed agents
     # Track StructuredOutput tool submissions for fallback capture
     _pending_structured_output: dict[str, dict[str, Any]] = {}  # tool_id -> tool_input
+    # Last unvalidated StructuredOutput payload for downstream coercion fallback.
+    structured_output_candidate: dict[str, Any] | None = None
+    # Recent tool activity for extraction fallback when assistant text is sparse.
+    tool_activity: list[str] = []
     # Track tool concurrency errors for retry logic
     detected_concurrency_error = False
     # Track repeated identical responses to detect error loops early
@@ -303,6 +311,18 @@ async def process_sdk_stream(
 
     # Circuit breaker: max messages before aborting
     message_limit = max_messages if max_messages is not None else MAX_MESSAGE_COUNT
+
+    def _record_tool_activity(line: str):
+        if not line:
+            return
+        tool_activity.append(str(line)[:500])
+        if len(tool_activity) > 250:
+            del tool_activity[: len(tool_activity) - 250]
+
+    def _strip_structured_meta(payload: dict[str, Any] | None) -> dict[str, Any] | None:
+        if not isinstance(payload, dict):
+            return None
+        return {k: v for k, v in payload.items() if not str(k).startswith("_")}
 
     safe_print(f"[{context_name}] Processing SDK stream...")
     if DEBUG_MODE:
@@ -417,11 +437,15 @@ async def process_sdk_stream(
                             )
                     elif tool_name == "StructuredOutput":
                         # Track StructuredOutput submission for fallback capture
-                        _pending_structured_output[tool_id] = tool_input
+                        if isinstance(tool_input, dict):
+                            candidate = dict(tool_input)
+                            _pending_structured_output[tool_id] = candidate
+                            structured_output_candidate = dict(candidate)
                     else:
                         # Log meaningful tool info (not just tool name)
                         tool_detail = _get_tool_detail(tool_name, tool_input)
                         safe_print(f"[{context_name}] {tool_detail}")
+                        _record_tool_activity(tool_detail)
 
                     # Invoke callback for all tool uses
                     if on_tool_use:
@@ -470,12 +494,16 @@ async def process_sdk_stream(
                             # Tool validation passed — save as fallback
                             _pending_structured_output[tool_id]["_validated"] = True
                         else:
-                            # Validation failed — discard this attempt
-                            del _pending_structured_output[tool_id]
+                            # Validation failed — preserve candidate for fallback coercion.
+                            _pending_structured_output[tool_id]["_validated"] = False
+                            _pending_structured_output[tool_id]["_validation_error"] = str(
+                                result_content
+                            )[:500]
 
                     # Invoke callback
                     if on_tool_result:
                         on_tool_result(tool_id, is_error, result_content)
+                    _record_tool_activity(f"Tool result [{status}]: {result_preview}")
 
                 # Collect text output and check for tool uses in content blocks
                 if msg_type == "AssistantMessage" and hasattr(msg, "content"):
@@ -507,11 +535,15 @@ async def process_sdk_stream(
                                     )
                             elif tool_name == "StructuredOutput":
                                 # Track StructuredOutput submission for fallback
-                                _pending_structured_output[tool_id] = tool_input
+                                if isinstance(tool_input, dict):
+                                    candidate = dict(tool_input)
+                                    _pending_structured_output[tool_id] = candidate
+                                    structured_output_candidate = dict(candidate)
                             else:
                                 # Log meaningful tool info (not just tool name)
                                 tool_detail = _get_tool_detail(tool_name, tool_input)
                                 safe_print(f"[{context_name}] {tool_detail}")
+                                _record_tool_activity(tool_detail)
 
                             # Invoke callback
                             if on_tool_use:
@@ -671,11 +703,23 @@ async def process_sdk_stream(
                                         "_validated"
                                     ] = True
                                 else:
-                                    del _pending_structured_output[tool_id]
+                                    _pending_structured_output[tool_id][
+                                        "_validated"
+                                    ] = False
+                                    _pending_structured_output[tool_id][
+                                        "_validation_error"
+                                    ] = str(result_content)[:500]
 
                             # Invoke callback
                             if on_tool_result:
                                 on_tool_result(tool_id, is_error, result_content)
+                            status = "ERROR" if is_error else "done"
+                            result_preview = (
+                                str(result_content)[:100].replace("\n", " ").strip()
+                            )
+                            _record_tool_activity(
+                                f"Tool result [{status}]: {result_preview}"
+                            )
 
             except (AttributeError, TypeError, KeyError) as msg_error:
                 # Log individual message processing errors but continue
@@ -709,12 +753,28 @@ async def process_sdk_stream(
     if structured_output is None and _pending_structured_output:
         for tid, data in _pending_structured_output.items():
             if data.pop("_validated", False):
-                structured_output = data
+                structured_output = _strip_structured_meta(data)
                 safe_print(
                     f"[{context_name}] Using StructuredOutput tool fallback "
                     f"(ResultMessage did not carry structured_output)"
                 )
                 break
+
+    if structured_output is None and stream_error == "structured_output_validation_failed":
+        candidate = structured_output_candidate
+        if candidate is None and _pending_structured_output:
+            last_payload = next(reversed(_pending_structured_output.values()))
+            candidate = _strip_structured_meta(last_payload)
+        if candidate:
+            structured_output_candidate = candidate
+            safe_print(
+                f"[{context_name}] Captured unvalidated StructuredOutput candidate "
+                f"for downstream recovery"
+            )
+        else:
+            structured_output_candidate = None
+    else:
+        structured_output_candidate = None
 
     # Set error flag if tool concurrency error was detected
     if detected_concurrency_error and not stream_error:
@@ -730,7 +790,9 @@ async def process_sdk_stream(
         "result_text": result_text,
         "last_assistant_text": last_assistant_text,
         "structured_output": structured_output,
+        "structured_output_candidate": structured_output_candidate,
         "agents_invoked": agents_invoked,
+        "tool_activity": tool_activity,
         "msg_count": msg_count,
         "subagent_tool_ids": subagent_tool_ids,
         "error": stream_error,

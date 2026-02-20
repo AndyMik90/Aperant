@@ -36,18 +36,18 @@ Object.defineProperty(global, 'window', {
 
 describe('Issues Store', () => {
   const mockIssue1: GitHubIssue = {
-    id: '1',
+    id: 1,
     number: 1,
     title: 'First Issue',
     body: 'Body 1',
     state: 'open',
-    labels: [{ name: 'bug', color: 'red' }],
+    labels: [{ id: 101, name: 'bug', color: 'red' }],
     assignees: [],
     author: { login: 'user1', avatarUrl: '' },
-    milestone: null,
+    milestone: undefined,
     createdAt: '2024-01-01T00:00:00Z',
     updatedAt: '2024-01-01T00:00:00Z',
-    closedAt: null,
+    closedAt: undefined,
     commentsCount: 0,
     url: 'https://github.com/owner/repo/issues/1',
     htmlUrl: 'https://github.com/owner/repo/issues/1',
@@ -55,7 +55,7 @@ describe('Issues Store', () => {
   };
 
   const mockIssue2: GitHubIssue = {
-    id: '2',
+    id: 2,
     number: 2,
     title: 'Second Issue',
     body: 'Body 2',
@@ -63,7 +63,7 @@ describe('Issues Store', () => {
     labels: [],
     assignees: [],
     author: { login: 'user2', avatarUrl: '' },
-    milestone: null,
+    milestone: undefined,
     createdAt: '2024-01-02T00:00:00Z',
     updatedAt: '2024-01-02T00:00:00Z',
     closedAt: '2024-01-03T00:00:00Z',

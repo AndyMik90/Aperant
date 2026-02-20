@@ -1009,6 +1009,7 @@ class GitHubRunnerConfig:
     investigation_auto_close: bool = False
     investigation_max_parallel: int = 3
     investigation_pipeline_mode: str = "full"
+    investigation_phase1_mode: str = "sequential"
 
     # Model settings
     # Note: Default uses shorthand "sonnet" which gets resolved via resolve_model_id()
@@ -1047,6 +1048,7 @@ class GitHubRunnerConfig:
             "investigation_auto_close": self.investigation_auto_close,
             "investigation_max_parallel": self.investigation_max_parallel,
             "investigation_pipeline_mode": self.investigation_pipeline_mode,
+            "investigation_phase1_mode": self.investigation_phase1_mode,
         }
 
     def save_settings(self, github_dir: Path) -> None:
@@ -1117,5 +1119,8 @@ class GitHubRunnerConfig:
             ),
             investigation_pipeline_mode=investigation_settings.get(
                 "pipelineMode", "full"
+            ),
+            investigation_phase1_mode=investigation_settings.get(
+                "phase1ExecutionMode", "sequential"
             ),
         )

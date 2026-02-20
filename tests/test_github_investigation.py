@@ -654,7 +654,8 @@ class TestOrchestratorReportBuilding:
             config=config,
         )
 
-    def test_build_report_full_results(self, orchestrator, sample_root_cause, sample_impact, sample_fix_advice, sample_reproduction):
+    @pytest.mark.asyncio
+    async def test_build_report_full_results(self, orchestrator, sample_root_cause, sample_impact, sample_fix_advice, sample_reproduction):
         """Report building with all specialist results succeeding."""
         specialist_results = {
             "root_cause": {
@@ -675,7 +676,7 @@ class TestOrchestratorReportBuilding:
             },
         }
 
-        report = orchestrator._build_report(
+        report = await orchestrator._build_report(
             issue_number=42,
             issue_title="Test issue",
             investigation_id="inv-test123",
@@ -692,7 +693,8 @@ class TestOrchestratorReportBuilding:
         assert report.reproduction.reproducible == "likely"
         assert report.ai_summary  # Non-empty
 
-    def test_build_report_all_failures(self, orchestrator):
+    @pytest.mark.asyncio
+    async def test_build_report_all_failures(self, orchestrator):
         """Report building with all specialists failing uses defaults."""
         specialist_results = {
             "root_cause": {"result_text": "", "structured_output": None},
@@ -701,7 +703,7 @@ class TestOrchestratorReportBuilding:
             "reproducer": {"result_text": "", "structured_output": None},
         }
 
-        report = orchestrator._build_report(
+        report = await orchestrator._build_report(
             issue_number=1,
             issue_title="Failed investigation",
             investigation_id="inv-fail",
@@ -714,7 +716,8 @@ class TestOrchestratorReportBuilding:
         assert report.root_cause.confidence == "low"
         assert "specialist failed" in report.root_cause.identified_root_cause.lower()
 
-    def test_build_report_partial_results(self, orchestrator, sample_root_cause, sample_impact):
+    @pytest.mark.asyncio
+    async def test_build_report_partial_results(self, orchestrator, sample_root_cause, sample_impact):
         """Report building with some specialists failing."""
         specialist_results = {
             "root_cause": {
@@ -729,7 +732,7 @@ class TestOrchestratorReportBuilding:
             "reproducer": {"result_text": "", "structured_output": None},
         }
 
-        report = orchestrator._build_report(
+        report = await orchestrator._build_report(
             issue_number=5,
             issue_title="Partial",
             investigation_id="inv-partial",
@@ -741,7 +744,8 @@ class TestOrchestratorReportBuilding:
         assert report.fix_advice.approaches == []  # Default empty
         assert report.reproduction.reproducible == "unlikely"  # Default
 
-    def test_build_report_likely_resolved(self, orchestrator):
+    @pytest.mark.asyncio
+    async def test_build_report_likely_resolved(self, orchestrator):
         """Report correctly flags likely_resolved from root cause."""
         resolved_root = RootCauseAnalysis(
             identified_root_cause="Fixed in commit abc123",
@@ -759,7 +763,7 @@ class TestOrchestratorReportBuilding:
             "reproducer": {"result_text": "", "structured_output": None},
         }
 
-        report = orchestrator._build_report(
+        report = await orchestrator._build_report(
             issue_number=10,
             issue_title="Already Fixed",
             investigation_id="inv-resolved",
@@ -768,45 +772,133 @@ class TestOrchestratorReportBuilding:
 
         assert report.likely_resolved is True
 
-    def test_parse_specialist_result_valid(self, orchestrator, sample_root_cause):
+    @pytest.mark.asyncio
+    async def test_parse_specialist_result_valid(self, orchestrator, sample_root_cause):
         """Parsing valid structured output returns model instance."""
         results = {
             "root_cause": {
                 "structured_output": sample_root_cause.model_dump(),
             },
         }
-        parsed = orchestrator._parse_specialist_result(
+        parsed = await orchestrator._parse_specialist_result(
             "root_cause", results, RootCauseAnalysis
         )
         assert parsed is not None
         assert parsed.confidence == "high"
 
-    def test_parse_specialist_result_missing(self, orchestrator):
+    @pytest.mark.asyncio
+    async def test_parse_specialist_result_missing(self, orchestrator):
         """Parsing missing specialist returns None."""
-        parsed = orchestrator._parse_specialist_result(
+        parsed = await orchestrator._parse_specialist_result(
             "root_cause", {}, RootCauseAnalysis
         )
         assert parsed is None
 
-    def test_parse_specialist_result_no_structured_output(self, orchestrator):
+    @pytest.mark.asyncio
+    async def test_parse_specialist_result_no_structured_output(self, orchestrator):
         """Parsing result without structured_output returns None."""
         results = {"root_cause": {"result_text": "some text", "structured_output": None}}
-        parsed = orchestrator._parse_specialist_result(
+        parsed = await orchestrator._parse_specialist_result(
             "root_cause", results, RootCauseAnalysis
         )
         assert parsed is None
 
-    def test_parse_specialist_result_invalid_data(self, orchestrator):
+    @pytest.mark.asyncio
+    async def test_parse_specialist_result_invalid_data(self, orchestrator):
         """Parsing invalid structured output returns None."""
         results = {
             "root_cause": {
                 "structured_output": {"invalid": "data"},
             },
         }
-        parsed = orchestrator._parse_specialist_result(
+        parsed = await orchestrator._parse_specialist_result(
             "root_cause", results, RootCauseAnalysis
         )
         assert parsed is None
+
+    @pytest.mark.asyncio
+    async def test_parse_reproducer_partial_structured_output_recovery(self, orchestrator):
+        """Reproducer parsing recovers when structured output has invalid nested types."""
+        results = {
+            "reproducer": {
+                "structured_output": {
+                    "reproducible": "likely",
+                    # Invalid type should trigger validation failure and recovery.
+                    "test_coverage": "unknown",
+                    "related_test_files": ["tests/test_sample.py"],
+                },
+            },
+        }
+
+        parsed = await orchestrator._parse_specialist_result(
+            "reproducer", results, ReproductionAnalysis
+        )
+        assert parsed is not None
+        assert parsed.reproducible == "likely"
+        assert parsed.test_coverage.has_existing_tests is True
+        assert "Unable to assess" in parsed.test_coverage.coverage_assessment
+
+    @pytest.mark.asyncio
+    async def test_parse_reproducer_unvalidated_candidate_recovery(self, orchestrator):
+        """Reproducer parsing can recover from unvalidated structured output candidates."""
+        results = {
+            "reproducer": {
+                "structured_output": None,
+                "structured_output_candidate": {
+                    "reproducible": "likely",
+                    "reproduction_steps": ["Open issue view", "Re-enter issue"],
+                    # Invalid nested type should be normalized by recovery coercion.
+                    "test_coverage": "unknown",
+                    "related_test_files": ["apps/frontend/src/renderer/components/context/MemoryCard.tsx"],
+                },
+                "error": "structured_output_validation_failed",
+                "tool_activity": [
+                    "Reading apps/frontend/src/renderer/components/context/MemoryCard.tsx",
+                    "Searching for 'MemoryCard'",
+                ],
+            },
+        }
+
+        parsed = await orchestrator._parse_specialist_result(
+            "reproducer", results, ReproductionAnalysis
+        )
+        assert parsed is not None
+        assert parsed.reproducible == "likely"
+        assert parsed.test_coverage.has_existing_tests is True
+        assert parsed.related_test_files == [
+            "apps/frontend/src/renderer/components/context/MemoryCard.tsx"
+        ]
+
+    @pytest.mark.asyncio
+    async def test_parse_reproducer_json_text_recovery(self, orchestrator):
+        """Reproducer parsing can recover from JSON embedded in plain text output."""
+        results = {
+            "reproducer": {
+                "structured_output": None,
+                "result_text": (
+                    "Analysis complete. Returning data:\n"
+                    "{\n"
+                    '  "reproducible": "yes",\n'
+                    '  "reproduction_steps": ["Open app", "Click save"],\n'
+                    '  "test_coverage": {\n'
+                    '    "has_existing_tests": true,\n'
+                    '    "test_files": ["tests/test_save.py"],\n'
+                    '    "coverage_assessment": "Basic coverage exists"\n'
+                    "  },\n"
+                    '  "related_test_files": ["tests/test_save.py"],\n'
+                    '  "suggested_test_approach": "Add regression test for save flow"\n'
+                    "}\n"
+                ),
+            },
+        }
+
+        parsed = await orchestrator._parse_specialist_result(
+            "reproducer", results, ReproductionAnalysis
+        )
+        assert parsed is not None
+        assert parsed.reproducible == "yes"
+        assert parsed.test_coverage.has_existing_tests is True
+        assert parsed.related_test_files == ["tests/test_save.py"]
 
     def test_generate_summary_all_agents(self, orchestrator, sample_root_cause, sample_impact, sample_fix_advice, sample_reproduction):
         """Summary includes all agent results."""
@@ -908,6 +1000,261 @@ class TestOrchestratorReportBuilding:
             assert spec.name in _SPECIALIST_SCHEMAS, (
                 f"Missing schema mapping for specialist: {spec.name}"
             )
+
+    @pytest.mark.asyncio
+    async def test_run_specialists_phase1_sequential_injects_root_context(
+        self,
+        orchestrator,
+        sample_root_cause,
+        sample_impact,
+        sample_fix_advice,
+        sample_reproduction,
+    ):
+        """Sequential phase 1 should run root_cause first and inject context into reproducer."""
+        prompt_contexts = {}
+        run_order = []
+
+        def _fake_build_prompt(
+            cfg,
+            issue_context,
+            project_root,
+            root_cause_context="",
+        ):
+            prompt_contexts[cfg.name] = root_cause_context
+            return f"prompt-{cfg.name}"
+
+        async def _fake_run_specialist_session(config, **kwargs):
+            run_order.append(config.name)
+            payloads = {
+                "root_cause": sample_root_cause.model_dump(),
+                "reproducer": sample_reproduction.model_dump(),
+                "impact": sample_impact.model_dump(),
+                "fix_advisor": sample_fix_advice.model_dump(),
+            }
+            return {
+                "result_text": f"done-{config.name}",
+                "structured_output": payloads.get(config.name),
+                "error": None,
+                "msg_count": 1,
+                "session_id": f"session-{config.name}",
+            }
+
+        async def _fake_run_parallel_specialists(tasks, **kwargs):
+            return [await task for task in tasks]
+
+        orchestrator._build_specialist_prompt = _fake_build_prompt
+        orchestrator._run_specialist_session = AsyncMock(
+            side_effect=_fake_run_specialist_session
+        )
+        orchestrator._run_parallel_specialists = AsyncMock(
+            side_effect=_fake_run_parallel_specialists
+        )
+
+        results = await orchestrator._run_investigation_specialists(
+            issue_context="issue context",
+            project_root=orchestrator.project_dir,
+            specialist_config={},
+            fallback_model="claude-sonnet-4-5-20250929",
+            fallback_thinking_level="medium",
+            phase_1_mode="sequential",
+            issue_number=42,
+            resume_sessions=None,
+        )
+
+        assert run_order[:2] == ["root_cause", "reproducer"]
+        assert "Root Cause Analysis (from prior investigation phase)" in prompt_contexts[
+            "reproducer"
+        ]
+        assert set(results.keys()) == {
+            "root_cause",
+            "reproducer",
+            "impact",
+            "fix_advisor",
+        }
+
+    @pytest.mark.asyncio
+    async def test_run_specialists_invalid_phase1_mode_falls_back_to_sequential(
+        self,
+        orchestrator,
+        sample_root_cause,
+    ):
+        """Unknown phase1 mode should fall back to sequential execution mode."""
+        orchestrator_names = []
+
+        def _fake_build_prompt(
+            cfg,
+            issue_context,
+            project_root,
+            root_cause_context="",
+        ):
+            return f"prompt-{cfg.name}"
+
+        async def _fake_run_specialist_session(config, **kwargs):
+            payload = (
+                sample_root_cause.model_dump() if config.name == "root_cause" else None
+            )
+            return {
+                "result_text": f"done-{config.name}",
+                "structured_output": payload,
+                "error": None,
+                "msg_count": 1,
+                "session_id": f"session-{config.name}",
+            }
+
+        async def _fake_run_parallel_specialists(tasks, orchestrator_name, **kwargs):
+            orchestrator_names.append(orchestrator_name)
+            return [await task for task in tasks]
+
+        orchestrator._build_specialist_prompt = _fake_build_prompt
+        orchestrator._run_specialist_session = AsyncMock(
+            side_effect=_fake_run_specialist_session
+        )
+        orchestrator._run_parallel_specialists = AsyncMock(
+            side_effect=_fake_run_parallel_specialists
+        )
+
+        await orchestrator._run_investigation_specialists(
+            issue_context="issue context",
+            project_root=orchestrator.project_dir,
+            specialist_config={},
+            fallback_model="claude-sonnet-4-5-20250929",
+            fallback_thinking_level="medium",
+            phase_1_mode="bad-value",
+            issue_number=7,
+            resume_sessions=None,
+        )
+
+        assert orchestrator_names
+        assert orchestrator_names[0] == "IssueInvestigation:Phase1:root_cause"
+
+    @pytest.mark.asyncio
+    async def test_recoverable_retry_does_not_reemit_agent_started_or_failed(
+        self,
+        orchestrator,
+        sample_root_cause,
+        sample_impact,
+        sample_fix_advice,
+        sample_reproduction,
+    ):
+        """Recoverable specialist retry should not flap lifecycle state in UI."""
+        run_counts: dict[str, int] = {}
+        lifecycle_events: list[tuple[str, str, dict[str, object]]] = []
+
+        def _fake_build_prompt(
+            cfg,
+            issue_context,
+            project_root,
+            root_cause_context="",
+        ):
+            return f"prompt-{cfg.name}"
+
+        async def _fake_run_specialist_session(config, **kwargs):
+            run_counts[config.name] = run_counts.get(config.name, 0) + 1
+
+            # First root-cause run fails with a recoverable stream error.
+            if config.name == "root_cause" and run_counts[config.name] == 1:
+                return {
+                    "result_text": "",
+                    "structured_output": None,
+                    "error": "tool_use_concurrency_error",
+                    "error_recoverable": True,
+                    "msg_count": 1,
+                }
+
+            payloads = {
+                "root_cause": sample_root_cause.model_dump(),
+                "reproducer": sample_reproduction.model_dump(),
+                "impact": sample_impact.model_dump(),
+                "fix_advisor": sample_fix_advice.model_dump(),
+            }
+            return {
+                "result_text": f"done-{config.name}",
+                "structured_output": payloads.get(config.name),
+                "error": None,
+                "msg_count": 1,
+                "session_id": f"session-{config.name}-{run_counts[config.name]}",
+            }
+
+        async def _fake_run_parallel_specialists(
+            tasks,
+            retry_tasks=None,
+            retry_configs=None,
+            **kwargs,
+        ):
+            initial_results = [await task for task in tasks]
+            final_results = list(initial_results)
+
+            for i, result in enumerate(initial_results):
+                should_retry = (
+                    isinstance(result, dict)
+                    and bool(
+                        result.get("error")
+                        and result.get("error_recoverable")
+                        and not result.get("structured_output")
+                    )
+                )
+                if not should_retry or not retry_tasks or i >= len(retry_tasks):
+                    continue
+
+                retry_coro = retry_tasks[i]()
+                if retry_configs and i < len(retry_configs):
+                    wrapper = retry_configs[i].get("lifecycle_wrapper")
+                    if wrapper:
+                        retry_coro = wrapper(
+                            retry_configs[i].get("name", f"specialist_{i}"),
+                            retry_coro,
+                        )
+                final_results[i] = await retry_coro
+
+            return final_results
+
+        orchestrator._build_specialist_prompt = _fake_build_prompt
+        orchestrator._run_specialist_session = AsyncMock(
+            side_effect=_fake_run_specialist_session
+        )
+        orchestrator._run_parallel_specialists = AsyncMock(
+            side_effect=_fake_run_parallel_specialists
+        )
+
+        with patch(
+            "issue_investigation_orchestrator.emit_json_event",
+            side_effect=lambda event, agent, **kwargs: lifecycle_events.append(
+                (event, agent, kwargs)
+            ),
+        ):
+            await orchestrator._run_investigation_specialists(
+                issue_context="issue context",
+                project_root=orchestrator.project_dir,
+                specialist_config={},
+                fallback_model="claude-sonnet-4-5-20250929",
+                fallback_thinking_level="medium",
+                phase_1_mode="sequential",
+                issue_number=99,
+                resume_sessions=None,
+            )
+
+        root_started = [
+            e for e in lifecycle_events if e[0] == "agent_started" and e[1] == "root_cause"
+        ]
+        root_failed = [
+            e
+            for e in lifecycle_events
+            if e[0] == "agent_done"
+            and e[1] == "root_cause"
+            and e[2].get("success") is False
+        ]
+        root_done = [
+            e
+            for e in lifecycle_events
+            if e[0] == "agent_done"
+            and e[1] == "root_cause"
+            and e[2].get("success") is True
+        ]
+
+        # Root cause should start once, retry in-place, and complete once.
+        assert len(root_started) == 1
+        assert len(root_failed) == 0
+        assert len(root_done) == 1
 
 
 # ============================================================================

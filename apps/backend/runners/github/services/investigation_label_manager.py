@@ -114,13 +114,17 @@ class InvestigationLabelManager:
         Called once when an investigation starts. Fetches existing labels
         first to avoid 422 errors from attempting to create duplicates.
         """
+        if not gh_client.repo:
+            logger.warning("No repo configured for gh_client, skipping label ensure")
+            return
+
         # Fetch existing labels to avoid noisy 422 errors
         existing_names: set[str] = set()
         try:
             import json
 
             result = await gh_client.run(
-                ["api", "--method", "GET", "repos/{owner}/{repo}/labels", "--paginate"],
+                ["api", f"repos/{gh_client.repo}/labels"],
                 raise_on_error=False,
             )
             if result.returncode == 0:
@@ -136,9 +140,9 @@ class InvestigationLabelManager:
                 await gh_client.run(
                     [
                         "api",
-                        "--method",
+                        "-X",
                         "POST",
-                        "repos/{owner}/{repo}/labels",
+                        f"repos/{gh_client.repo}/labels",
                         "-f",
                         f"name={label_def['name']}",
                         "-f",

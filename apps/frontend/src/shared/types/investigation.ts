@@ -197,6 +197,10 @@ export type InvestigationDismissReason = 'wont_fix' | 'duplicate' | 'cannot_repr
  * Pipeline mode for investigation-created tasks.
  */
 export type InvestigationPipelineMode = 'full' | 'skip_to_planning' | 'minimal';
+/**
+ * How phase 1 specialists are dispatched (root_cause + reproducer).
+ */
+export type InvestigationPhase1ExecutionMode = 'parallel' | 'sequential';
 
 // ============================================
 // Investigation Label Customization
@@ -227,6 +231,8 @@ export interface InvestigationSettings {
   autoCreateTasks: boolean;
   autoStartTasks: boolean;
   pipelineMode: InvestigationPipelineMode;
+  /** Phase 1 specialist execution strategy */
+  phase1ExecutionMode?: InvestigationPhase1ExecutionMode;
   autoPostToGitHub: boolean;
   autoCloseIssues: boolean;
   maxParallelInvestigations: number;
@@ -250,7 +256,7 @@ export interface InvestigationSettings {
  */
 export interface PersistedInvestigationState {
   issueNumber: number;
-  status: 'findings_ready' | 'resolved' | 'failed' | 'task_created';
+  status: 'investigating' | 'findings_ready' | 'resolved' | 'failed' | 'task_created';
   report?: InvestigationReport;
   completedAt?: string;
   specId?: string;

@@ -1,6 +1,6 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { runPythonSubprocess } from './subprocess-runner';
+import { parseJSONFromOutput, runPythonSubprocess } from './subprocess-runner';
 import * as childProcess from 'child_process';
 import EventEmitter from 'events';
 
@@ -12,6 +12,49 @@ vi.mock('child_process', async (importOriginal) => {
     spawn: vi.fn(),
     exec: vi.fn(),
   };
+});
+
+describe('parseJSONFromOutput', () => {
+  it('parses the final top-level object after bracketed progress logs', () => {
+    const stdout = [
+      '[Issue #123] Investigation started',
+      'JSON Output',
+      '[Issue #123] Checking files [1/3]',
+      '{"status":"ok","payload":{"count":2}}',
+    ].join('\n');
+
+    const parsed = parseJSONFromOutput<{ status: string; payload: { count: number } }>(stdout);
+    expect(parsed).toEqual({
+      status: 'ok',
+      payload: { count: 2 },
+    });
+  });
+
+  it('prefers the final payload instead of earlier valid JSON snippets', () => {
+    const stdout = [
+      'JSON Output',
+      '{"status":"partial","payload":{"count":1}}',
+      '[Issue #123] Continuing analysis',
+      '{"status":"final","payload":{"count":3}}',
+    ].join('\n');
+
+    const parsed = parseJSONFromOutput<{ status: string; payload: { count: number } }>(stdout);
+    expect(parsed.status).toBe('final');
+    expect(parsed.payload.count).toBe(3);
+  });
+
+  it('strips log prefixes and parses prefixed JSON blocks', () => {
+    const stdout = [
+      'JSON Output',
+      '[GitHub AutoFix] STDOUT: {"status":"ok","payload":{"count":4}}',
+    ].join('\n');
+
+    const parsed = parseJSONFromOutput<{ status: string; payload: { count: number } }>(stdout);
+    expect(parsed).toEqual({
+      status: 'ok',
+      payload: { count: 4 },
+    });
+  });
 });
 
 // Mock parsePythonCommand

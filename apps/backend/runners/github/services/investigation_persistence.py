@@ -79,17 +79,21 @@ def save_investigation_state(
     """
     issue_path = get_issue_dir(project_dir, issue_number)
     state_file = issue_path / "investigation_state.json"
-    data = (
-        state.model_dump(mode="json")
-        if isinstance(state, InvestigationState)
-        else state
-    )
+    # Accept InvestigationState instances from equivalent imports
+    # (e.g., services.investigation_models vs investigation_models) by
+    # duck-typing on model_dump instead of strict isinstance checks.
+    if isinstance(state, dict):
+        data = state
+    elif hasattr(state, "model_dump"):
+        data = state.model_dump(mode="json")
+    else:
+        data = state
     write_json_atomic(state_file, data)
-    status = (
-        state.status
-        if isinstance(state, InvestigationState)
-        else state.get("status", "?")
-    )
+    status = getattr(state, "status", None)
+    if status is None and isinstance(state, dict):
+        status = state.get("status", "?")
+    if status is None:
+        status = "?"
     logger.debug(f"Saved investigation state for issue #{issue_number}: {status}")
     return state_file
 

@@ -407,7 +407,8 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
         continue;
       }
 
-      const isError = persisted.status === 'failed' || persisted.wasInterrupted;
+      const isInvestigating = persisted.status === 'investigating';
+      const isError = !isInvestigating && (persisted.status === 'failed' || persisted.wasInterrupted);
 
       // Defensive: Never overwrite a valid githubCommentId with null
       // This prevents losing the "posted" state during race conditions
@@ -422,17 +423,19 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
       newInvestigations[key] = {
         issueNumber: persisted.issueNumber,
         projectId,
-        isInvestigating: false,
+        isInvestigating,
         progress: null,
         report: (persisted.report as InvestigationReport) ?? null,
         previousReport: null,
-        error: isError
+        error: isInvestigating
+          ? null
+          : isError
           ? (persisted.wasInterrupted ? 'investigation.interrupted' : null)
           : null,
         specId: persisted.specId ?? null,
         dismissReason: null,
         githubCommentId: persisted.githubCommentId ?? null,
-        startedAt: null,
+        startedAt: isInvestigating ? (newInvestigations[key]?.startedAt ?? null) : null,
         completedAt: persisted.completedAt ?? null,
         postedAt: persisted.postedAt ?? null,
         linkedTaskStatus: null,

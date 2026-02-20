@@ -62,6 +62,17 @@ describe('readEnrichmentFile / writeEnrichmentFile', () => {
     expect(fs.existsSync(filePath)).toBe(false);
   });
 
+  it('rethrows non-parse filesystem errors without marking file as corrupted', async () => {
+    const filePath = getEnrichmentFilePath(tmpDir);
+    fs.mkdirSync(filePath, { recursive: true }); // readFile on directory -> non-parse error (EISDIR)
+
+    await expect(readEnrichmentFile(tmpDir)).rejects.toMatchObject({
+      code: expect.any(String),
+    });
+    expect(fs.existsSync(filePath)).toBe(true);
+    expect(fs.existsSync(`${filePath}.corrupted`)).toBe(false);
+  });
+
   it('loads file with different schema version with warning', async () => {
     const dir = getEnrichmentDir(tmpDir);
     fs.mkdirSync(dir, { recursive: true });

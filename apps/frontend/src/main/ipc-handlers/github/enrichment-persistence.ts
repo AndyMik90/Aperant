@@ -80,13 +80,10 @@ export async function readEnrichmentFile(projectPath: string): Promise<Enrichmen
       return createEmptyEnrichmentFile();
     }
 
-    // Try corrupt recovery for other parse failures
-    try {
-      await rename(filePath, `${filePath}.corrupted`);
-    } catch {
-            // Best effort
-    }
-    return createEmptyEnrichmentFile();
+    // For non-parse filesystem errors (EACCES/EPERM/etc), surface the
+    // failure so callers do not accidentally overwrite valid data with
+    // an empty file on the next write.
+    throw err;
   }
 }
 

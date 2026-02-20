@@ -335,7 +335,11 @@ class InvestigationLogCollector {
       const lifecycleAgent = this.logs.agents[parsed.agentType];
       if (parsed.lifecycleEvent === 'started') {
         lifecycleAgent.status = 'active';
-        lifecycleAgent.startedAt = new Date().toISOString();
+        // Preserve the first start timestamp across retries so UI timers stay stable.
+        if (!lifecycleAgent.startedAt) {
+          lifecycleAgent.startedAt = new Date().toISOString();
+        }
+        lifecycleAgent.completedAt = undefined;
         lifecycleAgent.error = undefined;
       } else if (parsed.lifecycleEvent === 'done') {
         lifecycleAgent.status = 'completed';
@@ -551,6 +555,38 @@ function needsTransformation(report: unknown): boolean {
 // Track active investigation subprocesses, keyed by `${projectId}:${issueNumber}`
 const activeInvestigations = new Map<string, ChildProcess>();
 
+/**
+ * Check whether a PID is currently alive.
+ */
+function isPidAlive(pid: number | undefined): boolean {
+  if (typeof pid !== 'number' || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Determine whether an investigation is still actively running.
+ *
+ * Note: activeInvestigations may temporarily store `null` placeholders
+ * while a run is being started; treat those as active to avoid duplicate starts.
+ */
+function isTrackedInvestigationActive(projectId: string, issueNumber: number): boolean {
+  const processKey = `${projectId}:${issueNumber}`;
+  if (!activeInvestigations.has(processKey)) return false;
+
+  const proc = activeInvestigations.get(processKey);
+  if (!proc) return true; // launch placeholder
+  if (proc.killed) return false;
+
+  // ChildProcess#killed only reflects whether kill() was called. Probe the PID
+  // to avoid treating stale map entries as active after renderer reloads.
+  return proc.pid ? isPidAlive(proc.pid) : true;
+}
+
 /** Kill all active investigation subprocesses. Called during app shutdown. */
 export function killAllInvestigations(): void {
   for (const [key, proc] of activeInvestigations.entries()) {
@@ -660,7 +696,7 @@ function getInvestigationSpecialistConfig(): Record<string, { model: string; thi
     },
     reproducer: {
       model: MODEL_ID_MAP[invModels.reproducer] ?? MODEL_ID_MAP['sonnet'],
-      thinking: invThinking.reproducer ?? 'low'
+      thinking: invThinking.reproducer ?? 'medium'
     }
   };
 }
@@ -712,6 +748,7 @@ function createDefaultSettings(): InvestigationSettings {
     autoCreateTasks: false,
     autoStartTasks: false,
     pipelineMode: 'full',
+    phase1ExecutionMode: 'sequential',
     autoPostToGitHub: false,
     autoCloseIssues: false,
     maxParallelInvestigations: 3,
@@ -876,7 +913,7 @@ async function fetchIssueLabels(projectId: string, issueNumber: number): Promise
 
     const issue = await githubFetch(
       config.token,
-      `/repos/${normalizedRepo}/issues/${issueNumber}`
+      `/repos/${config.repo}/issues/${issueNumber}`
     ) as { labels: Array<{ name: string }> } | undefined;
 
     return issue?.labels?.map(l => l.name) ?? [];
@@ -1350,6 +1387,7 @@ async function runInvestigation(
 
       // Read investigation settings to get fastInvestigations flag
       const investigationSettings = getInvestigationSettings(projectId);
+      const phase1Mode = investigationSettings.phase1ExecutionMode ?? 'sequential';
 
       const args = [
         ...buildRunnerArgs(
@@ -1359,6 +1397,7 @@ async function runInvestigation(
           [String(issueNumber)],
           { fastMode: investigationSettings.fastInvestigations ?? false },
         ),
+        '--phase1-mode', phase1Mode,
         '--specialist-config', JSON.stringify(specialistConfig),
         ...resumeSessionsArg,
       ];
@@ -2271,11 +2310,29 @@ export function registerInvestigationHandlers(
               const stateData = JSON.parse(fs.readFileSync(stateFile, 'utf-8'));
               const status = stateData.status;
 
-              // If the investigation was in-progress when the app shut down, mark it as failed
+              // Handle persisted in-progress investigations:
+              // - If still tracked as active in this main process, keep as investigating.
+              // - Otherwise mark as interrupted/failed and schedule auto-resume.
               if (status === 'investigating') {
                 // Check if there are saved session IDs for resume
                 const sessions = stateData.sessions;
                 const hasResumeSessions = sessions && typeof sessions === 'object' && Object.keys(sessions).length > 0;
+                const isActive = isTrackedInvestigationActive(projectId, issueNumber);
+
+                if (isActive) {
+                  persisted.push({
+                    issueNumber,
+                    status: 'investigating',
+                    completedAt: stateData.completed_at ?? undefined,
+                    specId: stateData.spec_id ?? stateData.linked_spec_id ?? undefined,
+                    githubCommentId: stateData.github_comment_id ?? undefined,
+                    postedAt: stateData.posted_at ?? undefined,
+                    wasInterrupted: false,
+                    hasResumeSessions,
+                    activityLog: loadActivityLog(project.path, issueNumber),
+                  });
+                  continue;
+                }
 
                 const item: (typeof persisted)[number] = {
                   issueNumber,
@@ -2346,17 +2403,12 @@ export function registerInvestigationHandlers(
             }
           }
 
-          // Clean stale entries from activeInvestigations for interrupted issues.
-          // After CTRL+R the main process keeps stale map entries for killed subprocesses
-          // whose finally blocks never ran. Remove them so auto-resume isn't blocked.
+          // Clean stale inactive entries from activeInvestigations for interrupted issues.
+          // Do not kill anything here: active runs must continue if the user revisits the view.
           for (const issueNum of interruptedIssues) {
             const processKey = `${projectId}:${issueNum}`;
-            const staleProcess = activeInvestigations.get(processKey);
-            if (staleProcess) {
-              debugLog('Cleaning stale activeInvestigation entry', { processKey, killed: staleProcess.killed });
-              if (!staleProcess.killed) {
-                try { staleProcess.kill(); } catch { /* already dead */ }
-              }
+            if (activeInvestigations.has(processKey) && !isTrackedInvestigationActive(projectId, issueNum)) {
+              debugLog('Removing stale inactive activeInvestigation entry', { processKey });
               activeInvestigations.delete(processKey);
             }
           }

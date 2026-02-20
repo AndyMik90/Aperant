@@ -18,6 +18,78 @@ import shlex
 from pathlib import PurePosixPath, PureWindowsPath
 
 
+def _split_fallback_parts(command_string: str) -> list[str]:
+    """
+    Split command string on shell separators outside of quoted regions.
+
+    Fallback parsing is used when shlex parsing fails (often on malformed or
+    partially quoted Windows commands). Even in fallback mode we still need to
+    respect quoted pipes like grep patterns: "foo|bar".
+    """
+    if not command_string:
+        return []
+
+    parts: list[str] = []
+    current: list[str] = []
+    in_single_quote = False
+    in_double_quote = False
+    escaped = False
+
+    i = 0
+    while i < len(command_string):
+        ch = command_string[i]
+
+        if escaped:
+            current.append(ch)
+            escaped = False
+            i += 1
+            continue
+
+        if ch == "\\":
+            current.append(ch)
+            escaped = True
+            i += 1
+            continue
+
+        if ch == "'" and not in_double_quote:
+            in_single_quote = not in_single_quote
+            current.append(ch)
+            i += 1
+            continue
+
+        if ch == '"' and not in_single_quote:
+            in_double_quote = not in_double_quote
+            current.append(ch)
+            i += 1
+            continue
+
+        if not in_single_quote and not in_double_quote:
+            if command_string.startswith("&&", i) or command_string.startswith("||", i):
+                part = "".join(current).strip()
+                if part:
+                    parts.append(part)
+                current = []
+                i += 2
+                continue
+
+            if ch in {"|", ";"}:
+                part = "".join(current).strip()
+                if part:
+                    parts.append(part)
+                current = []
+                i += 1
+                continue
+
+        current.append(ch)
+        i += 1
+
+    tail = "".join(current).strip()
+    if tail:
+        parts.append(tail)
+
+    return parts
+
+
 def _cross_platform_basename(path: str) -> str:
     """
     Extract the basename from a path in a cross-platform way.
@@ -79,10 +151,9 @@ def _fallback_extract_commands(command_string: str) -> list[str]:
         "function",
     }
 
-    # First, split by common shell operators
-    # This regex splits on &&, ||, |, ; while being careful about quotes
-    # We're being permissive here since shlex already failed
-    parts = re.split(r"\s*(?:&&|\|\||\|)\s*|;\s*", command_string)
+    # First, split by common shell operators while preserving quoted regions.
+    # This avoids treating grep regex alternation inside quotes as new commands.
+    parts = _split_fallback_parts(command_string)
 
     for part in parts:
         part = part.strip()

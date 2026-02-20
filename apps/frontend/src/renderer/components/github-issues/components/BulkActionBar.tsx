@@ -37,20 +37,55 @@ export function BulkActionBar({
 }: BulkActionBarProps) {
   const { t } = useTranslation('common');
   const [pendingAction, setPendingAction] = useState<BulkActionType | null>(null);
+  const [pendingPayloadInput, setPendingPayloadInput] = useState('');
   const [pendingTriageAll, setPendingTriageAll] = useState(false);
   const [pendingInvestigate, setPendingInvestigate] = useState(false);
 
   const noneSelected = selectedCount === 0;
 
+  const requiresPayload = (action: BulkActionType): boolean =>
+    action === 'add-label'
+    || action === 'remove-label'
+    || action === 'add-assignee'
+    || action === 'remove-assignee';
+
+  const payloadKind = (action: BulkActionType): 'labels' | 'assignees' | null => {
+    if (action === 'add-label' || action === 'remove-label') return 'labels';
+    if (action === 'add-assignee' || action === 'remove-assignee') return 'assignees';
+    return null;
+  };
+
+  const parsedPayloadValues = pendingPayloadInput
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0);
+
+  const payloadRequired = pendingAction ? requiresPayload(pendingAction) : false;
+  const canConfirm = pendingAction
+    ? !payloadRequired || parsedPayloadValues.length > 0
+    : false;
+
   const handleConfirm = () => {
     if (pendingAction) {
-      onBulkAction(pendingAction);
+      let payload: Record<string, unknown> | undefined;
+      if (payloadRequired) {
+        const kind = payloadKind(pendingAction);
+        if (!kind || parsedPayloadValues.length === 0) return;
+        payload = { [kind]: parsedPayloadValues };
+      }
+      if (payload) {
+        onBulkAction(pendingAction, payload);
+      } else {
+        onBulkAction(pendingAction);
+      }
       setPendingAction(null);
+      setPendingPayloadInput('');
     }
   };
 
   const handleCancel = () => {
     setPendingAction(null);
+    setPendingPayloadInput('');
   };
 
   return (
@@ -89,10 +124,35 @@ export function BulkActionBar({
           <span className="text-xs text-foreground">
             {t('bulk.confirmMessage', { action: pendingAction, count: selectedCount })}
           </span>
+          {payloadRequired && (
+            <input
+              type="text"
+              value={pendingPayloadInput}
+              onChange={(event) => setPendingPayloadInput(event.target.value)}
+              placeholder={t(
+                payloadKind(pendingAction) === 'labels'
+                  ? 'bulk.payloadPlaceholderLabels'
+                  : 'bulk.payloadPlaceholderAssignees',
+                payloadKind(pendingAction) === 'labels'
+                  ? 'Comma-separated labels'
+                  : 'Comma-separated assignees',
+              )}
+              className="h-7 w-56 rounded border border-border bg-background px-2 text-xs text-foreground"
+              aria-label={t(
+                payloadKind(pendingAction) === 'labels'
+                  ? 'bulk.payloadPlaceholderLabels'
+                  : 'bulk.payloadPlaceholderAssignees',
+                payloadKind(pendingAction) === 'labels'
+                  ? 'Comma-separated labels'
+                  : 'Comma-separated assignees',
+              )}
+            />
+          )}
           <button
             type="button"
             className="px-2.5 py-1 text-xs rounded-md border border-destructive bg-destructive/10 text-destructive hover:bg-destructive/20"
             onClick={handleConfirm}
+            disabled={!canConfirm}
           >
             {t('bulk.confirm')}
           </button>
@@ -112,7 +172,10 @@ export function BulkActionBar({
               type="button"
               className="px-2.5 py-1 text-xs rounded-md border border-border bg-card hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isOperating || noneSelected}
-              onClick={() => setPendingAction(action)}
+              onClick={() => {
+                setPendingAction(action);
+                setPendingPayloadInput('');
+              }}
             >
               {t(labelKey)}
             </button>

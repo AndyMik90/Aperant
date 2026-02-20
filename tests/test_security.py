@@ -116,6 +116,15 @@ class TestCommandExtraction:
         commands = extract_commands(cmd)
         assert commands == ["python3"]
 
+    def test_windows_fallback_keeps_quoted_pipe_pattern_as_argument(self):
+        """Fallback parser should not split grep regex alternation inside quotes."""
+        cmd = (
+            r'cd "D:\Koding\Autoclaude\apps\backend" '
+            r'&& grep -r "recommendations_for_next_session|discover" .'
+        )
+        commands = extract_commands(cmd)
+        assert commands == ["cd", "grep"]
+
 
 class TestSplitCommandSegments:
     """Tests for splitting command strings into segments."""

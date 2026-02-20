@@ -749,18 +749,62 @@ export async function validateGitHubModule(project: Project): Promise<GitHubModu
 function findMatchingBracket(str: string, start: number, open: string, close: string): number {
   let depth = 1;
   let i = start + 1;
+  let inString = false;
+  let escaped = false;
   const len = str.length;
 
   while (i < len && depth > 0) {
-    if (str[i] === open) {
+    const ch = str[i];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === '\\') {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      i++;
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+    } else if (ch === open) {
       depth++;
-    } else if (str[i] === close) {
+    } else if (ch === close) {
       depth--;
     }
     i++;
   }
 
   return depth === 0 ? i - 1 : -1;
+}
+
+/**
+ * Clean a candidate JSON string by stripping known log prefixes and markdown fences.
+ */
+function sanitizeJsonCandidate(candidate: string): string {
+  return candidate
+    .split('\n')
+    .map(line => {
+      const debugPrefixes = [
+        /^\[GitHub AutoFix\] STDOUT:\s*/,
+        /^\[GitHub AutoFix\] STDERR:\s*/,
+        // Any bracketed log prefix (must start with a letter to avoid JSON arrays)
+        /^\[[A-Za-z][^\]]*\]\s*/,
+      ];
+
+      let cleaned = line;
+      for (const prefix of debugPrefixes) {
+        cleaned = cleaned.replace(prefix, '');
+      }
+      return cleaned;
+    })
+    .filter(line => {
+      const trimmed = line.trim();
+      return trimmed !== '```json' && trimmed !== '```';
+    })
+    .join('\n');
 }
 
 /**
@@ -772,64 +816,48 @@ export function parseJSONFromOutput<T>(stdout: string): T {
   const jsonMarker = 'JSON Output';
   const markerIndex = stdout.lastIndexOf(jsonMarker);
   const searchStart = markerIndex >= 0 ? markerIndex : 0;
+  let lastParseError: unknown = null;
 
-  // Try to find JSON array first, then object
-  const arrayStart = stdout.indexOf('[', searchStart);
-  const objectStart = stdout.indexOf('{', searchStart);
+  const tryParseFromIndex = (startIndex: number): T | null => {
+    let lastParsed: T | null = null;
 
-  let jsonStart = -1;
-  let jsonEnd = -1;
+    for (let i = startIndex; i < stdout.length; i++) {
+      const ch = stdout[i];
+      if (ch !== '{' && ch !== '[') continue;
 
-  // Determine if it's an array or object (whichever comes first)
-  if (arrayStart >= 0 && (objectStart < 0 || arrayStart < objectStart)) {
-    // It's an array - use bracket matching to find the closing bracket
-    jsonStart = arrayStart;
-    jsonEnd = findMatchingBracket(stdout, arrayStart, '[', ']');
-  } else if (objectStart >= 0) {
-    // It's an object - use bracket matching to find the closing bracket
-    jsonStart = objectStart;
-    jsonEnd = findMatchingBracket(stdout, objectStart, '{', '}');
-  }
+      const jsonStart = i;
+      const open = ch;
+      const close = open === '{' ? '}' : ']';
+      const jsonEnd = findMatchingBracket(stdout, jsonStart, open, close);
+      if (jsonEnd <= jsonStart) continue;
 
-  if (jsonStart >= 0 && jsonEnd > jsonStart) {
-    let jsonStr = stdout.substring(jsonStart, jsonEnd + 1);
+      const rawCandidate = stdout.substring(jsonStart, jsonEnd + 1);
+      const jsonStr = sanitizeJsonCandidate(rawCandidate);
+      try {
+        lastParsed = JSON.parse(jsonStr) as T;
+      } catch (err) {
+        lastParseError = err;
+      }
 
-    // Clean up debug output prefixes and markdown code blocks
-    jsonStr = jsonStr
-      .split('\n')
-      .map(line => {
-        // Remove common debug prefixes
-        const debugPrefixes = [
-          /^\[GitHub AutoFix\] STDOUT:\s*/,
-          /^\[GitHub AutoFix\] STDERR:\s*/,
-          /^\[[A-Za-z][^\]]*\]\s*/,  // Any other bracketed prefix (must start with letter to avoid matching JSON arrays)
-        ];
-
-        let cleaned = line;
-        for (const prefix of debugPrefixes) {
-          cleaned = cleaned.replace(prefix, '');
-        }
-        return cleaned;
-      })
-      .filter(line => {
-        // Remove markdown code block markers
-        const trimmed = line.trim();
-        return trimmed !== '```json' && trimmed !== '```';
-      })
-      .join('\n');
-
-    try {
-      // Debug: log the exact string we're trying to parse
-      console.log('[DEBUG] Attempting to parse JSON:', jsonStr.substring(0, 200) + '...');
-      return JSON.parse(jsonStr);
-    } catch (parseError) {
-      // Provide a more helpful error message with details
-      console.error('[DEBUG] JSON parse failed:', parseError);
-      console.error('[DEBUG] JSON string (first 500 chars):', jsonStr.substring(0, 500));
-      throw new Error('Failed to parse JSON response from backend. The analysis completed but the response format was invalid.');
+      // Skip nested structures so we only evaluate top-level candidates.
+      i = jsonEnd;
     }
+
+    return lastParsed;
+  };
+
+  const fromMarker = tryParseFromIndex(searchStart);
+  if (fromMarker !== null) return fromMarker;
+
+  // Fallback: if marker-based parsing failed, scan entire output.
+  if (searchStart > 0) {
+    const fromFullOutput = tryParseFromIndex(0);
+    if (fromFullOutput !== null) return fromFullOutput;
   }
 
+  if (lastParseError) {
+    throw new Error('Failed to parse JSON response from backend. The analysis completed but the response format was invalid.');
+  }
   throw new Error('No JSON found in output');
 }
 

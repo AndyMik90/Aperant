@@ -1,15 +1,17 @@
 /**
  * InvestigationSettings — subsection within the GitHub settings page.
  *
- * All 8 settings from the design doc:
+ * Core investigation settings:
  *  1. Auto-create tasks (toggle, default off)
  *  2. Auto-start tasks (toggle, default off)
  *  3. Pipeline mode (dropdown: Full / Skip to planning / Minimal)
- *  4. Auto-post to GitHub (toggle, default off)
- *  5. Auto-close issues (toggle, default off)
- *  6. Max parallel investigations (number 1-10, default 3)
- *  7. Label include filter (multi-select dropdown)
- *  8. Label exclude filter (multi-select dropdown)
+ *  4. Phase 1 execution mode (dropdown: Sequential / Parallel)
+ *  5. Auto-post to GitHub (toggle, default off)
+ *  6. Auto-close issues (toggle, default off)
+ *  7. Max parallel investigations (number 1-10, default 3)
+ *  8. Label include filter (multi-select dropdown)
+ *  9. Label exclude filter (multi-select dropdown)
+ * 10. Fast investigations (toggle, default off)
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -31,6 +33,7 @@ import {
 import { useInvestigationStore } from '../../../stores/github/investigation-store';
 import type {
   InvestigationSettings as InvestigationSettingsType,
+  InvestigationPhase1ExecutionMode,
   InvestigationPipelineMode,
   InvestigationLabelKey,
   InvestigationLabelCustomization,
@@ -42,6 +45,7 @@ const DEFAULT_SETTINGS: InvestigationSettingsType = {
   autoCreateTasks: false,
   autoStartTasks: false,
   pipelineMode: 'full',
+  phase1ExecutionMode: 'sequential',
   autoPostToGitHub: false,
   autoCloseIssues: false,
   maxParallelInvestigations: 3,
@@ -249,9 +253,40 @@ export function InvestigationSettings({ projectId }: InvestigationSettingsProps)
         </Select>
       </div>
 
+      {/* 4. Phase 1 execution mode */}
+      <div className="flex items-center justify-between">
+        <div className="space-y-0.5">
+          <Label className="font-normal text-foreground">
+            {t('settings:investigationSettings.phase1ExecutionMode', 'Phase 1 execution mode')}
+          </Label>
+          <p className="text-xs text-muted-foreground">
+            {t(
+              'settings:investigationSettings.phase1ExecutionModeDescription',
+              'Choose between faster parallel execution and more stable sequential analysis for root cause + reproduction.',
+            )}
+          </p>
+        </div>
+        <Select
+          value={settings.phase1ExecutionMode ?? 'sequential'}
+          onValueChange={(v) => updateSetting('phase1ExecutionMode', v as InvestigationPhase1ExecutionMode)}
+        >
+          <SelectTrigger className="w-[220px] h-8 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="sequential">
+              {t('settings:investigationSettings.phase1ExecutionSequential', 'Sequential (stable, recommended)')}
+            </SelectItem>
+            <SelectItem value="parallel">
+              {t('settings:investigationSettings.phase1ExecutionParallel', 'Parallel (faster)')}
+            </SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <Separator />
 
-      {/* 4. Auto-post to GitHub */}
+      {/* 5. Auto-post to GitHub */}
       <SettingToggle
         label={t('settings:investigationSettings.autoPostToGitHub', 'Auto-post to GitHub')}
         description={t(
@@ -262,7 +297,7 @@ export function InvestigationSettings({ projectId }: InvestigationSettingsProps)
         onCheckedChange={(v) => updateSetting('autoPostToGitHub', v)}
       />
 
-      {/* 5. Auto-close issues */}
+      {/* 6. Auto-close issues */}
       <SettingToggle
         label={t('settings:investigationSettings.autoCloseIssues', 'Auto-close issues')}
         description={t(
@@ -275,7 +310,7 @@ export function InvestigationSettings({ projectId }: InvestigationSettingsProps)
 
       <Separator />
 
-      {/* 6. Max parallel investigations */}
+      {/* 7. Max parallel investigations */}
       <div className="flex items-center justify-between">
         <div className="space-y-0.5">
           <Label className="font-normal text-foreground">
@@ -303,7 +338,7 @@ export function InvestigationSettings({ projectId }: InvestigationSettingsProps)
 
       <Separator />
 
-      {/* 7. Fast mode investigations */}
+      {/* 8. Fast mode investigations */}
       <SettingToggle
         label={t('settings:investigationSettings.fastInvestigations', 'Fast mode investigations')}
         description={t(
@@ -316,7 +351,7 @@ export function InvestigationSettings({ projectId }: InvestigationSettingsProps)
 
       <Separator />
 
-      {/* 8. Label include filter */}
+      {/* 9. Label include filter */}
       <LabelFilterDropdown
         title={t('settings:investigationSettings.labelIncludeFilter', 'Label include filter')}
         description={t(
@@ -330,7 +365,7 @@ export function InvestigationSettings({ projectId }: InvestigationSettingsProps)
         onRemove={(label) => removeLabelFilter('include', label)}
       />
 
-      {/* 9. Label exclude filter */}
+      {/* 10. Label exclude filter */}
       <LabelFilterDropdown
         title={t('settings:investigationSettings.labelExcludeFilter', 'Label exclude filter')}
         description={t(
@@ -346,7 +381,7 @@ export function InvestigationSettings({ projectId }: InvestigationSettingsProps)
 
       <Separator />
 
-      {/* 10. Investigation label customization */}
+      {/* 11. Investigation label customization */}
       <InvestigationLabelSection
         customization={settings.labelCustomization}
         onCustomizationChange={(lc) => persist({ ...settings, labelCustomization: lc })}

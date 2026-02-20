@@ -162,7 +162,7 @@ export const DEFAULT_INVESTIGATION_THINKING: InvestigationThinkingConfig = {
   rootCause: 'high',
   impact: 'medium',
   fixAdvisor: 'medium',
-  reproducer: 'low'
+  reproducer: 'medium'
 };
 
 // Labels for investigation specialist UI

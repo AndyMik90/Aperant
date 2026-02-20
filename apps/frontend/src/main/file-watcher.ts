@@ -117,24 +117,20 @@ export class FileWatcher extends EventEmitter {
         const plan: ImplementationPlan = JSON.parse(content);
         this.emit('progress', taskId, plan);
       } catch {
-              // File might be in the middle of being written
-        // Ignore parse errors, next change event will have complete file
+        // Initial read failed - not critical
       }
-    });
-
-    // Handle errors
-    watcher.on('error', (error: unknown) => {
-      const message = error instanceof Error ? error.message : String(error);
-      this.emit('error', taskId, message);
-    });
-
-    // Read and emit initial state
-    try {
-      const content = readFileSync(planPath, 'utf-8');
-      const plan: ImplementationPlan = JSON.parse(content);
-      this.emit('progress', taskId, plan);
-    } catch {
-            // Initial read failed - not critical
+    } finally {
+      // Only clean up if this call still owns the entry. If a superseding
+      // concurrent watch() call has already updated pendingWatches with a
+      // different specDir, leave that entry intact so the superseding call
+      // can proceed correctly.
+      if (this.pendingWatches.get(taskId) === specDir) {
+        this.pendingWatches.delete(taskId);
+        // The delete above guarantees has() is now false, so there is no
+        // longer any in-flight watch() for this taskId. Clear the
+        // cancellation flag so it doesn't linger for future watch() calls.
+        this.cancelledWatches.delete(taskId);
+      }
     }
   }
 

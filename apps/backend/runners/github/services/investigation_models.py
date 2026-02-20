@@ -193,6 +193,7 @@ class TestCoverage(BaseModel):
     """Assessment of existing test coverage for the affected code."""
 
     has_existing_tests: bool = Field(
+        default=False,
         description="Whether there are existing tests for the affected code"
     )
     test_files: list[str] = Field(
@@ -200,6 +201,7 @@ class TestCoverage(BaseModel):
         description="Existing test files that cover the affected code paths",
     )
     coverage_assessment: str = Field(
+        default="Unable to assess existing test coverage from available evidence",
         description="Assessment of how well the affected code is tested"
     )
 
@@ -208,6 +210,7 @@ class ReproductionAnalysis(BaseModel):
     """Structured output from the Reproducer agent."""
 
     reproducible: str = Field(
+        default="unlikely",
         description="Whether the issue can be reproduced (e.g. yes, likely, unlikely, no)"
     )
     reproduction_steps: list[str] = Field(
@@ -215,6 +218,7 @@ class ReproductionAnalysis(BaseModel):
         description="Steps to reproduce the issue",
     )
     test_coverage: TestCoverage = Field(
+        default_factory=TestCoverage,
         description="Assessment of existing test coverage"
     )
     related_test_files: list[str] = Field(
@@ -222,6 +226,7 @@ class ReproductionAnalysis(BaseModel):
         description="Test files related to the affected code",
     )
     suggested_test_approach: str = Field(
+        default="Unable to determine a reliable test approach from available evidence",
         description="How to write a test that verifies the fix"
     )
 

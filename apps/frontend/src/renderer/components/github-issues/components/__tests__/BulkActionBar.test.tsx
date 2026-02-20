@@ -87,6 +87,49 @@ describe('BulkActionBar', () => {
     expect(screen.getByText('bulk.actionClose')).toBeDefined();
   });
 
+  it('Add Label requires payload and sends parsed labels', () => {
+    const onBulkAction = vi.fn();
+    render(
+      <BulkActionBar
+        selectedCount={3}
+        onBulkAction={onBulkAction}
+        isOperating={false}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('bulk.actionAddLabel'));
+    const confirmBtn = screen.getByText('bulk.confirm');
+    expect(confirmBtn.hasAttribute('disabled')).toBe(true);
+
+    const input = screen.getByPlaceholderText('bulk.payloadPlaceholderLabels');
+    fireEvent.change(input, { target: { value: 'bug, needs-triage ' } });
+
+    fireEvent.click(screen.getByText('bulk.confirm'));
+    expect(onBulkAction).toHaveBeenCalledWith('add-label', {
+      labels: ['bug', 'needs-triage'],
+    });
+  });
+
+  it('Assign requires payload and sends parsed assignees', () => {
+    const onBulkAction = vi.fn();
+    render(
+      <BulkActionBar
+        selectedCount={2}
+        onBulkAction={onBulkAction}
+        isOperating={false}
+      />,
+    );
+
+    fireEvent.click(screen.getByText('bulk.actionAssign'));
+    const input = screen.getByPlaceholderText('bulk.payloadPlaceholderAssignees');
+    fireEvent.change(input, { target: { value: 'octocat' } });
+
+    fireEvent.click(screen.getByText('bulk.confirm'));
+    expect(onBulkAction).toHaveBeenCalledWith('add-assignee', {
+      assignees: ['octocat'],
+    });
+  });
+
   it('confirmation dialog has role=alert', () => {
     render(
       <BulkActionBar

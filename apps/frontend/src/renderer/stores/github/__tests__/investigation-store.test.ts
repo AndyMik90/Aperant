@@ -464,4 +464,40 @@ describe('Investigation Store', () => {
       expect(inv?.linkedTaskStatus).toBe('failed');
     });
   });
+
+  describe('loadPersistedInvestigations', () => {
+    it('restores investigating status from persisted data', () => {
+      act(() => {
+        useInvestigationStore.getState().loadPersistedInvestigations('test-project', [{
+          issueNumber: 42,
+          status: 'investigating',
+          hasResumeSessions: true,
+          activityLog: [{ event: 'Investigation started', timestamp: '2026-02-20T11:01:43.307Z' }],
+        }]);
+      });
+
+      const inv = useInvestigationStore.getState().getInvestigationState('test-project', 42);
+      expect(inv?.isInvestigating).toBe(true);
+      expect(inv?.error).toBeNull();
+      expect(inv?.hasResumeSessions).toBe(true);
+      expect(useInvestigationStore.getState().getDerivedState('test-project', 42)).toBe('investigating');
+    });
+
+    it('does not overwrite active in-memory investigation with failed persisted state', () => {
+      act(() => {
+        useInvestigationStore.getState().startInvestigation('test-project', 42);
+      });
+
+      act(() => {
+        useInvestigationStore.getState().loadPersistedInvestigations('test-project', [{
+          issueNumber: 42,
+          status: 'failed',
+        }]);
+      });
+
+      const inv = useInvestigationStore.getState().getInvestigationState('test-project', 42);
+      expect(inv?.isInvestigating).toBe(true);
+      expect(inv?.error).toBeNull();
+    });
+  });
 });

@@ -4,7 +4,7 @@ Issue Investigation Orchestrator
 
 Runs 4 specialist agents in two phases to investigate a GitHub issue:
 
-Phase 1 (parallel): root_cause + reproducer
+Phase 1 (parallel or sequential): root_cause + reproducer
 Phase 2 (parallel): impact + fix_advisor (with root cause context injected)
 
 Specialists:
@@ -20,6 +20,7 @@ infrastructure. Uses structured output via Pydantic model schemas.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
 import subprocess
@@ -205,7 +206,7 @@ INVESTIGATION_SPECIALISTS: list[SpecialistConfig] = [
     SpecialistConfig(
         name="reproducer",
         prompt_file="investigation_reproduction.md",
-        tools=["Read", "Grep", "Glob", "Bash"],
+        tools=["Read", "Grep", "Glob"],
         description="Determine reproducibility, check test coverage, and suggest test approaches",
     ),
 ]
@@ -225,9 +226,9 @@ class IssueInvestigationOrchestrator(ParallelAgentOrchestrator):
 
     Runs 4 specialist agents in two sequential phases, each with their own
     SDK session and structured output schema. Phase 1 runs root_cause and
-    reproducer in parallel. Phase 2 runs impact and fix_advisor in parallel,
-    with root cause findings injected as context. Results are combined into
-    an InvestigationReport.
+    reproducer in either parallel or sequential mode. Phase 2 runs impact
+    and fix_advisor in parallel, with root cause findings injected as
+    context. Results are combined into an InvestigationReport.
 
     Inherits from ParallelAgentOrchestrator:
     - _report_progress() — progress callback
@@ -356,6 +357,7 @@ class IssueInvestigationOrchestrator(ParallelAgentOrchestrator):
 
         # Resolve per-specialist config
         specialist_config = self.config.specialist_config or {}
+        phase_1_mode = getattr(self.config, "investigation_phase1_mode", "sequential")
 
         # Fallback model/thinking for specialists not in config
         fallback_model_shorthand = self.config.model or "sonnet"
@@ -392,6 +394,7 @@ class IssueInvestigationOrchestrator(ParallelAgentOrchestrator):
             specialist_config=specialist_config,
             fallback_model=fallback_model,
             fallback_thinking_level=fallback_thinking_level,
+            phase_1_mode=phase_1_mode,
             issue_number=issue_number,
             resume_sessions=resume_sessions,
         )
@@ -642,12 +645,13 @@ the root cause — focus on your specialty using these findings as ground truth.
         specialist_config: dict[str, dict[str, str]],
         fallback_model: str,
         fallback_thinking_level: str,
+        phase_1_mode: str = "sequential",
         issue_number: int | None = None,
         resume_sessions: dict[str, str] | None = None,
     ) -> dict[str, dict[str, Any]]:
         """Run investigation specialists in two phases.
 
-        Phase 1 (parallel): root_cause + reproducer
+        Phase 1 (parallel/sequential): root_cause + reproducer
         Phase 2 (parallel): impact + fix_advisor (with root cause context)
 
         Args:
@@ -657,6 +661,8 @@ the root cause — focus on your specialty using these findings as ground truth.
             fallback_model: Default model ID for specialists without overrides
             fallback_thinking_level: Default thinking level for specialists
                                     without overrides
+            phase_1_mode: Execution mode for phase 1 specialists.
+                         Supported: "parallel", "sequential"
             issue_number: GitHub issue number (for session persistence)
             resume_sessions: Optional dict mapping specialist name to SDK
                            session ID for resuming interrupted sessions.
@@ -665,6 +671,15 @@ the root cause — focus on your specialty using these findings as ground truth.
             Dict mapping specialist name -> stream result dict
         """
         PHASE_1_NAMES = {"root_cause", "reproducer"}
+        VALID_PHASE_1_MODES = {"parallel", "sequential"}
+
+        mode = str(phase_1_mode or "sequential").strip().lower()
+        if mode not in VALID_PHASE_1_MODES:
+            logger.warning(
+                f"[Investigation] Unknown phase_1_mode='{phase_1_mode}', "
+                "falling back to sequential"
+            )
+            mode = "sequential"
 
         phase_1_specs = [
             s for s in INVESTIGATION_SPECIALISTS if s.name in PHASE_1_NAMES
@@ -672,6 +687,15 @@ the root cause — focus on your specialty using these findings as ground truth.
         phase_2_specs = [
             s for s in INVESTIGATION_SPECIALISTS if s.name not in PHASE_1_NAMES
         ]
+
+        def _missing_result(error: str = "Specialist did not complete") -> dict[str, Any]:
+            """Build a normalized missing/failed specialist result payload."""
+            return {
+                "result_text": "",
+                "structured_output": None,
+                "error": error,
+                "msg_count": 0,
+            }
 
         # Shared completion counter for incremental progress reporting
         _agents_done = 0
@@ -764,8 +788,11 @@ the root cause — focus on your specialty using these findings as ground truth.
             return factory
 
         async def _retry_lifecycle_wrapper(agent_name: str, coro):
-            """Wrap a retry coroutine with agent_started/agent_done events."""
-            emit_json_event("agent_started", agent_name)
+            """Wrap a retry coroutine with final completion events only.
+
+            Retries should not emit a new ``agent_started`` lifecycle event,
+            because the UI treats that as a brand-new run and resets timers.
+            """
             try:
                 result = await _run_with_timeout(
                     coro, agent_name, SPECIALIST_TIMEOUT_SECONDS
@@ -801,6 +828,18 @@ the root cause — focus on your specialty using these findings as ground truth.
                 raise
             return result
 
+        def _should_defer_failed_lifecycle(result: dict[str, Any] | None) -> bool:
+            """Return True when a recoverable stream error will be retried.
+
+            For recoverable errors we defer failed lifecycle emission until the
+            retry result is known, preventing failed->started flapping in the UI.
+            """
+            if not isinstance(result, dict):
+                return False
+            if result.get("structured_output"):
+                return False
+            return bool(result.get("error") and result.get("error_recoverable"))
+
         async def _agent_lifecycle_wrapper(
             cfg: SpecialistConfig,
             coro,
@@ -831,13 +870,17 @@ the root cause — focus on your specialty using these findings as ground truth.
                         "msg_count": 0,
                     }
                 else:
-                    success = self._specialist_succeeded_for_lifecycle(result)
-                    emit_json_event(
-                        "agent_done",
-                        cfg.name,
-                        success=success,
-                        error=result.get("error") if not success else None,
-                    )
+                    # Recoverable stream failures are retried by
+                    # _run_parallel_specialists. Avoid emitting a failed
+                    # lifecycle event here so the UI does not flap/reset.
+                    if not _should_defer_failed_lifecycle(result):
+                        success = self._specialist_succeeded_for_lifecycle(result)
+                        emit_json_event(
+                            "agent_done",
+                            cfg.name,
+                            success=success,
+                            error=result.get("error") if not success else None,
+                        )
             except Exception as e:
                 emit_json_event(
                     "agent_done",
@@ -860,61 +903,122 @@ the root cause — focus on your specialty using these findings as ground truth.
             return result
 
         # === Phase 1: root_cause + reproducer ===
-        self._report_progress(
-            "investigating",
-            20,
-            "Phase 1: Root Cause Agent + Reproducer Agent...",
-            issue_number=issue_number,
-        )
-
-        _agents_done = 0
-        phase_1_coroutines = []
-        phase_1_retry_factories = []
-        phase_1_retry_configs = []
-        for cfg in phase_1_specs:
-            model, budget, thinking_lvl = _resolve_specialist(cfg.name)
-            factory = _make_specialist_factory(
-                cfg, model, budget, thinking_lvl=thinking_lvl
-            )
-            phase_1_coroutines.append(_agent_lifecycle_wrapper(cfg, factory(), 20, 15))
-            phase_1_retry_factories.append(factory)
-            # Create a simplified lifecycle wrapper for retries (without progress tracking)
-            phase_1_retry_configs.append(
-                {
-                    "name": cfg.name,
-                    "lifecycle_wrapper": lambda name, coro: _retry_lifecycle_wrapper(
-                        name, coro
-                    ),
-                }
-            )
-
-        phase_1_results = await self._run_parallel_specialists(
-            tasks=phase_1_coroutines,
-            orchestrator_name="IssueInvestigation:Phase1",
-            retry_tasks=phase_1_retry_factories,
-            retry_configs=phase_1_retry_configs,
-        )
-
-        # Map phase 1 results
         phase_1_result_map: dict[str, dict[str, Any]] = {}
-        for i, cfg in enumerate(phase_1_specs):
-            result = phase_1_results[i] if i < len(phase_1_results) else None
-            phase_1_result_map[cfg.name] = (
-                result
-                if result is not None
-                else {
-                    "result_text": "",
-                    "structured_output": None,
-                    "error": "Specialist did not complete",
-                    "msg_count": 0,
-                }
+        root_cause_ctx = ""
+        root_cause_parsed = None
+
+        if mode == "parallel":
+            self._report_progress(
+                "investigating",
+                20,
+                "Phase 1 (parallel): Root Cause Agent + Reproducer Agent...",
+                issue_number=issue_number,
             )
 
-        # Parse root cause for context injection into Phase 2
-        root_cause_parsed = await self._parse_specialist_result(
-            "root_cause", phase_1_result_map, RootCauseAnalysis
-        )
-        root_cause_ctx = self._build_root_cause_context(root_cause_parsed)
+            _agents_done = 0
+            phase_1_coroutines = []
+            phase_1_retry_factories = []
+            phase_1_retry_configs = []
+            for cfg in phase_1_specs:
+                model, budget, thinking_lvl = _resolve_specialist(cfg.name)
+                factory = _make_specialist_factory(
+                    cfg, model, budget, thinking_lvl=thinking_lvl
+                )
+                phase_1_coroutines.append(
+                    _agent_lifecycle_wrapper(cfg, factory(), 20, 15)
+                )
+                phase_1_retry_factories.append(factory)
+                # Create a simplified lifecycle wrapper for retries (without progress tracking)
+                phase_1_retry_configs.append(
+                    {
+                        "name": cfg.name,
+                        "lifecycle_wrapper": lambda name, coro: _retry_lifecycle_wrapper(
+                            name, coro
+                        ),
+                    }
+                )
+
+            phase_1_results = await self._run_parallel_specialists(
+                tasks=phase_1_coroutines,
+                orchestrator_name="IssueInvestigation:Phase1",
+                retry_tasks=phase_1_retry_factories,
+                retry_configs=phase_1_retry_configs,
+            )
+
+            # Map phase 1 results
+            for i, cfg in enumerate(phase_1_specs):
+                result = phase_1_results[i] if i < len(phase_1_results) else None
+                phase_1_result_map[cfg.name] = (
+                    result if result is not None else _missing_result()
+                )
+
+            # Parse root cause for context injection into Phase 2
+            root_cause_parsed = await self._parse_specialist_result(
+                "root_cause", phase_1_result_map, RootCauseAnalysis
+            )
+            root_cause_ctx = self._build_root_cause_context(root_cause_parsed)
+        else:
+            self._report_progress(
+                "investigating",
+                20,
+                "Phase 1 (sequential): Root Cause Agent then Reproducer Agent...",
+                issue_number=issue_number,
+            )
+
+            _agents_done = 0
+            for cfg in phase_1_specs:
+                if self._cancel_event.is_set():
+                    logger.info(
+                        f"Investigation cancelled during Phase 1 before {cfg.name}"
+                    )
+                    break
+
+                model, budget, thinking_lvl = _resolve_specialist(cfg.name)
+                phase_1_root_cause_ctx = root_cause_ctx if cfg.name == "reproducer" else ""
+                factory = _make_specialist_factory(
+                    cfg,
+                    model,
+                    budget,
+                    thinking_lvl=thinking_lvl,
+                    root_cause_ctx=phase_1_root_cause_ctx,
+                )
+
+                single_result = await self._run_parallel_specialists(
+                    tasks=[_agent_lifecycle_wrapper(cfg, factory(), 20, 15)],
+                    orchestrator_name=f"IssueInvestigation:Phase1:{cfg.name}",
+                    retry_tasks=[factory],
+                    retry_configs=[
+                        {
+                            "name": cfg.name,
+                            "lifecycle_wrapper": lambda name, coro: _retry_lifecycle_wrapper(
+                                name, coro
+                            ),
+                        }
+                    ],
+                )
+                result = single_result[0] if single_result else None
+                phase_1_result_map[cfg.name] = (
+                    result if result is not None else _missing_result()
+                )
+
+                if cfg.name == "root_cause":
+                    root_cause_parsed = await self._parse_specialist_result(
+                        "root_cause", phase_1_result_map, RootCauseAnalysis
+                    )
+                    root_cause_ctx = self._build_root_cause_context(root_cause_parsed)
+
+            # Fill any missing phase-1 specialists after cancellation/interruption.
+            for cfg in phase_1_specs:
+                if cfg.name not in phase_1_result_map:
+                    phase_1_result_map[cfg.name] = _missing_result(
+                        "Specialist cancelled"
+                    )
+
+            if root_cause_parsed is None:
+                root_cause_parsed = await self._parse_specialist_result(
+                    "root_cause", phase_1_result_map, RootCauseAnalysis
+                )
+            root_cause_ctx = self._build_root_cause_context(root_cause_parsed)
 
         # Yield to event loop to ensure cancellation event propagates
         await asyncio.sleep(0)
@@ -927,10 +1031,7 @@ the root cause — focus on your specialty using these findings as ground truth.
             phase_2_result_map: dict[str, dict[str, Any]] = {}
             for cfg in phase_2_specs:
                 phase_2_result_map[cfg.name] = {
-                    "result_text": "",
-                    "structured_output": None,
-                    "error": "Specialist cancelled",
-                    "msg_count": 0,
+                    **_missing_result("Specialist cancelled"),
                 }
             return {**phase_1_result_map, **phase_2_result_map}
 
@@ -979,14 +1080,7 @@ the root cause — focus on your specialty using these findings as ground truth.
         for i, cfg in enumerate(phase_2_specs):
             result = phase_2_results[i] if i < len(phase_2_results) else None
             phase_2_result_map[cfg.name] = (
-                result
-                if result is not None
-                else {
-                    "result_text": "",
-                    "structured_output": None,
-                    "error": "Specialist did not complete",
-                    "msg_count": 0,
-                }
+                result if result is not None else _missing_result()
             )
 
         # Combine all results
@@ -1056,6 +1150,9 @@ the root cause — focus on your specialty using these findings as ground truth.
         reproduction = await self._parse_specialist_result(
             "reproducer", specialist_results, ReproductionAnalysis
         )
+        reproducer_error = str(
+            (specialist_results.get("reproducer") or {}).get("error") or ""
+        ).strip()
 
         # Compute overall severity from impact assessment
         severity = impact.severity if impact else "medium"
@@ -1088,14 +1185,25 @@ the root cause — focus on your specialty using these findings as ground truth.
         if not fix_advice:
             fix_advice = FixAdvice()
         if not reproduction:
+            reason = self._humanize_specialist_error(reproducer_error)
+            coverage_assessment = (
+                f"Unable to assess ({reason})"
+                if reason
+                else "Unable to assess (specialist failed)"
+            )
+            test_approach = (
+                f"Unable to determine ({reason})"
+                if reason
+                else "Unable to determine (specialist failed)"
+            )
             reproduction = ReproductionAnalysis(
                 reproducible="unlikely",
                 test_coverage={
                     "has_existing_tests": False,
                     "test_files": [],
-                    "coverage_assessment": "Unable to assess (specialist failed)",
+                    "coverage_assessment": coverage_assessment,
                 },
-                suggested_test_approach="Unable to determine (specialist failed)",
+                suggested_test_approach=test_approach,
             )
 
         return InvestigationReport(
@@ -1133,7 +1241,26 @@ the root cause — focus on your specialty using these findings as ground truth.
             return None
 
         structured_output = result.get("structured_output")
-        result_text = result.get("result_text", "")
+        structured_output_candidate = result.get("structured_output_candidate")
+        tool_activity = result.get("tool_activity")
+        if not isinstance(tool_activity, list):
+            tool_activity = []
+        last_assistant_text = result.get("last_assistant_text", "")
+        full_result_text = result.get("result_text", "")
+        # Prefer the final assistant text block when available; it is usually
+        # cleaner than the concatenated full transcript.
+        result_text = last_assistant_text or full_result_text
+        tool_activity_lines = [
+            str(line).strip() for line in tool_activity if str(line).strip()
+        ][-120:]
+        tool_activity_text = "\n".join(tool_activity_lines)
+        extraction_text = result_text.strip()
+        if tool_activity_text:
+            extraction_text = (
+                f"{extraction_text}\n\nTool activity:\n{tool_activity_text}"
+                if extraction_text
+                else f"Tool activity:\n{tool_activity_text}"
+            )
 
         if structured_output:
             try:
@@ -1144,6 +1271,17 @@ the root cause — focus on your specialty using these findings as ground truth.
                     exc_info=True,
                 )
                 safe_print(f"[Investigation] {name}: schema validation failed: {e}")
+                partial_recovered = self._recover_from_partial_structured_output(
+                    name=name,
+                    model_class=model_class,
+                    structured_output=structured_output,
+                    fallback_text=extraction_text,
+                )
+                if partial_recovered is not None:
+                    safe_print(
+                        f"[Investigation] {name}: recovered partial structured output"
+                    )
+                    return partial_recovered
 
         if not structured_output:
             error = result.get("error", "unknown")
@@ -1157,6 +1295,35 @@ the root cause — focus on your specialty using these findings as ground truth.
                 f"(error={error}, msgs={msg_count})"
             )
 
+        if not structured_output and isinstance(structured_output_candidate, dict):
+            safe_print(f"[Investigation] {name}: trying unvalidated output candidate")
+            try:
+                return model_class.model_validate(structured_output_candidate)
+            except Exception as e:
+                logger.warning(
+                    f"[Investigation] {name}: candidate validation failed: {e}"
+                )
+                partial_candidate = self._recover_from_partial_structured_output(
+                    name=name,
+                    model_class=model_class,
+                    structured_output=structured_output_candidate,
+                    fallback_text=extraction_text,
+                )
+                if partial_candidate is not None:
+                    safe_print(
+                        f"[Investigation] {name}: recovered from output candidate"
+                    )
+                    return partial_candidate
+
+        json_recovered = self._recover_from_text_json(
+            name=name,
+            model_class=model_class,
+            text=result_text,
+        )
+        if json_recovered is not None:
+            safe_print(f"[Investigation] {name}: recovered JSON from text output")
+            return json_recovered
+
         error_text = str(result.get("error") or "").lower()
         if "rate_limit" in error_text or "hit your limit" in error_text:
             return None
@@ -1164,13 +1331,267 @@ the root cause — focus on your specialty using these findings as ground truth.
         recovered = await self._attempt_specialist_extraction_call(
             name=name,
             model_class=model_class,
-            analysis_text=result_text,
+            analysis_text=extraction_text,
         )
         if recovered is not None:
             safe_print(f"[Investigation] {name}: recovered structured output")
             return recovered
 
         return None
+
+    @staticmethod
+    def _humanize_specialist_error(error: str) -> str:
+        """Convert internal specialist error codes/messages to user-facing text."""
+        if not error:
+            return ""
+        lowered = error.lower()
+        if "rate_limit" in lowered or "hit your limit" in lowered:
+            return "rate limit reached"
+        if "structured_output_validation_failed" in lowered:
+            return "structured output validation failed"
+        if "tool_use_concurrency_error" in lowered:
+            return "tool concurrency error"
+        # Keep fallback concise for UI readability.
+        return error.strip()[:120]
+
+    @staticmethod
+    def _to_string_list(value: Any) -> list[str]:
+        """Normalize a value into a list of non-empty strings."""
+        if value is None:
+            return []
+        if isinstance(value, str):
+            s = value.strip()
+            return [s] if s else []
+        if not isinstance(value, list):
+            return []
+        normalized: list[str] = []
+        for item in value:
+            if item is None:
+                continue
+            s = str(item).strip()
+            if s:
+                normalized.append(s)
+        return normalized
+
+    @staticmethod
+    def _normalize_reproducible_value(value: Any, fallback_text: str = "") -> str:
+        """Map free-form reproducibility values into canonical buckets."""
+        raw = str(value).strip().lower() if value is not None else ""
+
+        direct_map = {
+            "yes": "yes",
+            "true": "yes",
+            "reproducible": "yes",
+            "likely": "likely",
+            "maybe": "likely",
+            "sometimes": "likely",
+            "intermittent": "likely",
+            "unlikely": "unlikely",
+            "no": "no",
+            "false": "no",
+        }
+        if raw in direct_map:
+            return direct_map[raw]
+
+        if "cannot reproduce" in raw or "can't reproduce" in raw:
+            return "no"
+        if "not reproducible" in raw:
+            return "no"
+        if "likely" in raw:
+            return "likely"
+        if "unlikely" in raw:
+            return "unlikely"
+        if "yes" in raw:
+            return "yes"
+        if "no" in raw:
+            return "no"
+
+        text = fallback_text.lower()
+        if "cannot reproduce" in text or "can't reproduce" in text:
+            return "no"
+        if "not reproducible" in text:
+            return "no"
+        if "reproducible: yes" in text:
+            return "yes"
+        if "reproducible: likely" in text:
+            return "likely"
+        if "reproducible: unlikely" in text:
+            return "unlikely"
+        if "reproducible: no" in text:
+            return "no"
+
+        return "unlikely"
+
+    def _coerce_reproduction_output(
+        self,
+        structured_output: Any,
+        fallback_text: str = "",
+    ) -> ReproductionAnalysis | None:
+        """Best-effort recovery for partial/invalid reproducer structured output."""
+        if not isinstance(structured_output, dict):
+            return None
+
+        reproduction_steps = self._to_string_list(
+            structured_output.get("reproduction_steps")
+        )
+        if not reproduction_steps and fallback_text:
+            for line in fallback_text.splitlines():
+                trimmed = line.strip()
+                # Capture bullet/numbered steps from free-form fallback text.
+                if re.match(r"^(\d+[\).\:-]|[-*])\s+", trimmed):
+                    step = re.sub(r"^(\d+[\).\:-]|[-*])\s+", "", trimmed).strip()
+                    if step:
+                        reproduction_steps.append(step)
+                if len(reproduction_steps) >= 10:
+                    break
+
+        related_test_files = self._to_string_list(
+            structured_output.get("related_test_files")
+        )
+
+        raw_test_coverage = structured_output.get("test_coverage")
+        if isinstance(raw_test_coverage, dict):
+            test_files = self._to_string_list(raw_test_coverage.get("test_files"))
+            has_existing_tests = raw_test_coverage.get("has_existing_tests")
+            if isinstance(has_existing_tests, str):
+                has_existing_tests = has_existing_tests.strip().lower() in (
+                    "true",
+                    "yes",
+                    "1",
+                )
+            if not isinstance(has_existing_tests, bool):
+                has_existing_tests = bool(test_files)
+            coverage_assessment = str(
+                raw_test_coverage.get("coverage_assessment")
+                or "Unable to assess existing test coverage from available evidence"
+            )
+        else:
+            test_files = related_test_files.copy()
+            has_existing_tests = bool(test_files)
+            coverage_assessment = (
+                "Unable to assess existing test coverage from available evidence"
+            )
+
+        if not related_test_files and test_files:
+            related_test_files = test_files.copy()
+
+        normalized_payload = {
+            "reproducible": self._normalize_reproducible_value(
+                structured_output.get("reproducible"), fallback_text
+            ),
+            "reproduction_steps": reproduction_steps,
+            "test_coverage": {
+                "has_existing_tests": has_existing_tests,
+                "test_files": test_files,
+                "coverage_assessment": coverage_assessment,
+            },
+            "related_test_files": related_test_files,
+            "suggested_test_approach": str(
+                structured_output.get("suggested_test_approach")
+                or structured_output.get("test_approach")
+                or "Unable to determine a reliable test approach from available evidence"
+            ),
+        }
+
+        try:
+            return ReproductionAnalysis.model_validate(normalized_payload)
+        except Exception:
+            return None
+
+    @staticmethod
+    def _extract_json_object_from_text(text: str) -> dict[str, Any] | None:
+        """Extract the first valid JSON object from free-form model text."""
+        if not text:
+            return None
+
+        starts = [idx for idx, ch in enumerate(text) if ch == "{"]
+        for start in starts:
+            depth = 0
+            in_string = False
+            escaped = False
+            for i in range(start, len(text)):
+                ch = text[i]
+                if in_string:
+                    if escaped:
+                        escaped = False
+                    elif ch == "\\":
+                        escaped = True
+                    elif ch == '"':
+                        in_string = False
+                    continue
+
+                if ch == '"':
+                    in_string = True
+                elif ch == "{":
+                    depth += 1
+                elif ch == "}":
+                    depth -= 1
+                    if depth == 0:
+                        candidate = text[start : i + 1]
+                        try:
+                            parsed = json.loads(candidate)
+                        except Exception:
+                            break
+                        if isinstance(parsed, dict):
+                            return parsed
+                        break
+        return None
+
+    @staticmethod
+    def _is_reproduction_analysis_model(model_class: type) -> bool:
+        """Identify ReproductionAnalysis even when imported via a different module path."""
+        if getattr(model_class, "__name__", "") == ReproductionAnalysis.__name__:
+            return True
+
+        fields = getattr(model_class, "model_fields", None)
+        if not isinstance(fields, dict):
+            return False
+
+        return {"reproducible", "test_coverage", "suggested_test_approach"}.issubset(
+            fields.keys()
+        )
+
+    def _recover_from_partial_structured_output(
+        self,
+        name: str,
+        model_class: type,
+        structured_output: Any,
+        fallback_text: str,
+    ) -> Any | None:
+        """Try model-specific recovery when structured output is close to valid."""
+        if self._is_reproduction_analysis_model(model_class):
+            recovered = self._coerce_reproduction_output(
+                structured_output=structured_output,
+                fallback_text=fallback_text,
+            )
+            if recovered is not None:
+                logger.info(f"[Investigation] Recovered partial output for {name}")
+            return recovered
+        return None
+
+    def _recover_from_text_json(
+        self,
+        name: str,
+        model_class: type,
+        text: str,
+    ) -> Any | None:
+        """Try recovering by extracting a JSON object embedded in text output."""
+        parsed = self._extract_json_object_from_text(text)
+        if not parsed:
+            return None
+
+        try:
+            return model_class.model_validate(parsed)
+        except Exception as e:
+            logger.warning(
+                f"[Investigation] {name}: text JSON validation failed: {e}"
+            )
+            if self._is_reproduction_analysis_model(model_class):
+                return self._coerce_reproduction_output(
+                    structured_output=parsed,
+                    fallback_text=text,
+                )
+            return None
 
     async def _attempt_specialist_extraction_call(
         self,
@@ -1233,6 +1654,16 @@ the root cause — focus on your specialty using these findings as ground truth.
 
         recovered_output = extraction_result.get("structured_output")
         if not recovered_output:
+            text_recovered = self._recover_from_text_json(
+                name=name,
+                model_class=model_class,
+                text=(
+                    extraction_result.get("last_assistant_text")
+                    or extraction_result.get("result_text", "")
+                ),
+            )
+            if text_recovered is not None:
+                return text_recovered
             logger.warning(
                 f"[Investigation] {name}: extraction call returned no structured output"
             )
@@ -1244,6 +1675,14 @@ the root cause — focus on your specialty using these findings as ground truth.
             logger.warning(
                 f"[Investigation] {name}: extraction output validation failed: {e}"
             )
+            partial_recovered = self._recover_from_partial_structured_output(
+                name=name,
+                model_class=model_class,
+                structured_output=recovered_output,
+                fallback_text=analysis_text,
+            )
+            if partial_recovered is not None:
+                return partial_recovered
             return None
 
     def _generate_summary(

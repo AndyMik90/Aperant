@@ -180,6 +180,7 @@ def get_config(args) -> GitHubRunnerConfig:
     specialist_config = None
     if hasattr(args, "specialist_config") and args.specialist_config:
         specialist_config = json.loads(args.specialist_config)
+    phase1_mode = getattr(args, "phase1_mode", None) or "sequential"
 
     return GitHubRunnerConfig(
         token=token,
@@ -191,6 +192,7 @@ def get_config(args) -> GitHubRunnerConfig:
         auto_fix_enabled=getattr(args, "auto_fix_enabled", False),
         auto_fix_labels=getattr(args, "auto_fix_labels", ["auto-fix"]),
         auto_post_reviews=getattr(args, "auto_post", False),
+        investigation_phase1_mode=phase1_mode,
         specialist_config=specialist_config,
     )
 
@@ -897,6 +899,13 @@ def main():
         type=str,
         default=None,
         help="JSON dict of specialist configs: {name: {model, thinking}}",
+    )
+    investigate_parser.add_argument(
+        "--phase1-mode",
+        type=str,
+        choices=["parallel", "sequential"],
+        default="sequential",
+        help="Phase 1 execution mode for root_cause + reproducer specialists",
     )
 
     # post-investigation command

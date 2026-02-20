@@ -544,7 +544,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
   const grantLabelConsent = useCallback(() => {
     if (!selectedProject?.id) return;
     const current = getInvestigationSettings(selectedProject.id);
-    const updated = { ...(current ?? { autoCreateTasks: false, autoStartTasks: false, pipelineMode: 'full' as const, autoPostToGitHub: false, autoCloseIssues: false, maxParallelInvestigations: 3, labelIncludeFilter: [] as string[], labelExcludeFilter: [] as string[] }), labelConsentGiven: true };
+    const updated = { ...(current ?? { autoCreateTasks: false, autoStartTasks: false, pipelineMode: 'full' as const, phase1ExecutionMode: 'sequential' as const, autoPostToGitHub: false, autoCloseIssues: false, maxParallelInvestigations: 3, labelIncludeFilter: [] as string[], labelExcludeFilter: [] as string[] }), labelConsentGiven: true };
     setInvestigationSettings(selectedProject.id, updated);
     if (window.electronAPI?.github?.saveInvestigationSettings) {
       window.electronAPI.github.saveInvestigationSettings(selectedProject.id, updated).catch((err) => console.warn('Failed to persist label consent:', err));

@@ -141,7 +141,7 @@ export const integrationMock = {
   createTaskFromInvestigation: async () => ({ success: true, data: { specId: '' } }),
   dismissIssue: async () => ({ success: true }),
   postInvestigationToGitHub: async () => ({ success: true, data: { commentId: 0 } }),
-  getInvestigationSettings: async () => ({ success: true, data: { autoCreateTasks: false, autoStartTasks: false, pipelineMode: 'full' as const, autoPostToGitHub: false, autoCloseIssues: false, maxParallelInvestigations: 3, labelIncludeFilter: [], labelExcludeFilter: [] } }),
+  getInvestigationSettings: async () => ({ success: true, data: { autoCreateTasks: false, autoStartTasks: false, pipelineMode: 'full' as const, phase1ExecutionMode: 'sequential' as const, autoPostToGitHub: false, autoCloseIssues: false, maxParallelInvestigations: 3, labelIncludeFilter: [], labelExcludeFilter: [] } }),
   saveInvestigationSettings: async () => ({ success: true }),
 
   onGitHubInvestigationProgress: () => () => { /* noop */ },
