@@ -10,10 +10,7 @@ import path from 'path';
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type { IPCResult } from '../../../shared/types';
 import type { InvestigationData } from '../../../shared/types/investigation';
-import { createContextLogger } from '../github/utils/logger';
 import { findTaskAndProject } from './shared';
-
-const logger = createContextLogger('Task Investigation');
 
 type RawRecord = Record<string, unknown>;
 
@@ -319,7 +316,7 @@ export function registerTaskInvestigationHandlers(): void {
           },
         };
       } catch (error) {
-        logger.debug('Error loading investigation data:', error);
+        console.warn('[Task Investigation] Error loading investigation data:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to load investigation data',

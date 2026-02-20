@@ -239,11 +239,6 @@ const browserMockAPI: ElectronAPI = {
     onPRReviewError: () => () => {},
     onPRReviewStateChange: () => () => {},
     onPRLogsUpdated: () => () => {},
-    batchAutoFix: () => {},
-    getBatches: async () => [],
-    onBatchProgress: () => () => {},
-    onBatchComplete: () => () => {},
-    onBatchError: () => () => {},
     // Analyze & Group Issues (proactive workflow)
     analyzeIssuesPreview: () => { /* noop */ },
     approveBatches: async () => ({ success: true, batches: [] }),

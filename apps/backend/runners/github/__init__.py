@@ -29,6 +29,7 @@ from .models import (
     TriageResult,
 )
 
+
 # Lazy import for orchestrator to avoid loading heavy dependencies at package import time
 # This enables testing individual modules (like gh_client) without triggering
 # the entire dependency tree
@@ -36,6 +37,7 @@ def __getattr__(name: str):
     """Lazy import orchestrator only when actually accessed."""
     if name == "GitHubOrchestrator":
         from .orchestrator import GitHubOrchestrator
+
         return GitHubOrchestrator
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 

@@ -637,7 +637,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     } else {
       toast({
         title: t('investigation.toast.postToGitHubFailed'),
-        description: result?.error ?? t('errors.unknown'),
+        description: result?.error ?? t('errors.unknownError'),
         variant: 'destructive',
       });
     }
