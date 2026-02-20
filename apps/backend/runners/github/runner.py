@@ -179,7 +179,10 @@ def get_config(args) -> GitHubRunnerConfig:
 
     specialist_config = None
     if hasattr(args, "specialist_config") and args.specialist_config:
-        specialist_config = json.loads(args.specialist_config)
+        try:
+            specialist_config = json.loads(args.specialist_config)
+        except json.JSONDecodeError:
+            safe_print("Warning: Invalid --specialist-config JSON, ignoring")
     phase1_mode = getattr(args, "phase1_mode", None) or "sequential"
 
     return GitHubRunnerConfig(

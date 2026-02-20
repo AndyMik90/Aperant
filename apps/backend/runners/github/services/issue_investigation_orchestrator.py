@@ -609,15 +609,23 @@ Use Read, Grep, and Glob tools to explore the codebase.
 
         code_paths_str = ""
         if hasattr(root_cause, "code_paths") and root_cause.code_paths:
-            # Validate code_paths is a list of strings before formatting
             paths = root_cause.code_paths
-            if isinstance(paths, list) and all(isinstance(p, str) for p in paths):
-                code_paths_str = "\n".join(f"- {p}" for p in paths)
-            elif isinstance(paths, list):
-                # Handle non-string items in the list
-                code_paths_str = "\n".join(f"- {str(p)}" for p in paths)
+            if isinstance(paths, list):
+                formatted = []
+                for p in paths:
+                    if isinstance(p, str):
+                        formatted.append(f"- {p}")
+                    elif hasattr(p, "file"):
+                        # CodePath model: format as file:line with description
+                        line_info = f"L{p.start_line}" if p.start_line else ""
+                        if p.end_line:
+                            line_info += f"-L{p.end_line}"
+                        desc = f" — {p.description}" if p.description else ""
+                        formatted.append(f"- `{p.file}:{line_info}`{desc}")
+                    else:
+                        formatted.append(f"- {str(p)}")
+                code_paths_str = "\n".join(formatted)
             else:
-                # Fallback for non-list types
                 code_paths_str = str(paths)
 
         return f"""
@@ -688,7 +696,9 @@ the root cause — focus on your specialty using these findings as ground truth.
             s for s in INVESTIGATION_SPECIALISTS if s.name not in PHASE_1_NAMES
         ]
 
-        def _missing_result(error: str = "Specialist did not complete") -> dict[str, Any]:
+        def _missing_result(
+            error: str = "Specialist did not complete",
+        ) -> dict[str, Any]:
             """Build a normalized missing/failed specialist result payload."""
             return {
                 "result_text": "",
@@ -932,8 +942,8 @@ the root cause — focus on your specialty using these findings as ground truth.
                 phase_1_retry_configs.append(
                     {
                         "name": cfg.name,
-                        "lifecycle_wrapper": lambda name, coro: _retry_lifecycle_wrapper(
-                            name, coro
+                        "lifecycle_wrapper": lambda name, coro: (
+                            _retry_lifecycle_wrapper(name, coro)
                         ),
                     }
                 )
@@ -974,7 +984,9 @@ the root cause — focus on your specialty using these findings as ground truth.
                     break
 
                 model, budget, thinking_lvl = _resolve_specialist(cfg.name)
-                phase_1_root_cause_ctx = root_cause_ctx if cfg.name == "reproducer" else ""
+                phase_1_root_cause_ctx = (
+                    root_cause_ctx if cfg.name == "reproducer" else ""
+                )
                 factory = _make_specialist_factory(
                     cfg,
                     model,
@@ -990,8 +1002,8 @@ the root cause — focus on your specialty using these findings as ground truth.
                     retry_configs=[
                         {
                             "name": cfg.name,
-                            "lifecycle_wrapper": lambda name, coro: _retry_lifecycle_wrapper(
-                                name, coro
+                            "lifecycle_wrapper": lambda name, coro: (
+                                _retry_lifecycle_wrapper(name, coro)
                             ),
                         }
                     ],
@@ -1583,9 +1595,7 @@ the root cause — focus on your specialty using these findings as ground truth.
         try:
             return model_class.model_validate(parsed)
         except Exception as e:
-            logger.warning(
-                f"[Investigation] {name}: text JSON validation failed: {e}"
-            )
+            logger.warning(f"[Investigation] {name}: text JSON validation failed: {e}")
             if self._is_reproduction_analysis_model(model_class):
                 return self._coerce_reproduction_output(
                     structured_output=parsed,

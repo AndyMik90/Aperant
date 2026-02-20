@@ -166,7 +166,8 @@
     "failedToDeleteTaskWorktree": "Failed to delete task worktree: {{specName}}",
     "terminalWorktreeNotFound": "Terminal worktree not found: {{name}}",
     "failedToDeleteTerminalWorktree": "Failed to delete terminal worktree: {{name}}",
-    "fieldRequired": "This field is required"
+    "fieldRequired": "This field is required",
+    "taskCreationFailed": "Failed to create task"
   },
   "worktrees": {
     "deleteSuccess": "Worktree '{{branch}}' deleted successfully",

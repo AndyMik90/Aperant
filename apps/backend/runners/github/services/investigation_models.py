@@ -194,7 +194,7 @@ class TestCoverage(BaseModel):
 
     has_existing_tests: bool = Field(
         default=False,
-        description="Whether there are existing tests for the affected code"
+        description="Whether there are existing tests for the affected code",
     )
     test_files: list[str] = Field(
         default_factory=list,
@@ -202,7 +202,7 @@ class TestCoverage(BaseModel):
     )
     coverage_assessment: str = Field(
         default="Unable to assess existing test coverage from available evidence",
-        description="Assessment of how well the affected code is tested"
+        description="Assessment of how well the affected code is tested",
     )
 
 
@@ -211,15 +211,14 @@ class ReproductionAnalysis(BaseModel):
 
     reproducible: str = Field(
         default="unlikely",
-        description="Whether the issue can be reproduced (e.g. yes, likely, unlikely, no)"
+        description="Whether the issue can be reproduced (e.g. yes, likely, unlikely, no)",
     )
     reproduction_steps: list[str] = Field(
         default_factory=list,
         description="Steps to reproduce the issue",
     )
     test_coverage: TestCoverage = Field(
-        default_factory=TestCoverage,
-        description="Assessment of existing test coverage"
+        default_factory=TestCoverage, description="Assessment of existing test coverage"
     )
     related_test_files: list[str] = Field(
         default_factory=list,
@@ -227,7 +226,7 @@ class ReproductionAnalysis(BaseModel):
     )
     suggested_test_approach: str = Field(
         default="Unable to determine a reliable test approach from available evidence",
-        description="How to write a test that verifies the fix"
+        description="How to write a test that verifies the fix",
     )
 
 

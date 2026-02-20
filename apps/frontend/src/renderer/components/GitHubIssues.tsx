@@ -611,8 +611,8 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
       setInvestigationSpecId(selectedProject.id, selectedIssue.number, result.data.specId);
     } else if (!result.success) {
       toast({
-        title: 'Failed to create task',
-        description: result?.error ?? 'Unknown error',
+        title: t('errors.taskCreationFailed'),
+        description: result?.error ?? t('errors.unknownError'),
         variant: 'destructive',
       });
     }

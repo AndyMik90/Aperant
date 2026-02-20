@@ -664,12 +664,7 @@ describe('Issues Store', () => {
         expect(mockGetGitHubIssues).not.toHaveBeenCalled();
       });
 
-      it('discards results if filter state changed during load', async () => {
-        // This functionality is difficult to test due to async timing.
-        // Verified manually: when filter changes during loadMore, results are discarded.
-        // The implementation checks filter state before appending results (line 180-184 in issues-store.ts)
-        expect(true).toBe(true);
-      });
+      it.todo('discards results if filter state changed during load');
 
       it('handles API error on load more', async () => {
         // Reset to default mock first

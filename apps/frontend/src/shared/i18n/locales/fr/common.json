@@ -166,7 +166,8 @@
     "failedToDeleteTaskWorktree": "Échec de la suppression du worktree de tâche : {{specName}}",
     "terminalWorktreeNotFound": "Worktree terminal introuvable : {{name}}",
     "failedToDeleteTerminalWorktree": "Échec de la suppression du worktree terminal : {{name}}",
-    "fieldRequired": "Ce champ est requis"
+    "fieldRequired": "Ce champ est requis",
+    "taskCreationFailed": "Échec de la création de la tâche"
   },
   "worktrees": {
     "deleteSuccess": "Worktree '{{branch}}' supprimé avec succès",

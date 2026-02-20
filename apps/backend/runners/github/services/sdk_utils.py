@@ -20,6 +20,14 @@ try:
 except (ImportError, ValueError, SystemError):
     from core.io_utils import safe_print
 
+try:
+    from ...core.error_utils import safe_receive_messages
+except (ImportError, ValueError, SystemError):
+    try:
+        from core.error_utils import safe_receive_messages
+    except (ImportError, ModuleNotFoundError):
+        safe_receive_messages = None  # type: ignore[assignment]
+
 logger = logging.getLogger(__name__)
 
 # Check if debug mode is enabled
@@ -332,8 +340,16 @@ async def process_sdk_stream(
     last_progress_log = 0
     PROGRESS_LOG_INTERVAL = 10  # Log progress every N messages
 
+    # Use safe_receive_messages when available (handles unknown SDK message
+    # types like rate_limit_event gracefully). Falls back to raw receive_response.
+    _msg_source = (
+        safe_receive_messages(client, caller=context_name)
+        if safe_receive_messages is not None
+        else client.receive_response()
+    )
+
     try:
-        async for msg in client.receive_response():
+        async for msg in _msg_source:
             try:
                 msg_type = type(msg).__name__
                 msg_count += 1
@@ -496,9 +512,9 @@ async def process_sdk_stream(
                         else:
                             # Validation failed — preserve candidate for fallback coercion.
                             _pending_structured_output[tool_id]["_validated"] = False
-                            _pending_structured_output[tool_id]["_validation_error"] = str(
-                                result_content
-                            )[:500]
+                            _pending_structured_output[tool_id]["_validation_error"] = (
+                                str(result_content)[:500]
+                            )
 
                     # Invoke callback
                     if on_tool_result:
@@ -760,7 +776,10 @@ async def process_sdk_stream(
                 )
                 break
 
-    if structured_output is None and stream_error == "structured_output_validation_failed":
+    if (
+        structured_output is None
+        and stream_error == "structured_output_validation_failed"
+    ):
         candidate = structured_output_candidate
         if candidate is None and _pending_structured_output:
             last_payload = next(reversed(_pending_structured_output.values()))
