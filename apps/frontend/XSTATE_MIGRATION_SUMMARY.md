@@ -28,34 +28,19 @@ We encountered and fixed this bug during development as it was blocking our test
 |-------|-------------|--------|
 | Phase 1 | Create XState machine definition (task-machine.ts) | ✅ Complete |
 | Phase 2 | Create TaskStateManager singleton wrapper | ✅ Complete |
-| Phase 3 | Integrate into agent-events-handlers.ts | ⏸️ Partially done |
-| Phase 4 | Remove legacy TaskStateMachine class | ❌ Not started |
+| Phase 3 | Integrate into agent-events-handlers.ts | ✅ Complete |
+| Phase 4 | Remove legacy TaskStateMachine class | ✅ Complete |
 
-### Why We Stopped at Phase 2
+### Migration Complete
 
-The original scope was to introduce XState as the new state management approach. Full integration (Phase 3-4) requires:
-
-- Extensive refactoring of agent-events-handlers.ts to remove all legacy decision logic
-- Removing the old TaskStateMachine class entirely
-- Migration of all status persistence to go through XState
-
-We delivered Phases 1-2 to establish the foundation. The current state has both systems running in parallel with XState as primary:
-
-- **XState is primary:** When TaskStateManager returns a valid state transition, that decision is used
-- **Legacy as fallback:** The old TaskStateMachine logic only applies when XState doesn't produce a decision
-- **Safe rollback:** If XState causes issues, the legacy system is still present and can take over
-
-This dual-system approach allows:
-- Validation that XState produces correct state transitions in production
-- Safe rollback if issues arise
-- Incremental adoption path for Phase 3-4
+All four phases are now complete. The XState-based `TaskStateManager` is the sole state management system — the legacy `TaskStateMachine` class and `validateStatusTransition()` function have been fully removed. `agent-events-handlers.ts` uses the XState-based `taskStateManager` singleton exclusively.
 
 ## What Changed
 
-### Before (Old Architecture)
+### Before (Old Architecture — Now Removed)
 - Status decisions scattered across agent-events-handlers.ts, execution-handlers.ts, worktree-handlers.ts
 - `validateStatusTransition()` function with complex conditional logic
-- TaskStateMachine class that was essentially an event emitter wrapper
+- `TaskStateMachine` class that was essentially an event emitter wrapper
 - Multiple places persisting status to implementation_plan.json
 - Race conditions possible when multiple handlers tried to update status
 
@@ -118,14 +103,6 @@ The state machine responds to these events:
 | CREATE_PR | User initiates PR creation |
 | PR_CREATED | PR successfully created |
 
-## Rollback Plan
-
-If issues arise post-merge:
-
-1. **Quick rollback:** `git revert <merge-commit>`
-2. **Restore point:** Commit 3e5f004a has old code intact
-3. **Legacy persistence still works:** implementation_plan.json continues to store status
-
 ## Testing
 
 | Test Suite | Result |
@@ -163,7 +140,7 @@ If issues arise post-merge:
 - Add @stately-ai/inspect for runtime devtools
 - **Subtask state management** - Track individual subtask states within the machine using XState parallel states
 - Add more granular QA states (qa_round_1, qa_round_2, etc.)
-- Complete Phase 3-4: Full integration and removal of legacy TaskStateMachine class
+
 
 ## Visualization
 

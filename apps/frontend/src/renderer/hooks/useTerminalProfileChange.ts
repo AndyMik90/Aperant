@@ -1,4 +1,6 @@
 import { useEffect, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from './use-toast';
 import { useTerminalStore } from '../stores/terminal-store';
 import { terminalBufferManager } from '../lib/terminal-buffer-manager';
 import type { TerminalProfileChangedEvent } from '../../shared/types';
@@ -8,16 +10,18 @@ import { debugLog, debugError } from '../../shared/utils/debug-logger';
  * Hook to handle terminal profile change events.
  * When a Claude profile switches, all terminals need to be recreated with the new profile's
  * environment variables. Terminals with active Claude sessions will have their sessions
- * migrated and can be resumed with --resume {sessionId}.
+ * migrated and automatically resumed with --continue.
  */
 export function useTerminalProfileChange(): void {
+  const { t } = useTranslation(['terminal']);
   // Track terminals being recreated to prevent duplicate processing
   const recreatingTerminals = useRef<Set<string>>(new Set());
 
   const recreateTerminal = useCallback(async (
     terminalId: string,
     sessionId?: string,
-    sessionMigrated?: boolean
+    sessionMigrated?: boolean,
+    isClaudeMode?: boolean
   ) => {
     // Prevent duplicate recreation
     if (recreatingTerminals.current.has(terminalId)) {
@@ -101,25 +105,39 @@ export function useTerminalProfileChange(): void {
         newId: newTerminal.id
       });
 
-      // If there was an active Claude session that was migrated, show a message
-      // and set up for potential resume
+      // If there was an active Claude session that was migrated, auto-resume it
       if (sessionId && sessionMigrated) {
-        debugLog('[useTerminalProfileChange] Session migrated, ready for resume:', sessionId);
-        // Store the session ID so the user can resume if desired
+        debugLog('[useTerminalProfileChange] Session migrated, auto-resuming:', sessionId);
+        // Store the session ID for tracking
         store.setClaudeSessionId(newTerminal.id, sessionId);
-        // Set pending resume flag - user can trigger resume from terminal tab
-        store.setPendingClaudeResume(newTerminal.id, true);
-        // Send a message to the terminal about the session
-        window.electronAPI.sendTerminalInput(
+
+        // Auto-resume the Claude session with --continue
+        // YOLO mode (dangerouslySkipPermissions) is preserved server-side by the
+        // main process during migration (storeMigratedSessionFlag), so resumeClaudeAsync
+        // will restore it automatically when migratedSession is true
+        // Note: resumeClaudeInTerminal uses fire-and-forget IPC (ipcRenderer.send).
+        // If resume fails in the main process, the error is logged but no failure event
+        // is emitted back to the renderer. The terminal will show an empty shell prompt.
+        window.electronAPI.resumeClaudeInTerminal(
           newTerminal.id,
-          `# Profile switched. Previous Claude session available.\n# Run: claude --resume ${sessionId}\n`
+          sessionId,
+          { migratedSession: true }
         );
+        debugLog('[useTerminalProfileChange] Resume initiated for terminal:', newTerminal.id);
+      } else if (isClaudeMode && sessionId && !sessionMigrated) {
+        // Session had an active Claude session but migration failed
+        // Notify user that their Claude session was lost
+        debugError('[useTerminalProfileChange] Session migration failed for terminal:', terminalId);
+        toast({
+          title: t('terminal:swap.migrationFailed'),
+          variant: 'destructive',
+        });
       }
 
     } finally {
       recreatingTerminals.current.delete(terminalId);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     const cleanup = window.electronAPI.onTerminalProfileChanged(async (event: TerminalProfileChangedEvent) => {
@@ -134,7 +152,8 @@ export function useTerminalProfileChange(): void {
         await recreateTerminal(
           terminalInfo.id,
           terminalInfo.sessionId,
-          terminalInfo.sessionMigrated
+          terminalInfo.sessionMigrated,
+          terminalInfo.isClaudeMode
         );
       }
 

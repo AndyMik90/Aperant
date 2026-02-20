@@ -1,4 +1,22 @@
 {
+  "competitorAnalysis": {
+    "addCompetitor": "Ajouter un concurrent",
+    "manualBadge": "Manuel",
+    "noCompetitorsYet": "Aucun concurrent ajouté pour l'instant",
+    "addCompetitorToStart": "Ajoutez un concurrent pour commencer",
+    "analysisResults": "Résultats de l'analyse concurrentielle",
+    "analysisDescription": "{{count}} concurrents analysés pour identifier les opportunités et lacunes du marché",
+    "visit": "Visiter",
+    "identifiedPainPoints": "Points de douleur identifiés ({{count}})",
+    "noPainPointsIdentified": "Aucun point de douleur identifié",
+    "source": "Source :",
+    "frequency": "Fréquence :",
+    "opportunity": "Opportunité :",
+    "marketInsightsSummary": "Résumé des perspectives du marché",
+    "topPainPoints": "Principaux points de douleur :",
+    "differentiatorOpportunities": "Opportunités de différenciation :",
+    "marketTrends": "Tendances du marché :"
+  },
   "projectTab": {
     "settings": "Paramètres du projet",
     "showArchived": "Afficher archivés",
@@ -11,6 +29,7 @@
   },
   "accessibility": {
     "deleteFeatureAriaLabel": "Supprimer la fonctionnalité",
+    "archiveFeatureAriaLabel": "Archiver la fonctionnalité",
     "closeFeatureDetailsAriaLabel": "Fermer les détails de la fonctionnalité",
     "regenerateRoadmapAriaLabel": "Régénérer la feuille de route",
     "repositoryOwnerAriaLabel": "Propriétaire du dépôt",
@@ -116,6 +135,7 @@
     "selectAll": "Tout sélectionner",
     "clearSelection": "Effacer la sélection",
     "deleteSelected": "Supprimer la sélection",
+    "archiveSelected": "Archiver la sélection",
     "selectedOfTotal": "{{selected}} sur {{total}} sélectionné(s)"
   },
   "time": {
@@ -430,7 +450,46 @@
     "suggestedTask": "Tâche suggérée",
     "creating": "Création...",
     "taskCreated": "Tâche créée",
-    "createTask": "Créer une tâche"
+    "createTask": "Créer une tâche",
+    "chatHistory": "Historique des conversations",
+    "archive": "Archiver",
+    "unarchive": "Désarchiver",
+    "archiveSelected": "Archiver la sélection",
+    "showArchived": "Afficher les archivées",
+    "hideArchived": "Masquer les archivées",
+    "bulkDeleteTitle": "Supprimer les conversations",
+    "bulkDeleteDescription": "Êtes-vous sûr de vouloir supprimer {{count}} conversation(s) ? Cette action est irréversible.",
+    "bulkDeleteConfirm": "Supprimer {{count}} conversation(s)",
+    "noConversations": "Aucune conversation",
+    "archived": "Archivée",
+    "conversationsToDelete": "Conversations à supprimer",
+    "archiveConfirmDescription": "Êtes-vous sûr de vouloir archiver les conversations sélectionnées ?",
+    "archiveConfirmTitle": "Archiver les conversations",
+    "archiveConfirmButton": "Archiver {{count}} conversation(s)",
+    "deleteTitle": "Supprimer la conversation",
+    "deleteDescription": "Êtes-vous sûr de vouloir supprimer cette conversation ? Cette action est irréversible.",
+    "selectMode": "Sélectionner",
+    "exitSelectMode": "Terminé",
+    "today": "Aujourd'hui",
+    "yesterday": "Hier",
+    "daysAgo": "Il y a {{count}} jours",
+    "messageCount": "{{count}} message",
+    "messageCount_other": "{{count}} messages",
+    "images": {
+      "pasteHint": "Coller une image ou une capture d'écran",
+      "dropHint": "Déposer l'image ici",
+      "screenshotButton": "Joindre une capture d'écran",
+      "removeImage": "Supprimer l'image",
+      "imageCount": "{{count}} image jointe",
+      "imageCount_plural": "{{count}} images jointes",
+      "maxImagesReached": "Nombre maximum d'images atteint",
+      "invalidType": "Type de fichier invalide. Veuillez utiliser PNG, JPEG, GIF ou WebP.",
+      "processFailed": "Échec du traitement de l'image",
+      "dragOver": "Déposer l'image pour joindre",
+      "analysisUnsupported": "Note : L'analyse d'images n'est pas encore prise en charge. Les images sont stockées pour référence mais ne peuvent pas être analysées par le modèle.",
+      "screenshotTooLarge": "La capture d'écran est trop volumineuse ({{size}}Mo). La taille maximale est de {{max}}Mo. Essayez de capturer une zone plus petite.",
+      "notAnalyzed": "Les images ont été stockées pour référence mais n'ont pas été analysées par le modèle."
+    }
   },
   "ideation": {
     "converting": "Conversion...",
@@ -607,7 +666,15 @@
     "taskArchived": "Archivé",
     "showMoreFeatures": "Afficher {{count}} fonctionnalité supplémentaire",
     "showMoreFeatures_plural": "Afficher {{count}} fonctionnalités supplémentaires",
-    "showLessFeatures": "Afficher moins"
+    "showLessFeatures": "Afficher moins",
+    "archiveFeature": "Archiver",
+    "archiveFeatureConfirmTitle": "Archiver la fonctionnalité ?",
+    "archiveFeatureConfirmDescription": "Cela supprimera \"{{title}}\" de votre feuille de route.",
+    "goToTask": "Aller à la tâche",
+    "convertToTask": "Convertir en tâche Auto-Build",
+    "build": "Construire",
+    "task": "Tâche",
+    "viewTask": "Voir la tâche"
   },
   "roadmapGeneration": {
     "progress": "Progression",

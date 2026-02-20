@@ -15,12 +15,14 @@ import {
   getPlanPath,
   persistPlanStatus,
   createPlanIfNotExists,
-  resetStuckSubtasks
+  resetStuckSubtasks,
+  hasPlanWithSubtasks
 } from './plan-file-utils';
 import { writeFileAtomicSync } from '../../utils/atomic-file';
 import { findTaskWorktree } from '../../worktree-paths';
 import { projectStore } from '../../project-store';
 import { getIsolatedGitEnv, detectWorktreeBranch } from '../../utils/git-isolation';
+import { cancelFallbackTimer } from '../agent-events-handlers';
 
 /**
  * Safe file read that handles missing files without TOCTOU issues.
@@ -111,6 +113,11 @@ export function registerTaskExecutionHandlers(
     IPC_CHANNELS.TASK_START,
     async (_, taskId: string, _options?: TaskStartOptions) => {
       console.warn('[TASK_START] Received request for taskId:', taskId);
+
+      // Cancel any pending fallback timer from previous process exit
+      // This prevents the stale timer from incorrectly stopping the newly restarted task
+      cancelFallbackTimer(taskId);
+
       const mainWindow = getMainWindow();
       if (!mainWindow) {
         console.warn('[TASK_START] No main window found');
@@ -346,18 +353,8 @@ export function registerTaskExecutionHandlers(
 
     if (!task || !project) return;
 
-    let hasPlan = false;
-    try {
-      const planPath = getPlanPath(project, task);
-      const planContent = safeReadFileSync(planPath);
-      if (planContent) {
-        const plan = JSON.parse(planContent);
-        const { totalCount } = checkSubtasksCompletion(plan);
-        hasPlan = totalCount > 0;
-      }
-    } catch {
-      hasPlan = false;
-    }
+    // Use shared utility to determine if a valid implementation plan exists
+    const hasPlan = hasPlanWithSubtasks(project, task);
 
     taskStateManager.handleUiEvent(
       taskId,
@@ -569,7 +566,7 @@ export function registerTaskExecutionHandlers(
       _,
       taskId: string,
       status: TaskStatus,
-      options?: { forceCleanup?: boolean }
+      options?: { forceCleanup?: boolean; keepWorktree?: boolean }
     ): Promise<IPCResult & { worktreeExists?: boolean; worktreePath?: string }> => {
       // Find task and project first (needed for worktree check)
       const { task, project } = findTaskAndProject(taskId);
@@ -581,13 +578,17 @@ export function registerTaskExecutionHandlers(
       // Validate status transition - 'done' can only be set through merge handler
       // UNLESS there's no worktree (limbo state - already merged/discarded or failed)
       // OR forceCleanup is requested (user confirmed they want to delete the worktree)
+      // OR keepWorktree is requested (user wants to mark done without deleting worktree)
       if (status === 'done') {
         // Check if worktree exists (task.specId matches worktree folder name)
         const worktreePath = findTaskWorktree(project.path, task.specId);
         const hasWorktree = worktreePath !== null;
 
         if (hasWorktree) {
-          if (options?.forceCleanup) {
+          if (options?.keepWorktree) {
+            // User explicitly chose to keep worktree - allow marking as done
+            console.warn(`[TASK_UPDATE_STATUS] Marking task ${taskId} as done while keeping worktree at ${worktreePath}`);
+          } else if (options?.forceCleanup) {
             // User confirmed cleanup - delete worktree and branch
             console.warn(`[TASK_UPDATE_STATUS] Cleaning up worktree for task ${taskId} (user confirmed)`);
             try {
@@ -759,6 +760,10 @@ export function registerTaskExecutionHandlers(
           }
 
           console.warn('[TASK_UPDATE_STATUS] Auto-starting task:', taskId);
+
+          // Cancel any pending fallback timer from previous process exit
+          // This prevents the stale timer from incorrectly stopping the newly started task
+          cancelFallbackTimer(taskId);
 
           // Reset any stuck subtasks before starting execution
           // This handles recovery from previous rate limits or crashes
@@ -1136,6 +1141,52 @@ export function registerTaskExecutionHandlers(
           }
 
           console.log(`[Recovery] Total ${totalResetCount} subtask(s) reset across all locations`);
+
+          // Clear attempt_history.json to break infinite recovery loops.
+          // Without this, the backend re-reads stuck markers from attempt_history
+          // and immediately re-stucks the same subtasks after recovery.
+          const specDirsToClean = new Set<string>([specDir]);
+          if (mainSpecDir !== specDir) specDirsToClean.add(mainSpecDir);
+          if (worktreeSpecDir && worktreeSpecDir !== specDir) specDirsToClean.add(worktreeSpecDir);
+
+          for (const dir of specDirsToClean) {
+            const attemptHistoryPath = path.join(dir, 'memory', 'attempt_history.json');
+            const historyContent = safeReadFileSync(attemptHistoryPath);
+            if (!historyContent) continue;
+
+            try {
+              const history = JSON.parse(historyContent);
+
+              // Collect stuck subtask IDs before clearing
+              const stuckIds = new Set<string>(
+                (history.stuck_subtasks || [])
+                  .map((s: { subtask_id?: string }) => s.subtask_id)
+                  .filter((id: string | undefined): id is string => Boolean(id))
+              );
+
+              // Clear stuck_subtasks array
+              history.stuck_subtasks = [];
+
+              // Reset attempt entries for previously-stuck subtasks
+              if (history.subtasks && stuckIds.size > 0) {
+                for (const stuckId of stuckIds) {
+                  if (history.subtasks[stuckId]) {
+                    history.subtasks[stuckId] = { attempts: [], status: 'pending' };
+                  }
+                }
+              }
+
+              history.metadata = {
+                ...history.metadata,
+                last_updated: new Date().toISOString()
+              };
+
+              writeFileAtomicSync(attemptHistoryPath, JSON.stringify(history, null, 2));
+              console.log(`[Recovery] Cleared attempt_history.json at: ${dir} (reset ${stuckIds.size} stuck entries)`);
+            } catch (historyErr) {
+              console.warn(`[Recovery] Could not parse attempt_history at ${dir}:`, historyErr);
+            }
+          }
         }
 
         // Stop file watcher if it was watching this task
@@ -1198,6 +1249,10 @@ export function registerTaskExecutionHandlers(
           }
 
           try {
+            // Cancel any pending fallback timer from previous process exit
+            // This prevents the stale timer from incorrectly stopping the restarted task
+            cancelFallbackTimer(taskId);
+
             // Set status to in_progress for the restart
             newStatus = 'in_progress';
 

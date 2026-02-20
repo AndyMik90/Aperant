@@ -6,7 +6,8 @@
  * and can be copied between profiles to enable session continuity after profile switches.
  */
 
-import { existsSync, mkdirSync, copyFileSync, cpSync, unlinkSync } from 'fs';
+import { existsSync } from 'fs';
+import { mkdir, copyFile, cp, unlink } from 'fs/promises';
 import { join, dirname } from 'path';
 import { homedir } from 'os';
 import { isNodeError } from '../utils/type-guards';
@@ -95,12 +96,12 @@ export interface SessionMigrationResult {
  * @param sessionId - The session UUID to migrate
  * @returns Migration result with success status and details
  */
-export function migrateSession(
+export async function migrateSession(
   sourceConfigDir: string,
   targetConfigDir: string,
   cwd: string,
   sessionId: string
-): SessionMigrationResult {
+): Promise<SessionMigrationResult> {
   const result: SessionMigrationResult = {
     success: false,
     sessionId,
@@ -118,13 +119,14 @@ export function migrateSession(
   try {
     // Ensure target directory exists (do this first, before any file operations)
     const targetParentDir = dirname(targetFile);
-    mkdirSync(targetParentDir, { recursive: true });
+    await mkdir(targetParentDir, { recursive: true });
     console.warn('[SessionUtils] Ensured target directory exists:', targetParentDir);
 
     // Attempt to copy the session .jsonl file
     // This will throw if source doesn't exist or target cannot be written
+    // Note: copyFile silently overwrites by default (no COPYFILE_EXCL flag)
     try {
-      copyFileSync(sourceFile, targetFile);
+      await copyFile(sourceFile, targetFile);
       result.filesCopied++;
       console.warn('[SessionUtils] Copied session file:', sourceFile, '->', targetFile);
     } catch (copyError) {
@@ -132,12 +134,6 @@ export function migrateSession(
       if (isNodeError(copyError)) {
         if (copyError.code === 'ENOENT') {
           result.error = `Source session file not found: ${sourceFile}`;
-        } else if (copyError.code === 'EEXIST') {
-          // Target already exists - this is OK, treat as successful skip
-          console.warn('[SessionUtils] Session already exists in target profile, skipping copy');
-          result.success = true;
-          result.filesCopied = 0;
-          return result;
         } else {
           result.error = `Failed to copy session file: ${copyError.message}`;
         }
@@ -153,7 +149,7 @@ export function migrateSession(
     // Attempt to copy the session directory (tool-results) if it exists
     // Use try-catch instead of existsSync to avoid TOCTOU race
     try {
-      cpSync(sourceDir, targetDir, { recursive: true });
+      await cp(sourceDir, targetDir, { recursive: true });
       result.filesCopied++;
       console.warn('[SessionUtils] Copied session directory:', sourceDir, '->', targetDir);
     } catch (dirCopyError) {
@@ -182,7 +178,7 @@ export function migrateSession(
     // Clean up partially migrated session file to enable retry
     // Use try-catch instead of existsSync to avoid TOCTOU race
     try {
-      unlinkSync(targetFile);
+      await unlink(targetFile);
       console.warn('[SessionUtils] Cleaned up partial migration file:', targetFile);
     } catch (cleanupError) {
       // If file doesn't exist during cleanup, that's fine

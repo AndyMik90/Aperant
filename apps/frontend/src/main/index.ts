@@ -49,7 +49,7 @@ import { initializeAppUpdater, stopPeriodicUpdates } from './app-updater';
 import { DEFAULT_APP_SETTINGS, IPC_CHANNELS, SPELL_CHECK_LANGUAGE_MAP, DEFAULT_SPELL_CHECK_LANGUAGE, ADD_TO_DICTIONARY_LABELS } from '../shared/constants';
 import { getAppLanguage, initAppLanguage } from './app-language';
 import { readSettingsFile } from './settings-utils';
-import { setupErrorLogging } from './app-logger';
+import { appLog, setupErrorLogging } from './app-logger';
 import { initSentryMain } from './sentry';
 import { preWarmToolCache } from './cli-tool-manager';
 import { initializeClaudeProfileManager, getClaudeProfileManager } from './claude-profile-manager';
@@ -143,6 +143,11 @@ let mainWindow: BrowserWindow | null = null;
 let agentManager: AgentManager | null = null;
 let terminalManager: TerminalManager | null = null;
 
+// Capture child process exits (renderer/GPU/utility) for crash diagnostics.
+app.on('child-process-gone', (_event, details) => {
+  appLog.error('[main] child-process-gone:', details);
+});
+
 // Re-entrancy guard for before-quit handler.
 // The first before-quit call pauses quit for async cleanup, then calls app.quit() again.
 // The second call sees isQuitting=true and allows quit to proceed immediately.
@@ -212,6 +217,11 @@ function createWindow(): void {
   // Show window when ready to avoid visual flash
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
+  });
+
+  // Capture renderer process crashes/termination reasons for diagnostics.
+  mainWindow.webContents.on('render-process-gone', (_event, details) => {
+    appLog.error('[main] render-process-gone:', details);
   });
 
   // Configure initial spell check languages with proper fallback logic

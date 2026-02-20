@@ -108,6 +108,7 @@ import type {
   InsightsModelConfig
 } from './insights';
 import type {
+  CompetitorAnalysis,
   Roadmap,
   RoadmapFeatureStatus,
   RoadmapGenerationStatus,
@@ -252,7 +253,7 @@ export interface ElectronAPI {
   getTerminalSessions: (projectPath: string) => Promise<IPCResult<TerminalSession[]>>;
   restoreTerminalSession: (session: TerminalSession, cols?: number, rows?: number) => Promise<IPCResult<TerminalRestoreResult>>;
   clearTerminalSessions: (projectPath: string) => Promise<IPCResult>;
-  resumeClaudeInTerminal: (id: string, sessionId?: string) => void;
+  resumeClaudeInTerminal: (id: string, sessionId?: string, options?: { migratedSession?: boolean }) => void;
   activateDeferredClaudeResume: (id: string) => void;
   getTerminalSessionDates: (projectPath?: string) => Promise<IPCResult<SessionDateInfo[]>>;
   getTerminalSessionsForDate: (date: string, projectPath: string) => Promise<IPCResult<TerminalSession[]>>;
@@ -416,6 +417,7 @@ export interface ElectronAPI {
   getRoadmap: (projectId: string) => Promise<IPCResult<Roadmap | null>>;
   getRoadmapStatus: (projectId: string) => Promise<IPCResult<{ isRunning: boolean }>>;
   saveRoadmap: (projectId: string, roadmap: Roadmap) => Promise<IPCResult>;
+  saveCompetitorAnalysis: (projectId: string, competitorAnalysis: CompetitorAnalysis) => Promise<IPCResult>;
   generateRoadmap: (projectId: string, enableCompetitorAnalysis?: boolean, refreshCompetitorAnalysis?: boolean) => void;
   refreshRoadmap: (projectId: string, enableCompetitorAnalysis?: boolean, refreshCompetitorAnalysis?: boolean) => void;
   stopRoadmap: (projectId: string) => Promise<IPCResult>;
@@ -775,7 +777,7 @@ export interface ElectronAPI {
 
   // Insights operations
   getInsightsSession: (projectId: string) => Promise<IPCResult<InsightsSession | null>>;
-  sendInsightsMessage: (projectId: string, message: string, modelConfig?: InsightsModelConfig) => void;
+  sendInsightsMessage: (projectId: string, message: string, modelConfig?: InsightsModelConfig, images?: ImageAttachment[]) => void;
   clearInsightsSession: (projectId: string) => Promise<IPCResult>;
   createTaskFromInsights: (
     projectId: string,
@@ -783,10 +785,14 @@ export interface ElectronAPI {
     description: string,
     metadata?: TaskMetadata
   ) => Promise<IPCResult<Task>>;
-  listInsightsSessions: (projectId: string) => Promise<IPCResult<InsightsSessionSummary[]>>;
+  listInsightsSessions: (projectId: string, includeArchived?: boolean) => Promise<IPCResult<InsightsSessionSummary[]>>;
   newInsightsSession: (projectId: string) => Promise<IPCResult<InsightsSession>>;
   switchInsightsSession: (projectId: string, sessionId: string) => Promise<IPCResult<InsightsSession | null>>;
   deleteInsightsSession: (projectId: string, sessionId: string) => Promise<IPCResult>;
+  deleteInsightsSessions: (projectId: string, sessionIds: string[]) => Promise<IPCResult<{ deletedIds: string[]; failedIds: string[] }>>;
+  archiveInsightsSession: (projectId: string, sessionId: string) => Promise<IPCResult>;
+  archiveInsightsSessions: (projectId: string, sessionIds: string[]) => Promise<IPCResult<{ archivedIds: string[]; failedIds: string[] }>>;
+  unarchiveInsightsSession: (projectId: string, sessionId: string) => Promise<IPCResult>;
   renameInsightsSession: (projectId: string, sessionId: string, newTitle: string) => Promise<IPCResult>;
   updateInsightsModelConfig: (projectId: string, sessionId: string, modelConfig: InsightsModelConfig) => Promise<IPCResult>;
 

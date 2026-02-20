@@ -192,6 +192,14 @@
     "chronological": "Chronologique (plus ancien en premier)",
     "reverseChronological": "Chronologique inverse (plus récent en premier)"
   },
+  "gpuAcceleration": {
+    "label": "Accélération GPU",
+    "description": "Utiliser WebGL pour le rendu des terminaux (expérimental, plus rapide avec plusieurs terminaux)",
+    "auto": "Auto (utiliser WebGL si supporté)",
+    "on": "Toujours activé",
+    "off": "Désactivé (par défaut)",
+    "helperText": "Les modifications s'appliquent uniquement aux nouveaux terminaux"
+  },
   "general": {
     "otherAgentSettings": "Autres paramètres de l'agent",
     "otherAgentSettingsDescription": "Options de configuration supplémentaires de l'agent",

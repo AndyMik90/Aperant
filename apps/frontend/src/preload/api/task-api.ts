@@ -44,7 +44,7 @@ export interface TaskAPI {
   updateTaskStatus: (
     taskId: string,
     status: TaskStatus,
-    options?: { forceCleanup?: boolean }
+    options?: { forceCleanup?: boolean; keepWorktree?: boolean }
   ) => Promise<IPCResult & { worktreeExists?: boolean; worktreePath?: string }>;
   recoverStuckTask: (
     taskId: string,
@@ -135,7 +135,7 @@ export const createTaskAPI = (): TaskAPI => ({
   updateTaskStatus: (
     taskId: string,
     status: TaskStatus,
-    options?: { forceCleanup?: boolean }
+    options?: { forceCleanup?: boolean; keepWorktree?: boolean }
   ): Promise<IPCResult & { worktreeExists?: boolean; worktreePath?: string }> =>
     ipcRenderer.invoke(IPC_CHANNELS.TASK_UPDATE_STATUS, taskId, status, options),
 

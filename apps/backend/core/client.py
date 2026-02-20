@@ -30,6 +30,77 @@ from core.platform import (
 logger = logging.getLogger(__name__)
 
 # =============================================================================
+# SDK Message Parser Patch
+# =============================================================================
+# The Claude Agent SDK's message_parser raises MessageParseError for unknown
+# message types (e.g., "rate_limit_event"). Since parse_message runs inside an
+# async generator, the exception kills the entire agent session stream.
+# Patch to log a warning and return a SystemMessage instead of crashing.
+# This is needed until the SDK natively handles all CLI message types.
+
+
+def _patch_sdk_message_parser() -> None:
+    """Patch the SDK's parse_message to handle unknown message types gracefully.
+
+    The Claude CLI may emit message types that the installed SDK version doesn't
+    recognize (e.g., rate_limit_event, usage_event). Without this patch, any
+    unrecognized type raises MessageParseError inside the SDK's async generator,
+    which terminates the entire response stream and kills the agent session.
+
+    The patch converts unknown types into SystemMessage objects with a
+    'unknown_<type>' subtype, which all message consumers silently skip.
+    """
+    try:
+        import claude_agent_sdk._internal.message_parser as _parser
+        from claude_agent_sdk._errors import MessageParseError
+        from claude_agent_sdk.types import SystemMessage
+
+        _original_parse = _parser.parse_message
+
+        def _patched_parse(data):
+            try:
+                return _original_parse(data)
+            except MessageParseError as e:
+                msg = str(e)
+                if "Unknown message type" in msg:
+                    msg_type = (
+                        data.get("type", "unknown")
+                        if isinstance(data, dict)
+                        else "unknown"
+                    )
+                    # Rate limit events deserve a visible warning; others just debug-level
+                    if "rate_limit" in msg_type:
+                        retry_after = (
+                            data.get("retry_after")
+                            or data.get("data", {}).get("retry_after")
+                            if isinstance(data, dict)
+                            else None
+                        )
+                        retry_info = (
+                            f" (retry_after={retry_after}s)" if retry_after else ""
+                        )
+                        logger.warning(
+                            f"Rate limit event received from CLI{retry_info} — "
+                            f"the SDK will handle backoff automatically"
+                        )
+                    else:
+                        logger.debug(
+                            f"SDK received unhandled message type '{msg_type}', skipping"
+                        )
+                    return SystemMessage(
+                        subtype=f"unknown_{msg_type}",
+                        data=data if isinstance(data, dict) else {},
+                    )
+                raise
+
+        _parser.parse_message = _patched_parse
+    except Exception as e:
+        logger.warning(f"Failed to patch SDK message parser: {e}")
+
+
+_patch_sdk_message_parser()
+
+# =============================================================================
 # Windows System Prompt Limits
 # =============================================================================
 # Windows CreateProcessW has a 32,768 character limit for the entire command line.

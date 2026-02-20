@@ -3,7 +3,7 @@
  * Tests Zustand store for roadmap state management including drag-and-drop actions
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { useRoadmapStore, getFeaturesByPhase, getFeaturesByPriority, getFeatureStats } from '../stores/roadmap-store';
+import { useRoadmapStore, getFeaturesByPhase, getFeaturesByPriority, getFeatureStats, resetActors } from '../stores/roadmap-store';
 import type {
   Roadmap,
   RoadmapFeature,
@@ -86,6 +86,8 @@ describe('Roadmap Store', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    // Reset XState actors to prevent test pollution
+    resetActors();
   });
 
   describe('setRoadmap', () => {
@@ -620,6 +622,165 @@ describe('Roadmap Store', () => {
       const state = useRoadmapStore.getState();
       expect(state.roadmap?.features[0].linkedSpecId).toBe('spec-abc');
       expect(state.roadmap?.features[0].status).toBe('in_progress');
+    });
+  });
+
+  describe('setGenerationStatus catch-up logic', () => {
+    it('should advance from idle to analyzing', () => {
+      useRoadmapStore.getState().setGenerationStatus({
+        phase: 'analyzing',
+        progress: 10,
+        message: 'Analyzing...'
+      });
+
+      const status = useRoadmapStore.getState().generationStatus;
+      expect(status.phase).toBe('analyzing');
+      expect(status.progress).toBe(10);
+      expect(status.message).toBe('Analyzing...');
+    });
+
+    it('should advance from idle to discovering via catch-up', () => {
+      useRoadmapStore.getState().setGenerationStatus({
+        phase: 'discovering',
+        progress: 30,
+        message: 'Discovering...'
+      });
+
+      const status = useRoadmapStore.getState().generationStatus;
+      expect(status.phase).toBe('discovering');
+      expect(status.progress).toBe(30);
+      expect(status.message).toBe('Discovering...');
+    });
+
+    it('should advance from idle to generating via catch-up', () => {
+      useRoadmapStore.getState().setGenerationStatus({
+        phase: 'generating',
+        progress: 60,
+        message: 'Generating...'
+      });
+
+      const status = useRoadmapStore.getState().generationStatus;
+      expect(status.phase).toBe('generating');
+      expect(status.progress).toBe(60);
+      expect(status.message).toBe('Generating...');
+    });
+
+    it('should advance from idle to complete via catch-up', () => {
+      // First go through active states to build up context, then complete
+      useRoadmapStore.getState().setGenerationStatus({
+        phase: 'analyzing',
+        progress: 10,
+        message: 'Analyzing...'
+      });
+      useRoadmapStore.getState().setGenerationStatus({
+        phase: 'complete',
+        progress: 100,
+        message: 'Done'
+      });
+
+      const status = useRoadmapStore.getState().generationStatus;
+      expect(status.phase).toBe('complete');
+      expect(status.progress).toBe(100);
+    });
+
+    it('should advance from idle to error via catch-up', () => {
+      useRoadmapStore.getState().setGenerationStatus({
+        phase: 'error',
+        progress: 0,
+        message: '',
+        error: 'Something failed'
+      });
+
+      const status = useRoadmapStore.getState().generationStatus;
+      expect(status.phase).toBe('error');
+      expect(status.error).toBe('Something failed');
+    });
+
+    it('should reset from error and start new generation', () => {
+      // First put into error state
+      useRoadmapStore.getState().setGenerationStatus({
+        phase: 'error',
+        progress: 0,
+        message: '',
+        error: 'Failed'
+      });
+      expect(useRoadmapStore.getState().generationStatus.phase).toBe('error');
+
+      // Now start a new generation from error state
+      useRoadmapStore.getState().setGenerationStatus({
+        phase: 'analyzing',
+        progress: 5,
+        message: 'Restarting...'
+      });
+
+      const status = useRoadmapStore.getState().generationStatus;
+      expect(status.phase).toBe('analyzing');
+      expect(status.progress).toBe(5);
+    });
+
+    it('should send progress updates for active states', () => {
+      // Move to analyzing
+      useRoadmapStore.getState().setGenerationStatus({
+        phase: 'analyzing',
+        progress: 0,
+        message: 'Starting...'
+      });
+
+      // Update progress in analyzing
+      useRoadmapStore.getState().setGenerationStatus({
+        phase: 'analyzing',
+        progress: 50,
+        message: 'Halfway...'
+      });
+
+      const status = useRoadmapStore.getState().generationStatus;
+      expect(status.phase).toBe('analyzing');
+      expect(status.progress).toBe(50);
+      expect(status.message).toBe('Halfway...');
+    });
+
+    it('should be idempotent for idle-to-idle transitions', () => {
+      useRoadmapStore.getState().setGenerationStatus({
+        phase: 'idle',
+        progress: 0,
+        message: ''
+      });
+
+      const status = useRoadmapStore.getState().generationStatus;
+      expect(status.phase).toBe('idle');
+      expect(status.progress).toBe(0);
+    });
+
+    it('should handle complete-to-idle reset', () => {
+      useRoadmapStore.getState().setGenerationStatus({
+        phase: 'complete',
+        progress: 100,
+        message: 'Done'
+      });
+      expect(useRoadmapStore.getState().generationStatus.phase).toBe('complete');
+
+      useRoadmapStore.getState().setGenerationStatus({
+        phase: 'idle',
+        progress: 0,
+        message: ''
+      });
+      expect(useRoadmapStore.getState().generationStatus.phase).toBe('idle');
+    });
+
+    it('should preserve startedAt from persisted status on reload', () => {
+      const persistedStartedAt = new Date('2025-06-01T12:00:00Z');
+      useRoadmapStore.getState().setGenerationStatus({
+        phase: 'generating',
+        progress: 70,
+        message: 'Generating...',
+        startedAt: persistedStartedAt,
+        lastActivityAt: new Date()
+      });
+
+      const status = useRoadmapStore.getState().generationStatus;
+      expect(status.phase).toBe('generating');
+      expect(status.startedAt).toBeDefined();
+      expect(status.startedAt!.getTime()).toBe(persistedStartedAt.getTime());
     });
   });
 

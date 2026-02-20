@@ -233,15 +233,14 @@ export const ALLOWED_IMAGE_TYPES = [
   'image/jpeg',
   'image/jpg',
   'image/gif',
-  'image/webp',
-  'image/svg+xml'
+  'image/webp'
 ] as const;
 
 // Allowed image file extensions (for display)
-export const ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'] as const;
+export const ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp'] as const;
 
 // Human-readable allowed types for error messages
-export const ALLOWED_IMAGE_TYPES_DISPLAY = 'PNG, JPEG, GIF, WebP, SVG';
+export const ALLOWED_IMAGE_TYPES_DISPLAY = 'PNG, JPEG, GIF, WebP';
 
 // Attachments directory name within spec folder
 export const ATTACHMENTS_DIR = 'attachments';

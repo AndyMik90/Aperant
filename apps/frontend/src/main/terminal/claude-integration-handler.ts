@@ -16,6 +16,7 @@ import { getEmailFromConfigDir } from '../claude-profile/profile-utils';
 import * as OutputParser from './output-parser';
 import * as SessionHandler from './session-handler';
 import * as PtyManager from './pty-manager';
+import { safeSendToRenderer } from '../ipc-handlers/utils';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import { escapeShellArg, escapeForWindowsDoubleQuote, buildCdCommand } from '../../shared/utils/shell-escape';
 import { getClaudeCliInvocation, getClaudeCliInvocationAsync } from '../claude-cli-utils';
@@ -114,6 +115,19 @@ function maskEmail(email: string | null | undefined): string {
 
 function normalizePathForBash(envPath: string): string {
   return isWindows() ? envPath.replace(/;/g, ':') : envPath;
+}
+
+/**
+ * Determine whether a command already resolves via an absolute executable path.
+ *
+ * When true, we should avoid prefixing PATH=... into the typed shell command because:
+ * 1) PATH is not needed to locate the executable
+ * 2) very long PATH prefixes create huge echoed command lines that can stress terminal rendering
+ */
+function isAbsoluteExecutableCommand(command: string): boolean {
+  const trimmed = command.trim();
+  if (!trimmed) return false;
+  return path.isAbsolute(trimmed);
 }
 
 /**
@@ -380,11 +394,8 @@ export function finalizeClaudeInvoke(
       : 'Claude';
     terminal.title = title;
 
-    // Notify renderer of title change
-    const win = getWindow();
-    if (win) {
-      win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, title);
-    }
+    // Notify renderer of title change (use safeSendToRenderer to prevent SIGABRT on disposed frame)
+    safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, title);
   }
 
   // Persist session if project path is available
@@ -434,18 +445,15 @@ export function handleRateLimit(
   const autoSwitchSettings = profileManager.getAutoSwitchSettings();
   const bestProfile = profileManager.getBestAvailableProfile(currentProfileId);
 
-  const win = getWindow();
-  if (win) {
-    win.webContents.send(IPC_CHANNELS.TERMINAL_RATE_LIMIT, {
-      terminalId: terminal.id,
-      resetTime,
-      detectedAt: new Date().toISOString(),
-      profileId: currentProfileId,
-      suggestedProfileId: bestProfile?.id,
-      suggestedProfileName: bestProfile?.name,
-      autoSwitchEnabled: autoSwitchSettings.autoSwitchOnRateLimit
-    } as RateLimitEvent);
-  }
+  safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_RATE_LIMIT, {
+    terminalId: terminal.id,
+    resetTime,
+    detectedAt: new Date().toISOString(),
+    profileId: currentProfileId,
+    suggestedProfileId: bestProfile?.id,
+    suggestedProfileName: bestProfile?.name,
+    autoSwitchEnabled: autoSwitchSettings.autoSwitchOnRateLimit
+  } as RateLimitEvent);
 
   if (autoSwitchSettings.enabled && autoSwitchSettings.autoSwitchOnRateLimit && bestProfile) {
     console.warn('[ClaudeIntegration] Auto-switching to profile:', bestProfile.name);
@@ -535,19 +543,16 @@ export function handleOAuthToken(
       // Set flag to watch for Claude's ready state (onboarding complete)
       terminal.awaitingOnboardingComplete = true;
 
-      const win = getWindow();
-      if (win) {
-        // needsOnboarding: true tells the UI to show "complete setup" message
-        // instead of "success" - user should finish Claude's onboarding before closing
-        win.webContents.send(IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, {
-          terminalId: terminal.id,
-          profileId,
-          email: emailFromOutput || keychainCreds.email || profile?.email,
-          success: true,
-          needsOnboarding: true,
-          detectedAt: new Date().toISOString()
-        } as OAuthTokenEvent);
-      }
+      // needsOnboarding: true tells the UI to show "complete setup" message
+      // instead of "success" - user should finish Claude's onboarding before closing
+      safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, {
+        terminalId: terminal.id,
+        profileId,
+        email: emailFromOutput || keychainCreds.email || profile?.email,
+        success: true,
+        needsOnboarding: true,
+        detectedAt: new Date().toISOString()
+      } as OAuthTokenEvent);
     } else {
       // Token not in Keychain yet, but profile may still be authenticated via configDir
       // Check if profile has valid auth (credentials exist in configDir)
@@ -559,19 +564,16 @@ export function handleOAuthToken(
         // Set flag to watch for Claude's ready state (onboarding complete)
         terminal.awaitingOnboardingComplete = true;
 
-        const win = getWindow();
-        if (win) {
-          // needsOnboarding: true tells the UI to show "complete setup" message
-          // instead of "success" - user should finish Claude's onboarding before closing
-          win.webContents.send(IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, {
-            terminalId: terminal.id,
-            profileId,
-            email: emailFromOutput || profile?.email,
-            success: true,
-            needsOnboarding: true,
-            detectedAt: new Date().toISOString()
-          } as OAuthTokenEvent);
-        }
+        // needsOnboarding: true tells the UI to show "complete setup" message
+        // instead of "success" - user should finish Claude's onboarding before closing
+        safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, {
+          terminalId: terminal.id,
+          profileId,
+          email: emailFromOutput || profile?.email,
+          success: true,
+          needsOnboarding: true,
+          detectedAt: new Date().toISOString()
+        } as OAuthTokenEvent);
       } else {
         console.warn('[ClaudeIntegration] Login successful but Keychain token not found and no credentials in configDir - user may need to complete authentication manually');
       }
@@ -622,16 +624,13 @@ export function handleOAuthToken(
       clearKeychainCache(profile.configDir);
       console.warn('[ClaudeIntegration] Profile credentials verified (not caching token):', profileId);
 
-      const win = getWindow();
-      if (win) {
-        win.webContents.send(IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, {
-          terminalId: terminal.id,
-          profileId,
-          email,
-          success: true,
-          detectedAt: new Date().toISOString()
-        } as OAuthTokenEvent);
-      }
+      safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, {
+        terminalId: terminal.id,
+        profileId,
+        email,
+        success: true,
+        detectedAt: new Date().toISOString()
+      } as OAuthTokenEvent);
     } else {
       console.error('[ClaudeIntegration] Profile not found for OAuth token:', profileId);
     }
@@ -645,17 +644,14 @@ export function handleOAuthToken(
     // Defensive null check for active profile
     if (!activeProfile) {
       console.error('[ClaudeIntegration] Failed to update profile: no active profile found');
-      const win = getWindow();
-      if (win) {
-        win.webContents.send(IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, {
-          terminalId: terminal.id,
-          profileId: undefined,
-          email,
-          success: false,
-          message: 'No active profile found',
-          detectedAt: new Date().toISOString()
-        } as OAuthTokenEvent);
-      }
+      safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, {
+        terminalId: terminal.id,
+        profileId: undefined,
+        email,
+        success: false,
+        message: 'No active profile found',
+        detectedAt: new Date().toISOString()
+      } as OAuthTokenEvent);
       return;
     }
 
@@ -686,16 +682,13 @@ export function handleOAuthToken(
     clearKeychainCache(activeProfile.configDir);
     console.warn('[ClaudeIntegration] Active profile credentials verified (not caching token):', activeProfile.name);
 
-    const win = getWindow();
-    if (win) {
-      win.webContents.send(IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, {
-        terminalId: terminal.id,
-        profileId: activeProfile.id,
-        email,
-        success: true,
-        detectedAt: new Date().toISOString()
-      } as OAuthTokenEvent);
-    }
+    safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, {
+      terminalId: terminal.id,
+      profileId: activeProfile.id,
+      email,
+      success: true,
+      detectedAt: new Date().toISOString()
+    } as OAuthTokenEvent);
   }
 }
 
@@ -785,14 +778,11 @@ export function handleOnboardingComplete(
     }
   }
 
-  const win = getWindow();
-  if (win) {
-    win.webContents.send(IPC_CHANNELS.TERMINAL_ONBOARDING_COMPLETE, {
-      terminalId: terminal.id,
-      profileId,
-      detectedAt: new Date().toISOString()
-    } as OnboardingCompleteEvent);
-  }
+  safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_ONBOARDING_COMPLETE, {
+    terminalId: terminal.id,
+    profileId,
+    detectedAt: new Date().toISOString()
+  } as OnboardingCompleteEvent);
 
   // Trigger immediate usage fetch after successful re-authentication
   // This gives the user immediate feedback that their account is working
@@ -845,10 +835,7 @@ export function handleClaudeSessionId(
     SessionHandler.updateClaudeSessionId(terminal.projectPath, terminal.id, sessionId);
   }
 
-  const win = getWindow();
-  if (win) {
-    win.webContents.send(IPC_CHANNELS.TERMINAL_CLAUDE_SESSION, terminal.id, sessionId);
-  }
+  safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_CLAUDE_SESSION, terminal.id, sessionId);
 }
 
 /**
@@ -879,10 +866,7 @@ export function handleClaudeExit(
   }
 
   // Notify renderer to update UI
-  const win = getWindow();
-  if (win) {
-    win.webContents.send(IPC_CHANNELS.TERMINAL_CLAUDE_EXIT, terminal.id);
-  }
+  safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_CLAUDE_EXIT, terminal.id);
 }
 
 /**
@@ -1109,7 +1093,9 @@ export function invokeClaude(
     const cwdCommand = buildCdCommand(cwd, terminal.shellType);
     const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
     const escapedClaudeCmd = escapeShellCommand(claudeCmd);
-    const pathPrefix = buildPathPrefix(claudeEnv.PATH || '');
+    const pathPrefix = isAbsoluteExecutableCommand(claudeCmd)
+      ? ''
+      : buildPathPrefix(claudeEnv.PATH || '');
     const needsEnvOverride: boolean = !!(profileId && profileId !== previousProfileId);
 
     debugLog('[ClaudeIntegration:invokeClaude] Environment override check:', {
@@ -1196,7 +1182,9 @@ export function resumeClaude(
 
     const { command: claudeCmd, env: claudeEnv } = getClaudeCliInvocation();
     const escapedClaudeCmd = escapeShellCommand(claudeCmd);
-    const pathPrefix = buildPathPrefix(claudeEnv.PATH || '');
+    const pathPrefix = isAbsoluteExecutableCommand(claudeCmd)
+      ? ''
+      : buildPathPrefix(claudeEnv.PATH || '');
 
     // Always use --continue which resumes the most recent session in the current directory.
     // This is more reliable than --resume with session IDs since Auto Claude already restores
@@ -1211,7 +1199,10 @@ export function resumeClaude(
       console.warn('[ClaudeIntegration:resumeClaude] sessionId parameter is deprecated and ignored; using claude --continue instead');
     }
 
-    const command = `${pathPrefix}${escapedClaudeCmd} --continue`;
+    // Preserve YOLO mode flag from terminal's stored state
+    const extraFlags = terminal.dangerouslySkipPermissions ? YOLO_MODE_FLAG : '';
+
+    const command = `${pathPrefix}${escapedClaudeCmd} --continue${extraFlags}`;
 
     // Use PtyManager.writeToPty for safer write with error handling
     PtyManager.writeToPty(terminal, `${command}\r`);
@@ -1220,10 +1211,7 @@ export function resumeClaude(
     // This preserves user-customized names and prevents renaming on every resume
     if (shouldAutoRenameTerminal(terminal.title)) {
       terminal.title = 'Claude';
-      const win = getWindow();
-      if (win) {
-        win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, 'Claude');
-      }
+      safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, 'Claude');
     }
 
     // Persist session
@@ -1313,7 +1301,9 @@ export async function invokeClaudeAsync(
       });
 
     const escapedClaudeCmd = escapeShellCommand(claudeCmd);
-    const pathPrefix = buildPathPrefix(claudeEnv.PATH || '');
+    const pathPrefix = isAbsoluteExecutableCommand(claudeCmd)
+      ? ''
+      : buildPathPrefix(claudeEnv.PATH || '');
     const needsEnvOverride: boolean = !!(profileId && profileId !== previousProfileId);
 
     debugLog('[ClaudeIntegration:invokeClaudeAsync] Environment override check:', {
@@ -1386,7 +1376,8 @@ export async function invokeClaudeAsync(
 export async function resumeClaudeAsync(
   terminal: TerminalProcess,
   sessionId: string | undefined,
-  getWindow: WindowGetter
+  getWindow: WindowGetter,
+  options?: { migratedSession?: boolean }
 ): Promise<void> {
   // Track terminal state for cleanup on error
   const wasClaudeMode = terminal.isClaudeMode;
@@ -1409,7 +1400,9 @@ export async function resumeClaudeAsync(
       });
 
     const escapedClaudeCmd = escapeShellCommand(claudeCmd);
-    const pathPrefix = buildPathPrefix(claudeEnv.PATH || '');
+    const pathPrefix = isAbsoluteExecutableCommand(claudeCmd)
+      ? ''
+      : buildPathPrefix(claudeEnv.PATH || '');
 
     // Always use --continue which resumes the most recent session in the current directory.
     // This is more reliable than --resume with session IDs since Auto Claude already restores
@@ -1419,12 +1412,19 @@ export async function resumeClaudeAsync(
     // and we don't want stale IDs persisting through SessionHandler.persistSessionAsync().
     terminal.claudeSessionId = undefined;
 
-    // Deprecation warning for callers still passing sessionId
-    if (sessionId) {
+    // Deprecation warning for callers still passing sessionId (skip for migrated sessions)
+    if (sessionId && !options?.migratedSession) {
       console.warn('[ClaudeIntegration:resumeClaudeAsync] sessionId parameter is deprecated and ignored; using claude --continue instead');
     }
 
-    const command = `${pathPrefix}${escapedClaudeCmd} --continue`;
+    if (options?.migratedSession) {
+      debugLog('[ClaudeIntegration:resumeClaudeAsync] Post-swap resume for terminal:', terminal.id);
+    }
+
+    // Preserve YOLO mode flag from terminal's stored state
+    const extraFlags = terminal.dangerouslySkipPermissions ? YOLO_MODE_FLAG : '';
+
+    const command = `${pathPrefix}${escapedClaudeCmd} --continue${extraFlags}`;
 
     // Use PtyManager.writeToPty for safer write with error handling
     PtyManager.writeToPty(terminal, `${command}\r`);
@@ -1433,10 +1433,7 @@ export async function resumeClaudeAsync(
     // This preserves user-customized names and prevents renaming on every resume
     if (shouldAutoRenameTerminal(terminal.title)) {
       terminal.title = 'Claude';
-      const win = getWindow();
-      if (win) {
-        win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, 'Claude');
-      }
+      safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_TITLE_CHANGE, terminal.id, 'Claude');
     }
 
     // Persist session (async, fire-and-forget to prevent main process blocking)

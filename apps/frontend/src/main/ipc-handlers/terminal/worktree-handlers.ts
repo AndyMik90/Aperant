@@ -8,7 +8,7 @@ import type {
   OtherWorktreeInfo,
 } from '../../../shared/types';
 import path from 'path';
-import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, symlinkSync, lstatSync, copyFileSync, cpSync, statSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync, rmSync, symlinkSync, lstatSync, copyFileSync, cpSync, statSync, readlinkSync } from 'fs';
 import { execFileSync, execFile } from 'child_process';
 import { promisify } from 'util';
 import { minimatch } from 'minimatch';
@@ -55,6 +55,21 @@ function isTimeoutError(error: unknown): boolean {
     'killed' in error &&
     (error as NodeJS.ErrnoException & { killed?: boolean }).killed === true
   );
+}
+
+/**
+ * Check if a path is a symlink or Windows junction (including broken ones).
+ * Uses readlinkSync which works for both symlinks and junctions on all platforms.
+ */
+function isSymlinkOrJunction(targetPath: string): boolean {
+  try {
+    // readlinkSync throws if the path is not a symlink/junction
+    // It works for both symlinks and junctions on Windows and Unix
+    readlinkSync(targetPath);
+    return true;
+  } catch {
+    return false; // Path doesn't exist or is not a symlink/junction
+  }
 }
 
 /**
@@ -250,11 +265,12 @@ interface DependencyConfig {
 const DEFAULT_STRATEGY_MAP: Record<string, 'symlink' | 'recreate' | 'copy' | 'skip'> = {
   // JavaScript / Node.js — symlink is safe and fast
   node_modules: 'symlink',
-  // Python — venvs MUST be recreated, not symlinked.
-  // CPython bug #106045: pyvenv.cfg discovery does not resolve symlinks,
-  // so a symlinked venv resolves paths relative to the target, not the worktree.
-  venv: 'recreate',
-  '.venv': 'recreate',
+  // Python — symlink for fast worktree creation.
+  // CPython bug #106045 (pyvenv.cfg symlink resolution) does not affect
+  // typical usage (running scripts, imports, pip). If the health check
+  // after symlinking fails, we fall back to recreate automatically.
+  venv: 'symlink',
+  '.venv': 'symlink',
   // PHP — Composer vendor dir is safe to symlink
   vendor_php: 'symlink',
   // Ruby — Bundler vendor/bundle is safe to symlink
@@ -364,6 +380,32 @@ async function setupWorktreeDependencies(projectPath: string, worktreePath: stri
       switch (config.strategy) {
         case 'symlink':
           performed = applySymlinkStrategy(projectPath, worktreePath, config);
+          // For venvs, verify the symlink is usable — fall back to recreate if not
+          // Run health check whenever a venv exists (not just on fresh creation)
+          if (config.depType === 'venv' || config.depType === '.venv') {
+            const venvPath = path.join(worktreePath, config.sourceRelPath);
+            // Check if venv path exists (as symlink or otherwise)
+            if (existsSync(venvPath) || isSymlinkOrJunction(venvPath)) {
+              const pythonBin = isWindows()
+                ? path.join(venvPath, 'Scripts', 'python.exe')
+                : path.join(venvPath, 'bin', 'python');
+              try {
+                await execFileAsync(pythonBin, ['-c', 'import sys; print(sys.prefix)'], {
+                  timeout: 10000,
+                });
+                debugLog('[TerminalWorktree] Symlinked venv health check passed:', config.sourceRelPath);
+              } catch {
+                debugLog('[TerminalWorktree] Symlinked venv health check failed, falling back to recreate:', config.sourceRelPath);
+                debugLog('[TerminalWorktree] Venv fallback: removing broken symlink and recreating for', config.sourceRelPath);
+                // Remove the broken symlink and recreate
+                try { rmSync(venvPath, { recursive: true, force: true }); } catch { /* best-effort */ }
+                performed = await applyRecreateStrategy(projectPath, worktreePath, config);
+                if (performed) {
+                  debugLog('[TerminalWorktree] Venv fallback to recreate succeeded:', config.sourceRelPath);
+                }
+              }
+            }
+          }
           break;
         case 'recreate':
           performed = await applyRecreateStrategy(projectPath, worktreePath, config);
@@ -403,13 +445,15 @@ function applySymlinkStrategy(projectPath: string, worktreePath: string, config:
     return false;
   }
 
-  // Check for broken symlinks
-  try {
-    lstatSync(targetPath);
-    debugLog('[TerminalWorktree] Skipping symlink', config.sourceRelPath, '- target exists (possibly broken symlink)');
-    return false;
-  } catch {
-    // Target doesn't exist at all — good, we can create symlink
+  // Check for broken symlinks and remove them so a fresh symlink can be created
+  if (isSymlinkOrJunction(targetPath)) {
+    if (!existsSync(targetPath)) {
+      debugLog('[TerminalWorktree] Removing broken symlink for', config.sourceRelPath);
+      try { rmSync(targetPath, { force: true }); } catch { /* best-effort */ }
+    } else {
+      debugLog('[TerminalWorktree] Skipping symlink', config.sourceRelPath, '- target exists (symlink)');
+      return false;
+    }
   }
 
   const targetDir = path.dirname(targetPath);
@@ -434,19 +478,31 @@ function applySymlinkStrategy(projectPath: string, worktreePath: string, config:
   }
 }
 
+/** Marker file written inside a recreated venv to indicate setup completed successfully. */
+const VENV_SETUP_COMPLETE_MARKER = '.setup_complete';
+
 /**
  * Apply recreate strategy: create a fresh virtual environment in the worktree.
  *
- * Python venvs cannot be symlinked due to CPython bug #106045 — pyvenv.cfg
- * discovery does not resolve symlinks, so paths resolve relative to the
- * symlink target instead of the worktree.
+ * Used as a fallback when venv symlinking fails (CPython bug #106045).
+ * Writes a completion marker so incomplete venvs can be detected and rebuilt.
  */
 async function applyRecreateStrategy(projectPath: string, worktreePath: string, config: DependencyConfig): Promise<boolean> {
   const venvPath = path.join(worktreePath, config.sourceRelPath);
+  const markerPath = path.join(venvPath, VENV_SETUP_COMPLETE_MARKER);
 
-  if (existsSync(venvPath)) {
-    debugLog('[TerminalWorktree] Skipping recreate', config.sourceRelPath, '- already exists');
-    return false;
+  // Check for broken symlinks that existsSync would miss
+  if (isSymlinkOrJunction(venvPath) && !existsSync(venvPath)) {
+    debugLog('[TerminalWorktree] Removing broken symlink at', config.sourceRelPath);
+    try { rmSync(venvPath, { recursive: true, force: true }); } catch { /* best-effort */ }
+  } else if (existsSync(venvPath)) {
+    if (existsSync(markerPath)) {
+      debugLog('[TerminalWorktree] Skipping recreate', config.sourceRelPath, '- already complete (marker present)');
+      return false;
+    }
+    // Venv exists but marker is missing — incomplete, remove and rebuild
+    debugLog('[TerminalWorktree] Removing incomplete venv', config.sourceRelPath, '(no marker)');
+    try { rmSync(venvPath, { recursive: true, force: true }); } catch { /* best-effort */ }
   }
 
   // Detect Python executable from the source venv or fall back to system Python
@@ -514,7 +570,7 @@ async function applyRecreateStrategy(projectPath: string, worktreePath: string, 
           debugLog('[TerminalWorktree] Installing deps from', config.requirementsFile);
           await execFileAsync(pipExec, installArgs, {
             encoding: 'utf-8',
-            timeout: 120000,
+            timeout: 300000,
           });
         } catch (error) {
           if (isTimeoutError(error)) {
@@ -531,6 +587,13 @@ async function applyRecreateStrategy(projectPath: string, worktreePath: string, 
         }
       }
     }
+  }
+
+  // Write completion marker so future runs know this venv is complete
+  try {
+    writeFileSync(markerPath, '');
+  } catch (error) {
+    debugLog('[TerminalWorktree] Failed to write completion marker at', markerPath, ':', error);
   }
 
   debugLog('[TerminalWorktree] Recreated venv at', config.sourceRelPath);

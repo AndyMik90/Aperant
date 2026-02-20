@@ -7,6 +7,7 @@ import * as OutputParser from './output-parser';
 import * as ClaudeIntegration from './claude-integration-handler';
 import type { TerminalProcess, WindowGetter } from './types';
 import { IPC_CHANNELS } from '../../shared/constants';
+import { safeSendToRenderer } from '../ipc-handlers/utils';
 
 /**
  * Event handler callbacks
@@ -109,10 +110,7 @@ export function createEventCallbacks(
       ClaudeIntegration.handleOnboardingComplete(terminal, data, getWindow);
     },
     onClaudeBusyChange: (terminal, isBusy) => {
-      const win = getWindow();
-      if (win) {
-        win.webContents.send(IPC_CHANNELS.TERMINAL_CLAUDE_BUSY, terminal.id, isBusy);
-      }
+      safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_CLAUDE_BUSY, terminal.id, isBusy);
     },
     onClaudeExit: (terminal) => {
       ClaudeIntegration.handleClaudeExit(terminal, getWindow);

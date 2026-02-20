@@ -23,9 +23,7 @@ export {
 export {
   usePRReviewStore,
   initializePRReviewListeners,
-  cleanupPRReviewListeners,
-  startPRReview,
-  startFollowupReview
+  cleanupPRReviewListeners
 } from './pr-review-store';
 import { initializePRReviewListeners as _initPRReviewListeners } from './pr-review-store';
 import { cleanupPRReviewListeners as _cleanupPRReviewListeners } from './pr-review-store';

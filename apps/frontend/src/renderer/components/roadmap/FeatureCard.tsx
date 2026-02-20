@@ -1,4 +1,5 @@
-import { ExternalLink, Play, TrendingUp } from 'lucide-react';
+import { Archive, ExternalLink, Play, TrendingUp } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { TaskOutcomeBadge, getTaskOutcomeColorClass } from './TaskOutcomeBadge';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -17,8 +18,10 @@ export function FeatureCard({
   onClick,
   onConvertToSpec,
   onGoToTask,
+  onArchive,
   hasCompetitorInsight = false,
 }: FeatureCardProps) {
+  const { t } = useTranslation('common');
 
   return (
     <Card className="p-4 hover:bg-muted/50 cursor-pointer transition-colors" onClick={onClick}>
@@ -55,37 +58,53 @@ export function FeatureCard({
           <h3 className="font-medium">{feature.title}</h3>
           <p className="text-sm text-muted-foreground line-clamp-2">{feature.description}</p>
         </div>
-        {feature.taskOutcome ? (
-          <Badge variant="outline" className={`text-xs ${getTaskOutcomeColorClass(feature.taskOutcome)}`}>
-            <TaskOutcomeBadge outcome={feature.taskOutcome} size="md" />
-          </Badge>
-        ) : feature.linkedSpecId ? (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              onGoToTask(feature.linkedSpecId!);
-            }}
-          >
-            <ExternalLink className="h-3 w-3 mr-1" />
-            Go to Task
-          </Button>
-        ) : (
-          feature.status !== 'done' && (
+        <div className="flex items-center gap-1">
+          {feature.taskOutcome ? (
+            <Badge variant="outline" className={`text-xs ${getTaskOutcomeColorClass(feature.taskOutcome)}`}>
+              <TaskOutcomeBadge outcome={feature.taskOutcome} size="md" />
+            </Badge>
+          ) : feature.linkedSpecId ? (
             <Button
               variant="outline"
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
-                onConvertToSpec(feature);
+                onGoToTask(feature.linkedSpecId!);
               }}
             >
-              <Play className="h-3 w-3 mr-1" />
-              Build
+              <ExternalLink className="h-3 w-3 mr-1" />
+              {t('roadmap.goToTask')}
             </Button>
-          )
-        )}
+          ) : (
+            feature.status !== 'done' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onConvertToSpec(feature);
+                }}
+              >
+                <Play className="h-3 w-3 mr-1" />
+                {t('roadmap.build')}
+              </Button>
+            )
+          )}
+          {feature.status === 'done' && onArchive && (
+            <Button
+              variant="ghost"
+              size="sm"
+              title={t('roadmap.archiveFeature')}
+              aria-label={t('accessibility.archiveFeatureAriaLabel')}
+              onClick={(e) => {
+                e.stopPropagation();
+                onArchive(feature.id);
+              }}
+            >
+              <Archive className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
       </div>
     </Card>
   );

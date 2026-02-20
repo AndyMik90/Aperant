@@ -6,7 +6,7 @@ import { Label } from '../ui/label';
 import { SettingsSection } from './SettingsSection';
 import { useSettingsStore } from '../../stores/settings-store';
 import { UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT, UI_SCALE_STEP } from '../../../shared/constants';
-import type { AppSettings } from '../../../shared/types';
+import type { AppSettings, GpuAcceleration } from '../../../shared/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 
 interface DisplaySettingsProps {
@@ -273,6 +273,45 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
               </SelectContent>
             </Select>
           </div>
+        </div>
+
+        {/* GPU Acceleration Setting */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between max-w-md">
+            <div className="space-y-1">
+              <Label htmlFor="gpuAcceleration" className="text-sm font-medium text-foreground">
+                {t('gpuAcceleration.label')}
+              </Label>
+              <p className="text-sm text-muted-foreground">
+                {t('gpuAcceleration.description')}
+              </p>
+            </div>
+            <Select
+              value={settings.gpuAcceleration || 'off'}
+              onValueChange={(value) => onSettingsChange({
+                ...settings,
+                gpuAcceleration: value as GpuAcceleration
+              })}
+            >
+              <SelectTrigger id="gpuAcceleration" className="w-72">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="max-h-60 overflow-y-auto">
+                <SelectItem value="auto">
+                  {t('gpuAcceleration.auto')}
+                </SelectItem>
+                <SelectItem value="on">
+                  {t('gpuAcceleration.on')}
+                </SelectItem>
+                <SelectItem value="off">
+                  {t('gpuAcceleration.off')}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {t('gpuAcceleration.helperText')}
+          </p>
         </div>
       </div>
     </SettingsSection>

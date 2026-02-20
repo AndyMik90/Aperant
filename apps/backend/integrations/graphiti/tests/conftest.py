@@ -81,16 +81,16 @@ def mock_graphiti_core():
 
 
 @pytest.fixture
-def mock_falkor_driver():
-    """Mock graphiti_core.driver.falkordb_driver.FalkorDriver.
+def mock_kuzu_driver():
+    """Mock graphiti_core.driver.kuzu_driver.KuzuDriver.
 
-    Prevents actual FalkorDB connections during tests.
+    Prevents actual LadybugDB/kuzu connections during tests.
 
     Yields:
         tuple: (mock_driver_class, mock_driver_instance)
     """
     with patch(
-        "integrations.graphiti.queries_pkg.graphiti.graphiti_core.driver.falkordb_driver.FalkorDriver"
+        "integrations.graphiti.queries_pkg.graphiti.graphiti_core.driver.kuzu_driver.KuzuDriver"
     ) as mock_driver:
         mock_instance = MagicMock()
         mock_driver.return_value = mock_instance

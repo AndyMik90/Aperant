@@ -28,7 +28,7 @@ from phase_config import (
     get_phase_model_betas,
 )
 from phase_event import ExecutionPhase, emit_phase
-from progress import count_subtasks, is_build_complete
+from progress import count_subtasks, is_build_ready_for_qa
 from security.constants import PROJECT_DIR_ENV_VAR
 from task_logger import (
     LogPhase,
@@ -114,14 +114,25 @@ async def run_qa_validation_loop(
     # Initialize task logger for the validation phase
     task_logger = get_task_logger(spec_dir)
 
-    # Verify build is complete
-    if not is_build_complete(spec_dir):
-        debug_warning("qa_loop", "Build is not complete, cannot run QA")
-        print("\n❌ Build is not complete. Cannot run QA validation.")
-        completed, total = count_subtasks(spec_dir)
-        debug("qa_loop", "Build progress", completed=completed, total=total)
-        print(f"   Progress: {completed}/{total} subtasks completed")
-        return False
+    # Check if there's pending human feedback that needs to be processed
+    fix_request_file = spec_dir / "QA_FIX_REQUEST.md"
+    has_human_feedback = fix_request_file.exists()
+
+    # Human feedback takes priority — if the user explicitly asked to proceed,
+    # skip the build completeness gate entirely
+    if not has_human_feedback:
+        # Verify build is ready for QA (all subtasks in terminal state)
+        if not is_build_ready_for_qa(spec_dir):
+            debug_warning(
+                "qa_loop", "Build is not ready for QA - subtasks still in progress"
+            )
+            print("\n❌ Build is not ready for QA validation.")
+            completed, total = count_subtasks(spec_dir)
+            debug("qa_loop", "Build progress", completed=completed, total=total)
+            print(
+                f"   Progress: {completed}/{total} subtasks in terminal state (completed/failed/stuck)"
+            )
+            return False
 
     # Emit phase event at start of QA validation (before any early returns)
     emit_phase(ExecutionPhase.QA_REVIEW, "Starting QA validation")
@@ -135,10 +146,6 @@ async def run_qa_validation_loop(
         "qa_loop",
         f"[Fast Mode] {'ENABLED' if fast_mode else 'disabled'} for QA validation",
     )
-
-    # Check if there's pending human feedback that needs to be processed
-    fix_request_file = spec_dir / "QA_FIX_REQUEST.md"
-    has_human_feedback = fix_request_file.exists()
 
     # Check if already approved - but if there's human feedback, we need to process it first
     if is_qa_approved(spec_dir) and not has_human_feedback:

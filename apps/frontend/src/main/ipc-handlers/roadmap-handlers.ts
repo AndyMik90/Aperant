@@ -127,6 +127,7 @@ export function registerRoadmapHandlers(
                 })),
                 strengths: (c.strengths as string[]) || [],
                 marketPosition: (c.market_position as string) || "",
+                source: c.source || undefined,
               })),
               marketGaps: (rawCompetitor.market_gaps || []).map((g: Record<string, unknown>) => ({
                 id: g.id,
@@ -787,6 +788,148 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
         return {
           success: false,
           error: error instanceof Error ? error.message : "Failed to clear progress",
+        };
+      }
+    }
+  );
+
+  // ============================================
+  // Competitor Analysis Save
+  // ============================================
+
+  ipcMain.handle(
+    IPC_CHANNELS.COMPETITOR_ANALYSIS_SAVE,
+    async (
+      _,
+      projectId: string,
+      competitorAnalysis: CompetitorAnalysis
+    ): Promise<IPCResult> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: "Project not found" };
+      }
+
+      const roadmapDir = path.join(project.path, AUTO_BUILD_PATHS.ROADMAP_DIR);
+      const competitorAnalysisPath = path.join(
+        roadmapDir,
+        AUTO_BUILD_PATHS.COMPETITOR_ANALYSIS
+      );
+
+      try {
+        // Ensure roadmap directory exists
+        if (!existsSync(roadmapDir)) {
+          mkdirSync(roadmapDir, { recursive: true });
+        }
+
+        await withFileLock(competitorAnalysisPath, async () => {
+          // Transform camelCase to snake_case for JSON file
+          const serialized = {
+            project_context: {
+              project_name: competitorAnalysis.projectContext.projectName,
+              project_type: competitorAnalysis.projectContext.projectType,
+              target_audience: competitorAnalysis.projectContext.targetAudience,
+            },
+            competitors: competitorAnalysis.competitors.map((c) => ({
+              id: c.id,
+              name: c.name,
+              url: c.url,
+              description: c.description,
+              relevance: c.relevance,
+              pain_points: c.painPoints.map((p) => ({
+                id: p.id,
+                description: p.description,
+                source: p.source,
+                severity: p.severity,
+                frequency: p.frequency,
+                opportunity: p.opportunity,
+              })),
+              strengths: c.strengths,
+              market_position: c.marketPosition,
+              source: c.source,
+            })),
+            market_gaps: competitorAnalysis.marketGaps.map((g) => ({
+              id: g.id,
+              description: g.description,
+              affected_competitors: g.affectedCompetitors,
+              opportunity_size: g.opportunitySize,
+              suggested_feature: g.suggestedFeature,
+            })),
+            insights_summary: {
+              top_pain_points: competitorAnalysis.insightsSummary.topPainPoints,
+              differentiator_opportunities:
+                competitorAnalysis.insightsSummary.differentiatorOpportunities,
+              market_trends: competitorAnalysis.insightsSummary.marketTrends,
+            },
+            research_metadata: {
+              search_queries_used:
+                competitorAnalysis.researchMetadata.searchQueriesUsed,
+              sources_consulted:
+                competitorAnalysis.researchMetadata.sourcesConsulted,
+              limitations: competitorAnalysis.researchMetadata.limitations,
+            },
+            metadata: {
+              created_at: competitorAnalysis.createdAt
+                ? new Date(competitorAnalysis.createdAt).toISOString()
+                : new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            },
+          };
+
+          await writeFileWithRetry(
+            competitorAnalysisPath,
+            JSON.stringify(serialized, null, 2),
+            { encoding: 'utf-8' }
+          );
+        });
+
+        // Also persist manual competitors to a separate file that the backend
+        // agent never overwrites, preventing data loss during concurrent analysis
+        const manualCompetitors = competitorAnalysis.competitors.filter(
+          (c) => c.source === "manual"
+        );
+        if (manualCompetitors.length > 0) {
+          const manualCompetitorsPath = path.join(
+            roadmapDir,
+            AUTO_BUILD_PATHS.MANUAL_COMPETITORS
+          );
+          const manualSerialized = {
+            competitors: manualCompetitors.map((c) => ({
+              id: c.id,
+              name: c.name,
+              url: c.url,
+              description: c.description,
+              relevance: c.relevance,
+              pain_points: c.painPoints.map((p) => ({
+                id: p.id,
+                description: p.description,
+                source: p.source,
+                severity: p.severity,
+                frequency: p.frequency,
+                opportunity: p.opportunity,
+              })),
+              strengths: c.strengths,
+              market_position: c.marketPosition,
+              source: c.source,
+            })),
+            updated_at: new Date().toISOString(),
+          };
+          await writeFileWithRetry(
+            manualCompetitorsPath,
+            JSON.stringify(manualSerialized, null, 2),
+            { encoding: "utf-8" }
+          );
+        }
+
+        debugLog("[Roadmap Handler] Saved competitor analysis:", { projectId });
+        return { success: true };
+      } catch (error) {
+        debugError("[Roadmap Handler] Failed to save competitor analysis:", error);
+        return {
+          success: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to save competitor analysis",
         };
       }
     }
