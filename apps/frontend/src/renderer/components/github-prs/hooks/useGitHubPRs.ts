@@ -7,8 +7,6 @@ import type {
 } from "../../../../preload/api/modules/github-api";
 import {
   usePRReviewStore,
-  startPRReview as storeStartPRReview,
-  startFollowupReview as storeStartFollowupReview,
 } from "../../../stores/github";
 
 // Re-export types for consumers
@@ -206,7 +204,7 @@ export function useGitHubPRs(
                 // Update store with loaded results
                 for (const reviewResult of Object.values(batchReviews)) {
                   if (reviewResult) {
-                    usePRReviewStore.getState().setPRReviewResult(projectId, reviewResult, {
+                    usePRReviewStore.getState().setLoadedReviewResult(projectId, reviewResult, {
                       preserveNewCommitsCheck: true,
                     });
                   }
@@ -424,7 +422,7 @@ export function useGitHubPRs(
               // Preserve newCommitsCheck when loading existing review from disk
               usePRReviewStore
                 .getState()
-                .setPRReviewResult(projectId, result, { preserveNewCommitsCheck: true });
+                .setLoadedReviewResult(projectId, result, { preserveNewCommitsCheck: true });
 
               // Always check for new commits when selecting a reviewed PR
               // This ensures fresh data even if we have a cached check from earlier in the session
@@ -512,7 +510,7 @@ export function useGitHubPRs(
           // Update store with loaded results
           for (const reviewResult of Object.values(batchReviews)) {
             if (reviewResult) {
-              usePRReviewStore.getState().setPRReviewResult(requestProjectId, reviewResult, {
+              usePRReviewStore.getState().setLoadedReviewResult(requestProjectId, reviewResult, {
                 preserveNewCommitsCheck: true,
               });
             }
@@ -536,8 +534,8 @@ export function useGitHubPRs(
     (prNumber: number) => {
       if (!projectId) return;
 
-      // Use the store function which handles both state and IPC
-      storeStartPRReview(projectId, prNumber);
+      // Main process handles XState state transition and subprocess launch
+      window.electronAPI.github.runPRReview(projectId, prNumber);
     },
     [projectId]
   );
@@ -546,8 +544,8 @@ export function useGitHubPRs(
     (prNumber: number) => {
       if (!projectId) return;
 
-      // Use the store function which handles both state and IPC
-      storeStartFollowupReview(projectId, prNumber);
+      // Main process handles XState state transition and subprocess launch
+      window.electronAPI.github.runFollowupReview(projectId, prNumber);
     },
     [projectId]
   );
@@ -577,15 +575,9 @@ export function useGitHubPRs(
       if (!projectId) return false;
 
       try {
+        // Main process kills subprocess and sends CANCEL_REVIEW to XState
+        // State update flows back via IPC (onPRReviewStateChange)
         const success = await window.electronAPI.github.cancelPRReview(projectId, prNumber);
-        // Always update store state to exit the "reviewing" state
-        // Use different messages based on whether the process was found and killed
-        const message = success
-          ? "Review cancelled by user"
-          : "Review stopped - process not found";
-        usePRReviewStore
-          .getState()
-          .setPRReviewError(projectId, prNumber, message);
         return success;
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to cancel review");
@@ -617,7 +609,7 @@ export function useGitHubPRs(
             // Preserve newCommitsCheck - posting doesn't change whether there are new commits
             usePRReviewStore
               .getState()
-              .setPRReviewResult(projectId, result, { preserveNewCommitsCheck: true });
+              .setLoadedReviewResult(projectId, result, { preserveNewCommitsCheck: true });
           }
         }
         return success;
@@ -699,7 +691,7 @@ export function useGitHubPRs(
       const existingState = getPRReviewState(projectId, prNumber);
       if (existingState?.result) {
         // If we have the result loaded, update it with hasPostedFindings and postedAt
-        usePRReviewStore.getState().setPRReviewResult(
+        usePRReviewStore.getState().setLoadedReviewResult(
           projectId,
           { ...existingState.result, hasPostedFindings: true, postedAt },
           { preserveNewCommitsCheck: true }
@@ -708,7 +700,7 @@ export function useGitHubPRs(
         // If result not loaded yet (race condition), reload from disk to get updated state
         const result = await window.electronAPI.github.getPRReview(projectId, prNumber);
         if (result) {
-          usePRReviewStore.getState().setPRReviewResult(
+          usePRReviewStore.getState().setLoadedReviewResult(
             projectId,
             result,
             { preserveNewCommitsCheck: true }

@@ -50,6 +50,10 @@ _git_hook_check_done = False
 
 MODULE = "workspace.setup"
 
+# Marker file written inside a recreated venv to indicate setup completed successfully.
+# If the marker is absent, the venv is treated as incomplete and will be rebuilt.
+VENV_SETUP_COMPLETE_MARKER = ".setup_complete"
+
 
 def choose_workspace(
     project_dir: Path,
@@ -624,9 +628,52 @@ def setup_worktree_dependencies(
             results[strategy_name] = []
 
         try:
-            performed = True
+            performed = False
             if config.strategy == DependencyStrategy.SYMLINK:
                 performed = _apply_symlink_strategy(project_dir, worktree_path, config)
+                # For venvs, verify the symlink is usable — fall back to recreate
+                # Run health check whenever a venv symlink exists (not just on creation)
+                if config.dep_type in ("venv", ".venv"):
+                    venv_path = worktree_path / config.source_rel_path
+                    # Check if venv exists (symlinked or otherwise)
+                    if venv_path.exists() or venv_path.is_symlink():
+                        if is_windows():
+                            python_bin = str(venv_path / "Scripts" / "python.exe")
+                        else:
+                            python_bin = str(venv_path / "bin" / "python")
+                        try:
+                            subprocess.run(
+                                [python_bin, "-c", "import sys; print(sys.prefix)"],
+                                capture_output=True,
+                                text=True,
+                                timeout=10,
+                                check=True,
+                            )
+                            debug(
+                                MODULE,
+                                f"Symlinked venv health check passed: {config.source_rel_path}",
+                            )
+                        except (subprocess.SubprocessError, OSError):
+                            debug_warning(
+                                MODULE,
+                                f"Symlinked venv health check failed, falling back to recreate: {config.source_rel_path}",
+                            )
+                            # Remove the broken symlink and recreate
+                            try:
+                                if venv_path.is_symlink():
+                                    venv_path.unlink()
+                                elif venv_path.exists():
+                                    shutil.rmtree(venv_path, ignore_errors=True)
+                            except OSError:
+                                pass  # Best-effort removal; recreate strategy handles existing paths
+                            performed = _apply_recreate_strategy(
+                                project_dir, worktree_path, config
+                            )
+                            # Update strategy name to reflect fallback
+                            if performed:
+                                strategy_name = "recreate"
+                                # Ensure the key exists for the fallback strategy
+                                results.setdefault(strategy_name, [])
             elif config.strategy == DependencyStrategy.RECREATE:
                 performed = _apply_recreate_strategy(project_dir, worktree_path, config)
             elif config.strategy == DependencyStrategy.COPY:
@@ -707,6 +754,54 @@ def _apply_symlink_strategy(
         return False
 
 
+def _popen_with_cleanup(
+    cmd: list[str],
+    timeout: int,
+    label: str,
+) -> tuple[int, str, str]:
+    """Run a command via Popen with proper process cleanup on timeout.
+
+    On timeout: terminate → wait(10) → kill → wait(5) to ensure file locks
+    are released before any cleanup (e.g. shutil.rmtree).
+
+    Returns (returncode, stdout, stderr).
+    Raises subprocess.TimeoutExpired if the command exceeds the given timeout (after cleanup is attempted).
+    """
+    proc = subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        stdout, stderr = proc.communicate(timeout=timeout)
+        return proc.returncode, stdout, stderr
+    except subprocess.TimeoutExpired:
+        debug_warning(MODULE, f"{label} timed out, terminating process")
+        proc.terminate()
+        try:
+            proc.communicate(timeout=10)
+        except subprocess.TimeoutExpired:
+            debug_warning(MODULE, f"{label} did not terminate, killing process")
+            proc.kill()
+            try:
+                proc.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                # Final cleanup attempt if kill() also hangs
+                debug_warning(MODULE, f"{label} could not be stopped even after kill()")
+        raise
+    finally:
+        # Ensure pipes are closed and process is reaped to avoid zombie processes
+        if proc.stdout:
+            proc.stdout.close()
+        if proc.stderr:
+            proc.stderr.close()
+        try:
+            proc.wait(timeout=0.1)
+        except subprocess.TimeoutExpired:
+            pass  # Process still running, already logged warning above
+
+
 def _apply_recreate_strategy(
     project_dir: Path,
     worktree_path: Path,
@@ -717,10 +812,25 @@ def _apply_recreate_strategy(
     Returns True if the venv was successfully created, False if skipped or failed.
     """
     venv_path = worktree_path / config.source_rel_path
+    marker_path = venv_path / VENV_SETUP_COMPLETE_MARKER
 
-    if venv_path.exists():
-        debug(MODULE, f"Skipping recreate {config.source_rel_path} - already exists")
-        return False
+    # Check for broken symlinks that exists() would miss
+    if venv_path.is_symlink() and not venv_path.exists():
+        debug(MODULE, f"Removing broken symlink at {config.source_rel_path}")
+        try:
+            venv_path.unlink()
+        except OSError:
+            pass  # Best-effort removal
+    elif venv_path.exists():
+        if marker_path.exists():
+            debug(
+                MODULE,
+                f"Skipping recreate {config.source_rel_path} - already complete (marker present)",
+            )
+            return False
+        # Venv exists but marker is missing — incomplete, remove and rebuild
+        debug(MODULE, f"Removing incomplete venv {config.source_rel_path} (no marker)")
+        shutil.rmtree(venv_path, ignore_errors=True)
 
     # Detect Python executable from the source venv or fall back to sys.executable
     source_venv = project_dir / config.source_rel_path
@@ -737,29 +847,34 @@ def _apply_recreate_strategy(
     # Create the venv
     try:
         debug(MODULE, f"Creating venv at {venv_path}")
-        result = subprocess.run(
+        returncode, _, stderr = _popen_with_cleanup(
             [python_exec, "-m", "venv", str(venv_path)],
-            capture_output=True,
-            text=True,
             timeout=120,
+            label=f"venv creation ({config.source_rel_path})",
         )
-        if result.returncode != 0:
-            debug_warning(MODULE, f"venv creation failed: {result.stderr}")
+        if returncode != 0:
+            debug_warning(MODULE, f"venv creation failed: {stderr}")
             print_status(
                 f"Warning: Could not create venv at {config.source_rel_path}",
                 "warning",
             )
-            # Clean up partial venv so retries aren't blocked
             if venv_path.exists():
                 shutil.rmtree(venv_path, ignore_errors=True)
             return False
     except subprocess.TimeoutExpired:
-        debug_warning(MODULE, f"venv creation timed out for {config.source_rel_path}")
         print_status(
             f"Warning: venv creation timed out for {config.source_rel_path}",
             "warning",
         )
-        # Clean up partial venv so retries aren't blocked
+        if venv_path.exists():
+            shutil.rmtree(venv_path, ignore_errors=True)
+        return False
+    except OSError as e:
+        debug_warning(MODULE, f"venv creation failed: {e}")
+        print_status(
+            f"Warning: Could not create venv at {config.source_rel_path}",
+            "warning",
+        )
         if venv_path.exists():
             shutil.rmtree(venv_path, ignore_errors=True)
         return False
@@ -800,45 +915,44 @@ def _apply_recreate_strategy(
             if install_cmd:
                 try:
                     debug(MODULE, f"Installing deps from {req_file}")
-                    pip_result = subprocess.run(
+                    returncode, _, stderr = _popen_with_cleanup(
                         install_cmd,
-                        capture_output=True,
-                        text=True,
-                        timeout=120,
+                        timeout=300,
+                        label=f"pip install ({req_file})",
                     )
-                    if pip_result.returncode != 0:
+                    if returncode != 0:
                         debug_warning(
                             MODULE,
-                            f"pip install failed (exit {pip_result.returncode}): "
-                            f"{pip_result.stderr}",
+                            f"pip install failed (exit {returncode}): {stderr}",
                         )
                         print_status(
                             f"Warning: Dependency install failed for {req_file}",
                             "warning",
                         )
-                        # Clean up broken venv so retries aren't blocked
                         if venv_path.exists():
                             shutil.rmtree(venv_path, ignore_errors=True)
                         return False
                 except subprocess.TimeoutExpired:
-                    debug_warning(
-                        MODULE,
-                        f"pip install timed out for {req_file}",
-                    )
                     print_status(
                         f"Warning: Dependency install timed out for {req_file}",
                         "warning",
                     )
-                    # Clean up broken venv so retries aren't blocked
                     if venv_path.exists():
                         shutil.rmtree(venv_path, ignore_errors=True)
                     return False
                 except OSError as e:
                     debug_warning(MODULE, f"pip install failed: {e}")
-                    # Clean up broken venv so retries aren't blocked
                     if venv_path.exists():
                         shutil.rmtree(venv_path, ignore_errors=True)
                     return False
+
+    # Write completion marker so future runs know this venv is complete
+    try:
+        marker_path.touch()
+    except OSError as e:
+        debug_warning(
+            MODULE, f"Failed to write completion marker at {marker_path}: {e}"
+        )
 
     debug(MODULE, f"Recreated venv at {config.source_rel_path}")
     return True

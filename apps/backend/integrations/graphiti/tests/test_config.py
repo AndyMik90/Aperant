@@ -15,7 +15,7 @@ Tests cover:
 import json
 import os
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from integrations.graphiti.config import (
@@ -1054,20 +1054,48 @@ class TestModuleLevelFunctions:
         assert "OPENAI_API_KEY" in status["errors"][0]
 
     def test_get_graphiti_status_invalid_config_sets_reason(self, clean_env):
-        """Test get_graphiti_status sets reason when config is invalid.
+        """Test get_graphiti_status with validation errors (embedder misconfigured).
 
-        This tests lines 628-629 where the reason is set from validation errors.
+        When packages are installed but embedder config has errors, available should
+        still be True (embedder is optional - keyword search fallback exists).
+        Validation errors are reported in the errors list for informational purposes.
         """
         os.environ["GRAPHITI_ENABLED"] = "true"
         os.environ["GRAPHITI_EMBEDDER_PROVIDER"] = "voyage"
 
-        status = get_graphiti_status()
+        # Mock imports to ensure test is independent of environment
+        with patch.dict(
+            "sys.modules",
+            {"graphiti_core": MagicMock(), "real_ladybug": MagicMock()},
+        ):
+            status = get_graphiti_status()
+
+        assert status["enabled"] is True
+        # available depends on whether mocked packages are resolved correctly;
+        # sys.modules patching should make imports succeed, but guard against
+        # environment quirks (consistent with test_get_graphiti_status_enabled)
+        assert status["available"] is True
+        assert len(status["errors"]) > 0
+        assert "VOYAGE_API_KEY" in status["errors"][0]
+
+    def test_get_graphiti_status_no_graph_backend(self, clean_env):
+        """Test get_graphiti_status when graphiti_core exists but no graph DB backend.
+
+        This tests the error path in config.py lines 645-650 where graphiti_core
+        imports successfully but neither real_ladybug nor kuzu is available.
+        """
+        os.environ["GRAPHITI_ENABLED"] = "true"
+
+        # Mock graphiti_core as present, but ensure real_ladybug and kuzu are absent
+        with patch.dict(
+            "sys.modules",
+            {"graphiti_core": MagicMock(), "real_ladybug": None, "kuzu": None},
+        ):
+            status = get_graphiti_status()
 
         assert status["enabled"] is True
         assert status["available"] is False
-        # When config is invalid, reason should be set from errors
-        assert status["reason"] != ""
-        assert len(status["errors"]) > 0
+        assert "real_ladybug or kuzu" in status["reason"]
 
     @pytest.mark.slow
     def test_get_graphiti_status_with_graphiti_installed(self, clean_env):
@@ -1089,9 +1117,9 @@ class TestModuleLevelFunctions:
         assert "reason" in status
         assert "errors" in status
 
-        # Note: Line 641 (status["available"] = True) requires falkordb to be installed.
-        # Since falkordb is not installed in the test environment, that line is marked
-        # with pragma: no cover. The except clause (lines 642-644) is tested here.
+        # Note: Line 644 (status["available"] = True) requires LadybugDB/kuzu to be installed.
+        # Since LadybugDB/kuzu may not be installed in all test environments, that line
+        # may be marked with pragma: no cover. The except clause is tested here.
 
     def test_get_available_providers_empty(self, clean_env):
         """Test get_available_providers with no credentials."""

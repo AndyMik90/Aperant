@@ -1,7 +1,8 @@
 # Auto-Build Framework Dependencies
-# SDK 0.1.33+ required for Opus 4.6 adaptive thinking support
-# Earlier versions lacked effort parameter and thinking type configuration
-claude-agent-sdk>=0.1.33
+# SDK 0.1.39+ required for Opus 4.6 adaptive thinking support and stability fixes
+# Earlier versions lacked effort parameter, thinking type configuration,
+# and crashed on unhandled CLI message types (e.g., rate_limit_event)
+claude-agent-sdk>=0.1.39
 python-dotenv>=1.0.0
 
 # TOML parsing fallback for Python < 3.11

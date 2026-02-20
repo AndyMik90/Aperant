@@ -538,3 +538,30 @@ export function updateTaskMetadataPrUrl(metadataPath: string, prUrl: string): bo
     return false;
   }
 }
+
+/**
+ * Check if a task has a valid implementation plan with subtasks.
+ * A plan is considered valid if it has at least one subtask across all phases.
+ *
+ * @param project - The project containing the task
+ * @param task - The task to check
+ * @returns true if the task has a valid plan with subtasks, false otherwise
+ */
+export function hasPlanWithSubtasks(project: Project, task: Task): boolean {
+  try {
+    const planPath = getPlanPath(project, task);
+    const planContent = readFileSync(planPath, 'utf-8');
+    if (!planContent) {
+      return false;
+    }
+
+    const plan = JSON.parse(planContent);
+    // A plan exists if it has phases with subtasks (totalCount > 0)
+    const phases = plan.phases as Array<{ subtasks?: Array<unknown> }> | undefined;
+    const totalCount = phases?.flatMap(p => p.subtasks || []).length || 0;
+    return totalCount > 0;
+  } catch {
+    // File doesn't exist or is malformed
+    return false;
+  }
+}

@@ -252,6 +252,8 @@ export function registerTerminalHandlers(
             id: string;
             sessionId?: string;
             sessionMigrated?: boolean;
+            isClaudeMode?: boolean;
+            dangerouslySkipPermissions?: boolean;
           }> = [];
 
           // Process each terminal
@@ -273,7 +275,7 @@ export function registerTerminalHandlers(
                 to: targetConfigDir
               });
 
-              const migrationResult = migrateSession(
+              const migrationResult = await migrateSession(
                 sourceConfigDir,
                 targetConfigDir,
                 terminal.cwd,
@@ -284,11 +286,19 @@ export function registerTerminalHandlers(
               debugLog('[terminal-handlers:CLAUDE_PROFILE_SET_ACTIVE] Session migration result:', migrationResult);
             }
 
+            // Store YOLO mode flag server-side for migrated sessions
+            // (consumed by resumeClaudeAsync when the new terminal resumes)
+            if (sessionMigrated && terminal.claudeSessionId && terminal.dangerouslySkipPermissions) {
+              terminalManager.storeMigratedSessionFlag(terminal.claudeSessionId, terminal.dangerouslySkipPermissions);
+            }
+
             // All terminals need refresh (PTY env vars can't be updated)
             terminalsNeedingRefresh.push({
               id: terminal.id,
               sessionId: terminal.claudeSessionId,
-              sessionMigrated
+              sessionMigrated,
+              isClaudeMode: terminal.isClaudeMode,
+              dangerouslySkipPermissions: terminal.dangerouslySkipPermissions
             });
           }
 
@@ -613,9 +623,9 @@ export function registerTerminalHandlers(
 
   ipcMain.on(
     IPC_CHANNELS.TERMINAL_RESUME_CLAUDE,
-    (_, id: string, sessionId?: string) => {
+    (_, id: string, sessionId?: string, options?: { migratedSession?: boolean }) => {
       // Use async version to avoid blocking main process during CLI detection
-      terminalManager.resumeClaudeAsync(id, sessionId).catch((error) => {
+      terminalManager.resumeClaudeAsync(id, sessionId, options).catch((error) => {
         console.warn('[terminal-handlers] Failed to resume Claude:', error);
       });
     }

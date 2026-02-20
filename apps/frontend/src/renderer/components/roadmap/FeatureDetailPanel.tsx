@@ -11,6 +11,7 @@ import {
   ExternalLink,
   TrendingUp,
   Trash2,
+  Archive,
 } from 'lucide-react';
 import { TaskOutcomeBadge } from './TaskOutcomeBadge';
 import { Badge } from '../ui/badge';
@@ -31,10 +32,15 @@ export function FeatureDetailPanel({
   onConvertToSpec,
   onGoToTask,
   onDelete,
+  onArchive,
   competitorInsights = [],
 }: FeatureDetailPanelProps) {
   const { t } = useTranslation('common');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const handleArchive = () => {
+    onArchive?.(feature.id);
+  };
 
   const handleDelete = () => {
     if (onDelete) {
@@ -215,29 +221,53 @@ export function FeatureDetailPanel({
       </ScrollArea>
 
       {/* Actions */}
-      {feature.taskOutcome ? (
-        <div className="shrink-0 p-4 border-t border-border">
-          <div className="flex items-center justify-center gap-2 py-2">
-            <TaskOutcomeBadge outcome={feature.taskOutcome} size="lg" />
-          </div>
-        </div>
-      ) : feature.linkedSpecId ? (
-        <div className="shrink-0 p-4 border-t border-border">
-          <Button className="w-full" onClick={() => onGoToTask(feature.linkedSpecId!)}>
-            <ExternalLink className="h-4 w-4 mr-2" />
-            Go to Task
+      {(() => {
+        const archiveButton = feature.status === 'done' && (
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={handleArchive}
+            aria-label={t('accessibility.archiveFeatureAriaLabel')}
+          >
+            <Archive className="h-4 w-4 mr-2" />
+            {t('roadmap.archiveFeature')}
           </Button>
-        </div>
-      ) : (
-        feature.status !== 'done' && (
+        );
+
+        if (feature.taskOutcome) return (
+          <div className="shrink-0 p-4 border-t border-border space-y-3">
+            <div className="flex items-center justify-center gap-2 py-2">
+              <TaskOutcomeBadge outcome={feature.taskOutcome} size="lg" />
+            </div>
+            {archiveButton}
+          </div>
+        );
+
+        if (feature.linkedSpecId) return (
+          <div className="shrink-0 p-4 border-t border-border space-y-2">
+            <Button className="w-full" onClick={() => onGoToTask(feature.linkedSpecId!)}>
+              <ExternalLink className="h-4 w-4 mr-2" />
+              {t('roadmap.goToTask')}
+            </Button>
+            {archiveButton}
+          </div>
+        );
+
+        if (feature.status === 'done') return (
+          <div className="shrink-0 p-4 border-t border-border">
+            {archiveButton}
+          </div>
+        );
+
+        return (
           <div className="shrink-0 p-4 border-t border-border">
             <Button className="w-full" onClick={() => onConvertToSpec(feature)}>
               <Zap className="h-4 w-4 mr-2" />
-              Convert to Auto-Build Task
+              {t('roadmap.convertToTask')}
             </Button>
           </div>
-        )
-      )}
+        );
+      })()}
 
       {/* Delete Confirmation */}
       {showDeleteConfirm && (

@@ -11,7 +11,7 @@ import type {
   TerminalProcess,
   WindowGetter,
   TerminalOperationResult,
-  TerminalProfileChangeInfo
+  TerminalProfileChangeInfo,
 } from './types';
 import * as PtyManager from './pty-manager';
 import * as SessionHandler from './session-handler';
@@ -26,6 +26,8 @@ export class TerminalManager {
   private saveTimer: NodeJS.Timeout | null = null;
   private lastNotifiedRateLimitReset: Map<string, string> = new Map();
   private eventCallbacks: TerminalEventHandler.EventHandlerCallbacks;
+  /** Server-side storage for YOLO mode flags during profile migration (sessionId → flag) */
+  private migratedSessionFlags: Map<string, boolean> = new Map();
 
   constructor(getWindow: WindowGetter) {
     this.getWindow = getWindow;
@@ -114,6 +116,7 @@ export class TerminalManager {
    * Kill all terminal processes
    */
   async killAll(): Promise<void> {
+    this.migratedSessionFlags.clear();
     this.saveTimer = await TerminalLifecycle.destroyAllTerminals(
       this.terminals,
       this.saveTimer
@@ -223,13 +226,36 @@ export class TerminalManager {
   /**
    * Resume Claude in a terminal asynchronously (non-blocking)
    */
-  async resumeClaudeAsync(id: string, sessionId?: string): Promise<void> {
+  async resumeClaudeAsync(id: string, sessionId?: string, options?: { migratedSession?: boolean }): Promise<void> {
     const terminal = this.terminals.get(id);
     if (!terminal) {
+      // Clean up stale migratedSessionFlags if terminal no longer exists
+      if (options?.migratedSession && sessionId) {
+        this.migratedSessionFlags.delete(sessionId);
+      }
       return;
     }
 
-    await ClaudeIntegration.resumeClaudeAsync(terminal, sessionId, this.getWindow);
+    // For migrated sessions, restore YOLO mode from server-side storage
+    // (set during profile change in storeMigratedSessionFlag)
+    if (options?.migratedSession && sessionId) {
+      const storedFlag = this.migratedSessionFlags.get(sessionId);
+      if (storedFlag !== undefined) {
+        terminal.dangerouslySkipPermissions = storedFlag;
+        this.migratedSessionFlags.delete(sessionId);
+      }
+    }
+
+    await ClaudeIntegration.resumeClaudeAsync(terminal, sessionId, this.getWindow, options);
+  }
+
+  /**
+   * Store YOLO mode flag for a session being migrated during profile swap.
+   * Called from the profile change handler before the renderer recreates terminals.
+   * The flag is consumed by resumeClaudeAsync when the new terminal resumes.
+   */
+  storeMigratedSessionFlag(sessionId: string, dangerouslySkipPermissions: boolean): void {
+    this.migratedSessionFlags.set(sessionId, dangerouslySkipPermissions);
   }
 
   /**
@@ -387,7 +413,8 @@ export class TerminalManager {
         projectPath: terminal.projectPath,
         claudeSessionId: terminal.claudeSessionId,
         claudeProfileId: terminal.claudeProfileId,
-        isClaudeMode: terminal.isClaudeMode
+        isClaudeMode: terminal.isClaudeMode,
+        dangerouslySkipPermissions: terminal.dangerouslySkipPermissions
       });
     }
 

@@ -12,6 +12,7 @@ from ui.capabilities import configure_safe_encoding
 
 configure_safe_encoding()
 
+from core.error_utils import safe_receive_messages
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
 from security.tool_input_validator import get_safe_tool_input
 from task_logger import (
@@ -162,7 +163,7 @@ class AgentRunner:
 
                 response_text = ""
                 debug("agent_runner", "Starting to receive response stream...")
-                async for msg in client.receive_response():
+                async for msg in safe_receive_messages(client, caller="agent_runner"):
                     msg_type = type(msg).__name__
                     message_count += 1
                     debug_detailed(

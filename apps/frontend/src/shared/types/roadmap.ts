@@ -6,6 +6,7 @@
 // Competitor Analysis Types
 // ============================================
 
+export type CompetitorSource = 'manual' | 'ai';
 export type CompetitorRelevance = 'high' | 'medium' | 'low';
 export type PainPointSeverity = 'high' | 'medium' | 'low';
 export type OpportunitySize = 'high' | 'medium' | 'low';
@@ -28,6 +29,14 @@ export interface Competitor {
   painPoints: CompetitorPainPoint[];
   strengths: string[];
   marketPosition: string;
+  source?: CompetitorSource;
+}
+
+export interface ManualCompetitorInput {
+  name: string;
+  url: string;
+  description: string;
+  relevance: CompetitorRelevance;
 }
 
 export interface CompetitorMarketGap {

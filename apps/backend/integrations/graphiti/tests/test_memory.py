@@ -264,7 +264,7 @@ class TestTestGraphitiConnection:
 
             # Mock graphiti_core imports to succeed
             mock_graphiti = MagicMock()
-            mock_falkordb_driver = MagicMock()
+            mock_kuzu_driver = MagicMock()
 
             # Mock provider creation to raise ProviderError
             with patch("graphiti_providers.create_llm_client") as mock_create_llm:
@@ -275,7 +275,7 @@ class TestTestGraphitiConnection:
                     {
                         "graphiti_core": MagicMock(Graphiti=mock_graphiti),
                         "graphiti_core.driver": MagicMock(),
-                        "graphiti_core.driver.falkordb_driver": mock_falkordb_driver,
+                        "graphiti_core.driver.kuzu_driver": mock_kuzu_driver,
                         "graphiti_providers": MagicMock(
                             ProviderError=ProviderError,
                             create_embedder=MagicMock(),

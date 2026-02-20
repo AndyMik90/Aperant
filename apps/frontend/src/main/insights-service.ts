@@ -3,8 +3,10 @@ import type {
   InsightsSession,
   InsightsSessionSummary,
   InsightsChatMessage,
-  InsightsModelConfig
+  InsightsModelConfig,
+  ImageAttachment
 } from '../shared/types';
+import { MAX_IMAGES_PER_TASK } from '../shared/constants';
 import { InsightsConfig } from './insights/config';
 import { InsightsPaths } from './insights/paths';
 import { SessionStorage } from './insights/session-storage';
@@ -70,8 +72,8 @@ export class InsightsService extends EventEmitter {
   /**
    * List all sessions for a project
    */
-  listSessions(projectPath: string): InsightsSessionSummary[] {
-    return this.sessionManager.listSessions(projectPath);
+  listSessions(projectPath: string, includeArchived = false): InsightsSessionSummary[] {
+    return this.sessionManager.listSessions(projectPath, includeArchived);
   }
 
   /**
@@ -96,6 +98,34 @@ export class InsightsService extends EventEmitter {
   }
 
   /**
+   * Archive a session
+   */
+  archiveSession(projectId: string, projectPath: string, sessionId: string): boolean {
+    return this.sessionManager.archiveSession(projectId, projectPath, sessionId);
+  }
+
+  /**
+   * Unarchive a session
+   */
+  unarchiveSession(projectPath: string, sessionId: string): boolean {
+    return this.sessionManager.unarchiveSession(projectPath, sessionId);
+  }
+
+  /**
+   * Delete multiple sessions
+   */
+  deleteSessions(projectId: string, projectPath: string, sessionIds: string[]): { deletedIds: string[]; failedIds: string[] } {
+    return this.sessionManager.deleteSessions(projectId, projectPath, sessionIds);
+  }
+
+  /**
+   * Archive multiple sessions
+   */
+  archiveSessions(projectId: string, projectPath: string, sessionIds: string[]): { archivedIds: string[]; failedIds: string[] } {
+    return this.sessionManager.archiveSessions(projectId, projectPath, sessionIds);
+  }
+
+  /**
    * Rename a session
    */
   renameSession(projectPath: string, sessionId: string, newTitle: string): boolean {
@@ -116,7 +146,8 @@ export class InsightsService extends EventEmitter {
     projectId: string,
     projectPath: string,
     message: string,
-    modelConfig?: InsightsModelConfig
+    modelConfig?: InsightsModelConfig,
+    images?: ImageAttachment[]
   ): Promise<void> {
     // Cancel any existing session
     this.executor.cancelSession(projectId);
@@ -139,22 +170,44 @@ export class InsightsService extends EventEmitter {
       session.title = this.storage.generateTitle(message);
     }
 
-    // Add user message
+    // Guard: cap images to MAX_IMAGES_PER_TASK
+    if (images && images.length > MAX_IMAGES_PER_TASK) {
+      images = images.slice(0, MAX_IMAGES_PER_TASK);
+    }
+
+    // Add user message (store thumbnails only for persistence, strip full data)
+    const persistImages = images?.map(img => ({
+      ...img,
+      data: undefined
+    }));
     const userMessage: InsightsChatMessage = {
       id: `msg-${Date.now()}`,
       role: 'user',
       content: message,
-      timestamp: new Date()
+      timestamp: new Date(),
+      images: persistImages && persistImages.length > 0 ? persistImages : undefined
     };
     session.messages.push(userMessage);
     session.updatedAt = new Date();
     this.sessionManager.saveSession(projectPath, session);
 
     // Build conversation history for context
-    const conversationHistory = session.messages.map(m => ({
-      role: m.role,
-      content: m.content
-    }));
+    // Add notation when images are present so the AI has context
+    // For historical messages (all but the last), use past tense to avoid confusion
+    const conversationHistory = session.messages.map((m, index) => {
+      const imageCount = m.images?.length ?? 0;
+      const isLastMessage = index === session.messages.length - 1;
+      let imageNotation = '';
+      if (imageCount > 0 && m.role === 'user') {
+        imageNotation = isLastMessage
+          ? `\n[User attached ${imageCount} image(s)]`
+          : `\n[User previously attached ${imageCount} image(s) - not visible in this context]`;
+      }
+      return {
+        role: m.role,
+        content: imageNotation ? m.content + imageNotation : m.content
+      };
+    });
 
     // Use provided modelConfig or fall back to session's config
     const configToUse = modelConfig || session.modelConfig;
@@ -166,7 +219,8 @@ export class InsightsService extends EventEmitter {
         projectPath,
         message,
         conversationHistory,
-        configToUse
+        configToUse,
+        images
       );
 
       // Add assistant message to session

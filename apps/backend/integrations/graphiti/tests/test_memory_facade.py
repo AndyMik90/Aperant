@@ -160,7 +160,7 @@ class TestTestGraphitiConnection:
     """Tests for the test_graphiti_connection async function.
 
     Note: The function now uses embedded LadybugDB via patched KuzuDriver
-    instead of remote FalkorDB with host/port credentials.
+    instead of remote database with host/port credentials.
     """
 
     @pytest.mark.asyncio

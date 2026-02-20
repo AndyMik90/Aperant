@@ -9,9 +9,10 @@ Each dependency ecosystem has different constraints:
 - **node_modules**: Safe to symlink. Node's resolution algorithm follows symlinks
   correctly, and the directory is self-contained.
 
-- **venv / .venv**: Must be recreated. Python's ``pyvenv.cfg`` discovery walks the
-  real directory hierarchy without resolving symlinks (CPython bug #106045), so a
-  symlinked venv resolves paths relative to the *target*, not the worktree.
+- **venv / .venv**: Symlinked for fast worktree creation. CPython bug #106045
+  (pyvenv.cfg symlink resolution) does not affect typical usage (running scripts,
+  imports, pip). A health check after symlinking verifies usability; if it fails,
+  the caller falls back to recreating the venv.
 
 - **vendor (PHP)**: Safe to symlink. Composer's autoloader uses ``__DIR__``-relative
   paths that resolve correctly through symlinks.
@@ -42,9 +43,9 @@ from .models import DependencyShareConfig, DependencyStrategy
 DEFAULT_STRATEGY_MAP: dict[str, DependencyStrategy] = {
     # JavaScript / Node.js — symlink is safe and fast
     "node_modules": DependencyStrategy.SYMLINK,
-    # Python — venvs MUST be recreated (pyvenv.cfg symlink bug)
-    "venv": DependencyStrategy.RECREATE,
-    ".venv": DependencyStrategy.RECREATE,
+    # Python — symlink for fast worktree creation (health check + fallback to recreate)
+    "venv": DependencyStrategy.SYMLINK,
+    ".venv": DependencyStrategy.SYMLINK,
     # PHP — Composer vendor dir is safe to symlink
     "vendor_php": DependencyStrategy.SYMLINK,
     # Ruby — Bundler vendor/bundle is safe to symlink

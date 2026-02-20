@@ -195,8 +195,20 @@ export class TerminalSessionStore {
    * 1. Write to temp file
    * 2. Rotate current file to backup
    * 3. Rename temp to target (atomic on most filesystems)
+   *
+   * If an async write is in progress, defers to the async writer to avoid
+   * both operations competing for the same temp file (ENOENT race condition).
    */
   private save(): void {
+    // If an async write is in progress, don't write synchronously — the async
+    // writer shares the same temp file path. Instead, mark a pending write so
+    // saveAsync() will re-save with the latest in-memory data when it finishes.
+    if (this.writeInProgress) {
+      this.writePending = true;
+      debugLog('[TerminalSessionStore] Deferring sync save — async write in progress');
+      return;
+    }
+
     try {
       const content = JSON.stringify(this.data, null, 2);
 
@@ -366,7 +378,9 @@ export class TerminalSessionStore {
   private updateSessionInMemory(session: TerminalSession): boolean {
     // Check if session was deleted - skip if pending deletion
     if (this.pendingDelete.has(session.id)) {
-      console.warn('[TerminalSessionStore] Skipping save for deleted session:', session.id);
+      debugLog('[TerminalSessionStore] Skipping save for deleted session:', session.id,
+        'pendingDelete size:', this.pendingDelete.size,
+        'all pending IDs:', [...this.pendingDelete].join(', '));
       return false;
     }
 
@@ -597,6 +611,27 @@ export class TerminalSessionStore {
   }
 
   /**
+   * Clear a session ID from pendingDelete, allowing saves to proceed.
+   *
+   * Called when a terminal is legitimately re-created with the same ID
+   * (e.g., worktree switching, terminal restart after exit). Without this,
+   * the 5-second pendingDelete window blocks session persistence for the
+   * new terminal.
+   */
+  clearPendingDelete(sessionId: string): void {
+    if (this.pendingDelete.has(sessionId)) {
+      this.pendingDelete.delete(sessionId);
+      // Also clear the cleanup timer since we're explicitly clearing
+      const timer = this.pendingDeleteTimers.get(sessionId);
+      if (timer) {
+        clearTimeout(timer);
+        this.pendingDeleteTimers.delete(sessionId);
+      }
+      debugLog('[TerminalSessionStore] Cleared pendingDelete for re-created terminal:', sessionId);
+    }
+  }
+
+  /**
    * Remove a session (from today's sessions)
    *
    * Adds the session ID to pendingDelete to prevent async writes from
@@ -606,6 +641,9 @@ export class TerminalSessionStore {
     // Mark as pending delete BEFORE modifying data to prevent race condition
     // with in-flight saveSessionAsync() calls
     this.pendingDelete.add(sessionId);
+    debugLog('[TerminalSessionStore] removeSession: added to pendingDelete:', sessionId,
+      'pendingDelete size:', this.pendingDelete.size,
+      'all pending IDs:', [...this.pendingDelete].join(', '));
 
     const todaySessions = this.getTodaysSessions();
     if (todaySessions[projectPath]) {
@@ -627,6 +665,8 @@ export class TerminalSessionStore {
     const timer = setTimeout(() => {
       this.pendingDelete.delete(sessionId);
       this.pendingDeleteTimers.delete(sessionId);
+      debugLog('[TerminalSessionStore] Cleanup timer fired for:', sessionId,
+        'removing from pendingDelete. Remaining:', this.pendingDelete.size);
     }, 5000);
     this.pendingDeleteTimers.set(sessionId, timer);
   }

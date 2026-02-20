@@ -88,16 +88,18 @@ function htmlToMarkdown(html: string): string {
   md = md.replace(/<br\s*\/?>/gi, '\n');
   md = md.replace(/<hr\s*\/?>/gi, '---\n\n');
 
-  // Remove any remaining HTML tags
-  md = md.replace(/<[^>]+>/g, '');
+  // Remove any remaining HTML tags (loop to handle nested tag fragments)
+  while (/<[^>]+>/.test(md)) {
+    md = md.replace(/<[^>]+>/g, '');
+  }
 
-  // Decode common HTML entities
-  md = md.replace(/&amp;/g, '&');
+  // Decode common HTML entities (&amp; LAST to prevent double-unescaping like &amp;lt; → &lt; → <)
   md = md.replace(/&lt;/g, '<');
   md = md.replace(/&gt;/g, '>');
   md = md.replace(/&quot;/g, '"');
   md = md.replace(/&#39;/g, "'");
   md = md.replace(/&nbsp;/g, ' ');
+  md = md.replace(/&amp;/g, '&');
 
   // Clean up excessive whitespace
   md = md.replace(/\n{3,}/g, '\n\n');

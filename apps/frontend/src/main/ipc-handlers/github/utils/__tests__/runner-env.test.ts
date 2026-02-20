@@ -30,6 +30,15 @@ vi.mock('../../utils', () => ({
   getGitHubTokenForSubprocess: () => mockGetGitHubTokenForSubprocess(),
 }));
 
+vi.mock('../../../../cli-tool-manager', () => ({
+  getToolInfo: () => ({ found: false, path: undefined, source: undefined }),
+}));
+
+vi.mock('../../../../sentry', () => ({
+  getSentryEnvForSubprocess: () => ({}),
+  safeBreadcrumb: () => {},
+}));
+
 import { getRunnerEnv } from '../runner-env';
 
 describe('getRunnerEnv', () => {

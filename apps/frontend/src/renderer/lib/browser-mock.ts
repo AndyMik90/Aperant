@@ -62,6 +62,10 @@ const browserMockAPI: ElectronAPI = {
     success: true
   }),
 
+  saveCompetitorAnalysis: async () => ({
+    success: true
+  }),
+
   generateRoadmap: (_projectId: string, _enableCompetitorAnalysis?: boolean, _refreshCompetitorAnalysis?: boolean) => {
     console.warn('[Browser Mock] generateRoadmap called');
   },
@@ -221,6 +225,7 @@ const browserMockAPI: ElectronAPI = {
     markReviewPosted: async () => true,
     getPRReview: async () => null,
     getPRReviewsBatch: async () => ({}),
+    notifyExternalReviewComplete: async () => {},
     deletePRReview: async () => true,
     checkNewCommits: async () => ({ hasNewCommits: false, newCommitCount: 0 }),
     checkMergeReadiness: async () => ({ isDraft: false, mergeable: 'UNKNOWN' as const, isBehind: false, ciStatus: 'none' as const, blockers: [] }),
@@ -229,10 +234,16 @@ const browserMockAPI: ElectronAPI = {
     getPRLogs: async () => null,
     getWorkflowsAwaitingApproval: async () => ({ awaiting_approval: 0, workflow_runs: [], can_approve: false }),
     approveWorkflow: async () => true,
-    onPRReviewProgress: () => () => { /* noop */ },
-    onPRReviewComplete: () => () => { /* noop */ },
-    onPRReviewError: () => () => { /* noop */ },
-    onPRLogsUpdated: () => () => { /* noop */ },
+    onPRReviewProgress: () => () => {},
+    onPRReviewComplete: () => () => {},
+    onPRReviewError: () => () => {},
+    onPRReviewStateChange: () => () => {},
+    onPRLogsUpdated: () => () => {},
+    batchAutoFix: () => {},
+    getBatches: async () => [],
+    onBatchProgress: () => () => {},
+    onBatchComplete: () => () => {},
+    onBatchError: () => () => {},
     // Analyze & Group Issues (proactive workflow)
     analyzeIssuesPreview: () => { /* noop */ },
     approveBatches: async () => ({ success: true, batches: [] }),

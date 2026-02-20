@@ -14,6 +14,7 @@ from core.error_utils import (
     is_authentication_error,
     is_rate_limit_error,
     is_tool_concurrency_error,
+    safe_receive_messages,
 )
 from core.file_utils import write_json_atomic
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
@@ -490,7 +491,7 @@ async def run_agent_session(
         # Collect response text and show tool use
         response_text = ""
         debug("session", "Starting to receive response stream...")
-        async for msg in client.receive_response():
+        async for msg in safe_receive_messages(client, caller="session"):
             msg_type = type(msg).__name__
             message_count += 1
             debug_detailed(

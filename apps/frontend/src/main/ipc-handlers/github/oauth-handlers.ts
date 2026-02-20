@@ -55,6 +55,10 @@ function sendAuthChangedToRenderer(oldUsername: string | null, newUsername: stri
       win.webContents.send(IPC_CHANNELS.GITHUB_AUTH_CHANGED, payload);
     }
   }
+  // Uses EventEmitter.emit (not IPC send) so main-process listeners can react.
+  // The listener (PRReviewStateManager) intentionally ignores all args — it only
+  // needs the event signal, not the payload.
+  ipcMain.emit(IPC_CHANNELS.GITHUB_AUTH_CHANGED, payload);
 }
 
 /**
