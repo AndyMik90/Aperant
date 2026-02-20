@@ -187,6 +187,19 @@ def _is_auth_error_response(text: str) -> bool:
     return any(pattern in text_lower for pattern in auth_error_patterns)
 
 
+def _is_rate_limit_response(text: str) -> bool:
+    """Detect rate limit/quota responses surfaced as assistant text."""
+    text_lower = text.lower().strip()
+    rate_limit_patterns = [
+        "you've hit your limit",
+        "you have hit your limit",
+        "rate limit",
+        "rate_limit_event",
+        "quota exceeded",
+    ]
+    return any(pattern in text_lower for pattern in rate_limit_patterns)
+
+
 def _is_tool_concurrency_error(text: str) -> bool:
     """
     Detect the specific tool use concurrency error pattern.
@@ -521,6 +534,17 @@ async def process_sdk_stream(
                                 )
                                 logger.error(f"[{context_name}] {stream_error}")
                                 safe_print(f"[{context_name}] ERROR: {stream_error}")
+                                break
+                            # Detect explicit quota/rate-limit responses early so they
+                            # are not misclassified as generic repeated-response loops.
+                            if _is_rate_limit_response(block.text):
+                                stream_error = "rate_limit_reached"
+                                logger.warning(
+                                    f"[{context_name}] Rate limit detected in AI response"
+                                )
+                                safe_print(
+                                    f"[{context_name}] WARNING: Rate limit detected"
+                                )
                                 break
                             # Check for repeated identical responses (error loop detection).
                             # Skip empty text blocks so they don't reset the counter.

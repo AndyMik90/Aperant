@@ -94,8 +94,8 @@ function AgentSection({ agent, defaultOpen }: { agent: InvestigationAgentResult;
         <span className="truncate">{t(labelKey, defaultLabel)}</span>
       </button>
       {isOpen && (
-        <div className="px-3 pb-3 space-y-2 border-t border-border/30 min-w-0 overflow-hidden">
-          <p className="text-sm text-foreground mt-2">{agent.summary}</p>
+        <div className="px-3 pb-3 space-y-2 border-t border-border/30 min-w-0 overflow-x-hidden">
+          <p className="text-sm text-foreground mt-2 min-w-0 break-words [overflow-wrap:anywhere] whitespace-pre-wrap">{agent.summary}</p>
           {agent.findings.length > 0 && (
             <div>
               <h5 className="text-xs font-medium text-muted-foreground mb-1">
@@ -103,7 +103,7 @@ function AgentSection({ agent, defaultOpen }: { agent: InvestigationAgentResult;
               </h5>
               <ul className="space-y-1">
                 {agent.findings.map((finding, i) => (
-                  <li key={`finding-${i}-${finding.slice(0, 20)}`} className="text-xs text-foreground flex items-start gap-1.5">
+                  <li key={`finding-${i}-${finding.slice(0, 20)}`} className="text-xs text-foreground flex items-start gap-1.5 min-w-0 break-words [overflow-wrap:anywhere] whitespace-pre-wrap">
                     <span className="mt-1 h-1 w-1 rounded-full bg-muted-foreground shrink-0" />
                     {finding}
                   </li>
@@ -118,12 +118,12 @@ function AgentSection({ agent, defaultOpen }: { agent: InvestigationAgentResult;
               </h5>
               <div className="space-y-1">
                 {agent.codeReferences.map((ref, i) => (
-                  <div key={`ref-${ref.file}-${ref.line || i}`} className="text-xs font-mono bg-muted/50 rounded px-2 py-1 truncate">
+                  <div key={`ref-${ref.file}-${ref.line || i}`} className="text-xs font-mono bg-muted/50 rounded px-2 py-1 min-w-0 break-all [overflow-wrap:anywhere]">
                     <span className="text-primary">{ref.file}</span>
                     {ref.line && <span className="text-muted-foreground">:{ref.line}</span>}
                     {ref.endLine && <span className="text-muted-foreground">-{ref.endLine}</span>}
                     {ref.description && (
-                      <span className="text-muted-foreground ml-2">— {ref.description}</span>
+                      <span className="text-muted-foreground ml-2"> - {ref.description}</span>
                     )}
                   </div>
                 ))}
@@ -153,7 +153,7 @@ export function InvestigationPanel({
   const { t } = useTranslation('common');
 
   return (
-    <div className="p-4 space-y-4 w-full min-w-0">
+    <div className="p-4 space-y-4 w-full min-w-0 overflow-x-hidden">
       {/* Resolved suggestion banner */}
       {report.likelyResolved && onCloseIssue && state !== 'done' && (
         <div className="flex items-center gap-3 p-3 rounded-lg bg-green-50 border border-green-200 dark:bg-green-900/20 dark:border-green-800">
@@ -212,7 +212,7 @@ export function InvestigationPanel({
             </button>
           )}
         </div>
-        <p className="text-sm text-foreground">{report.summary}</p>
+        <p className="text-sm text-foreground min-w-0 break-words [overflow-wrap:anywhere] whitespace-pre-wrap">{report.summary}</p>
       </div>
 
       {/* Agent sections with colored bars */}
@@ -231,11 +231,11 @@ export function InvestigationPanel({
           </h4>
           <div className="space-y-1">
             {report.linkedPRs.map((pr: LinkedPR) => (
-              <div key={pr.number} className="flex items-center gap-2 text-xs">
+              <div key={pr.number} className="flex items-center gap-2 text-xs min-w-0">
                 <Badge variant="outline" className="text-[10px]">
                   #{pr.number}
                 </Badge>
-                <span className="text-foreground truncate">{pr.title}</span>
+                <span className="text-foreground min-w-0 flex-1 break-words [overflow-wrap:anywhere]">{pr.title}</span>
                 <Badge variant="secondary" className="text-[10px] ml-auto">
                   {pr.state}
                 </Badge>
@@ -254,8 +254,8 @@ export function InvestigationPanel({
           </h4>
           <div className="flex flex-wrap gap-2">
             {report.suggestedLabels.map((label: SuggestedLabel) => (
-              <div key={label.name} className="flex items-center gap-1 bg-muted/50 rounded-full px-2 py-0.5">
-                <span className="text-xs">{label.name}</span>
+              <div key={label.name} className="flex items-center gap-1 bg-muted/50 rounded-full px-2 py-0.5 max-w-full min-w-0">
+                <span className="text-xs break-all">{label.name}</span>
                 {label.accepted === undefined && onAcceptLabel && onRejectLabel && (
                   <>
                     <button

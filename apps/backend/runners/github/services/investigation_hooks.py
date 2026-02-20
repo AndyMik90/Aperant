@@ -85,14 +85,52 @@ INVESTIGATION_BASH_ALLOWLIST: list[str] = [
 ]
 
 
+def _normalize_command(command: str) -> str:
+    """Normalize command before safety validation.
+
+    Allows one safe shell prelude form used by agents:
+    `cd <path> && <allowlisted-read-only-command>`
+
+    We strip the `cd ... &&` segment so validation can focus on the command
+    itself while still rejecting broader chaining patterns.
+    """
+    stripped = command.strip()
+    if "&&" not in stripped:
+        return stripped
+
+    left, right = stripped.split("&&", 1)
+    # Only allow a single cd prelude, never multi-chain.
+    if "&&" in right:
+        return stripped
+
+    left_stripped = left.strip()
+    right_stripped = right.strip()
+    if not left_stripped.startswith("cd ") or not right_stripped:
+        return stripped
+
+    try:
+        cd_tokens = shlex.split(left_stripped)
+    except ValueError:
+        return stripped
+
+    # Strictly require `cd <single-path-arg>`
+    if len(cd_tokens) != 2 or cd_tokens[0] != "cd":
+        return stripped
+
+    return right_stripped
+
+
 def _is_command_safe(command: str) -> bool:
     """Check if a command is safe for investigation agents.
 
     Validates that:
     1. No dangerous shell operators are present (;, |, &, `, $(), redirects)
+       after optional `cd <path> &&` prelude normalization
     2. The base command is in the allowlist
     3. ``find`` does not use dangerous flags (-exec, -delete, etc.)
     """
+    command = _normalize_command(command)
+
     # Reject shell operators that enable command chaining / injection
     if _DANGEROUS_PATTERNS.search(command):
         return False

@@ -318,7 +318,7 @@ export function InvestigationNeedsAttention({
         {/* Error display */}
         {isFailed && error && (
           <div className="mt-4 p-3 rounded-lg bg-destructive/5 border border-destructive/20">
-            <p className="text-sm text-destructive">
+            <p className="text-sm text-destructive break-words [overflow-wrap:anywhere] whitespace-pre-wrap">
               {t('investigation.statusTree.errorOccurred', { message: error })}
             </p>
           </div>

@@ -171,10 +171,12 @@ async def _run_with_timeout(coro, name: str, timeout: int = SPECIALIST_TIMEOUT_S
 #
 # Note: Values are 1 token lower than API max to reserve space for message separator
 SPECIALIST_MAX_TOKENS = {
-    "root_cause": 127999,  # Maximum for complex multi-file tracing (API max: 128000)
-    "impact": 63999,  # Standard for component mapping (API max: 64000)
-    "fix_advisor": 63999,  # Standard for fix approaches (API max: 64000)
-    "reproducer": 63999,  # Standard for test coverage analysis (API max: 64000)
+    # Keep budgets below API max ceilings to reduce quota spikes and improve
+    # reliability under shared-account investigations.
+    "root_cause": 63999,
+    "impact": 31999,
+    "fix_advisor": 31999,
+    "reproducer": 31999,
 }
 
 # =============================================================================
@@ -412,7 +414,7 @@ class IssueInvestigationOrchestrator(ParallelAgentOrchestrator):
         )
 
         # Build the combined report
-        report = self._build_report(
+        report = await self._build_report(
             issue_number=issue_number,
             issue_title=issue_title,
             investigation_id=investigation_id,
@@ -782,7 +784,7 @@ the root cause — focus on your specialty using these findings as ground truth.
                         "msg_count": 0,
                     }
                 else:
-                    success = not (result and result.get("error"))
+                    success = self._specialist_succeeded_for_lifecycle(result)
                     emit_json_event(
                         "agent_done",
                         agent_name,
@@ -829,7 +831,7 @@ the root cause — focus on your specialty using these findings as ground truth.
                         "msg_count": 0,
                     }
                 else:
-                    success = not (result and result.get("error"))
+                    success = self._specialist_succeeded_for_lifecycle(result)
                     emit_json_event(
                         "agent_done",
                         cfg.name,
@@ -909,7 +911,7 @@ the root cause — focus on your specialty using these findings as ground truth.
             )
 
         # Parse root cause for context injection into Phase 2
-        root_cause_parsed = self._parse_specialist_result(
+        root_cause_parsed = await self._parse_specialist_result(
             "root_cause", phase_1_result_map, RootCauseAnalysis
         )
         root_cause_ctx = self._build_root_cause_context(root_cause_parsed)
@@ -1009,7 +1011,18 @@ the root cause — focus on your specialty using these findings as ground truth.
 
         return all_results
 
-    def _build_report(
+    @staticmethod
+    def _specialist_succeeded_for_lifecycle(result: dict[str, Any] | None) -> bool:
+        """Determine whether a specialist should be marked green in timeline UI."""
+        if not isinstance(result, dict):
+            return False
+        # Structured output is authoritative success, even if stream emitted
+        # a recoverable warning/error marker.
+        if result.get("structured_output"):
+            return True
+        return not bool(result.get("error"))
+
+    async def _build_report(
         self,
         issue_number: int,
         issue_title: str,
@@ -1031,16 +1044,16 @@ the root cause — focus on your specialty using these findings as ground truth.
             Combined InvestigationReport
         """
         # Parse each specialist's structured output
-        root_cause = self._parse_specialist_result(
+        root_cause = await self._parse_specialist_result(
             "root_cause", specialist_results, RootCauseAnalysis
         )
-        impact = self._parse_specialist_result(
+        impact = await self._parse_specialist_result(
             "impact", specialist_results, ImpactAssessment
         )
-        fix_advice = self._parse_specialist_result(
+        fix_advice = await self._parse_specialist_result(
             "fix_advisor", specialist_results, FixAdvice
         )
-        reproduction = self._parse_specialist_result(
+        reproduction = await self._parse_specialist_result(
             "reproducer", specialist_results, ReproductionAnalysis
         )
 
@@ -1099,7 +1112,7 @@ the root cause — focus on your specialty using these findings as ground truth.
             likely_resolved=likely_resolved,
         )
 
-    def _parse_specialist_result(
+    async def _parse_specialist_result(
         self,
         name: str,
         specialist_results: dict[str, dict[str, Any]],
@@ -1120,6 +1133,18 @@ the root cause — focus on your specialty using these findings as ground truth.
             return None
 
         structured_output = result.get("structured_output")
+        result_text = result.get("result_text", "")
+
+        if structured_output:
+            try:
+                return model_class.model_validate(structured_output)
+            except Exception as e:
+                logger.error(
+                    f"[Investigation] Failed to parse {name} output: {e}",
+                    exc_info=True,
+                )
+                safe_print(f"[Investigation] {name}: schema validation failed: {e}")
+
         if not structured_output:
             error = result.get("error", "unknown")
             msg_count = result.get("msg_count", 0)
@@ -1131,16 +1156,94 @@ the root cause — focus on your specialty using these findings as ground truth.
                 f"[Investigation] {name}: no structured output "
                 f"(error={error}, msgs={msg_count})"
             )
+
+        error_text = str(result.get("error") or "").lower()
+        if "rate_limit" in error_text or "hit your limit" in error_text:
+            return None
+
+        recovered = await self._attempt_specialist_extraction_call(
+            name=name,
+            model_class=model_class,
+            analysis_text=result_text,
+        )
+        if recovered is not None:
+            safe_print(f"[Investigation] {name}: recovered structured output")
+            return recovered
+
+        return None
+
+    async def _attempt_specialist_extraction_call(
+        self,
+        name: str,
+        model_class: type,
+        analysis_text: str,
+    ) -> Any | None:
+        """Recover specialist output when native structured output is missing."""
+        analysis_text = (analysis_text or "").strip()
+        if not analysis_text:
+            return None
+
+        # Keep extraction prompt bounded.
+        max_chars = 16_000
+        if len(analysis_text) > max_chars:
+            analysis_text = analysis_text[-max_chars:]
+
+        model = self.config.model or "sonnet"
+        if not model.startswith("claude-"):
+            model = resolve_model_id(model)
+
+        extraction_prompt = (
+            "Convert the specialist analysis into JSON that matches the provided schema.\n"
+            "Rules:\n"
+            "- Use only facts present in the analysis text.\n"
+            "- If a field is missing, use conservative defaults rather than inventing details.\n"
+            "- Keep list fields as empty lists when unknown.\n\n"
+            f"Specialist: {name}\n"
+            "Analysis text:\n"
+            f"{analysis_text}"
+        )
+
+        extraction_cfg = SpecialistConfig(
+            name=f"{name}_extract",
+            prompt_file="",
+            tools=[],
+            description=f"Structured output recovery for {name}",
+            max_turns=2,
+        )
+
+        safe_print(f"[Investigation] {name}: attempting extraction recovery")
+        try:
+            extraction_result = await self._run_specialist_session(
+                config=extraction_cfg,
+                prompt=extraction_prompt,
+                project_root=self.project_dir,
+                model=model,
+                thinking_budget=get_thinking_budget("low"),
+                output_schema=model_class.model_json_schema(),
+                agent_type="investigation_specialist_extraction",
+                context_name=f"Investigation:{name}:extract",
+                max_messages=120,
+                thinking_level="low",
+            )
+        except Exception as e:
+            logger.warning(
+                f"[Investigation] {name}: extraction recovery failed to run: {e}"
+            )
+            return None
+
+        recovered_output = extraction_result.get("structured_output")
+        if not recovered_output:
+            logger.warning(
+                f"[Investigation] {name}: extraction call returned no structured output"
+            )
             return None
 
         try:
-            return model_class.model_validate(structured_output)
+            return model_class.model_validate(recovered_output)
         except Exception as e:
-            logger.error(
-                f"[Investigation] Failed to parse {name} output: {e}",
-                exc_info=True,
+            logger.warning(
+                f"[Investigation] {name}: extraction output validation failed: {e}"
             )
-            safe_print(f"[Investigation] {name}: schema validation failed: {e}")
             return None
 
     def _generate_summary(

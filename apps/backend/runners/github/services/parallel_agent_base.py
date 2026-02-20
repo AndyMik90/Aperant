@@ -348,6 +348,14 @@ class ParallelAgentOrchestrator:
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
+        def _should_retry_result(result: Any) -> bool:
+            """Retry recoverable stream errors without structured output."""
+            if not isinstance(result, dict):
+                return False
+            if result.get("structured_output"):
+                return False
+            return bool(result.get("error") and result.get("error_recoverable"))
+
         # Build position-indexed result map
         result_map: dict[int, Any] = {}
         failed_indices: list[int] = []
@@ -357,6 +365,15 @@ class ParallelAgentOrchestrator:
                 failed_indices.append(i)
             else:
                 result_map[i] = result
+                if _should_retry_result(result):
+                    logger.warning(
+                        f"[{orchestrator_name}] Specialist {i} returned recoverable "
+                        f"error '{result.get('error')}', scheduling retry"
+                    )
+                    failed_indices.append(i)
+
+        # Preserve order while de-duping in case a task matched multiple conditions.
+        failed_indices = list(dict.fromkeys(failed_indices))
 
         # Retry failed specialists once if retry factories are provided
         if failed_indices and retry_tasks:
@@ -394,11 +411,27 @@ class ParallelAgentOrchestrator:
                         )
                         still_failing.append(idx)
                     else:
-                        safe_print(
-                            f"[{orchestrator_name}] Retry succeeded for specialist {idx}",
-                            flush=True,
+                        retry_has_error = bool(
+                            isinstance(retry_result, dict)
+                            and retry_result.get("error")
+                            and not retry_result.get("structured_output")
                         )
-                        result_map[idx] = retry_result
+                        if retry_has_error:
+                            logger.warning(
+                                f"[{orchestrator_name}] Retry for specialist {idx} "
+                                f"still returned error: {retry_result.get('error')}"
+                            )
+                            still_failing.append(idx)
+                            # Keep original result when available (it may contain
+                            # more complete text output than the retry).
+                            if idx not in result_map:
+                                result_map[idx] = retry_result
+                        else:
+                            safe_print(
+                                f"[{orchestrator_name}] Retry succeeded for specialist {idx}",
+                                flush=True,
+                            )
+                            result_map[idx] = retry_result
 
                 # Log final summary of permanently failed specialists
                 if still_failing:

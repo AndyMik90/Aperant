@@ -336,12 +336,15 @@ class InvestigationLogCollector {
       if (parsed.lifecycleEvent === 'started') {
         lifecycleAgent.status = 'active';
         lifecycleAgent.startedAt = new Date().toISOString();
+        lifecycleAgent.error = undefined;
       } else if (parsed.lifecycleEvent === 'done') {
         lifecycleAgent.status = 'completed';
         lifecycleAgent.completedAt = new Date().toISOString();
+        lifecycleAgent.error = undefined;
       } else if (parsed.lifecycleEvent === 'failed') {
         lifecycleAgent.status = 'failed';
         lifecycleAgent.completedAt = new Date().toISOString();
+        lifecycleAgent.error = parsed.lifecycleError ?? 'unknown';
       }
       this.save();
       return; // lifecycle events are metadata, not log entries
@@ -417,9 +420,11 @@ class InvestigationLogCollector {
       if (success) {
         agent.status = 'completed';
         agent.completedAt = new Date().toISOString();
+        agent.error = undefined;
       } else if (agent.status === 'active') {
         agent.status = 'failed';
         agent.completedAt = new Date().toISOString();
+        agent.error = agent.error ?? 'Unknown investigation failure';
       }
       // On failure, pending agents stay pending (they never started)
     }
@@ -1628,8 +1633,21 @@ function processQueue(getMainWindow: () => BrowserWindow | null, agentManager?: 
       remainingInQueue: investigationQueue.length,
     });
 
+    // IMPORTANT: Reserve the slot in activeInvestigations BEFORE calling runInvestigation
+    // to prevent race conditions where rapid IPC calls all pass the parallel limit check.
+    const processKey = `${next.projectId}:${next.issueNumber}`;
+    activeInvestigations.set(processKey, null as unknown as ChildProcess);
+
     // Fire-and-forget: runInvestigation will call processQueue again when it finishes
-    runInvestigation(next.projectId, next.issueNumber, getMainWindow, agentManager);
+    runInvestigation(next.projectId, next.issueNumber, getMainWindow, agentManager).catch((err) => {
+      // If runInvestigation fails before setting the actual subprocess, clean up the placeholder
+      activeInvestigations.delete(processKey);
+      debugLog('Queued investigation failed to start, cleaned up placeholder', {
+        projectId: next.projectId,
+        issueNumber: next.issueNumber,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    });
 
     // Update queue positions for remaining items
     broadcastQueuePositions(getMainWindow);
@@ -1713,8 +1731,20 @@ export function registerInvestigationHandlers(
         return;
       }
 
-      // Under the limit — start immediately
-      runInvestigation(projectId, issueNumber, getMainWindow, agentManager);
+      // Under the limit — reserve slot and start immediately
+      // IMPORTANT: Reserve the slot in activeInvestigations BEFORE calling runInvestigation
+      // to prevent race conditions where rapid IPC calls all pass the parallel limit check.
+      // runInvestigation will replace this placeholder with the actual subprocess.
+      activeInvestigations.set(processKey, null as unknown as ChildProcess);
+      runInvestigation(projectId, issueNumber, getMainWindow, agentManager).catch((err) => {
+        // If runInvestigation fails before setting the actual subprocess, clean up the placeholder
+        activeInvestigations.delete(processKey);
+        debugLog('Investigation failed to start, cleaned up placeholder', {
+          projectId,
+          issueNumber,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      });
     },
   );
 

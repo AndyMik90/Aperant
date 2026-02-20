@@ -108,7 +108,11 @@ export function InvestigationLogs({
     });
   };
 
-  const hasAnyLogs = logs && AGENT_ORDER.some(key => logs.agents[key]?.entries.length > 0);
+  const hasAnyLogs = logs && AGENT_ORDER.some((key) => {
+    const agent = logs.agents[key];
+    if (!agent) return false;
+    return agent.entries.length > 0 || (agent.status === 'failed' && Boolean(agent.error));
+  });
 
   return (
     <CollapsibleCard
@@ -124,7 +128,9 @@ export function InvestigationLogs({
         ) : (
           AGENT_ORDER.map((agentKey) => {
             const agentLog = logs?.agents[agentKey];
-            if (!agentLog || agentLog.entries.length === 0) return null;
+            if (!agentLog) return null;
+            const showFailedSummary = agentLog.status === 'failed' && Boolean(agentLog.error);
+            if (agentLog.entries.length === 0 && !showFailedSummary) return null;
             return (
               <AgentLogSection
                 key={agentKey}
@@ -273,21 +279,27 @@ function AgentLogEntries({ agentLog, isActive, maxVisible = 20 }: AgentLogEntrie
             {t('investigation.statusTree.showMore', { count: entries.length - maxVisible })}
           </button>
         )}
-        {visibleEntries.map((entry, i) => (
-          <div
-            key={`${entry.timestamp}-${i}`}
-            className={cn(
-              'text-xs font-mono truncate leading-5',
-              entry.type === 'error' && 'text-destructive',
-              entry.type === 'tool_start' && 'text-muted-foreground',
-              entry.type === 'text' && 'text-foreground/80',
-              entry.type === 'info' && 'text-muted-foreground',
-              entry.type === 'thinking' && 'text-muted-foreground/60 italic',
-            )}
-          >
-            {entry.content}
+        {visibleEntries.length > 0 ? (
+          visibleEntries.map((entry, i) => (
+            <div
+              key={`${entry.timestamp}-${i}`}
+              className={cn(
+                'text-xs font-mono truncate leading-5',
+                entry.type === 'error' && 'text-destructive',
+                entry.type === 'tool_start' && 'text-muted-foreground',
+                entry.type === 'text' && 'text-foreground/80',
+                entry.type === 'info' && 'text-muted-foreground',
+                entry.type === 'thinking' && 'text-muted-foreground/60 italic',
+              )}
+            >
+              {entry.content}
+            </div>
+          ))
+        ) : agentLog.error ? (
+          <div className="text-xs font-mono text-destructive/90 break-words leading-5">
+            {agentLog.error}
           </div>
-        ))}
+        ) : null}
         {hasMore && showAll && (
           <button
             type="button"

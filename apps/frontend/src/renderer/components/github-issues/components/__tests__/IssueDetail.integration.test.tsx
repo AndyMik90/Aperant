@@ -5,6 +5,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { IssueDetail } from '../IssueDetail';
 import type { GitHubIssue } from '@shared/types';
+import type { InvestigationReport } from '@shared/types';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
@@ -42,6 +43,52 @@ const baseProps = {
   issue: baseIssue,
   onInvestigate: vi.fn(),
   investigationResult: null,
+};
+
+const baseReport: InvestigationReport = {
+  rootCause: {
+    agentType: 'root_cause',
+    summary: 'Root cause summary',
+    findings: ['Root cause finding'],
+    codeReferences: [],
+    rootCause: 'Incorrect merge path',
+    codePaths: ['src/main/orchestrator.ts'],
+  },
+  impact: {
+    agentType: 'impact',
+    summary: 'Impact summary',
+    findings: ['Impact finding'],
+    codeReferences: [],
+    severity: 'high',
+    affectedComponents: ['Merge flow'],
+    userImpact: 'Users may think merge succeeded when it did not.',
+    riskIfUnfixed: 'False confidence in merge outcomes.',
+  },
+  fixAdvice: {
+    agentType: 'fix_advisor',
+    summary: 'Fix summary',
+    findings: ['Fix finding'],
+    codeReferences: [],
+    suggestedApproaches: [],
+    recommendedApproach: 0,
+    patternsToFollow: [],
+  },
+  reproduction: {
+    agentType: 'reproducer',
+    summary: 'Reproduction summary',
+    findings: ['Reproduction finding'],
+    codeReferences: [],
+    reproducible: true,
+    existingTests: [],
+    testGaps: [],
+    suggestedTests: [],
+  },
+  summary: 'Overall investigation summary',
+  severity: 'high',
+  suggestedLabels: [],
+  likelyResolved: false,
+  linkedPRs: [],
+  timestamp: '2026-01-03T00:00:00Z',
 };
 
 describe('IssueDetail integration', () => {
@@ -129,6 +176,38 @@ describe('IssueDetail integration', () => {
     expect(screen.queryByRole('button', { name: 'accessibility.editAriaLabel' })).toBeNull();
     // Body renders as plain markdown
     expect(screen.getByText('Issue body text')).toBeDefined();
+  });
+
+  it('applies overflow-safe wrapping styles to markdown body', () => {
+    const { container } = render(<IssueDetail {...baseProps} />);
+    const markdownContainer = container.querySelector('.prose');
+    expect(markdownContainer).not.toBeNull();
+    expect(markdownContainer?.className).toContain('break-words');
+    expect(markdownContainer?.className).toContain('overflow-hidden');
+  });
+
+  it('applies overflow-safe wrapping styles to investigation summary content', () => {
+    const longToken = `UNBROKEN_${'x'.repeat(180)}`;
+    const report: InvestigationReport = {
+      ...baseReport,
+      summary: longToken,
+      rootCause: { ...baseReport.rootCause, summary: longToken },
+    };
+
+    render(
+      <IssueDetail
+        {...baseProps}
+        projectId="project-1"
+        investigationState="findings_ready"
+        investigationReport={report}
+      />,
+    );
+
+    const summaryNodes = screen.getAllByText(longToken);
+    expect(summaryNodes.length).toBeGreaterThan(0);
+    for (const node of summaryNodes) {
+      expect(node.className).toContain('break-words');
+    }
   });
 
   it('body InlineEditor calls onEditBody on save', async () => {

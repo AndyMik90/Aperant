@@ -314,6 +314,7 @@ export interface InvestigationAgentLog {
   entries: InvestigationLogEntry[];
   startedAt?: string;
   completedAt?: string;
+  error?: string;
 }
 
 /**

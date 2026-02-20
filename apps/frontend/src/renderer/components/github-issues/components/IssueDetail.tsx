@@ -76,7 +76,7 @@ export function IssueDetail({
   const renderedBody = useMemo(() => {
     if (!issue.body) return null;
     return (
-      <div className="prose prose-sm dark:prose-invert max-w-none">
+      <div className="prose prose-sm dark:prose-invert max-w-none w-full min-w-0 overflow-hidden break-words [overflow-wrap:anywhere] prose-pre:overflow-x-auto prose-pre:max-w-full prose-pre:whitespace-pre-wrap prose-code:break-all [&_code]:whitespace-pre-wrap [&_*]:max-w-full">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>{issue.body}</ReactMarkdown>
       </div>
     );
@@ -117,7 +117,7 @@ export function IssueDetail({
 
   return (
     <ScrollArea className="flex-1 w-full">
-      <div className="p-4 space-y-4 w-full min-w-0">
+      <div className="p-4 space-y-4 w-full min-w-0 overflow-x-hidden">
         {/* Header */}
         <div className="space-y-2">
           <div className="flex items-start justify-between gap-4 min-w-0 overflow-hidden">
@@ -137,7 +137,7 @@ export function IssueDetail({
             </Button>
           </div>
           {onEditTitle ? (
-            <h2 className="text-lg font-semibold text-foreground">
+            <h2 className="text-lg font-semibold text-foreground min-w-0 break-words [overflow-wrap:anywhere]">
               <InlineEditor
                 value={issue.title}
                 onSave={onEditTitle}
@@ -146,7 +146,7 @@ export function IssueDetail({
               />
             </h2>
           ) : (
-            <h2 className="text-lg font-semibold text-foreground">
+            <h2 className="text-lg font-semibold text-foreground min-w-0 break-words [overflow-wrap:anywhere]">
               {issue.title}
             </h2>
           )}
@@ -166,7 +166,7 @@ export function IssueDetail({
         <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground min-w-0">
           <div className="flex items-center gap-1">
             <User className="h-4 w-4" />
-            {issue.author.login}
+            <span className="break-all">{issue.author.login}</span>
           </div>
           <div className="flex items-center gap-1">
             <Clock className="h-4 w-4" />
@@ -190,7 +190,7 @@ export function IssueDetail({
           ) : issue.assignees.length > 0 ? (
             <div className="flex items-center gap-1">
               {issue.assignees.map((assignee) => (
-                <Badge key={assignee.login} variant="outline" className="text-xs">
+                <Badge key={assignee.login} variant="outline" className="text-xs max-w-full break-all">
                   <User className="h-3 w-3 mr-1" />
                   {assignee.login}
                 </Badge>
@@ -215,6 +215,7 @@ export function IssueDetail({
                 <Badge
                   key={label.id}
                   variant="outline"
+                  className="max-w-full break-all"
                   style={{ backgroundColor: `${color}20`, borderColor: `${color}40`, color }}
                 >
                   {label.name}
@@ -372,7 +373,7 @@ export function IssueDetail({
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">{t('phase5.description')}</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="min-w-0">
             {onEditBody ? (
               <InlineEditor
                 value={issue.body ?? ''}
