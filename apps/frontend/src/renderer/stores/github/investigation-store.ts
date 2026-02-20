@@ -186,6 +186,7 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
           linkedTaskStatus: existing?.linkedTaskStatus ?? null,
           activityLog: existing?.activityLog ?? [],
           isCancelled: existing?.isCancelled ?? false,
+          hasResumeSessions: existing?.hasResumeSessions ?? false,
         }
       }
     };
@@ -356,7 +357,6 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
     }
     const now = new Date().toISOString();
     const log = [...(existing.activityLog ?? []), { event: 'posted to GitHub', timestamp: now }].slice(-50);
-    console.log(`[InvestigationStore] Setting githubCommentId=${commentId} and postedAt=${now} for ${key}`);
     return {
       investigations: {
         ...state.investigations,
@@ -379,7 +379,6 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
     }
     const now = new Date().toISOString();
     const log = [...(existing.activityLog ?? []), { event: `task created: ${specId}`, timestamp: now }].slice(-50);
-    console.log(`[InvestigationStore] Setting specId=${specId} for ${key}`);
     return {
       investigations: {
         ...state.investigations,
@@ -403,7 +402,6 @@ export const useInvestigationStore = create<InvestigationStoreState>((set, get) 
       // (e.g., currently running or already loaded)
       // Prevents race condition where fresh data gets overwritten by stale disk data
       if (newInvestigations[key]?.isInvestigating) {
-        console.log(`[InvestigationStore] Skipping overwrite of active investigation ${key}`);
         continue;
       }
 
@@ -703,7 +701,6 @@ export async function loadPersistedInvestigations(projectId: string): Promise<vo
     if (result.success && result.data && result.data.length > 0) {
       const store = useInvestigationStore.getState();
       store.loadPersistedInvestigations(projectId, result.data);
-      console.log(`[InvestigationStore] Loaded ${result.data.length} persisted investigations for project ${projectId}`);
     }
   } catch (error) {
     console.warn('[InvestigationStore] Failed to load persisted investigations:', error);

@@ -10,9 +10,9 @@
 import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
 import { execFileSync } from 'child_process';
-import path from 'node:path';
-import os from 'node:os';
-import fs from 'node:fs';
+import path from 'path';
+import os from 'os';
+import fs from 'fs';
 import { IPC_CHANNELS } from '../../../shared/constants/ipc';
 import type { MutationResult } from '../../../shared/types/mutations';
 import {

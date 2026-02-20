@@ -1861,7 +1861,7 @@ export function registerInvestigationHandlers(
       // Kill all active investigations for this project
       for (const [processKey, proc] of activeInvestigations.entries()) {
         if (processKey.startsWith(`${projectId}:`)) {
-          if (!proc.killed) {
+          if (proc && !proc.killed) {
             killProcessGracefully(proc);
             debugLog('Investigation process killed (cancel all)', { processKey });
           }

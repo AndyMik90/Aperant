@@ -557,7 +557,10 @@ class GHClient:
         # Use GitHub API directly via 'gh api' to post the comment
         # This allows us to get JSON response with the comment ID
         # Note: gh issue comment doesn't support --json flag, but gh api does
-        endpoint = f"repos/{{owner}}/{{repo}}/issues/{issue_number}/comments"
+        if self.repo:
+            endpoint = f"repos/{self.repo}/issues/{issue_number}/comments"
+        else:
+            endpoint = f"repos/{{owner}}/{{repo}}/issues/{issue_number}/comments"
         args = [
             "api",
             "--method",
@@ -568,13 +571,6 @@ class GHClient:
             "--jq",
             ".id",
         ]
-        # Note: gh api doesn't use -R flag, the repo is already in the endpoint URL
-        # Only add -R if we have a custom repo configured (not the default from git)
-        if self.repo:
-            # For gh api, we need to use --hostname to specify a different repo
-            # But since the endpoint already has {{owner}}/{{repo}}, it will be
-            # expanded correctly by gh CLI using the default git remote
-            pass
         result = await self.run(args, raise_on_error=False)
 
         # Check for gh CLI errors
@@ -648,7 +644,10 @@ class GHClient:
         Returns:
             List of comment dicts from the GitHub API
         """
-        endpoint = f"repos/{{owner}}/{{repo}}/issues/{issue_number}/comments"
+        if self.repo:
+            endpoint = f"repos/{self.repo}/issues/{issue_number}/comments"
+        else:
+            endpoint = f"repos/{{owner}}/{{repo}}/issues/{issue_number}/comments"
         args = ["api", "--method", "GET", endpoint]
         result = await self.run(args, raise_on_error=False)
 
@@ -778,9 +777,12 @@ class GHClient:
             comment_id: The ID of the review comment to reply to
             body: Reply body text
         """
-        endpoint = (
-            f"repos/{{owner}}/{{repo}}/pulls/{pr_number}/comments/{comment_id}/replies"
-        )
+        if self.repo:
+            endpoint = (
+                f"repos/{self.repo}/pulls/{pr_number}/comments/{comment_id}/replies"
+            )
+        else:
+            endpoint = f"repos/{{owner}}/{{repo}}/pulls/{pr_number}/comments/{comment_id}/replies"
         args = ["api", "--method", "POST", endpoint, "-f", f"body={body}"]
         await self.run(args)
 
