@@ -2,7 +2,7 @@
 
 > Your complete guide to using GitHub Issues integration in Auto Claude
 
-**Last updated:** 2026-02-16
+**Last updated:** 2026-02-20
 **Audience:** All users | **Prerequisites:** None
 
 ---
@@ -27,7 +27,7 @@ The GitHub Issues integration brings AI-powered investigation and autonomous dev
 ### What Can It Do?
 
 - **Import issues** from any GitHub repository
-- **Run AI investigations** with 4 parallel specialist agents
+- **Run AI investigations** with 4 specialist agents in a two-phase pipeline
 - **Create Auto Claude tasks** directly from investigation results
 - **Post findings** back to GitHub as comments
 - **Track progress** from issue to completed work
@@ -37,7 +37,7 @@ The GitHub Issues integration brings AI-powered investigation and autonomous dev
 Traditional issue handling involves manual investigation, debugging, and planning. Auto Claude's GitHub Issues integration automates this:
 
 - **Save time:** AI investigates while you focus on other work
-- **Deeper insights:** 4 specialists analyze in parallel (root cause, impact, fixes, reproducibility)
+- **Deeper insights:** 4 specialists analyze your issue (root cause, impact, fixes, reproducibility)
 - **Seamless workflow:** Go from GitHub issue to implemented feature without leaving Auto Claude
 - **Consistent quality:** Every investigation follows the same thorough process
 
@@ -77,11 +77,13 @@ Get your first issue investigated in under 5 minutes.
 
 1. Click on any issue to view details
 2. Click the **"Investigate"** button
-3. Watch as 4 AI specialist agents run in parallel:
-   - 🔍 **Root Cause Analyzer** - Finds the source of the issue
-   - 📊 **Impact Assessor** - Determines affected areas and users
-   - 💡 **Fix Advisor** - Suggests solution approaches
-   - 🧪 **Reproducer** - Analyzes reproducibility and test coverage
+3. Watch as 4 AI specialist agents analyze your issue:
+   - **Phase 1** runs sequentially by default:
+     - 🔍 **Root Cause Analyzer** - Finds the source of the issue
+     - 🧪 **Reproducer** - Analyzes reproducibility (with root cause context)
+   - **Phase 2** runs in parallel:
+     - 📊 **Impact Assessor** - Determines affected areas and users
+     - 💡 **Fix Advisor** - Suggests solution approaches (with root cause context)
 
 ### Step 4: Create a Task (30 seconds)
 
@@ -116,8 +118,8 @@ Once investigation completes:
 
 ### AI-Powered Investigation
 
-**4 Parallel Specialist Agents**
-Each issue investigation runs 4 specialist agents simultaneously:
+**4 Specialist Agents (Two-Phase Pipeline)**
+Each issue investigation runs 4 specialist agents in two phases:
 
 | Specialist | What It Does | Why It Matters |
 |------------|--------------|----------------|
@@ -208,7 +210,7 @@ graph TD
 - Select based on priority, labels, or assignment
 
 **2. Investigate with AI**
-- 4 specialists analyze in parallel
+- 4 specialists analyze in two phases
 - Root cause, impact, fix options, reproducibility
 - Comprehensive report in minutes
 
@@ -311,6 +313,7 @@ These settings control how investigations behave for a specific project.
 |---------|-------------|---------|-------|
 | **Max parallel investigations** | Maximum concurrent investigations | 3 | 1-10 |
 | **Fast mode investigations** | Use Opus 4.6 Fast Mode (2.5x faster, higher cost) | Off | Toggle |
+| **Phase 1 execution mode** | Sequential (stable) or Parallel (faster) | Sequential | Sequential / Parallel |
 
 #### Label Filtering
 
@@ -387,7 +390,7 @@ These global settings control which AI model and thinking level each specialist 
 3. Click the **"Investigate"** button
 
 **Investigation Progress**
-Watch as 4 specialist agents run in parallel:
+Watch as 4 specialist agents work through two phases:
 - Each specialist shows progress in real-time
 - Terminal output shows agent thinking
 - Estimated time remaining updates continuously

@@ -2,7 +2,7 @@
 
 > Optimize AI investigations for performance, cost, and your specific needs
 
-**Last updated:** 2026-02-16
+**Last updated:** 2026-02-20
 **Audience:** Technical users, team leads | **Prerequisites:** [User Guide](github-issues-user-guide.md)
 
 ---
@@ -72,15 +72,12 @@ Fast Mode is an Opus 4.6 feature that generates output 2.5x faster than standard
 Opus 4.6 supports up to 128K output tokens—enough for extremely deep analysis.
 
 **How It's Used**
-The **Root Cause Analyzer** specialist gets the maximum token budget:
-- Can trace issues across hundreds of files
-- Provides detailed code explanations
-- Returns comprehensive analysis with examples
+While Opus 4.6 supports the full 128K output window, Auto Claude uses lower per-specialist limits to reduce quota spikes and improve reliability. The **Root Cause Analyzer** gets the highest budget at 63,999 tokens, which is sufficient for tracing issues across hundreds of files and providing detailed code explanations.
 
 **Why It Matters**
-- Complex bugs require deep analysis
-- Large codebases need more context
-- Thorough investigations save debugging time
+- Lower limits prevent quota exhaustion on shared accounts
+- Reduces cost variance between investigations
+- Still provides ample room for thorough analysis
 
 ### 3. Per-Specialist Token Limits
 
@@ -88,15 +85,15 @@ Each specialist agent has a different token budget based on its role:
 
 | Specialist | Token Limit | Rationale |
 |------------|-------------|-----------|
-| Root Cause Analyzer | 127,999 | Needs maximum depth for tracing |
-| Impact Assessor | 63,999 | Analyzes scope, doesn't need code details |
-| Fix Advisor | 63,999 | Provides approaches, not implementation |
-| Reproducer | 63,999 | Analyzes test coverage, focused scope |
+| Root Cause Analyzer | 63,999 | Highest budget for deep code tracing |
+| Impact Assessor | 31,999 | Analyzes scope, doesn't need code details |
+| Fix Advisor | 31,999 | Provides approaches, not implementation |
+| Reproducer | 31,999 | Analyzes test coverage, focused scope |
 
 **Why Different Limits?**
-- Root cause analysis is the most token-intensive (tracing code paths)
+- Root cause analysis is the most token-intensive (tracing code paths) and gets double the budget
 - Other specialists have focused tasks that need less output
-- Optimizes cost while maintaining quality
+- Capped well below 128K to reduce quota spikes and improve reliability across accounts
 
 ### 4. Adaptive Thinking
 
@@ -117,7 +114,7 @@ Adaptive thinking enables the model to spend more compute on complex problems.
 
 ## The 4 Specialist Agents
 
-Each investigation runs 4 specialist agents in parallel. Here's a deep dive into each:
+Each investigation runs 4 specialist agents in two phases. Here's a deep dive into each:
 
 ### 🔍 Root Cause Analyzer
 
@@ -139,7 +136,7 @@ Traces bugs and issues to their source code.
 - Related code that may need changes
 - Image analysis (descriptions of screenshots, visual bugs, error messages in images)
 
-**Token Budget:** 127,999 (maximum)
+**Token Budget:** 63,999 (maximum)
 
 **Example Output**
 ```
@@ -176,7 +173,7 @@ Determines the blast radius and user impact of issues.
 - Severity assessment (low/medium/high/critical)
 - Related issues that may be impacted
 
-**Token Budget:** 63,999
+**Token Budget:** 31,999
 
 **Example Output**
 ```
@@ -217,7 +214,7 @@ Suggests concrete fix approaches with pros and cons.
 - Recommended approach with reasoning
 - Implementation hints
 
-**Token Budget:** 63,999
+**Token Budget:** 31,999
 
 **Example Output**
 ```
@@ -263,7 +260,7 @@ Analyzes reproducibility and test coverage.
 - Test coverage gaps
 - Suggestions for test improvements
 
-**Token Budget:** 63,999
+**Token Budget:** 31,999
 
 **Example Output**
 ```
@@ -351,10 +348,10 @@ Customize token limits per specialist (advanced):
 1. Go to **Project Settings → GitHub Integration → AI Investigation → Advanced**
 2. Expand specialist configuration
 3. Adjust token limits per specialist:
-   - Root Cause Analyzer (default: 127,999)
-   - Impact Assessor (default: 63,999)
-   - Fix Advisor (default: 63,999)
-   - Reproducer (default: 63,999)
+   - Root Cause Analyzer (default: 63,999)
+   - Impact Assessor (default: 31,999)
+   - Fix Advisor (default: 31,999)
+   - Reproducer (default: 31,999)
 
 **When to Adjust**
 - **Increase** if investigations are cut off mid-analysis
@@ -408,18 +405,22 @@ Auto Claude automatically:
 ```mermaid
 graph TD
     User[User clicks Investigate] --> Orch[Investigation Orchestrator]
-    Orch --> RCA[Root Cause Analyzer]
-    Orch --> IA[Impact Assessor]
-    Orch --> FA[Fix Advisor]
-    Orch --> Rep[Reproducer]
-    RCA --> Agg[Report Aggregator]
-    IA --> Agg
+    Orch --> P1[Phase 1: Sequential by default]
+    P1 --> RCA[Root Cause Analyzer]
+    RCA --> Rep[Reproducer + root cause context]
+    Rep --> P2[Phase 2: Parallel]
+    P2 --> IA[Impact Assessor + root cause context]
+    P2 --> FA[Fix Advisor + root cause context]
+    IA --> Agg[Report Aggregator]
     FA --> Agg
+    RCA --> Agg
     Rep --> Agg
     Agg --> Display[Display to User]
 
     style User fill:#e1f5ff
     style Orch fill:#fff4e1
+    style P1 fill:#f3e5f5
+    style P2 fill:#f3e5f5
     style RCA fill:#e8f5e9
     style IA fill:#e8f5e9
     style FA fill:#e8f5e9
@@ -434,10 +435,11 @@ graph TD
 
 | Component | File | Purpose |
 |-----------|------|---------|
-| Investigation Orchestrator | `services/investigation_hooks.py` | Manages investigation lifecycle |
-| Specialist Runners | `services/investigation_spec_generator.py` | Runs each specialist |
-| Report Aggregator | `services/investigation_models.py` | Combines specialist outputs |
-| Context Builder | `context_gatherer.py` | Builds context for specialists |
+| Investigation Orchestrator | `services/issue_investigation_orchestrator.py` | Manages investigation lifecycle and two-phase execution |
+| Investigation Models | `services/investigation_models.py` | Pydantic models for specialist structured output |
+| Investigation Persistence | `services/investigation_persistence.py` | Saves reports and investigation state |
+| SDK Stream Utilities | `services/sdk_utils.py` | Processes SDK response streams with rate-limit resilience |
+| Parallel Agent Base | `services/parallel_agent_base.py` | Base class for parallel SDK session management |
 
 ### Frontend Components
 
@@ -453,10 +455,11 @@ graph TD
 ### Data Flow
 
 1. **User Action** → Frontend sends investigation request
-2. **Orchestrator** → Creates context, spawns 4 specialists
-3. **Specialists** → Run in parallel, each with full context
-4. **Aggregator** → Combines outputs into unified report
-5. **Frontend** → Displays real-time progress, then final report
+2. **Orchestrator** → Creates context, runs specialists in two phases
+3. **Phase 1** → Root Cause + Reproducer run sequentially (root cause context passed to reproducer)
+4. **Phase 2** → Impact + Fix Advisor run in parallel (root cause context injected)
+5. **Aggregator** → Combines outputs into unified report
+6. **Frontend** → Displays real-time progress, then final report
 
 ### Context Injection
 

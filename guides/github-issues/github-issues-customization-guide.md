@@ -2,7 +2,7 @@
 
 > Extend and customize the GitHub Issues integration for your specific needs
 
-**Last updated:** 2026-02-16
+**Last updated:** 2026-02-20
 **Audience:** Developers extending Auto Claude | **Prerequisites:** [Advanced AI Configuration](github-issues-advanced-ai-configuration.md)
 
 ---
@@ -566,12 +566,12 @@ SPECIALISTS = {
     "root_cause": {
         "name": "Root Cause Analyzer",
         "prompt": "prompts/github/investigation_root_cause.md",
-        "max_tokens": 127_999,
+        "max_tokens": 63_999,
     },
     "impact": {
         "name": "Impact Assessor",
         "prompt": "prompts/github/investigation_impact.md",
-        "max_tokens": 63_999,
+        "max_tokens": 31_999,
     },
     # ... existing specialists ...
 
@@ -579,32 +579,40 @@ SPECIALISTS = {
     "performance": {
         "name": "Performance Analyzer",
         "prompt": "prompts/github/investigation_performance.md",
-        "max_tokens": 63_999,
+        "max_tokens": 31_999,
         "optional": True,  # Not run by default
     }
 }
 ```
 
-### Step 3: Add Runner Logic
+### Step 3: Register in the Orchestrator
+
+Specialists are registered as `SpecialistConfig` objects and run via the SDK session infrastructure:
 
 ```python
-async def run_performance_analyzer(
-    context: InvestigationContext
-) -> dict:
-    """Run the Performance Analyzer specialist."""
-    prompt = self._build_specialist_prompt(
-        "performance",
-        context
-    )
+# In issue_investigation_orchestrator.py
+from .parallel_agent_base import SpecialistConfig
 
-    response = await create_client().messages.create(
-        model="claude-opus-4-6",
-        max_tokens=context.specialist_config["performance"]["max_tokens"],
-        messages=[{"role": "user", "content": prompt}]
-    )
+# Add to INVESTIGATION_SPECIALISTS list
+INVESTIGATION_SPECIALISTS = [
+    SpecialistConfig(
+        name="root_cause",
+        prompt_file="investigation_root_cause.md",
+        tools=["Read", "Grep", "Glob"],
+    ),
+    # ... existing specialists ...
+    SpecialistConfig(
+        name="performance",
+        prompt_file="investigation_performance.md",
+        tools=["Read", "Grep", "Glob"],
+    ),
+]
 
-    return json.loads(response.content[0].text)
+# Add token limit
+SPECIALIST_MAX_TOKENS["performance"] = 31_999
 ```
+
+The orchestrator automatically handles SDK client creation, stream processing, and structured output extraction via `_run_specialist_session()` in `parallel_agent_base.py`.
 
 ### Step 4: Update Frontend (Optional)
 
