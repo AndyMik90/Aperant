@@ -84,11 +84,15 @@ vi.mock('../../../cli-tool-manager', () => ({
 // Mock fs
 vi.mock('fs', () => ({
   default: {
+    mkdtempSync: vi.fn((prefix: string) => `${prefix}abc123`),
     writeFileSync: vi.fn(),
     unlinkSync: vi.fn(),
+    rmdirSync: vi.fn(),
   },
+  mkdtempSync: vi.fn((prefix: string) => `${prefix}abc123`),
   writeFileSync: vi.fn(),
   unlinkSync: vi.fn(),
+  rmdirSync: vi.fn(),
 }));
 
 // Mock os
