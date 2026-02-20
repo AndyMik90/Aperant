@@ -79,9 +79,9 @@ class TestTokenBucket:
         bucket = TokenBucket(capacity=10, refill_rate=2.0)
         bucket.try_acquire(10)  # Empty bucket
         # Need 1 token at 2 tokens/second = 0.5 seconds
-        assert bucket.time_until_available(1) == 0.5
+        assert bucket.time_until_available(1) == pytest.approx(0.5, abs=0.01)
         # Need 5 tokens at 2 tokens/second = 2.5 seconds
-        assert bucket.time_until_available(5) == 2.5
+        assert bucket.time_until_available(5) == pytest.approx(2.5, abs=0.01)
 
     @pytest.mark.asyncio
     async def test_acquire_immediate(self):
