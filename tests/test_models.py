@@ -570,7 +570,7 @@ class TestPRReviewResult:
         assert result.risk_assessment["complexity"] == "low"
 
     @pytest.mark.asyncio
-    async def test_result_save(self):
+    async def test_result_save(self, tmp_path):
         """Test saving result to disk."""
         result = PRReviewResult(
             pr_number=42,
@@ -585,7 +585,7 @@ class TestPRReviewResult:
 
         with patch('runners.github.models.locked_json_write', mock_write):
             with patch('runners.github.models.locked_json_update', mock_update):
-                github_dir = Path("/test/github")
+                github_dir = tmp_path / "github"
                 await result.save(github_dir)
 
                 # Check locked_json_write was called with review file
@@ -861,7 +861,7 @@ class TestAutoFixState:
             state.update_status(AutoFixStatus.COMPLETED)
 
     @pytest.mark.asyncio
-    async def test_state_save(self):
+    async def test_state_save(self, tmp_path):
         """Test saving state to disk."""
         state = AutoFixState(
             issue_number=1,
@@ -874,7 +874,7 @@ class TestAutoFixState:
 
         with patch('runners.github.models.locked_json_write', mock_write):
             with patch('runners.github.models.locked_json_update', mock_update):
-                github_dir = Path("/test/github")
+                github_dir = tmp_path / "github"
                 await state.save(github_dir)
 
                 # Check both write operations were called
