@@ -186,7 +186,7 @@ describe('Subprocess Spawn Integration', () => {
           'Test task description'
         ]),
         expect.objectContaining({
-          cwd: AUTO_CLAUDE_SOURCE,  // Process runs from auto-claude source directory
+          cwd: TEST_PROJECT_PATH,  // Process runs from project directory to avoid cross-drive issues on Windows (#1661)
           env: expect.objectContaining({
             PYTHONUNBUFFERED: '1'
           })
@@ -218,7 +218,7 @@ describe('Subprocess Spawn Integration', () => {
           'spec-001'
         ]),
         expect.objectContaining({
-          cwd: AUTO_CLAUDE_SOURCE  // Process runs from auto-claude source directory
+          cwd: TEST_PROJECT_PATH  // Process runs from project directory to avoid cross-drive issues on Windows (#1661)
         })
       );
     }, 30000);  // Increase timeout for Windows CI (dynamic imports are slow)
@@ -248,7 +248,7 @@ describe('Subprocess Spawn Integration', () => {
           '--qa'
         ]),
         expect.objectContaining({
-          cwd: AUTO_CLAUDE_SOURCE  // Process runs from auto-claude source directory
+          cwd: TEST_PROJECT_PATH  // Process runs from project directory to avoid cross-drive issues on Windows (#1661)
         })
       );
     }, 30000);  // Increase timeout for Windows CI (dynamic imports are slow)

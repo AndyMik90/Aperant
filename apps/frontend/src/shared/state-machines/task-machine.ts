@@ -126,12 +126,16 @@ export const taskMachine = createMachine(
         on: {
           CREATE_PR: 'creating_pr',
           MARK_DONE: 'done',
-          USER_RESUMED: { target: 'coding', actions: 'clearReviewReason' }
+          USER_RESUMED: { target: 'coding', actions: 'clearReviewReason' },
+          // Allow restarting planning from human_review (e.g., incomplete task with no subtasks)
+          PLANNING_STARTED: { target: 'planning', actions: 'clearReviewReason' }
         }
       },
       error: {
         on: {
           USER_RESUMED: { target: 'coding', actions: 'clearReviewReason' },
+          // Allow restarting from error back to planning (e.g., spec creation crashed)
+          PLANNING_STARTED: { target: 'planning', actions: 'clearReviewReason' },
           MARK_DONE: 'done'
         }
       },

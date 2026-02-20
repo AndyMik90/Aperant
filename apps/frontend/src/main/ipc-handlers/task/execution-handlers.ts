@@ -82,6 +82,22 @@ async function ensureProfileManagerInitialized(): Promise<
 }
 
 /**
+ * Get the spec directory for file watching, preferring the worktree path if it exists.
+ * When a task runs in a worktree, implementation_plan.json is written there,
+ * not in the main project's spec directory.
+ */
+function getSpecDirForWatcher(projectPath: string, specsBaseDir: string, specId: string): string {
+  const worktreePath = findTaskWorktree(projectPath, specId);
+  if (worktreePath) {
+    const worktreeSpecDir = path.join(worktreePath, specsBaseDir, specId);
+    if (existsSync(path.join(worktreeSpecDir, 'implementation_plan.json'))) {
+      return worktreeSpecDir;
+    }
+  }
+  return path.join(projectPath, specsBaseDir, specId);
+}
+
+/**
  * Register task execution handlers (start, stop, review, status management, recovery)
  */
 export function registerTaskExecutionHandlers(
@@ -171,6 +187,31 @@ export function registerTaskExecutionHandlers(
 
       console.warn('[TASK_START] Found task:', task.specId, 'status:', task.status, 'reviewReason:', task.reviewReason, 'subtasks:', task.subtasks.length);
 
+      // Clear stale tracking state from any previous execution so that:
+      // - terminalEventSeen doesn't suppress future PROCESS_EXITED events
+      // - lastSequenceByTask doesn't drop events from the new process
+      taskStateManager.prepareForRestart(taskId);
+
+      // Check if implementation_plan.json has valid subtasks BEFORE XState handling.
+      // This is more reliable than task.subtasks.length which may not be loaded yet.
+      const specsBaseDir = getSpecsDir(project.autoBuildPath);
+      const specDir = path.join(
+        project.path,
+        specsBaseDir,
+        task.specId
+      );
+      const planFilePath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+      let planHasSubtasks = false;
+      const planContent = safeReadFileSync(planFilePath);
+      if (planContent) {
+        try {
+          const plan = JSON.parse(planContent);
+          planHasSubtasks = checkSubtasksCompletion(plan).totalCount > 0;
+        } catch {
+          // Invalid/corrupt plan file - treat as no subtasks
+        }
+      }
+
       // Immediately mark as started so the UI moves the card to In Progress.
       // Use XState actor state as source of truth (if actor exists), with task data as fallback.
       // - plan_review: User approved the plan, send PLAN_APPROVED to transition to coding
@@ -183,6 +224,11 @@ export function registerTaskExecutionHandlers(
         // XState says plan_review - send PLAN_APPROVED
         console.warn('[TASK_START] XState: plan_review -> coding via PLAN_APPROVED');
         taskStateManager.handleUiEvent(taskId, { type: 'PLAN_APPROVED' }, task, project);
+      } else if (currentXState === 'error' && !planHasSubtasks) {
+        // FIX (#1562): Task crashed during planning (no subtasks yet).
+        // Uses planHasSubtasks from implementation_plan.json (more reliable than task.subtasks.length).
+        console.warn('[TASK_START] XState: error with no plan subtasks -> planning via PLANNING_STARTED');
+        taskStateManager.handleUiEvent(taskId, { type: 'PLANNING_STARTED' }, task, project);
       } else if (currentXState === 'human_review' || currentXState === 'error') {
         // XState says human_review or error - send USER_RESUMED
         console.warn('[TASK_START] XState:', currentXState, '-> coding via USER_RESUMED');
@@ -196,6 +242,11 @@ export function registerTaskExecutionHandlers(
         // No XState actor - fallback to task data (e.g., after app restart)
         console.warn('[TASK_START] No XState actor, task data: plan_review -> coding via PLAN_APPROVED');
         taskStateManager.handleUiEvent(taskId, { type: 'PLAN_APPROVED' }, task, project);
+      } else if (task.status === 'error' && !planHasSubtasks) {
+        // FIX (#1562): No XState actor, task crashed during planning (no subtasks).
+        // Uses planHasSubtasks from implementation_plan.json (more reliable than task.subtasks.length).
+        console.warn('[TASK_START] No XState actor, error with no plan subtasks -> planning via PLANNING_STARTED');
+        taskStateManager.handleUiEvent(taskId, { type: 'PLANNING_STARTED' }, task, project);
       } else if (task.status === 'human_review' || task.status === 'error') {
         // No XState actor - fallback to task data for resuming
         console.warn('[TASK_START] No XState actor, task data:', task.status, '-> coding via USER_RESUMED');
@@ -215,24 +266,27 @@ export function registerTaskExecutionHandlers(
       }
 
       // Start file watcher for this task
-      const specsBaseDir = getSpecsDir(project.autoBuildPath);
-      const specDir = path.join(
-        project.path,
-        specsBaseDir,
-        task.specId
-      );
-      fileWatcher.watch(taskId, specDir);
+      // Use worktree path if it exists, since the backend writes implementation_plan.json there
+      const watchSpecDir = getSpecDirForWatcher(project.path, specsBaseDir, task.specId);
+      fileWatcher.watch(taskId, watchSpecDir).catch((err) => {
+        console.error(`[TASK_START] Failed to watch spec dir for ${taskId}:`, err);
+      });
 
       // Check if spec.md exists (indicates spec creation was already done or in progress)
+      // Check main project path for spec file (spec is created before worktree)
       const specFilePath = path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE);
       const hasSpec = existsSync(specFilePath);
 
       // Check if this task needs spec creation first (no spec file = not yet created)
       // OR if it has a spec but no implementation plan subtasks (spec created, needs planning/building)
       const needsSpecCreation = !hasSpec;
-      const needsImplementation = hasSpec && task.subtasks.length === 0;
+      // FIX (#1562): Check actual plan file for subtasks, not just task.subtasks.length.
+      // When a task crashes during planning, it may have spec.md but an empty/missing
+      // implementation_plan.json. Previously, this path would call startTaskExecution
+      // (run.py) which expects subtasks to exist. Now we check the actual plan file.
+      const needsImplementation = hasSpec && !planHasSubtasks;
 
-      console.warn('[TASK_START] hasSpec:', hasSpec, 'needsSpecCreation:', needsSpecCreation, 'needsImplementation:', needsImplementation);
+      console.warn('[TASK_START] hasSpec:', hasSpec, 'planHasSubtasks:', planHasSubtasks, 'needsSpecCreation:', needsSpecCreation, 'needsImplementation:', needsImplementation);
 
       // Get base branch: task-level override takes precedence over project settings
       const baseBranch = task.metadata?.baseBranch || project.settings?.mainBranch;
@@ -299,7 +353,9 @@ export function registerTaskExecutionHandlers(
    */
   ipcMain.on(IPC_CHANNELS.TASK_STOP, (_, taskId: string) => {
     agentManager.killTask(taskId);
-    fileWatcher.unwatch(taskId);
+    fileWatcher.unwatch(taskId).catch((err) => {
+      console.error('[TASK_STOP] Failed to unwatch:', err);
+    });
 
     // Find task and project to emit USER_STOPPED with plan context
     const { task, project } = findTaskAndProject(taskId);
@@ -325,6 +381,9 @@ export function registerTaskExecutionHandlers(
       task,
       project
     );
+
+    // Clear stale tracking state so a subsequent restart works correctly
+    taskStateManager.prepareForRestart(taskId);
   });
 
   /**
@@ -493,6 +552,9 @@ export function registerTaskExecutionHandlers(
           console.error('[TASK_REVIEW] Failed to write QA fix request:', error);
           return { success: false, error: 'Failed to write QA fix request file' };
         }
+
+        // Clear stale tracking state before starting new QA process
+        taskStateManager.prepareForRestart(taskId);
 
         // Restart QA process - use worktree path if it exists, otherwise main project
         // The QA process needs to run where the implementation_plan.json with completed subtasks is
@@ -668,6 +730,8 @@ export function registerTaskExecutionHandlers(
 
         // Auto-start task when status changes to 'in_progress' and no process is running
         if (status === 'in_progress' && !agentManager.isRunning(taskId)) {
+          // Clear stale tracking state before starting a new process
+          taskStateManager.prepareForRestart(taskId);
           const mainWindow = getMainWindow();
 
           // Check git status before auto-starting
@@ -720,13 +784,29 @@ export function registerTaskExecutionHandlers(
           }
 
           // Start file watcher for this task
-          fileWatcher.watch(taskId, specDir);
+          // Use worktree path if it exists, since the backend writes implementation_plan.json there
+          const watchSpecDir = getSpecDirForWatcher(project.path, specsBaseDir, task.specId);
+          fileWatcher.watch(taskId, watchSpecDir).catch((err) => {
+            console.error(`[TASK_UPDATE_STATUS] Failed to watch spec dir for ${taskId}:`, err);
+          });
 
           // Check if spec.md exists
           const specFilePath = path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE);
           const hasSpec = existsSync(specFilePath);
           const needsSpecCreation = !hasSpec;
-          const needsImplementation = hasSpec && task.subtasks.length === 0;
+          // FIX (#1562): Check actual plan file for subtasks, not just task.subtasks.length
+          const updatePlanFilePath = path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+          let updatePlanHasSubtasks = false;
+          const updatePlanContent = safeReadFileSync(updatePlanFilePath);
+          if (updatePlanContent) {
+            try {
+              const plan = JSON.parse(updatePlanContent);
+              updatePlanHasSubtasks = checkSubtasksCompletion(plan).totalCount > 0;
+            } catch {
+              // Invalid/corrupt plan file - treat as no subtasks
+            }
+          }
+          const needsImplementation = hasSpec && !updatePlanHasSubtasks;
 
           console.warn('[TASK_UPDATE_STATUS] hasSpec:', hasSpec, 'needsSpecCreation:', needsSpecCreation, 'needsImplementation:', needsImplementation);
 
@@ -1075,11 +1155,15 @@ export function registerTaskExecutionHandlers(
         }
 
         // Stop file watcher if it was watching this task
-        fileWatcher.unwatch(taskId);
+        fileWatcher.unwatch(taskId).catch((err) => {
+          console.error('[TASK_RECOVER_STUCK] Failed to unwatch:', err);
+        });
 
         // Auto-restart the task if requested
         let autoRestarted = false;
         if (autoRestart) {
+          // Clear stale tracking state before restarting
+          taskStateManager.prepareForRestart(taskId);
           // Check git status before auto-restarting
           const gitStatusForRestart = checkGitStatus(project.path);
           if (!gitStatusForRestart.isGitRepo || !gitStatusForRestart.hasCommits) {
@@ -1156,12 +1240,16 @@ export function registerTaskExecutionHandlers(
 
             // Start the task execution
             // Start file watcher for this task
-            const specsBaseDir = getSpecsDir(project.autoBuildPath);
-            const specDirForWatcher = path.join(project.path, specsBaseDir, task.specId);
-            fileWatcher.watch(taskId, specDirForWatcher);
+            // Use worktree path if it exists, since the backend writes implementation_plan.json there
+            const watchSpecDir = getSpecDirForWatcher(project.path, specsBaseDir, task.specId);
+            fileWatcher.watch(taskId, watchSpecDir).catch((err) => {
+              console.error(`[Recovery] Failed to watch spec dir for ${taskId}:`, err);
+            });
 
             // Check if spec.md exists to determine whether to run spec creation or task execution
-            const specFilePath = path.join(specDirForWatcher, AUTO_BUILD_PATHS.SPEC_FILE);
+            // Check main project path for spec file (spec is created before worktree)
+            // mainSpecDir is declared earlier in the handler scope
+            const specFilePath = path.join(mainSpecDir, AUTO_BUILD_PATHS.SPEC_FILE);
             const hasSpec = existsSync(specFilePath);
             const needsSpecCreation = !hasSpec;
 
@@ -1172,7 +1260,7 @@ export function registerTaskExecutionHandlers(
               // No spec file - need to run spec_runner.py to create the spec
               const taskDescription = task.description || task.title;
               console.warn(`[Recovery] Starting spec creation for: ${task.specId}`);
-              agentManager.startSpecCreation(taskId, project.path, taskDescription, specDirForWatcher, task.metadata, baseBranchForRecovery, project.id);
+              agentManager.startSpecCreation(taskId, project.path, taskDescription, mainSpecDir, task.metadata, baseBranchForRecovery, project.id);
             } else {
               // Spec exists - run task execution
               console.warn(`[Recovery] Starting task execution for: ${task.specId}`);

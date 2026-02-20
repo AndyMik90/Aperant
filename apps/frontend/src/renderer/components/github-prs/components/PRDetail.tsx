@@ -46,6 +46,7 @@ interface PRDetailProps {
   startedAt: string | null;
   isReviewing: boolean;
   isExternalReview?: boolean;
+  reviewError?: string | null;
   initialNewCommitsCheck?: NewCommitsCheck | null;
   isActive?: boolean;
   isLoadingFiles?: boolean;
@@ -81,6 +82,7 @@ export function PRDetail({
   startedAt,
   isReviewing,
   isExternalReview = false,
+  reviewError: reviewErrorProp,
   initialNewCommitsCheck,
   isActive: _isActive = false,
   isLoadingFiles = false,
@@ -721,6 +723,16 @@ export function PRDetail({
       };
     }
 
+    if (reviewErrorProp && !reviewResult?.success) {
+      return {
+        status: 'not_reviewed',
+        label: t('prReview.reviewFailed'),
+        description: reviewErrorProp,
+        icon: <AlertCircle className="h-5 w-5" />,
+        color: 'bg-destructive/20 text-destructive border-destructive/50',
+      };
+    }
+
     if (!reviewResult || !reviewResult.success) {
       return {
         status: 'not_reviewed',
@@ -863,7 +875,7 @@ export function PRDetail({
       icon: <MessageSquare className="h-5 w-5" />,
       color: 'bg-primary/20 text-primary border-primary/50',
     };
-  }, [isReviewing, reviewProgress, reviewResult, postedFindingIds, isReadyToMerge, newCommitsCheck, t]);
+  }, [isReviewing, reviewProgress, reviewResult, reviewErrorProp, postedFindingIds, isReadyToMerge, newCommitsCheck, t]);
 
   const handlePostReview = async () => {
     const idsToPost = Array.from(selectedFindingIds);
@@ -1128,6 +1140,7 @@ ${t('prReview.blockedStatusMessageFooter')}`;
           reviewResult={reviewResult}
           previousReviewResult={previousReviewResult}
           postedCount={new Set([...postedFindingIds, ...(reviewResult?.postedFindingIds ?? [])]).size}
+          reviewError={reviewErrorProp}
           onRunReview={onRunReview}
           onRunFollowupReview={onRunFollowupReview}
           onCancelReview={onCancelReview}
