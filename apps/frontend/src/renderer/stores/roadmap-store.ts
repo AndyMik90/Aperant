@@ -732,6 +732,8 @@ export async function loadRoadmap(projectId: string): Promise<void> {
   // only process events for the currently viewed project
   store.setCurrentProjectId(projectId);
   store.setRoadmap(null);  // Clear immediately to prevent stale cross-project saves
+  store.setCompetitorAnalysis(null);
+  store.setGenerationStatus({ phase: 'idle', progress: 0, message: '' });
 
   // Query if roadmap generation is currently running for this project
   // This restores the generation status when switching back to a project
