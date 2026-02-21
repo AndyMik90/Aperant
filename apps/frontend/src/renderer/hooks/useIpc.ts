@@ -222,14 +222,18 @@ export function useIpcListeners(): void {
 
         // Sync roadmap feature when task completes
         if (status === 'done' || status === 'pr_created') {
-          useRoadmapStore.getState().markFeatureDoneBySpecId(taskId);
-          // Re-read state after mutation to get updated roadmap
+          // Use event's projectId (from callback param) — NOT the store's activeProjectId.
+          // During project switches, the store may hold a different project's roadmap.
+          const eventProjectId = projectId;
           const rm = useRoadmapStore.getState().roadmap;
-          const currentProjectId = useProjectStore.getState().activeProjectId || useProjectStore.getState().selectedProjectId;
-          if (rm && currentProjectId) {
-            window.electronAPI.saveRoadmap(currentProjectId, rm).catch((err) => {
-              console.error('[useIpc] Failed to persist roadmap after task completion:', err);
-            });
+          if (rm && eventProjectId && rm.projectId === eventProjectId) {
+            useRoadmapStore.getState().markFeatureDoneBySpecId(taskId);
+            const updatedRm = useRoadmapStore.getState().roadmap;
+            if (updatedRm && updatedRm.projectId === eventProjectId) {
+              window.electronAPI.saveRoadmap(eventProjectId, updatedRm).catch((err) => {
+                console.error('[useIpc] Failed to persist roadmap after task completion:', err);
+              });
+            }
           }
         }
       }

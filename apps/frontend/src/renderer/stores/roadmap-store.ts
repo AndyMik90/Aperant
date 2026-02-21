@@ -713,7 +713,9 @@ async function reconcileLinkedFeatures(projectId: string, roadmap: Roadmap): Pro
 
   if (hasChanges) {
     const updatedRoadmap = useRoadmapStore.getState().roadmap;
-    if (updatedRoadmap) {
+    // Guard: only save if the store still holds the same project's roadmap.
+    // A project switch during async reconciliation could replace the roadmap.
+    if (updatedRoadmap && updatedRoadmap.projectId === projectId) {
       console.log('[Roadmap] Reconciled linked features with task states');
       window.electronAPI.saveRoadmap(projectId, updatedRoadmap).catch((err) => {
         console.error('[Roadmap] Failed to save reconciled roadmap:', err);
@@ -729,6 +731,7 @@ export async function loadRoadmap(projectId: string): Promise<void> {
   // Always set current project ID first - this ensures event handlers
   // only process events for the currently viewed project
   store.setCurrentProjectId(projectId);
+  store.setRoadmap(null);  // Clear immediately to prevent stale cross-project saves
 
   // Query if roadmap generation is currently running for this project
   // This restores the generation status when switching back to a project
