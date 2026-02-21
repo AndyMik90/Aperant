@@ -43,6 +43,13 @@ def create_mock_process(stdout=b'', stderr=b'', returncode=0):
 # ============================================================================
 
 
+@pytest.fixture(autouse=True)
+def mock_gh_executable():
+    """Mock get_gh_executable so tests don't depend on gh being installed."""
+    with patch('runners.github.gh_client.get_gh_executable', return_value='gh'):
+        yield
+
+
 @pytest.fixture
 def temp_project_dir(tmp_path):
     """Create a temporary project directory."""
