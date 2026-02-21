@@ -136,7 +136,7 @@ Examples:
   python spec_runner.py --task "Update text" --complexity simple
 
   # Complex integration (auto-detected)
-  python spec_runner.py --task "Add Graphiti memory integration with FalkorDB"
+  python spec_runner.py --task "Add Graphiti memory integration with LadybugDB"
 
   # Interactive mode
   python spec_runner.py --interactive

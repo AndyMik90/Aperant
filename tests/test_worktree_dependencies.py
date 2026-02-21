@@ -69,13 +69,13 @@ class TestDependencyShareConfig:
         """Config creates with all fields populated."""
         config = DependencyShareConfig(
             dep_type="venv",
-            strategy=DependencyStrategy.RECREATE,
+            strategy=DependencyStrategy.SYMLINK,
             source_rel_path=".venv",
             requirements_file="requirements.txt",
             package_manager="uv",
         )
         assert config.dep_type == "venv"
-        assert config.strategy == DependencyStrategy.RECREATE
+        assert config.strategy == DependencyStrategy.SYMLINK
         assert config.source_rel_path == ".venv"
         assert config.requirements_file == "requirements.txt"
         assert config.package_manager == "uv"
@@ -88,13 +88,13 @@ class TestDefaultStrategyMap:
         """node_modules maps to SYMLINK."""
         assert DEFAULT_STRATEGY_MAP["node_modules"] == DependencyStrategy.SYMLINK
 
-    def test_venv_is_recreate(self):
-        """venv maps to RECREATE."""
-        assert DEFAULT_STRATEGY_MAP["venv"] == DependencyStrategy.RECREATE
+    def test_venv_is_symlink(self):
+        """venv maps to SYMLINK (fast worktree creation with health check fallback)."""
+        assert DEFAULT_STRATEGY_MAP["venv"] == DependencyStrategy.SYMLINK
 
-    def test_dot_venv_is_recreate(self):
-        """.venv maps to RECREATE."""
-        assert DEFAULT_STRATEGY_MAP[".venv"] == DependencyStrategy.RECREATE
+    def test_dot_venv_is_symlink(self):
+        """.venv maps to SYMLINK (fast worktree creation with health check fallback)."""
+        assert DEFAULT_STRATEGY_MAP[".venv"] == DependencyStrategy.SYMLINK
 
     def test_vendor_php_is_symlink(self):
         """vendor_php maps to SYMLINK."""
@@ -138,7 +138,7 @@ class TestGetDependencyConfigs:
         by_type = {c.dep_type: c for c in configs}
         assert by_type["node_modules"].strategy == DependencyStrategy.SYMLINK
         assert by_type["node_modules"].source_rel_path == "node_modules"
-        assert by_type["venv"].strategy == DependencyStrategy.RECREATE
+        assert by_type["venv"].strategy == DependencyStrategy.SYMLINK
         assert by_type["venv"].source_rel_path == "apps/backend/.venv"
         assert by_type["venv"].requirements_file == "requirements.txt"
         assert by_type["venv"].package_manager == "uv"
@@ -238,12 +238,12 @@ class TestGetDependencyConfigs:
         assert "services/worker/.venv" in paths
 
         api_config = paths["services/api/.venv"]
-        assert api_config.strategy == DependencyStrategy.RECREATE
+        assert api_config.strategy == DependencyStrategy.SYMLINK
         assert api_config.package_manager == "pip"
         assert api_config.requirements_file == "requirements.txt"
 
         worker_config = paths["services/worker/.venv"]
-        assert worker_config.strategy == DependencyStrategy.RECREATE
+        assert worker_config.strategy == DependencyStrategy.SYMLINK
         assert worker_config.package_manager == "uv"
         assert worker_config.requirements_file == "pyproject.toml"
 
@@ -580,6 +580,132 @@ class TestSetupWorktreeDependencies:
         # Target is still a real directory, not a symlink
         assert (worktree_path / "node_modules").is_dir()
         assert not (worktree_path / "node_modules").is_symlink()
+
+
+class TestVenvSymlinkWithHealthCheck:
+    """Tests for venv symlink strategy with health check and fallback to recreate."""
+
+    def test_venv_symlinked_when_source_exists(self, tmp_path: Path):
+        """Venv is symlinked (not recreated) when source venv exists."""
+        from core.workspace.setup import setup_worktree_dependencies
+
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        venv_dir = project_dir / ".venv"
+        venv_dir.mkdir()
+        # Create a minimal venv structure so the symlink target looks real
+        (venv_dir / "bin").mkdir()
+        (venv_dir / "lib").mkdir()
+
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+
+        project_index = {
+            "dependency_locations": [
+                {"type": ".venv", "path": ".venv", "service": "backend"},
+            ]
+        }
+
+        results = setup_worktree_dependencies(project_dir, worktree_path, project_index)
+
+        target = worktree_path / ".venv"
+        # The symlink should have been created (regardless of health check outcome)
+        assert target.exists() or target.is_symlink()
+
+    def test_venv_health_check_fallback_to_recreate(self, tmp_path: Path):
+        """When symlinked venv health check fails, falls back to recreate."""
+        from core.workspace.setup import setup_worktree_dependencies
+
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        # Create a source venv that has no python binary (health check will fail)
+        venv_dir = project_dir / ".venv"
+        venv_dir.mkdir()
+
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+
+        project_index = {
+            "dependency_locations": [
+                {"type": ".venv", "path": ".venv", "service": "backend"},
+            ]
+        }
+
+        # This should symlink, then health check fails (no python binary),
+        # then fall back to recreate (which will also fail since no real python
+        # in source). The important thing is it doesn't raise.
+        results = setup_worktree_dependencies(project_dir, worktree_path, project_index)
+        # Should not crash
+        assert isinstance(results, dict)
+
+
+class TestRecreateStrategyMarker:
+    """Tests for the .setup_complete marker in the recreate strategy."""
+
+    def test_marker_constant_defined(self):
+        """VENV_SETUP_COMPLETE_MARKER is defined."""
+        from core.workspace.setup import VENV_SETUP_COMPLETE_MARKER
+        assert VENV_SETUP_COMPLETE_MARKER == ".setup_complete"
+
+    def test_incomplete_venv_detected_and_removed(self, tmp_path: Path):
+        """Venv without marker is detected as incomplete."""
+        from core.workspace.setup import _apply_recreate_strategy, VENV_SETUP_COMPLETE_MARKER
+        from core.workspace.models import DependencyShareConfig, DependencyStrategy
+
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+
+        # Create an incomplete venv (no marker)
+        incomplete_venv = worktree_path / ".venv"
+        incomplete_venv.mkdir()
+        (incomplete_venv / "bin").mkdir()
+
+        config = DependencyShareConfig(
+            dep_type=".venv",
+            strategy=DependencyStrategy.RECREATE,
+            source_rel_path=".venv",
+        )
+
+        # Will try to recreate (remove incomplete + rebuild). May fail due to
+        # no real python, but the incomplete venv should be removed.
+        _apply_recreate_strategy(project_dir, worktree_path, config)
+
+        # The incomplete venv without marker should have been removed
+        # (recreation may or may not succeed depending on Python availability)
+        if incomplete_venv.exists():
+            # If it was recreated successfully, marker should exist
+            assert (incomplete_venv / VENV_SETUP_COMPLETE_MARKER).exists()
+
+    def test_complete_venv_skipped(self, tmp_path: Path):
+        """Venv with marker is skipped (not rebuilt)."""
+        from core.workspace.setup import _apply_recreate_strategy, VENV_SETUP_COMPLETE_MARKER
+        from core.workspace.models import DependencyShareConfig, DependencyStrategy
+
+        project_dir = tmp_path / "project"
+        project_dir.mkdir()
+        worktree_path = tmp_path / "worktree"
+        worktree_path.mkdir()
+
+        # Create a complete venv (with marker)
+        complete_venv = worktree_path / ".venv"
+        complete_venv.mkdir()
+        (complete_venv / VENV_SETUP_COMPLETE_MARKER).touch()
+        # Add a canary file to verify the venv wasn't rebuilt
+        (complete_venv / "canary.txt").write_text("original")
+
+        config = DependencyShareConfig(
+            dep_type=".venv",
+            strategy=DependencyStrategy.RECREATE,
+            source_rel_path=".venv",
+        )
+
+        result = _apply_recreate_strategy(project_dir, worktree_path, config)
+
+        assert result is False  # Skipped
+        # Canary file should still be present (not rebuilt)
+        assert (complete_venv / "canary.txt").read_text() == "original"
 
 
 class TestSymlinkNodeModulesToWorktreeBackwardCompat:

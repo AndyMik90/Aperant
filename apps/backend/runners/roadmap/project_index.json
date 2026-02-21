@@ -2,11 +2,6 @@
   "project_root": "/Users/andremikalsen/Documents/Coding/autonomous-coding",
   "project_type": "single",
   "services": {},
-  "infrastructure": {
-    "docker_compose": "docker-compose.yml",
-    "docker_services": [
-      "falkordb"
-    ]
-  },
+  "infrastructure": {},
   "conventions": {}
 }

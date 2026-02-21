@@ -529,7 +529,7 @@ class TestShouldRunQA:
         plan = {"feature": "Test", "phases": []}
         save_implementation_plan(spec_dir, plan)
 
-        with patch('qa.criteria.is_build_complete', return_value=False):
+        with patch('qa.criteria.is_build_ready_for_qa', return_value=False):
             result = should_run_qa(spec_dir)
             assert result is False
 
@@ -540,15 +540,15 @@ class TestShouldRunQA:
         plan = {"feature": "Test", "qa_signoff": qa_signoff_approved}
         save_implementation_plan(spec_dir, plan)
 
-        with patch('qa.criteria.is_build_complete', return_value=True):
+        with patch('qa.criteria.is_build_ready_for_qa', return_value=True):
             result = should_run_qa(spec_dir)
             assert result is False
 
     def test_should_run_qa_build_complete_not_approved(self, spec_dir: Path):
         """Returns True when build complete but not approved."""
-        # Explicitly patch is_build_complete to return True
+        # Explicitly patch is_build_ready_for_qa to return True
         from unittest.mock import patch
-        with patch('qa.criteria.is_build_complete', return_value=True):
+        with patch('qa.criteria.is_build_ready_for_qa', return_value=True):
             plan = {"feature": "Test", "phases": []}
             save_implementation_plan(spec_dir, plan)
 
@@ -563,15 +563,15 @@ class TestShouldRunQA:
         plan = {"feature": "Test", "qa_signoff": qa_signoff_rejected}
         save_implementation_plan(spec_dir, plan)
 
-        with patch('qa.criteria.is_build_complete', return_value=True):
+        with patch('qa.criteria.is_build_ready_for_qa', return_value=True):
             result = should_run_qa(spec_dir)
             assert result is True
 
     def test_should_run_qa_no_plan(self, spec_dir: Path):
-        """Returns False when no plan exists (build not complete)."""
+        """Returns False when no plan exists (build not ready)."""
         from unittest.mock import patch
 
-        with patch('qa.criteria.is_build_complete', return_value=False):
+        with patch('qa.criteria.is_build_ready_for_qa', return_value=False):
             result = should_run_qa(spec_dir)
             assert result is False
 
@@ -905,7 +905,7 @@ class TestQAIntegration:
         save_implementation_plan(spec_dir, plan)
 
         # Should run QA
-        with patch('qa.criteria.is_build_complete', return_value=True):
+        with patch('qa.criteria.is_build_ready_for_qa', return_value=True):
             assert should_run_qa(spec_dir) is True
 
         # QA approves
@@ -917,7 +917,7 @@ class TestQAIntegration:
         save_implementation_plan(spec_dir, plan)
 
         # Should not run QA again or fixes
-        with patch('qa.criteria.is_build_complete', return_value=True):
+        with patch('qa.criteria.is_build_ready_for_qa', return_value=True):
             assert should_run_qa(spec_dir) is False
         assert should_run_fixes(spec_dir) is False
         assert is_qa_approved(spec_dir) is True
@@ -931,7 +931,7 @@ class TestQAIntegration:
         save_implementation_plan(spec_dir, plan)
 
         # Should run QA
-        with patch('qa.criteria.is_build_complete', return_value=True):
+        with patch('qa.criteria.is_build_ready_for_qa', return_value=True):
             assert should_run_qa(spec_dir) is True
 
         # QA rejects
@@ -979,5 +979,5 @@ class TestQAIntegration:
         # Should not run more fixes after max iterations
         assert should_run_fixes(spec_dir) is False
         # But QA can still be run (to re-check)
-        with patch('qa.criteria.is_build_complete', return_value=True):
+        with patch('qa.criteria.is_build_ready_for_qa', return_value=True):
             assert should_run_qa(spec_dir) is True

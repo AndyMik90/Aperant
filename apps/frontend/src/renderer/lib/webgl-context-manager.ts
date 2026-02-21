@@ -184,6 +184,9 @@ class WebGLContextManager {
   }
 }
 
+/** Type alias for the manager — used by consumers that import lazily via dynamic import() */
+export type WebGLContextManagerType = WebGLContextManager;
+
 // Export singleton instance
 export const webglContextManager = WebGLContextManager.getInstance();
 

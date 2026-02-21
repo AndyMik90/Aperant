@@ -285,6 +285,9 @@ export interface GitHubAPI {
   getPRReview: (projectId: string, prNumber: number) => Promise<PRReviewResult | null>;
   getPRReviewsBatch: (projectId: string, prNumbers: number[]) => Promise<Record<number, PRReviewResult | null>>;
 
+  // External review notification (renderer tells main process about external review completion/timeout)
+  notifyExternalReviewComplete: (projectId: string, prNumber: number, result: PRReviewResult | null) => Promise<void>;
+
   // Follow-up review operations
   checkNewCommits: (projectId: string, prNumber: number) => Promise<NewCommitsCheck>;
   checkMergeReadiness: (projectId: string, prNumber: number) => Promise<MergeReadiness>;
@@ -307,6 +310,9 @@ export interface GitHubAPI {
   ) => IpcListenerCleanup;
   onPRReviewError: (
     callback: (projectId: string, error: { prNumber: number; error: string }) => void
+  ) => IpcListenerCleanup;
+  onPRReviewStateChange: (
+    callback: (key: string, state: PRReviewStatePayload) => void
   ) => IpcListenerCleanup;
   onPRLogsUpdated: (
     callback: (projectId: string, data: { prNumber: number; entryCount: number }) => void
@@ -454,6 +460,23 @@ export interface PRReviewProgress {
   prNumber: number;
   progress: number;
   message: string;
+}
+
+/**
+ * PR review state payload (emitted on state machine transitions)
+ */
+export interface PRReviewStatePayload {
+  state: string;
+  prNumber: number;
+  projectId: string;
+  isReviewing: boolean;
+  startedAt: string | null;
+  progress: PRReviewProgress | null;
+  result: PRReviewResult | null;
+  previousResult: PRReviewResult | null;
+  error: string | null;
+  isExternalReview: boolean;
+  isFollowup: boolean;
 }
 
 /**
@@ -740,6 +763,10 @@ export const createGitHubAPI = (): GitHubAPI => ({
   getPRReviewsBatch: (projectId: string, prNumbers: number[]): Promise<Record<number, PRReviewResult | null>> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_GET_REVIEWS_BATCH, projectId, prNumbers),
 
+  // External review notification
+  notifyExternalReviewComplete: (projectId: string, prNumber: number, result: PRReviewResult | null): Promise<void> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_NOTIFY_EXTERNAL_REVIEW_COMPLETE, projectId, prNumber, result),
+
   // Follow-up review operations
   checkNewCommits: (projectId: string, prNumber: number): Promise<NewCommitsCheck> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_CHECK_NEW_COMMITS, projectId, prNumber),
@@ -779,6 +806,11 @@ export const createGitHubAPI = (): GitHubAPI => ({
     callback: (projectId: string, error: { prNumber: number; error: string }) => void
   ): IpcListenerCleanup =>
     createIpcListener(IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR, callback),
+
+  onPRReviewStateChange: (
+    callback: (key: string, state: PRReviewStatePayload) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITHUB_PR_REVIEW_STATE_CHANGE, callback),
 
   onPRLogsUpdated: (
     callback: (projectId: string, data: { prNumber: number; entryCount: number }) => void

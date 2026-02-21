@@ -270,6 +270,118 @@ class TestCreateMergeRequest:
         assert result["pr_url"] == "https://gitlab.com/user/repo/-/merge_requests/44"
 
 
+class TestGitLabOriginPrefixStripping:
+    """Test that origin/ prefix is stripped from target_branch in create_merge_request."""
+
+    def test_origin_prefix_stripped_from_target_branch(
+        self, worktree_manager, temp_project_dir
+    ):
+        """Test that 'origin/develop' becomes 'develop' in --target-branch argument to glab CLI."""
+        import core.worktree as worktree_module
+
+        spec_name = "test-feature"
+
+        mock_worktree_info = WorktreeInfo(
+            path=temp_project_dir / ".auto-claude" / "worktrees" / "tasks" / spec_name,
+            branch=f"auto-claude/{spec_name}",
+            spec_name=spec_name,
+            base_branch="main",
+            is_active=True,
+        )
+
+        mock_subprocess_result = MagicMock(
+            returncode=0,
+            stdout="https://gitlab.com/user/repo/-/merge_requests/42\n",
+            stderr="",
+        )
+
+        with (
+            patch.object(
+                worktree_manager, "get_worktree_info", return_value=mock_worktree_info
+            ),
+            patch.object(
+                worktree_module,
+                "get_glab_executable",
+                return_value="/usr/local/bin/glab",
+            ),
+            patch.object(
+                worktree_module.subprocess, "run", return_value=mock_subprocess_result
+            ) as mock_run,
+            patch.object(
+                worktree_manager, "_extract_spec_summary", return_value="Test MR body"
+            ),
+        ):
+            result = worktree_manager.create_merge_request(
+                spec_name=spec_name,
+                target_branch="origin/develop",
+                title="Test MR",
+                draft=False,
+            )
+
+        # Verify glab CLI received "develop" (not "origin/develop") as --target-branch
+        assert mock_run.called
+        call_args = mock_run.call_args[0][0]
+        target_idx = call_args.index("--target-branch")
+        assert call_args[target_idx + 1] == "develop", (
+            f"Expected 'develop' after --target-branch, got '{call_args[target_idx + 1]}'"
+        )
+        assert result["success"] is True
+
+    def test_target_branch_without_origin_prefix_unchanged(
+        self, worktree_manager, temp_project_dir
+    ):
+        """Test that 'develop' (no prefix) is passed through unchanged to glab CLI."""
+        import core.worktree as worktree_module
+
+        spec_name = "test-feature"
+
+        mock_worktree_info = WorktreeInfo(
+            path=temp_project_dir / ".auto-claude" / "worktrees" / "tasks" / spec_name,
+            branch=f"auto-claude/{spec_name}",
+            spec_name=spec_name,
+            base_branch="main",
+            is_active=True,
+        )
+
+        mock_subprocess_result = MagicMock(
+            returncode=0,
+            stdout="https://gitlab.com/user/repo/-/merge_requests/43\n",
+            stderr="",
+        )
+
+        with (
+            patch.object(
+                worktree_manager, "get_worktree_info", return_value=mock_worktree_info
+            ),
+            patch.object(
+                worktree_module,
+                "get_glab_executable",
+                return_value="/usr/local/bin/glab",
+            ),
+            patch.object(
+                worktree_module.subprocess, "run", return_value=mock_subprocess_result
+            ) as mock_run,
+            patch.object(
+                worktree_manager, "_extract_spec_summary", return_value="Test MR body"
+            ),
+        ):
+            result = worktree_manager.create_merge_request(
+                spec_name=spec_name,
+                target_branch="develop",
+                title="Test MR",
+                draft=False,
+            )
+
+        # Verify glab CLI received "develop" as --target-branch
+        assert mock_run.called
+        call_args = mock_run.call_args[0][0]
+        target_idx = call_args.index("--target-branch")
+        assert call_args[target_idx + 1] == "develop", (
+            f"Expected 'develop' after --target-branch, got '{call_args[target_idx + 1]}'"
+        )
+        assert result["success"] is True
+
+
 class TestPushAndCreatePR:
     """Test push_and_create_pr method with provider detection."""
 

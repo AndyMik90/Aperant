@@ -54,6 +54,13 @@ export async function createTerminal(
     return { success: true };
   }
 
+  // Clear any pendingDelete for this terminal ID. This handles the case where
+  // a terminal is destroyed and immediately re-created with the same ID (e.g.,
+  // worktree switching, terminal restart after shell exit). Without this, the
+  // pendingDelete guard (5-second window) blocks session persistence for the
+  // new terminal, causing it to be invisible to the session store.
+  SessionHandler.clearPendingDelete(id);
+
   try {
     // For auth terminals, don't inject existing OAuth token - we want a fresh login
     const profileEnv = skipOAuthToken ? {} : PtyManager.getActiveProfileEnv();
@@ -101,6 +108,7 @@ export async function createTerminal(
       id,
       pty: ptyProcess,
       isClaudeMode: false,
+      hasExited: false,
       projectPath,
       cwd: terminalCwd,
       outputBuffer: '',

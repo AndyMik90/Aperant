@@ -16,7 +16,11 @@ from pathlib import Path
 from agents.base import sanitize_error_message
 from agents.memory_manager import get_graphiti_context, save_session_memory
 from claude_agent_sdk import ClaudeSDKClient
-from core.error_utils import is_rate_limit_error, is_tool_concurrency_error
+from core.error_utils import (
+    is_rate_limit_error,
+    is_tool_concurrency_error,
+    safe_receive_messages,
+)
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
 from prompts_pkg import get_qa_reviewer_prompt
 from security.tool_input_validator import get_safe_tool_input
@@ -195,7 +199,7 @@ This is attempt {previous_error.get("consecutive_errors", 1) + 1}. If you fail t
 
         response_text = ""
         debug("qa_reviewer", "Starting to receive response stream...")
-        async for msg in client.receive_response():
+        async for msg in safe_receive_messages(client, caller="qa_reviewer"):
             msg_type = type(msg).__name__
             message_count += 1
             debug_detailed(

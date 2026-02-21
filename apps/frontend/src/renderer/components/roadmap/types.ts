@@ -12,6 +12,7 @@ export interface PhaseCardProps {
   onFeatureSelect: (feature: RoadmapFeature) => void;
   onConvertToSpec: (feature: RoadmapFeature) => void;
   onGoToTask: (specId: string) => void;
+  onArchive?: (featureId: string) => void;
 }
 
 export interface FeatureCardProps {
@@ -20,6 +21,7 @@ export interface FeatureCardProps {
   onConvertToSpec: (feature: RoadmapFeature) => void;
   onGoToTask: (specId: string) => void;
   hasCompetitorInsight?: boolean;
+  onArchive?: (featureId: string) => void;
 }
 
 export interface FeatureDetailPanelProps {
@@ -28,6 +30,7 @@ export interface FeatureDetailPanelProps {
   onConvertToSpec: (feature: RoadmapFeature) => void;
   onGoToTask: (specId: string) => void;
   onDelete?: (featureId: string) => void;
+  onArchive?: (featureId: string) => void;
   competitorInsights?: CompetitorPainPoint[];
 }
 
@@ -51,4 +54,5 @@ export interface RoadmapTabsProps {
   onConvertToSpec: (feature: RoadmapFeature) => void;
   onGoToTask: (specId: string) => void;
   onSave?: () => void;
+  onArchive?: (featureId: string) => void;
 }

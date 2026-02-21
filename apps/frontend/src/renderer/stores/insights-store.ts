@@ -8,7 +8,8 @@ import type {
   InsightsToolUsage,
   InsightsModelConfig,
   TaskMetadata,
-  Task
+  Task,
+  ImageAttachment
 } from '../../shared/types';
 
 interface ToolUsage {
@@ -27,6 +28,8 @@ interface InsightsState {
   currentTool: ToolUsage | null; // Currently executing tool
   toolsUsed: InsightsToolUsage[]; // Tools used during current response
   isLoadingSessions: boolean;
+  showArchived: boolean; // Whether to include archived sessions in listings
+  pendingImages: ImageAttachment[]; // Images pending attachment to next message
 
   // Actions
   setSession: (session: InsightsSession | null) => void;
@@ -44,6 +47,8 @@ interface InsightsState {
   finalizeStreamingMessage: () => void;
   clearSession: () => void;
   setLoadingSessions: (loading: boolean) => void;
+  setShowArchived: (showArchived: boolean) => void;
+  setPendingImages: (images: ImageAttachment[]) => void;
 }
 
 const initialStatus: InsightsChatStatus = {
@@ -62,6 +67,8 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
   currentTool: null,
   toolsUsed: [],
   isLoadingSessions: false,
+  showArchived: false,
+  pendingImages: [],
 
   // Actions
   setSession: (session) => set({ session }),
@@ -71,6 +78,8 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
   setStatus: (status) => set({ status }),
 
   setLoadingSessions: (loading) => set({ isLoadingSessions: loading }),
+
+  setShowArchived: (showArchived) => set({ showArchived }),
 
   setPendingMessage: (message) => set({ pendingMessage: message }),
 
@@ -201,18 +210,24 @@ export const useInsightsStore = create<InsightsState>((set, _get) => ({
       streamingContent: '',
       streamingTasks: [],
       currentTool: null,
-      toolsUsed: []
-    })
+      toolsUsed: [],
+      pendingImages: []
+    }),
+
+  setPendingImages: (images) => set({ pendingImages: images })
 }));
 
 // Helper functions
 
-export async function loadInsightsSessions(projectId: string): Promise<void> {
+export async function loadInsightsSessions(projectId: string, includeArchived?: boolean): Promise<void> {
   const store = useInsightsStore.getState();
   store.setLoadingSessions(true);
 
+  // Use explicit parameter if provided, otherwise read from store
+  const archived = includeArchived ?? store.showArchived;
+
   try {
-    const result = await window.electronAPI.listInsightsSessions(projectId);
+    const result = await window.electronAPI.listInsightsSessions(projectId, archived);
     if (result.success && result.data) {
       store.setSessions(result.data);
     } else {
@@ -223,7 +238,7 @@ export async function loadInsightsSessions(projectId: string): Promise<void> {
   }
 }
 
-export async function loadInsightsSession(projectId: string): Promise<void> {
+export async function loadInsightsSession(projectId: string, includeArchived?: boolean): Promise<void> {
   const result = await window.electronAPI.getInsightsSession(projectId);
   if (result.success && result.data) {
     useInsightsStore.getState().setSession(result.data);
@@ -231,24 +246,30 @@ export async function loadInsightsSession(projectId: string): Promise<void> {
     useInsightsStore.getState().setSession(null);
   }
   // Also load the sessions list
-  await loadInsightsSessions(projectId);
+  await loadInsightsSessions(projectId, includeArchived);
 }
 
-export function sendMessage(projectId: string, message: string, modelConfig?: InsightsModelConfig): void {
+export function sendMessage(projectId: string, message: string, modelConfig?: InsightsModelConfig, images?: ImageAttachment[]): void {
   const store = useInsightsStore.getState();
   const session = store.session;
 
-  // Add user message to session
+  // Add user message to session (strip data to keep memory usage low)
+  const displayImages = images?.map(img => ({
+    ...img,
+    data: undefined // Strip base64 data, keep thumbnails for display
+  }));
   const userMessage: InsightsChatMessage = {
     id: `msg-${Date.now()}`,
     role: 'user',
     content: message,
-    timestamp: new Date()
+    timestamp: new Date(),
+    ...(displayImages && displayImages.length > 0 ? { images: displayImages } : {})
   };
   store.addMessage(userMessage);
 
   // Clear pending and set status
   store.setPendingMessage('');
+  store.setPendingImages([]);
   store.clearStreamingContent();
   store.clearToolsUsed(); // Clear tools from previous response
   store.setStatus({
@@ -260,15 +281,15 @@ export function sendMessage(projectId: string, message: string, modelConfig?: In
   const configToUse = modelConfig || session?.modelConfig;
 
   // Send to main process
-  window.electronAPI.sendInsightsMessage(projectId, message, configToUse);
+  window.electronAPI.sendInsightsMessage(projectId, message, configToUse, images);
 }
 
-export async function clearSession(projectId: string): Promise<void> {
+export async function clearSession(projectId: string, includeArchived?: boolean): Promise<void> {
   const result = await window.electronAPI.clearInsightsSession(projectId);
   if (result.success) {
     useInsightsStore.getState().clearSession();
     // Reload sessions list and current session
-    await loadInsightsSession(projectId);
+    await loadInsightsSession(projectId, includeArchived);
   }
 }
 
@@ -293,11 +314,11 @@ export async function switchSession(projectId: string, sessionId: string): Promi
   }
 }
 
-export async function deleteSession(projectId: string, sessionId: string): Promise<boolean> {
+export async function deleteSession(projectId: string, sessionId: string, includeArchived?: boolean): Promise<boolean> {
   const result = await window.electronAPI.deleteInsightsSession(projectId, sessionId);
   if (result.success) {
     // Reload sessions list and current session
-    await loadInsightsSession(projectId);
+    await loadInsightsSession(projectId, includeArchived);
     return true;
   }
   return false;
@@ -311,6 +332,32 @@ export async function renameSession(projectId: string, sessionId: string, newTit
     return true;
   }
   return false;
+}
+
+export async function deleteSessions(projectId: string, sessionIds: string[]): Promise<{ success: boolean; failedIds?: string[] }> {
+  const result = await window.electronAPI.deleteInsightsSessions(projectId, sessionIds);
+  if (result.success) {
+    return { success: true, failedIds: result.data?.failedIds };
+  }
+  return { success: false, failedIds: result.data?.failedIds };
+}
+
+export async function archiveSession(projectId: string, sessionId: string): Promise<boolean> {
+  const result = await window.electronAPI.archiveInsightsSession(projectId, sessionId);
+  return result.success;
+}
+
+export async function archiveSessions(projectId: string, sessionIds: string[]): Promise<{ success: boolean; failedIds?: string[] }> {
+  const result = await window.electronAPI.archiveInsightsSessions(projectId, sessionIds);
+  if (result.success) {
+    return { success: true, failedIds: result.data?.failedIds };
+  }
+  return { success: false, failedIds: result.data?.failedIds };
+}
+
+export async function unarchiveSession(projectId: string, sessionId: string): Promise<boolean> {
+  const result = await window.electronAPI.unarchiveInsightsSession(projectId, sessionId);
+  return result.success;
 }
 
 export async function updateModelConfig(projectId: string, sessionId: string, modelConfig: InsightsModelConfig): Promise<boolean> {

@@ -36,6 +36,14 @@ export const XSTATE_SETTLED_STATES: ReadonlySet<string> = new Set<TaskStateName>
   'plan_review', 'human_review', 'error', 'creating_pr', 'pr_created', 'done'
 ]);
 
+/**
+ * XState states where an agent process is actively running and should transition
+ * when the process exits. Used by the fallback safety net to detect stuck tasks.
+ */
+export const XSTATE_ACTIVE_STATES: ReadonlySet<string> = new Set<TaskStateName>([
+  'planning', 'coding', 'qa_review', 'qa_fixing'
+]);
+
 /** Maps XState states to execution phases. */
 export const XSTATE_TO_PHASE: Record<TaskStateName, ExecutionPhase> & Record<string, ExecutionPhase | undefined> = {
   'backlog': 'idle',

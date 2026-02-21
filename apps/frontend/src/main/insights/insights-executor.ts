@@ -1,5 +1,7 @@
 import { spawn, ChildProcess } from 'child_process';
-import { existsSync, writeFileSync, unlinkSync } from 'fs';
+import { existsSync, unlinkSync } from 'fs';
+import { writeFile } from 'fs/promises';
+import { randomBytes } from 'crypto';
 import path from 'path';
 import os from 'os';
 import { EventEmitter } from 'events';
@@ -8,11 +10,22 @@ import type {
   InsightsChatStatus,
   InsightsStreamChunk,
   InsightsToolUsage,
-  InsightsModelConfig
+  InsightsModelConfig,
+  ImageAttachment
 } from '../../shared/types';
-import { MODEL_ID_MAP } from '../../shared/constants';
+import { MODEL_ID_MAP, MAX_IMAGES_PER_TASK, MAX_IMAGE_SIZE } from '../../shared/constants';
 import { InsightsConfig } from './config';
 import { detectRateLimit, createSDKRateLimitInfo } from '../rate-limit-detector';
+
+// Safe extension map for image MIME types — prevents path traversal via crafted mimeType
+// SVG excluded: contains active script content and is unsupported by Claude Vision API
+const SAFE_EXT_MAP: Record<string, string> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/gif': 'gif',
+  'image/webp': 'webp'
+};
 
 /**
  * Message processor result
@@ -63,7 +76,8 @@ export class InsightsExecutor extends EventEmitter {
     projectPath: string,
     message: string,
     conversationHistory: Array<{ role: string; content: string }>,
-    modelConfig?: InsightsModelConfig
+    modelConfig?: InsightsModelConfig,
+    images?: ImageAttachment[]
   ): Promise<ProcessorResult> {
     // Cancel any existing session
     this.cancelSession(projectId);
@@ -90,16 +104,78 @@ export class InsightsExecutor extends EventEmitter {
     // Write conversation history to temp file to avoid Windows command-line length limit
     const historyFile = path.join(
       os.tmpdir(),
-      `insights-history-${projectId}-${Date.now()}.json`
+      `insights-history-${projectId}-${Date.now()}-${randomBytes(8).toString('hex')}.json`
     );
 
     let historyFileCreated = false;
     try {
-      writeFileSync(historyFile, JSON.stringify(conversationHistory), 'utf-8');
+      await writeFile(historyFile, JSON.stringify(conversationHistory), { encoding: 'utf-8', mode: 0o600 });
       historyFileCreated = true;
     } catch (err) {
       console.error('[Insights] Failed to write history file:', err);
       throw new Error('Failed to write conversation history to temp file');
+    }
+
+    // Write image files and manifest if images are provided
+    const imagesTempFiles: string[] = [];
+    let imagesManifestFile: string | undefined;
+
+    // Defense-in-depth: cap image count and filter oversized images in the executor
+    if (images && images.length > MAX_IMAGES_PER_TASK) {
+      images = images.slice(0, MAX_IMAGES_PER_TASK);
+    }
+    if (images) {
+      images = images.filter(img => !img.data || Buffer.byteLength(img.data, 'base64') <= MAX_IMAGE_SIZE);
+    }
+
+    if (images && images.length > 0) {
+      try {
+        const manifest: Array<{ path: string; mimeType: string }> = [];
+        const timestamp = Date.now();
+
+        for (let i = 0; i < images.length; i++) {
+          const image = images[i];
+          if (!image.data) continue;
+
+          // Validate mimeType against allowlist (defense-in-depth for main process)
+          const ext = SAFE_EXT_MAP[image.mimeType];
+          if (!ext) {
+            console.warn(`[Insights] Skipping image with invalid mimeType: ${image.mimeType}`);
+            continue;
+          }
+
+          const imagePath = path.join(
+            os.tmpdir(),
+            `insights-image-${projectId}-${timestamp}-${i}-${randomBytes(8).toString('hex')}.${ext}`
+          );
+          await writeFile(imagePath, Buffer.from(image.data, 'base64'), { mode: 0o600 });
+          imagesTempFiles.push(imagePath);
+          manifest.push({ path: imagePath, mimeType: image.mimeType });
+        }
+
+        // Only write manifest file if we actually wrote any images
+        if (manifest.length > 0) {
+          imagesManifestFile = path.join(
+            os.tmpdir(),
+            `insights-images-manifest-${projectId}-${timestamp}-${randomBytes(8).toString('hex')}.json`
+          );
+          imagesTempFiles.push(imagesManifestFile); // Push before writeFile for cleanup on failure
+          await writeFile(imagesManifestFile, JSON.stringify(manifest), { encoding: 'utf-8', mode: 0o600 });
+        }
+      } catch (err) {
+        // Clean up any already-written image files
+        for (const tmpFile of imagesTempFiles) {
+          try {
+            if (existsSync(tmpFile)) unlinkSync(tmpFile);
+          } catch { /* ignore cleanup errors */ }
+        }
+        // Also clean up the history file (cleanupTempFiles isn't defined yet at this point)
+        if (existsSync(historyFile)) {
+          try { unlinkSync(historyFile); } catch { /* ignore */ }
+        }
+        console.error('[Insights] Failed to write image files:', err);
+        throw new Error('Failed to write image files to temp directory');
+      }
     }
 
     // Build command arguments
@@ -109,6 +185,11 @@ export class InsightsExecutor extends EventEmitter {
       '--message', message,
       '--history-file', historyFile
     ];
+
+    // Add images manifest file if images were provided
+    if (imagesManifestFile) {
+      args.push('--images-file', imagesManifestFile);
+    }
 
     // Add model config if provided
     if (modelConfig) {
@@ -124,6 +205,27 @@ export class InsightsExecutor extends EventEmitter {
     });
 
     this.activeSessions.set(projectId, proc);
+
+    // Shared cleanup for temp files used across close/error handlers
+    let cleanedUp = false;
+    const cleanupTempFiles = () => {
+      if (cleanedUp) return;
+      cleanedUp = true;
+      if (historyFileCreated && existsSync(historyFile)) {
+        try {
+          unlinkSync(historyFile);
+        } catch (cleanupErr) {
+          console.error('[Insights] Failed to cleanup history file:', cleanupErr);
+        }
+      }
+      for (const tmpFile of imagesTempFiles) {
+        try {
+          if (existsSync(tmpFile)) unlinkSync(tmpFile);
+        } catch (cleanupErr) {
+          console.error('[Insights] Failed to cleanup image temp file:', cleanupErr);
+        }
+      }
+    };
 
     return new Promise((resolve, reject) => {
       let fullResponse = '';
@@ -170,15 +272,7 @@ export class InsightsExecutor extends EventEmitter {
 
       proc.on('close', (code) => {
         this.activeSessions.delete(projectId);
-
-        // Cleanup temp file
-        if (historyFileCreated && existsSync(historyFile)) {
-          try {
-            unlinkSync(historyFile);
-          } catch (cleanupErr) {
-            console.error('[Insights] Failed to cleanup history file:', cleanupErr);
-          }
-        }
+        cleanupTempFiles();
 
         // Check for rate limit if process failed
         if (code !== 0) {
@@ -217,15 +311,7 @@ export class InsightsExecutor extends EventEmitter {
 
       proc.on('error', (err) => {
         this.activeSessions.delete(projectId);
-
-        // Cleanup temp file
-        if (historyFileCreated && existsSync(historyFile)) {
-          try {
-            unlinkSync(historyFile);
-          } catch (cleanupErr) {
-            console.error('[Insights] Failed to cleanup history file:', cleanupErr);
-          }
-        }
+        cleanupTempFiles();
 
         this.emit('error', projectId, err.message);
         reject(err);

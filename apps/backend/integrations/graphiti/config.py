@@ -635,10 +635,20 @@ def get_graphiti_status() -> dict:
     try:
         # Attempt to import the main graphiti_memory module
         import graphiti_core  # noqa: F401
-        from graphiti_core.driver.falkordb_driver import FalkorDriver  # noqa: F401
 
-        # If we got here, packages are importable
-        status["available"] = True  # pragma: no cover
+        # Try LadybugDB first (preferred for Python 3.12+), fall back to kuzu
+        try:
+            import real_ladybug  # noqa: F401
+        except ImportError:
+            try:
+                import kuzu  # noqa: F401
+            except ImportError:
+                status["available"] = False
+                status["reason"] = (
+                    "Graph database backend not installed (need real_ladybug or kuzu)"
+                )
+                return status
+        status["available"] = True
     except ImportError as e:
         status["available"] = False
         status["reason"] = f"Graphiti packages not installed: {e}"

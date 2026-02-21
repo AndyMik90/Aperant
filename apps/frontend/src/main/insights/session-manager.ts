@@ -20,8 +20,9 @@ export class SessionManager {
    */
   loadSession(projectId: string, projectPath: string): InsightsSession | null {
     // Check in-memory cache first
-    if (this.sessions.has(projectId)) {
-      return this.sessions.get(projectId)!;
+    const cachedSession = this.sessions.get(projectId);
+    if (cachedSession) {
+      return cachedSession;
     }
 
     // Migrate old format if needed
@@ -40,10 +41,10 @@ export class SessionManager {
   /**
    * List all sessions for a project
    */
-  listSessions(projectPath: string): InsightsSessionSummary[] {
+  listSessions(projectPath: string, includeArchived = false): InsightsSessionSummary[] {
     // Migrate old format if needed
     this.storage.migrateOldSession(projectPath);
-    return this.storage.listSessions(projectPath);
+    return this.storage.listSessions(projectPath, includeArchived);
   }
 
   /**
@@ -106,6 +107,80 @@ export class SessionManager {
   }
 
   /**
+   * Archive a session
+   */
+  archiveSession(projectId: string, projectPath: string, sessionId: string): boolean {
+    const success = this.storage.archiveSession(projectPath, sessionId);
+    if (!success) return false;
+
+    // If this was the current session, auto-switch
+    const currentSession = this.sessions.get(projectId);
+    if (currentSession?.id === sessionId) {
+      this.sessions.delete(projectId);
+
+      const remaining = this.listSessions(projectPath);
+      if (remaining.length > 0) {
+        this.switchSession(projectId, projectPath, remaining[0].id);
+      } else {
+        this.storage.clearCurrentSessionId(projectPath);
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Unarchive a session
+   */
+  unarchiveSession(projectPath: string, sessionId: string): boolean {
+    return this.storage.unarchiveSession(projectPath, sessionId);
+  }
+
+  /**
+   * Delete multiple sessions
+   */
+  deleteSessions(projectId: string, projectPath: string, sessionIds: string[]): { deletedIds: string[]; failedIds: string[] } {
+    const result = this.storage.deleteSessions(projectPath, sessionIds);
+
+    // Check if current cached session was among deleted
+    const currentSession = this.sessions.get(projectId);
+    if (currentSession && result.deletedIds.includes(currentSession.id)) {
+      this.sessions.delete(projectId);
+
+      const remaining = this.listSessions(projectPath);
+      if (remaining.length > 0) {
+        this.switchSession(projectId, projectPath, remaining[0].id);
+      } else {
+        this.storage.clearCurrentSessionId(projectPath);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Archive multiple sessions
+   */
+  archiveSessions(projectId: string, projectPath: string, sessionIds: string[]): { archivedIds: string[]; failedIds: string[] } {
+    const result = this.storage.archiveSessions(projectPath, sessionIds);
+
+    // Check if current cached session was among archived
+    const currentSession = this.sessions.get(projectId);
+    if (currentSession && result.archivedIds.includes(currentSession.id)) {
+      this.sessions.delete(projectId);
+
+      const remaining = this.listSessions(projectPath);
+      if (remaining.length > 0) {
+        this.switchSession(projectId, projectPath, remaining[0].id);
+      } else {
+        this.storage.clearCurrentSessionId(projectPath);
+      }
+    }
+
+    return result;
+  }
+
+  /**
    * Rename a session
    */
   renameSession(projectPath: string, sessionId: string, newTitle: string): boolean {
@@ -115,6 +190,17 @@ export class SessionManager {
     session.title = newTitle;
     session.updatedAt = new Date();
     this.storage.saveSession(projectPath, session);
+
+    // Update cache if this session is cached
+    for (const [projectId, cachedSession] of this.sessions) {
+      if (cachedSession.id === sessionId) {
+        cachedSession.title = newTitle;
+        cachedSession.updatedAt = session.updatedAt;
+        this.sessions.set(projectId, cachedSession);
+        break;
+      }
+    }
+
     return true;
   }
 
@@ -133,7 +219,7 @@ export class SessionManager {
     for (const [projectId, cachedSession] of this.sessions) {
       if (cachedSession.id === sessionId) {
         cachedSession.modelConfig = modelConfig;
-        cachedSession.updatedAt = new Date();
+        cachedSession.updatedAt = session.updatedAt;
         this.sessions.set(projectId, cachedSession);
         break;
       }

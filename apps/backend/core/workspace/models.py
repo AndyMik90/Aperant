@@ -278,12 +278,11 @@ class SpecNumberLock:
 class DependencyStrategy(Enum):
     """Strategy for sharing dependency directories across worktrees.
 
-    SYMLINK is fast but unsafe for certain ecosystems. Notably, Python venv
-    breaks when symlinked because CPython's pyvenv.cfg discovery walks the
-    real directory hierarchy without resolving symlinks first
-    (CPython bug #106045). This means a symlinked venv resolves its home
-    path relative to the symlink target's parent, not the worktree, causing
-    import failures and broken interpreters.
+    SYMLINK is fast and now safe for Python venvs with runtime health checks.
+    A post-symlink health check validates the venv is usable, automatically
+    falling back to RECREATE if the symlink is broken. This works around
+    CPython's pyvenv.cfg discovery issue (CPython bug #106045) while maintaining
+    fast worktree creation in the common case where symlinking succeeds.
     """
 
     SYMLINK = "symlink"  # Create a symlink to the source (fast, works for node_modules)

@@ -198,7 +198,11 @@ export function StagedInProjectMessage({ task, projectPath, hasWorktree = false,
     setError(null);
 
     try {
-      await persistTaskStatus(task.id, 'done');
+      const result = await persistTaskStatus(task.id, 'done', { keepWorktree: true });
+      if (!result.success) {
+        setError(result.error || 'Failed to mark as done');
+        return;
+      }
       onClose?.();
     } catch (err) {
       console.error('Error marking task as done:', err);

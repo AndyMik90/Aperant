@@ -209,18 +209,25 @@ export function setupPtyHandlers(
   onExitCallback: (terminal: TerminalProcess) => void
 ): void {
   const { id, pty: ptyProcess } = terminal;
+  terminal.hasExited = false;
 
   // Handle data from terminal
   ptyProcess.onData((data) => {
     // Shutdown guard (GitHub #1469): skip processing to avoid accessing
     // destroyed BrowserWindow.webContents, which triggers pty.node SIGABRT
     if (isShuttingDown) return;
+    if (terminal.hasExited) return;
 
     // Append to output buffer (limit to 100KB)
     terminal.outputBuffer = (terminal.outputBuffer + data).slice(-100000);
 
-    // Call custom data handler
-    onDataCallback(terminal, data);
+    // Call custom data handler. This must never crash the main process:
+    // parser logic in higher layers can throw on unexpected output.
+    try {
+      onDataCallback(terminal, data);
+    } catch (error) {
+      debugError('[PtyManager] onData callback failed for terminal:', id, 'error:', error);
+    }
 
     // Send to renderer with isDestroyed() check to prevent crashes
     // when the window is closed during terminal activity
@@ -229,6 +236,9 @@ export function setupPtyHandlers(
 
   // Handle terminal exit
   ptyProcess.onExit(({ exitCode }) => {
+    terminal.hasExited = true;
+    // Drop any queued writes for this terminal to avoid writing to dead PTYs.
+    pendingWrites.delete(id);
     debugLog('[PtyManager] Terminal exited:', id, 'code:', exitCode);
 
     // Always resolve pending exit promises, even during shutdown
@@ -248,8 +258,13 @@ export function setupPtyHandlers(
     // when the window is closed during terminal exit
     safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_EXIT, id, exitCode);
 
-    // Call custom exit handler
-    onExitCallback(terminal);
+    // Call custom exit handler. Guard against unexpected exceptions so PTY exit
+    // handling remains robust and doesn't take down the main process.
+    try {
+      onExitCallback(terminal);
+    } catch (error) {
+      debugError('[PtyManager] onExit callback failed for terminal:', id, 'error:', error);
+    }
 
     // Only delete if this is the SAME terminal object (not a newly created one with same ID).
     // This prevents a race where destroyTerminal() awaits PTY exit, a new terminal is created
@@ -285,6 +300,11 @@ const pendingWrites = new Map<string, Promise<void>>();
  */
 function performWrite(terminal: TerminalProcess, data: string): Promise<void> {
   return new Promise((resolve) => {
+    if (terminal.hasExited) {
+      resolve();
+      return;
+    }
+
     // For large commands, write in chunks to prevent blocking
     if (data.length > CHUNKED_WRITE_THRESHOLD) {
       debugLog('[PtyManager:writeToPty] Large write detected, using chunked write');
@@ -293,7 +313,7 @@ function performWrite(terminal: TerminalProcess, data: string): Promise<void> {
 
       const writeChunk = () => {
         // Check if terminal is still valid before writing
-        if (!terminal.pty) {
+        if (!terminal.pty || terminal.hasExited) {
           debugError('[PtyManager:writeToPty] Terminal PTY no longer valid, aborting chunked write');
           resolve();
           return;
@@ -339,6 +359,10 @@ function performWrite(terminal: TerminalProcess, data: string): Promise<void> {
  */
 export function writeToPty(terminal: TerminalProcess, data: string): void {
   debugLog('[PtyManager:writeToPty] About to write to pty, data length:', data.length);
+  if (terminal.hasExited) {
+    debugError('[PtyManager:writeToPty] Skipping write to exited terminal:', terminal.id);
+    return;
+  }
 
   // Get the previous write Promise for this terminal (if any)
   const previousWrite = pendingWrites.get(terminal.id) || Promise.resolve();
@@ -366,6 +390,11 @@ export function writeToPty(terminal: TerminalProcess, data: string): void {
  * @returns true if resize was successful, false otherwise
  */
 export function resizePty(terminal: TerminalProcess, cols: number, rows: number): boolean {
+  if (terminal.hasExited) {
+    debugError('[PtyManager] Resize skipped for exited terminal:', terminal.id);
+    return false;
+  }
+
   // Validate dimensions
   if (cols <= 0 || rows <= 0 || !Number.isFinite(cols) || !Number.isFinite(rows)) {
     debugError('[PtyManager] Invalid resize dimensions - terminal:', terminal.id, 'cols:', cols, 'rows:', rows);
@@ -375,6 +404,17 @@ export function resizePty(terminal: TerminalProcess, cols: number, rows: number)
   try {
     const prevCols = terminal.pty.cols;
     const prevRows = terminal.pty.rows;
+
+    // If dimensions are unchanged, force SIGWINCH via a resize cycle.
+    // On macOS/Linux, ioctl(TIOCSWINSZ) only sends SIGWINCH when size actually
+    // changes. This matters after project switch: PTY persists with old dimensions,
+    // terminal remounts at same size, TUI apps (Claude Code) never get SIGWINCH
+    // and never redraw — leaving the terminal blank.
+    if (prevCols === cols && prevRows === rows) {
+      debugLog('[PtyManager] Same-dimension resize detected, forcing SIGWINCH cycle for terminal:', terminal.id);
+      terminal.pty.resize(Math.max(1, cols - 1), rows);
+    }
+
     debugLog('[PtyManager] Resizing PTY - terminal:', terminal.id, 'from:', prevCols, 'x', prevRows, 'to:', cols, 'x', rows);
     terminal.pty.resize(cols, rows);
     debugLog('[PtyManager] PTY resized - actual dimensions now:', terminal.pty.cols, 'x', terminal.pty.rows);
@@ -394,6 +434,10 @@ export function resizePty(terminal: TerminalProcess, cols: number, rows: number)
 export function killPty(terminal: TerminalProcess, waitForExit: true): Promise<void>;
 export function killPty(terminal: TerminalProcess, waitForExit?: false): void;
 export function killPty(terminal: TerminalProcess, waitForExit?: boolean): Promise<void> | void {
+  if (terminal.hasExited) {
+    return waitForExit ? Promise.resolve() : undefined;
+  }
+
   if (waitForExit) {
     const exitPromise = waitForPtyExit(terminal.id);
     try {

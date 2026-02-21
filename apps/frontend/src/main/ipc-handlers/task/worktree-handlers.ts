@@ -1372,7 +1372,9 @@ function getTaskBaseBranch(specDir: string): string | undefined {
       if (metadata.baseBranch &&
           metadata.baseBranch !== '__project_default__' &&
           GIT_BRANCH_REGEX.test(metadata.baseBranch)) {
-        return metadata.baseBranch;
+        // Strip remote prefix if present (e.g., "origin/feat/x" → "feat/x")
+        const branch = metadata.baseBranch.replace(/^origin\//, '');
+        return branch;
       }
     }
   } catch (e) {

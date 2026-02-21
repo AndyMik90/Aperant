@@ -321,7 +321,12 @@ export interface AppSettings {
   vaultAutoLoad?: boolean;
   /** Whether to allow write operations to vault (default: false for safety) */
   vaultWriteEnabled?: boolean;
+  // GPU acceleration for terminal rendering (WebGL)
+  gpuAcceleration?: GpuAcceleration;
 }
+
+// GPU acceleration mode for terminal WebGL rendering
+export type GpuAcceleration = 'auto' | 'on' | 'off';
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)
 export interface SourceEnvConfig {

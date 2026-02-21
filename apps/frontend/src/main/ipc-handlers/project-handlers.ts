@@ -153,15 +153,23 @@ function getGitBranchesWithInfo(projectPath: string): GitBranchDetail[] {
         .map(b => b.trim())
         // Remove HEAD pointer entries like "origin/HEAD"
         .filter(b => !b.endsWith('/HEAD'))
-        .map(name => ({
-          name,
-          type: 'remote' as const,
-          displayName: name,
-          isCurrent: false
-        }));
+        .map(fullName => {
+          // Strip "origin/" prefix so branch names are clean for PR targets etc.
+          const name = fullName.replace(/^origin\//, '');
+          return {
+            name,
+            type: 'remote' as const,
+            displayName: name,
+            isCurrent: false
+          };
+        });
     } catch {
       // Remote branches may not exist, continue with local only
     }
+
+    // Deduplicate: if a branch exists locally and remotely, keep only the local entry
+    const localNames = new Set(localBranches.map(b => b.name));
+    remoteBranches = remoteBranches.filter(b => !localNames.has(b.name));
 
     // Combine and sort: local branches first, then remote branches, alphabetically within each group
     const allBranches = [...localBranches, ...remoteBranches];
