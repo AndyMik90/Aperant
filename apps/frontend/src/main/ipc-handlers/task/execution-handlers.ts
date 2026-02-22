@@ -977,6 +977,19 @@ export function registerTaskExecutionHandlers(
         return { success: false, error: 'Task not found' };
       }
 
+      // Helper to notify renderer of task status changes.
+      const sendStatusChange = (status: TaskStatus) => {
+        const mainWindow = getMainWindow();
+        if (mainWindow) {
+          mainWindow.webContents.send(
+            IPC_CHANNELS.TASK_STATUS_CHANGE,
+            taskId,
+            status,
+            project.id
+          );
+        }
+      };
+
       // Get the spec directory - use task.specsPath if available (handles worktree vs main)
       // This is critical: task might exist in worktree, and getTasks() prefers worktree version.
       // If we write to main project but task is in worktree, the worktree's old status takes precedence on refresh.
@@ -1092,6 +1105,7 @@ export function registerTaskExecutionHandlers(
             // CRITICAL: Invalidate cache AFTER file writes complete
             // This ensures getTasks() returns fresh data reflecting the recovery
             projectStore.invalidateTasksCache(project.id);
+            sendStatusChange('human_review');
 
             return {
               success: true,
@@ -1204,6 +1218,7 @@ export function registerTaskExecutionHandlers(
           if (!gitStatusForRestart.isGitRepo || !gitStatusForRestart.hasCommits) {
             console.warn('[Recovery] Git check failed, cannot auto-restart task');
             // Recovery succeeded but we can't restart without git
+            sendStatusChange(newStatus);
             return {
               success: true,
               data: {
@@ -1221,6 +1236,7 @@ export function registerTaskExecutionHandlers(
           const initResult = await ensureProfileManagerInitialized();
           if (!initResult.success) {
             // Recovery succeeded but we can't restart without profile manager
+            sendStatusChange(newStatus);
             return {
               success: true,
               data: {
@@ -1236,6 +1252,7 @@ export function registerTaskExecutionHandlers(
           if (!profileManager.hasValidAuth()) {
             console.warn('[Recovery] Auth check failed, cannot auto-restart task');
             // Recovery succeeded but we can't restart without auth
+            sendStatusChange(newStatus);
             return {
               success: true,
               data: {
@@ -1327,15 +1344,7 @@ export function registerTaskExecutionHandlers(
         }
 
         // Notify renderer of status change
-        const mainWindow = getMainWindow();
-        if (mainWindow) {
-          mainWindow.webContents.send(
-            IPC_CHANNELS.TASK_STATUS_CHANGE,
-            taskId,
-            newStatus,
-            project.id
-          );
-        }
+        sendStatusChange(newStatus);
 
         return {
           success: true,
