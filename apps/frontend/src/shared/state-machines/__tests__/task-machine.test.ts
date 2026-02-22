@@ -381,6 +381,15 @@ describe('taskMachine', () => {
       expect(snapshot.value).toBe('coding');
     });
 
+    it('should allow QA_STARTED from backlog (late event after actor restore)', () => {
+      const events: TaskEvent[] = [
+        { type: 'QA_STARTED', iteration: 1, maxIterations: 3 }
+      ];
+
+      const snapshot = runEvents(events);
+      expect(snapshot.value).toBe('qa_review');
+    });
+
     it('should allow CODING_STARTED from planning (skipped PLANNING_COMPLETE)', () => {
       const events: TaskEvent[] = [
         { type: 'PLANNING_STARTED' },
@@ -394,6 +403,15 @@ describe('taskMachine', () => {
     it('should allow ALL_SUBTASKS_DONE from planning (fast task)', () => {
       const events: TaskEvent[] = [
         { type: 'PLANNING_STARTED' },
+        { type: 'ALL_SUBTASKS_DONE', totalCount: 1 }
+      ];
+
+      const snapshot = runEvents(events);
+      expect(snapshot.value).toBe('qa_review');
+    });
+
+    it('should allow ALL_SUBTASKS_DONE from backlog (late event after actor restore)', () => {
+      const events: TaskEvent[] = [
         { type: 'ALL_SUBTASKS_DONE', totalCount: 1 }
       ];
 
@@ -426,6 +444,16 @@ describe('taskMachine', () => {
       const events: TaskEvent[] = [
         { type: 'PLANNING_STARTED' },
         { type: 'PLANNING_COMPLETE', hasSubtasks: true, subtaskCount: 1, requireReviewBeforeCoding: false },
+        { type: 'QA_PASSED', iteration: 1, testsRun: {} }
+      ];
+
+      const snapshot = runEvents(events);
+      expect(snapshot.value).toBe('human_review');
+      expect(snapshot.context.reviewReason).toBe('completed');
+    });
+
+    it('should allow QA_PASSED from backlog (late event after actor restore)', () => {
+      const events: TaskEvent[] = [
         { type: 'QA_PASSED', iteration: 1, testsRun: {} }
       ];
 
