@@ -10,6 +10,7 @@ import { fileWatcher } from '../../file-watcher';
 import { findTaskAndProject } from './shared';
 import { checkGitStatus } from '../../project-initializer';
 import { initializeClaudeProfileManager, type ClaudeProfileManager } from '../../claude-profile-manager';
+import { getAPIProfileEnv } from '../../services/profile';
 import { taskStateManager } from '../../task-state-manager';
 import {
   getPlanPath,
@@ -81,6 +82,25 @@ async function ensureProfileManagerInitialized(): Promise<
       error: `Failed to initialize profile manager. Please check file permissions and disk space. (${errorMessage})`
     };
   }
+}
+
+/**
+ * Check whether any runnable auth method is available.
+ * Accepts either:
+ * - Active API profile credentials, or
+ * - Active OAuth profile credentials
+ */
+async function hasRunnableAuth(profileManager: ClaudeProfileManager): Promise<boolean> {
+  try {
+    const apiProfileEnv = await getAPIProfileEnv();
+    if (Object.keys(apiProfileEnv).length > 0) {
+      return true;
+    }
+  } catch (error) {
+    console.warn('[AuthCheck] Failed to load API profile env, falling back to OAuth auth check:', error);
+  }
+
+  return profileManager.hasValidAuth();
 }
 
 /**
@@ -172,7 +192,7 @@ export function registerTaskExecutionHandlers(
       }
 
       // Check authentication - Claude requires valid auth to run tasks
-      if (!profileManager.hasValidAuth()) {
+      if (!await hasRunnableAuth(profileManager)) {
         console.warn('[TASK_START] No valid authentication for active profile');
         mainWindow.webContents.send(
           IPC_CHANNELS.TASK_ERROR,
@@ -747,7 +767,7 @@ export function registerTaskExecutionHandlers(
             return { success: false, error: initResult.error };
           }
           const profileManager = initResult.profileManager;
-          if (!profileManager.hasValidAuth()) {
+          if (!await hasRunnableAuth(profileManager)) {
             console.warn('[TASK_UPDATE_STATUS] No valid authentication for active profile');
             if (mainWindow) {
               mainWindow.webContents.send(
@@ -1249,7 +1269,7 @@ export function registerTaskExecutionHandlers(
             };
           }
           const profileManager = initResult.profileManager;
-          if (!profileManager.hasValidAuth()) {
+          if (!await hasRunnableAuth(profileManager)) {
             console.warn('[Recovery] Auth check failed, cannot auto-restart task');
             // Recovery succeeded but we can't restart without auth
             sendStatusChange(newStatus);

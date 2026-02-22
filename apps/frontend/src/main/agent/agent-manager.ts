@@ -15,6 +15,7 @@ import {
 } from './types';
 import type { IdeationConfig } from '../../shared/types';
 import { resetStuckSubtasks } from '../ipc-handlers/task/plan-file-utils';
+import { getAPIProfileEnv } from '../services/profile';
 import { AUTO_BUILD_PATHS, getSpecsDir, sanitizeThinkingLevel } from '../../shared/constants';
 import { projectStore } from '../project-store';
 
@@ -22,6 +23,19 @@ import { projectStore } from '../project-store';
  * Main AgentManager - orchestrates agent process lifecycle
  * This is a slim facade that delegates to focused modules
  */
+async function hasRunnableAuth(profileManager: ClaudeProfileManager): Promise<boolean> {
+  try {
+    const apiProfileEnv = await getAPIProfileEnv();
+    if (Object.keys(apiProfileEnv).length > 0) {
+      return true;
+    }
+  } catch (error) {
+    console.warn('[AgentManager] Failed to load API profile env, falling back to OAuth auth check:', error);
+  }
+
+  return profileManager.hasValidAuth();
+}
+
 export class AgentManager extends EventEmitter {
   private state: AgentState;
   private events: AgentEvents;
@@ -240,7 +254,7 @@ export class AgentManager extends EventEmitter {
       this.emit('error', taskId, 'Failed to initialize profile manager. Please check file permissions and disk space.');
       return;
     }
-    if (!profileManager.hasValidAuth()) {
+    if (!await hasRunnableAuth(profileManager)) {
       this.emit('error', taskId, 'Claude authentication required. Please authenticate in Settings > Claude Profiles before starting tasks.');
       return;
     }
@@ -354,7 +368,7 @@ export class AgentManager extends EventEmitter {
       this.emit('error', taskId, 'Failed to initialize profile manager. Please check file permissions and disk space.');
       return;
     }
-    if (!profileManager.hasValidAuth()) {
+    if (!await hasRunnableAuth(profileManager)) {
       this.emit('error', taskId, 'Claude authentication required. Please authenticate in Settings > Claude Profiles before starting tasks.');
       return;
     }

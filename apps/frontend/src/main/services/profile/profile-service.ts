@@ -13,6 +13,7 @@ import Anthropic, {
   APIConnectionTimeoutError
 } from '@anthropic-ai/sdk';
 
+import { isAPIProfileAuthenticated } from '../../claude-profile/profile-utils';
 import { loadProfilesFile, generateProfileId, atomicModifyProfiles } from './profile-manager';
 import type { APIProfile, TestConnectionResult, ModelInfo, DiscoverModelsResult } from '@shared/types/profile';
 
@@ -269,6 +270,11 @@ export async function getAPIProfileEnv(): Promise<Record<string, string>> {
 
   // If profile not found, return empty object (shouldn't happen with valid data)
   if (!profile) {
+    return {};
+  }
+
+  // Return empty if active API profile is incomplete/invalid
+  if (!isAPIProfileAuthenticated(profile)) {
     return {};
   }
 
