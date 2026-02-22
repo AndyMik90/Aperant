@@ -7,9 +7,9 @@ import '@testing-library/jest-dom/vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { UsageIndicator } from './UsageIndicator';
-import { useSettingsStore } from '../stores/settings-store';
+import { useSettingsStore } from '@/stores/settings-store';
 
-vi.mock('../stores/settings-store', () => ({
+vi.mock('@/stores/settings-store', () => ({
   useSettingsStore: vi.fn()
 }));
 
@@ -46,6 +46,7 @@ vi.mock('react-i18next', () => ({
 
 let mockActiveProfileId: string | null = null;
 let onAllProfilesUsageUpdatedCallback: ((allProfilesUsage: AllProfilesUsagePayload) => void) | undefined;
+// Coupled to the payload shape returned by buildAllProfilesUsageResponse.
 type AllProfilesUsagePayload = ReturnType<typeof buildAllProfilesUsageResponse>['data'];
 
 function buildAllProfilesUsageResponse(needsReauthentication: boolean) {
@@ -85,6 +86,7 @@ describe('UsageIndicator re-auth handling by auth mode', () => {
     onAllProfilesUsageUpdatedCallback = undefined;
 
     vi.mocked(useSettingsStore).mockImplementation((selector) => {
+      // Minimal store slice required by UsageIndicator.
       const state = { activeProfileId: mockActiveProfileId } satisfies { activeProfileId: string | null };
       return selector(state as any);
     });
