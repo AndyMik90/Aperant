@@ -475,7 +475,7 @@ class TestPhaseQuickSpec:
         mock_ui_module,
         mock_spec_validator,
     ):
-        """Quick spec phase returns early if files exist."""
+        """Quick spec phase returns early if files exist and validate."""
         (spec_dir / "spec.md").write_text("# Test Spec")
         (spec_dir / "implementation_plan.json").write_text(json.dumps({"phases": []}))
 
@@ -483,7 +483,7 @@ class TestPhaseQuickSpec:
             project_dir=temp_dir,
             spec_dir=spec_dir,
             task_description="Test task",
-            spec_validator=mock_spec_validator(),
+            spec_validator=mock_spec_validator(spec_valid=True, plan_valid=True),
             run_agent_fn=mock_run_agent_fn(),
             task_logger=mock_task_logger,
             ui_module=mock_ui_module,
@@ -517,7 +517,7 @@ class TestPhaseQuickSpec:
             project_dir=temp_dir,
             spec_dir=spec_dir,
             task_description="Test task",
-            spec_validator=mock_spec_validator(),
+            spec_validator=mock_spec_validator(spec_valid=True, plan_valid=True),
             run_agent_fn=agent_fn,
             task_logger=mock_task_logger,
             ui_module=mock_ui_module,
@@ -527,6 +527,110 @@ class TestPhaseQuickSpec:
 
         assert result.success is True
         assert agent_fn.called
+
+    @pytest.mark.asyncio
+    async def test_quick_spec_regenerates_when_existing_files_invalid(
+        self,
+        temp_dir: Path,
+        spec_dir: Path,
+        mock_task_logger,
+        mock_ui_module,
+        mock_spec_validator,
+    ):
+        """Quick spec reruns agent when existing files fail validation."""
+        (spec_dir / "spec.md").write_text("# Invalid Existing Spec")
+        (spec_dir / "implementation_plan.json").write_text(json.dumps({"phases": []}))
+
+        async def agent_side_effect(*args, **kwargs):
+            (spec_dir / "spec.md").write_text("# Regenerated Spec")
+            (spec_dir / "implementation_plan.json").write_text(
+                json.dumps(
+                    {
+                        "feature": "Test task",
+                        "workflow_type": "simple",
+                        "phases": [
+                            {
+                                "phase": 1,
+                                "name": "Implementation",
+                                "subtasks": [
+                                    {
+                                        "id": "subtask-1-1",
+                                        "description": "Do thing",
+                                        "status": "pending",
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                )
+            )
+            return (True, "Done")
+
+        agent_fn = AsyncMock(side_effect=agent_side_effect)
+        validator = mock_spec_validator(spec_valid=False, plan_valid=False)
+        validator.validate_spec_document.side_effect = [
+            type("Result", (), {"valid": False})(),
+            type("Result", (), {"valid": True})(),
+        ]
+        validator.validate_implementation_plan.side_effect = [
+            type("Result", (), {"valid": False})(),
+            type("Result", (), {"valid": True})(),
+        ]
+
+        executor = PhaseExecutor(
+            project_dir=temp_dir,
+            spec_dir=spec_dir,
+            task_description="Test task",
+            spec_validator=validator,
+            run_agent_fn=agent_fn,
+            task_logger=mock_task_logger,
+            ui_module=mock_ui_module,
+        )
+
+        result = await executor.phase_quick_spec()
+
+        assert result.success is True
+        assert agent_fn.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_quick_spec_applies_plan_autofix_before_retry(
+        self,
+        temp_dir: Path,
+        spec_dir: Path,
+        mock_task_logger,
+        mock_ui_module,
+        mock_spec_validator,
+    ):
+        """Quick spec applies plan autofix when plan validation initially fails."""
+
+        async def agent_side_effect(*args, **kwargs):
+            (spec_dir / "spec.md").write_text("# Generated Spec")
+            (spec_dir / "implementation_plan.json").write_text(json.dumps({"spec_name": "legacy"}))
+            return (True, "Done")
+
+        agent_fn = AsyncMock(side_effect=agent_side_effect)
+        validator = mock_spec_validator(spec_valid=True, plan_valid=False)
+        validator.validate_implementation_plan.side_effect = [
+            type("Result", (), {"valid": False})(),
+            type("Result", (), {"valid": True})(),
+        ]
+
+        executor = PhaseExecutor(
+            project_dir=temp_dir,
+            spec_dir=spec_dir,
+            task_description="Test task",
+            spec_validator=validator,
+            run_agent_fn=agent_fn,
+            task_logger=mock_task_logger,
+            ui_module=mock_ui_module,
+        )
+
+        with patch("spec.validate_pkg.auto_fix.auto_fix_plan", return_value=True) as mock_auto_fix:
+            result = await executor.phase_quick_spec()
+
+        assert result.success is True
+        assert agent_fn.await_count == 1
+        mock_auto_fix.assert_called_once_with(spec_dir)
 
 
 class TestPhaseResearch:

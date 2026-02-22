@@ -7,6 +7,8 @@ Handles the execution of AI agents for the spec creation pipeline.
 
 from pathlib import Path
 
+from agents.tools_pkg.models import AGENT_CONFIGS
+
 # Configure safe encoding before any output (fixes Windows encoding errors)
 from ui.capabilities import configure_safe_encoding
 
@@ -28,6 +30,30 @@ from task_logger import (
 
 class AgentRunner:
     """Manages agent execution with logging and error handling."""
+
+    PHASE_AGENT_MAP = {
+        "discovery": "spec_discovery",
+        "requirements": "spec_gatherer",
+        "historical_context": "spec_gatherer",
+        "research": "spec_researcher",
+        "context": "spec_context",
+        "spec_writing": "spec_writer",
+        "quick_spec": "spec_writer",
+        "self_critique": "spec_critic",
+        "planning": "planner",
+        "validation": "spec_validation",
+        "complexity_assessment": "spec_gatherer",
+    }
+
+    PROMPT_AGENT_MAP = {
+        "spec_researcher.md": "spec_researcher",
+        "spec_writer.md": "spec_writer",
+        "spec_quick.md": "spec_writer",
+        "spec_critic.md": "spec_critic",
+        "planner.md": "planner",
+        "validation_fixer.md": "spec_validation",
+        "complexity_assessor.md": "spec_gatherer",
+    }
 
     def __init__(
         self,
@@ -57,6 +83,7 @@ class AgentRunner:
         thinking_budget: int | None = None,
         thinking_level: str = "medium",
         prior_phase_summaries: str | None = None,
+        phase_name: str | None = None,
     ) -> tuple[bool, str]:
         """Run an agent with the given prompt.
 
@@ -67,6 +94,7 @@ class AgentRunner:
             thinking_budget: Token budget for extended thinking (None = disabled)
             thinking_level: Thinking level string (low, medium, high)
             prior_phase_summaries: Summaries from previous phases for context
+            phase_name: Optional phase name used to select agent profile
 
         Returns:
             Tuple of (success, response_text)
@@ -131,6 +159,20 @@ class AgentRunner:
             resolve_model_id,
         )
 
+        agent_type = self._resolve_agent_type(prompt_file, phase_name)
+        if agent_type not in AGENT_CONFIGS:
+            debug_error(
+                "agent_runner",
+                f"Unknown agent type resolved for prompt {prompt_file}",
+                phase_name=phase_name,
+                agent_type=agent_type,
+            )
+            return (
+                False,
+                f"Unknown spec agent type '{agent_type}' for prompt {prompt_file}"
+                + (f" (phase: {phase_name})" if phase_name else ""),
+            )
+
         betas = get_model_betas(self.model)
         fast_mode = get_fast_mode(self.spec_dir)
         debug(
@@ -146,6 +188,7 @@ class AgentRunner:
             self.project_dir,
             self.spec_dir,
             resolved_model,
+            agent_type=agent_type,
             betas=betas,
             fast_mode=fast_mode,
             **thinking_kwargs,
@@ -255,14 +298,41 @@ class AgentRunner:
                 return True, response_text
 
         except Exception as e:
+            error_text = str(e)
+            detailed_error = (
+                f"{type(e).__name__}: {error_text}"
+                f" [prompt={prompt_file}]"
+                + (f" [phase={phase_name}]" if phase_name else "")
+            )
             debug_error(
                 "agent_runner",
-                f"Agent session error: {e}",
+                f"Agent session error: {detailed_error}",
                 exception_type=type(e).__name__,
             )
             if self.task_logger:
-                self.task_logger.log_error(f"Agent error: {e}", LogPhase.PLANNING)
-            return False, str(e)
+                self.task_logger.log_error(
+                    f"Agent error ({prompt_file}{f'/{phase_name}' if phase_name else ''}): {detailed_error}",
+                    LogPhase.PLANNING,
+                )
+            return False, detailed_error
+
+    @classmethod
+    def _resolve_agent_type(
+        cls,
+        prompt_file: str,
+        phase_name: str | None,
+    ) -> str:
+        """Resolve the spec pipeline agent type for the current prompt/phase."""
+        normalized_prompt = (prompt_file or "").strip()
+        normalized_phase = (phase_name or "").strip().lower()
+
+        if normalized_prompt in cls.PROMPT_AGENT_MAP:
+            return cls.PROMPT_AGENT_MAP[normalized_prompt]
+
+        if normalized_phase in cls.PHASE_AGENT_MAP:
+            return cls.PHASE_AGENT_MAP[normalized_phase]
+
+        return "spec_writer"
 
     @staticmethod
     def _extract_tool_input_display(inp: dict) -> str | None:

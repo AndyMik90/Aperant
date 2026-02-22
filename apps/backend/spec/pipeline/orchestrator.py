@@ -162,6 +162,7 @@ class SpecOrchestrator:
             thinking_budget=thinking_budget,
             thinking_level=self.thinking_level,
             prior_phase_summaries=prior_summaries if prior_summaries else None,
+            phase_name=phase_name,
         )
 
     async def _store_phase_summary(self, phase_name: str) -> None:

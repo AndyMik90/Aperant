@@ -12,13 +12,13 @@ from pathlib import Path
 
 def create_minimal_plan(spec_dir: Path, task_description: str) -> Path:
     """Create a minimal implementation plan for simple tasks."""
+    timestamp = datetime.now().isoformat()
     plan = {
-        "spec_name": spec_dir.name,
+        "feature": task_description or spec_dir.name,
         "workflow_type": "simple",
-        "total_phases": 1,
-        "recommended_workers": 1,
         "phases": [
             {
+                "id": "phase-1",
                 "phase": 1,
                 "name": "Implementation",
                 "description": task_description or "Simple implementation",
@@ -34,17 +34,19 @@ def create_minimal_plan(spec_dir: Path, task_description: str) -> Path:
                         "patterns_from": [],
                         "verification": {
                             "type": "manual",
-                            "run": "Verify the change works as expected",
+                            "instructions": "Verify the change works as expected",
                         },
                     }
                 ],
             }
         ],
-        "metadata": {
-            "created_at": datetime.now().isoformat(),
-            "complexity": "simple",
-            "estimated_sessions": 1,
+        "summary": {
+            "total_phases": 1,
+            "total_subtasks": 1,
+            "recommended_workers": 1,
         },
+        "created_at": timestamp,
+        "updated_at": timestamp,
     }
 
     plan_file = spec_dir / "implementation_plan.json"

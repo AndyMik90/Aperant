@@ -60,9 +60,16 @@ class SpecPhaseMixin:
         plan_file = self.spec_dir / "implementation_plan.json"
 
         if spec_file.exists() and plan_file.exists():
-            self.ui.print_status("Quick spec already exists", "success")
-            return PhaseResult(
-                "quick_spec", True, [str(spec_file), str(plan_file)], [], 0
+            spec_valid = self.spec_validator.validate_spec_document().valid
+            plan_valid = self.spec_validator.validate_implementation_plan().valid
+            if spec_valid and plan_valid:
+                self.ui.print_status("Quick spec already exists", "success")
+                return PhaseResult(
+                    "quick_spec", True, [str(spec_file), str(plan_file)], [], 0
+                )
+
+            self.ui.print_status(
+                "Quick spec files exist but are invalid, regenerating...", "warning"
             )
 
         is_greenfield = self._check_and_log_greenfield()
@@ -91,15 +98,46 @@ Create:
                 phase_name="quick_spec",
             )
 
-            if success and spec_file.exists():
+            if success:
                 # Create minimal plan if agent didn't
                 if not plan_file.exists():
                     writer.create_minimal_plan(self.spec_dir, self.task_description)
 
-                self.ui.print_status("Quick spec created", "success")
-                return PhaseResult(
-                    "quick_spec", True, [str(spec_file), str(plan_file)], [], attempt
+                spec_valid = (
+                    spec_file.exists()
+                    and self.spec_validator.validate_spec_document().valid
                 )
+                plan_valid = (
+                    plan_file.exists()
+                    and self.spec_validator.validate_implementation_plan().valid
+                )
+
+                if not plan_valid and plan_file.exists():
+                    from ..validate_pkg.auto_fix import auto_fix_plan
+
+                    if auto_fix_plan(self.spec_dir):
+                        plan_valid = (
+                            self.spec_validator.validate_implementation_plan().valid
+                        )
+
+                if spec_valid and plan_valid:
+                    self.ui.print_status("Quick spec created", "success")
+                    return PhaseResult(
+                        "quick_spec",
+                        True,
+                        [str(spec_file), str(plan_file)],
+                        [],
+                        attempt,
+                    )
+
+                errors.append(
+                    f"Attempt {attempt + 1}: Quick spec output invalid "
+                    f"(spec_valid={spec_valid}, plan_valid={plan_valid})"
+                )
+                self.ui.print_status(
+                    "Quick spec created files but validation failed", "error"
+                )
+                continue
 
             errors.append(f"Attempt {attempt + 1}: Quick spec agent failed")
 
