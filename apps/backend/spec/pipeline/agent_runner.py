@@ -5,6 +5,7 @@ Agent Runner
 Handles the execution of AI agents for the spec creation pipeline.
 """
 
+import logging
 from pathlib import Path
 
 from agents.tools_pkg.models import AGENT_CONFIGS
@@ -26,6 +27,8 @@ from task_logger import (
 # Lazy import create_client to avoid circular import with core.client
 # The import chain: spec.pipeline -> agent_runner -> core.client -> agents.tools_pkg -> spec.validate_pkg
 # By deferring the import, we break the circular dependency.
+
+logger = logging.getLogger(__name__)
 
 
 class AgentRunner:
@@ -184,6 +187,16 @@ class AgentRunner:
             resolved_model, thinking_level or "medium"
         )
 
+        captured_stderr_lines: list[str] = []
+
+        def _capture_stderr_line(line: str) -> None:
+            if not line:
+                return
+            captured_stderr_lines.append(line)
+            # Keep only the most recent lines to prevent unbounded memory growth
+            if len(captured_stderr_lines) > 200:
+                del captured_stderr_lines[:-200]
+
         client = create_client(
             self.project_dir,
             self.spec_dir,
@@ -191,6 +204,7 @@ class AgentRunner:
             agent_type=agent_type,
             betas=betas,
             fast_mode=fast_mode,
+            stderr_callback=_capture_stderr_line,
             **thinking_kwargs,
         )
 
@@ -299,6 +313,23 @@ class AgentRunner:
 
         except Exception as e:
             error_text = str(e)
+            stderr_text = getattr(e, "stderr", None)
+            if (
+                stderr_text
+                and stderr_text.strip() == "Check stderr output for details"
+                and captured_stderr_lines
+            ):
+                stderr_text = "\n".join(captured_stderr_lines)
+
+            if stderr_text:
+                logger.error(
+                    "Spec agent stderr [prompt=%s phase=%s]:\n%s",
+                    prompt_file,
+                    phase_name or "-",
+                    stderr_text,
+                )
+                error_text = f"{error_text}\n--- STDERR START ---\n{stderr_text}\n--- STDERR END ---"
+
             detailed_error = (
                 f"{type(e).__name__}: {error_text}"
                 f" [prompt={prompt_file}]"

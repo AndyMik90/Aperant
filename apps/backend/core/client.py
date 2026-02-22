@@ -18,6 +18,7 @@ import logging
 import os
 import threading
 import time
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -536,6 +537,7 @@ def create_client(
     betas: list[str] | None = None,
     effort_level: str | None = None,
     fast_mode: bool = False,
+    stderr_callback: Callable[[str], None] | None = None,
 ) -> ClaudeSDKClient:
     """
     Create a Claude Agent SDK client with multi-layered security.
@@ -571,6 +573,8 @@ def create_client(
                   the "user" setting source so the CLI reads fastMode from
                   ~/.claude/settings.json. Requires extra usage enabled on Claude
                   subscription; falls back to standard speed automatically.
+        stderr_callback: Optional callback invoked with each stderr line emitted
+                        by the Claude CLI process.
 
     Returns:
         Configured ClaudeSDKClient
@@ -958,6 +962,9 @@ def create_client(
         # This prevents "File has not been read yet" errors in recovery sessions
         "enable_file_checkpointing": True,
     }
+
+    if stderr_callback:
+        options_kwargs["stderr"] = stderr_callback
 
     # Fast mode: enable user setting source so CLI reads fastMode from
     # ~/.claude/settings.json. Without this, the SDK's default --setting-sources ""
