@@ -339,6 +339,12 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
             description: authResult.error || t('accounts.toast.tryAgain'),
           });
         }
+      } else if (!result.success) {
+        toast({
+          variant: 'destructive',
+          title: t('accounts.toast.addProfileFailed'),
+          description: result.error || t('accounts.toast.tryAgain'),
+        });
       }
     } catch (_err) {
       toast({

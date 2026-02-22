@@ -10,7 +10,7 @@ import { terminalNameGenerator } from '../terminal-name-generator';
 import { readSettingsFileAsync } from '../settings-utils';
 import { debugLog, } from '../../shared/utils/debug-logger';
 import { migrateSession } from '../claude-profile/session-utils';
-import { createProfileDirectory } from '../claude-profile/profile-utils';
+import { createProfileDirectory, expandHomePath } from '../claude-profile/profile-utils';
 import { isValidConfigDir } from '../utils/config-path-validator';
 
 
@@ -161,10 +161,13 @@ export function registerTerminalHandlers(
             };
           }
 
-          // Ensure config directory exists
+          // Ensure config directory exists (expand ~ before passing to Node.js fs functions,
+          // which do not perform shell tilde expansion)
+          const resolvedConfigDir = expandHomePath(profile.configDir);
+          profile.configDir = resolvedConfigDir;
           const { mkdirSync, existsSync } = await import('fs');
-          if (!existsSync(profile.configDir)) {
-            mkdirSync(profile.configDir, { recursive: true });
+          if (!existsSync(resolvedConfigDir)) {
+            mkdirSync(resolvedConfigDir, { recursive: true });
           }
         }
 
