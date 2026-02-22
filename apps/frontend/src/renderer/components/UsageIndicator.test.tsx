@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom/vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { UsageIndicator } from './UsageIndicator';
 import { useSettingsStore } from '../stores/settings-store';
@@ -45,6 +45,8 @@ vi.mock('react-i18next', () => ({
 }));
 
 let mockActiveProfileId: string | null = null;
+let onAllProfilesUsageUpdatedCallback: ((allProfilesUsage: AllProfilesUsagePayload) => void) | undefined;
+type AllProfilesUsagePayload = ReturnType<typeof buildAllProfilesUsageResponse>['data'];
 
 function buildAllProfilesUsageResponse(needsReauthentication: boolean) {
   return {
@@ -79,15 +81,20 @@ function buildAllProfilesUsageResponse(needsReauthentication: boolean) {
 describe('UsageIndicator re-auth handling by auth mode', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockActiveProfileId = null;
+    onAllProfilesUsageUpdatedCallback = undefined;
 
     vi.mocked(useSettingsStore).mockImplementation((selector) => {
-      const state = { activeProfileId: mockActiveProfileId };
+      const state = { activeProfileId: mockActiveProfileId } satisfies { activeProfileId: string | null };
       return selector(state as any);
     });
 
     (window as any).electronAPI = {
       onUsageUpdated: vi.fn(() => vi.fn()),
-      onAllProfilesUsageUpdated: vi.fn(() => vi.fn()),
+      onAllProfilesUsageUpdated: vi.fn((callback: (allProfilesUsage: AllProfilesUsagePayload) => void) => {
+        onAllProfilesUsageUpdatedCallback = callback;
+        return vi.fn();
+      }),
       requestUsageUpdate: vi.fn().mockResolvedValue({ success: false, data: null }),
       requestAllProfilesUsage: vi.fn().mockResolvedValue(buildAllProfilesUsageResponse(true))
     };
@@ -106,8 +113,6 @@ describe('UsageIndicator re-auth handling by auth mode', () => {
   });
 
   it('shows re-auth UI in OAuth mode when active profile needs re-authentication', async () => {
-    mockActiveProfileId = null;
-
     render(<UsageIndicator />);
 
     await waitFor(() => {
@@ -115,5 +120,25 @@ describe('UsageIndicator re-auth handling by auth mode', () => {
     });
 
     expect(screen.getByText('Re-authentication required')).toBeInTheDocument();
+  });
+
+  it('ignores re-auth updates from usage events in API profile mode', async () => {
+    mockActiveProfileId = 'api-profile-1';
+
+    render(<UsageIndicator />);
+
+    await waitFor(() => {
+      expect(onAllProfilesUsageUpdatedCallback).toBeDefined();
+    });
+
+    await act(async () => {
+      onAllProfilesUsageUpdatedCallback?.(buildAllProfilesUsageResponse(true).data);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Usage data unavailable' })).toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Re-authentication required')).not.toBeInTheDocument();
   });
 });

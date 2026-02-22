@@ -22,7 +22,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { formatTimeRemaining, localizeUsageWindowLabel, hasHardcodedText } from '../../shared/utils/format-time';
 import type { ClaudeUsageSnapshot, ProfileUsageSummary } from '../../shared/types/agent';
-import { useSettingsStore } from '../stores/settings-store';
+import { useSettingsStore } from '@/stores/settings-store';
 import type { AppSection } from './settings/AppSettings';
 
 /**
@@ -331,7 +331,7 @@ export function UsageIndicator() {
       setOtherProfiles(nonActiveProfiles);
       // Track if active profile needs re-auth (OAuth mode only)
       const activeProfile = allProfilesUsage.allProfiles.find(p => p.isActive);
-      setActiveProfileNeedsReauth(isUsingApiProfile ? false : (activeProfile?.needsReauthentication ?? false));
+      setActiveProfileNeedsReauth(!isUsingApiProfile && Boolean(activeProfile?.needsReauthentication));
     });
 
     // Request initial usage on mount
@@ -356,7 +356,7 @@ export function UsageIndicator() {
         setOtherProfiles(nonActiveProfiles);
         // Track if active profile needs re-auth (OAuth mode only)
         const activeProfile = result.data.allProfiles.find(p => p.isActive);
-        setActiveProfileNeedsReauth(isUsingApiProfile ? false : (activeProfile?.needsReauthentication ?? false));
+        setActiveProfileNeedsReauth(!isUsingApiProfile && Boolean(activeProfile?.needsReauthentication));
       }
     }).catch((error) => {
       console.warn('[UsageIndicator] Failed to fetch all profiles usage:', error);
