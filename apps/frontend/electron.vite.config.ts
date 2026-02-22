@@ -94,6 +94,7 @@ export default defineConfig({
       }
     },
     server: {
+      port: Number(process.env.VITE_DEV_PORT) || 5173,
       watch: {
         // Ignore directories to prevent HMR conflicts during merge operations
         // Using absolute paths and broader patterns
