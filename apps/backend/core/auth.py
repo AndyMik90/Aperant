@@ -965,6 +965,14 @@ def get_sdk_env_vars() -> dict[str, str]:
         if bash_path:
             env["CLAUDE_CODE_GIT_BASH_PATH"] = bash_path
 
+    # Explicitly unset CLAUDECODE in SDK subprocess environment.
+    #
+    # Claude Code CLI refuses to start when this marker env var is present,
+    # treating it as a nested Claude Code session. Auto-Claude can run inside
+    # a Claude Code terminal during debugging, so we must clear this marker for
+    # child SDK/CLI processes.
+    env["CLAUDECODE"] = ""
+
     # Explicitly unset PYTHONPATH in SDK subprocess environment to prevent
     # pollution of agent subprocess environments. This fixes ACS-251 where
     # external projects with different Python versions would fail due to
