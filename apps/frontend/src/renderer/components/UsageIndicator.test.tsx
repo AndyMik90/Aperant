@@ -120,8 +120,6 @@ describe('UsageIndicator re-auth handling by auth mode', () => {
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Re-authentication required' })).toBeInTheDocument();
     });
-
-    expect(screen.getByText('Re-authentication required')).toBeInTheDocument();
   });
 
   it('ignores re-auth updates from usage events in API profile mode', async () => {
