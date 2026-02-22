@@ -470,6 +470,25 @@ describe('TaskStateManager', () => {
   });
 
   describe('actor state restoration', () => {
+    it('should transition from backlog on late QA_STARTED events', () => {
+      const lateQaEvent = {
+        type: 'QA_STARTED',
+        taskId: mockTask.id,
+        specId: mockTask.specId,
+        projectId: mockProject.id,
+        timestamp: new Date().toISOString(),
+        eventId: 'evt-late-qa',
+        sequence: 0,
+        iteration: 1,
+        maxIterations: 3
+      };
+
+      const accepted = manager.handleTaskEvent(mockTask.id, lateQaEvent, mockTask, mockProject);
+
+      expect(accepted).toBe(true);
+      expect(manager.getCurrentState(mockTask.id)).toBe('qa_review');
+    });
+
     it('should restore actor state from task with in_progress status', () => {
       const taskInProgress = createMockTask({
         status: 'in_progress',
