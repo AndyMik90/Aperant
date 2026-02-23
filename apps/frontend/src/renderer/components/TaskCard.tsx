@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, memo, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, GitPullRequest, MoreVertical } from 'lucide-react';
+import { Play, Square, Clock, Zap, Target, Shield, Gauge, Palette, FileCode, Bug, Wrench, Loader2, AlertTriangle, RotateCcw, Archive, ArchiveRestore, GitPullRequest, MoreVertical } from 'lucide-react';
 import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -31,7 +31,7 @@ import {
   JSON_ERROR_PREFIX,
   JSON_ERROR_TITLE_SUFFIX
 } from '../../shared/constants';
-import { stopTask, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks, hasRecentActivity, startTaskOrQueue } from '../stores/task-store';
+import { stopTask, checkTaskRunning, recoverStuckTask, isIncompleteHumanReview, archiveTasks, unarchiveTasks, hasRecentActivity, startTaskOrQueue } from '../stores/task-store';
 import { useToast } from '../hooks/use-toast';
 import type { Task, TaskCategory, ReviewReason, TaskStatus } from '../../shared/types';
 
@@ -262,6 +262,14 @@ export const TaskCard = memo(function TaskCard({
     const result = await archiveTasks(task.projectId, [task.id]);
     if (!result.success) {
       console.error('[TaskCard] Failed to archive task:', task.id, result.error);
+    }
+  };
+
+  const handleUnarchive = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const result = await unarchiveTasks(task.projectId, [task.id]);
+    if (!result.success) {
+      console.error('[TaskCard] Failed to unarchive task:', task.id, result.error);
     }
   };
 
@@ -571,7 +579,17 @@ export const TaskCard = memo(function TaskCard({
                     <GitPullRequest className="h-3 w-3" />
                   </Button>
                 )}
-                {!task.metadata?.archivedAt && (
+                {task.metadata?.archivedAt ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 cursor-pointer"
+                    onClick={handleUnarchive}
+                    title={t('tooltips.unarchiveTask')}
+                  >
+                    <ArchiveRestore className="h-3 w-3" />
+                  </Button>
+                ) : (
                   <Button
                     variant="ghost"
                     size="sm"
@@ -583,6 +601,17 @@ export const TaskCard = memo(function TaskCard({
                   </Button>
                 )}
               </div>
+            ) : task.status === 'done' && task.metadata?.archivedAt ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2.5 hover:bg-muted-foreground/10"
+                onClick={handleUnarchive}
+                title={t('tooltips.unarchiveTask')}
+              >
+                <ArchiveRestore className="mr-1.5 h-3 w-3" />
+                {t('actions.unarchive')}
+              </Button>
             ) : task.status === 'done' && !task.metadata?.archivedAt ? (
               <Button
                 variant="ghost"

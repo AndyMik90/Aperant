@@ -1044,6 +1044,36 @@ export async function deleteTasks(
 }
 
 /**
+ * Unarchive tasks
+ * Removes the archivedAt timestamp from task metadata
+ */
+export async function unarchiveTasks(
+  projectId: string,
+  taskIds: string[]
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const result = await window.electronAPI.unarchiveTasks(projectId, taskIds);
+
+    if (result.success) {
+      // Reload tasks to update the UI
+      await loadTasks(projectId);
+      return { success: true };
+    }
+
+    return {
+      success: false,
+      error: result.error || 'Failed to unarchive tasks'
+    };
+  } catch (error) {
+    console.error('Error unarchiving tasks:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+/**
  * Archive tasks
  * Marks tasks as archived by adding archivedAt timestamp to metadata
  */

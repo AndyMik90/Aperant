@@ -16,6 +16,7 @@
     "recover": "Récupérer",
     "resume": "Reprendre",
     "archive": "Archiver",
+    "unarchive": "Désarchiver",
     "delete": "Supprimer",
     "view": "Voir les détails",
     "viewPR": "Voir la PR",
@@ -43,6 +44,7 @@
   },
   "tooltips": {
     "archiveTask": "Archiver la tâche",
+    "unarchiveTask": "Désarchiver la tâche",
     "archiveAllDone": "Archiver toutes les tâches terminées",
     "viewPR": "Ouvrir la pull request dans le navigateur"
   },
