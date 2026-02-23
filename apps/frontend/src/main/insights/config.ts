@@ -150,6 +150,8 @@ export class InsightsConfig {
       ...oauthModeClearVars,
       ...profileEnv,
       ...apiProfileEnv,
+      // Prevent nested Claude Code session detection in child SDK/CLI process.
+      CLAUDECODE: '',
       PYTHONUNBUFFERED: '1',
       PYTHONIOENCODING: 'utf-8',
       PYTHONUTF8: '1',

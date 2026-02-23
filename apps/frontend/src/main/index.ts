@@ -609,7 +609,9 @@ app.whenReady().then(() => {
 
 // Quit when all windows are closed (except on macOS)
 app.on('window-all-closed', () => {
+  appLog.warn('[main] window-all-closed event received');
   if (!isMacOS()) {
+    appLog.warn('[main] Triggering app.quit() from window-all-closed (non-macOS)');
     app.quit();
   }
 });
@@ -618,13 +620,17 @@ app.on('window-all-closed', () => {
 // before the JS environment tears down. Without this, pty.node's native
 // ThreadSafeFunction callbacks fire after teardown, causing SIGABRT (GitHub #1469).
 app.on('before-quit', (event) => {
+  appLog.warn(`[main] before-quit event received (isQuitting=${String(isQuitting)})`);
+
   // Re-entrancy guard: the second app.quit() call (after cleanup) must pass through
   if (isQuitting) {
+    appLog.warn('[main] before-quit re-entry detected, allowing quit to continue');
     return;
   }
   isQuitting = true;
 
   // Pause quit to perform async cleanup
+  appLog.warn('[main] before-quit prevented for async cleanup');
   event.preventDefault();
 
   // Stop synchronous services immediately

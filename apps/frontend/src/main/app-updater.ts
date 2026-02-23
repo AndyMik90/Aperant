@@ -35,9 +35,13 @@ const GITHUB_REPO = 'Auto-Claude';
 // Debug mode - DEBUG_UPDATER=true or development mode
 const DEBUG_UPDATER = process.env.DEBUG_UPDATER === 'true' || process.env.NODE_ENV === 'development';
 
+function isUpdaterOperational(): boolean {
+  return app.isPackaged || process.env.DEBUG_UPDATER === 'true';
+}
+
 // Configure electron-updater
 autoUpdater.autoDownload = false;  // We control downloads manually to prevent downgrades
-autoUpdater.autoInstallOnAppQuit = true;  // Automatically install on app quit
+autoUpdater.autoInstallOnAppQuit = app.isPackaged;  // Only auto-install on quit in packaged builds
 
 // Update channels: 'latest' for stable, 'beta' for pre-release
 type UpdateChannel = 'latest' | 'beta';
@@ -348,6 +352,10 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
  * Called from IPC handler when user requests manual check
  */
 export async function checkForUpdates(): Promise<AppUpdateInfo | null> {
+  if (!isUpdaterOperational()) {
+    return null;
+  }
+
   try {
     console.warn('[app-updater] Manual update check requested');
     const result = await autoUpdater.checkForUpdates();
@@ -430,6 +438,12 @@ function isRunningFromReadOnlyVolume(): boolean {
  * Returns false if running from a read-only volume (update cannot proceed)
  */
 export function quitAndInstall(): boolean {
+  // Guard: only install in production or when updater is explicitly enabled
+  if (!isUpdaterOperational()) {
+    console.warn('[app-updater] quitAndInstall blocked: not in packaged mode');
+    return false;
+  }
+
   // Check if running from read-only volume before attempting install
   if (isRunningFromReadOnlyVolume()) {
     console.warn('[app-updater] Cannot install: running from read-only volume');
