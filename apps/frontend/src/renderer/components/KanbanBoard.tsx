@@ -989,7 +989,14 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
     // Auto-unarchive: moving an archived task to another state implies the user wants it active
     if (result.success && task?.metadata?.archivedAt && projectId) {
-      await unarchiveTasks(projectId, [taskId]);
+      const unarchiveResult = await unarchiveTasks(projectId, [taskId]);
+      if (!unarchiveResult.success) {
+        toast({
+          title: t('common:errors.operationFailed'),
+          description: unarchiveResult.error,
+          variant: 'destructive',
+        });
+      }
     }
 
     // Note: queue auto-promotion when a task leaves in_progress is handled by the

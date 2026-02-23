@@ -269,7 +269,11 @@ export const TaskCard = memo(function TaskCard({
     e.stopPropagation();
     const result = await unarchiveTasks(task.projectId, [task.id]);
     if (!result.success) {
-      console.error('[TaskCard] Failed to unarchive task:', task.id, result.error);
+      toast({
+        title: t('tasks:actions.unarchive'),
+        description: result.error,
+        variant: 'destructive',
+      });
     }
   };
 
