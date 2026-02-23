@@ -29,7 +29,7 @@ import { SortableTaskCard } from './SortableTaskCard';
 import { QueueSettingsModal } from './QueueSettingsModal';
 import { TASK_STATUS_COLUMNS, TASK_STATUS_LABELS } from '../../shared/constants';
 import { cn } from '../lib/utils';
-import { persistTaskStatus, forceCompleteTask, archiveTasks, deleteTasks, useTaskStore, isQueueAtCapacity, DEFAULT_MAX_PARALLEL_TASKS } from '../stores/task-store';
+import { persistTaskStatus, forceCompleteTask, archiveTasks, unarchiveTasks, deleteTasks, useTaskStore, isQueueAtCapacity, DEFAULT_MAX_PARALLEL_TASKS } from '../stores/task-store';
 import { updateProjectSettings, useProjectStore } from '../stores/project-store';
 import { useKanbanSettingsStore, DEFAULT_COLUMN_WIDTH, MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH, COLLAPSED_COLUMN_WIDTH_REM, MIN_COLUMN_WIDTH_REM, MAX_COLUMN_WIDTH_REM, BASE_FONT_SIZE, pxToRem } from '../stores/kanban-settings-store';
 import { useToast } from '../hooks/use-toast';
@@ -986,6 +986,12 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         });
       }
     }
+
+    // Auto-unarchive: moving an archived task to another state implies the user wants it active
+    if (result.success && task?.metadata?.archivedAt && projectId) {
+      await unarchiveTasks(projectId, [taskId]);
+    }
+
     // Note: queue auto-promotion when a task leaves in_progress is handled by the
     // useEffect task status change listener (registerTaskStatusChangeListener), so
     // no explicit processQueue() call is needed here.
