@@ -8,6 +8,8 @@ import { getValidatedPythonPath } from '../python-detector';
 import { getAugmentedEnv } from '../env-utils';
 import { getEffectiveSourcePath } from '../updater/path-resolver';
 import { isWindows } from '../platform';
+import { getClaudeProfileManager } from '../claude-profile-manager';
+import { getCredentialsFromKeychain } from '../claude-profile/credential-utils';
 
 /**
  * Configuration manager for insights service
@@ -143,6 +145,26 @@ export class InsightsConfig {
     // are available even when app is launched from Finder/Dock.
     const augmentedEnv = getAugmentedEnv();
 
+    // Re-inject CLAUDE_CODE_OAUTH_TOKEN for the Insights subprocess.
+    //
+    // ensureCleanProfileEnv() clears CLAUDE_CODE_OAUTH_TOKEN when CLAUDE_CONFIG_DIR
+    // is set, because SDK-based agents can re-read fresh tokens from Keychain.
+    // However, the Insights runner uses core/auth.py directly, which shells out to
+    // `/usr/bin/security` for Keychain access — this fails under Electron's sandbox
+    // on macOS. We resolve this by reading the token here (in the main process,
+    // which has Keychain access) and passing it explicitly to the subprocess.
+    const oauthTokenEnv: Record<string, string> = {};
+    if (profileEnv.CLAUDE_CONFIG_DIR && !profileEnv.CLAUDE_CODE_OAUTH_TOKEN) {
+      const profileManager = getClaudeProfileManager();
+      const profile = profileManager.getProfile(profileResult.profileId);
+      if (profile?.configDir) {
+        const credentials = getCredentialsFromKeychain(profile.configDir, true);
+        if (credentials.token) {
+          oauthTokenEnv.CLAUDE_CODE_OAUTH_TOKEN = credentials.token;
+        }
+      }
+    }
+
     return {
       ...augmentedEnv,
       ...pythonEnv, // Include PYTHONPATH for bundled site-packages
@@ -150,6 +172,7 @@ export class InsightsConfig {
       ...oauthModeClearVars,
       ...profileEnv,
       ...apiProfileEnv,
+      ...oauthTokenEnv,
       PYTHONUNBUFFERED: '1',
       PYTHONIOENCODING: 'utf-8',
       PYTHONUTF8: '1',

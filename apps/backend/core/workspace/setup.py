@@ -217,73 +217,87 @@ def symlink_node_modules_to_worktree(
     return [path for paths in results.values() for path in paths]
 
 
-def symlink_claude_config_to_worktree(
+def copy_claude_config_to_worktree(
     project_dir: Path, worktree_path: Path
 ) -> list[str]:
     """
-    Symlink .claude/ directory from project root to worktree.
+    Copy .claude/ directory from project root into the worktree.
 
-    This ensures the worktree has access to Claude Code configuration
-    (settings, CLAUDE.md, MCP servers, etc.) so that terminals opened
-    in the worktree behave identically to the project root.
+    Agents run in a sandboxed filesystem restricted to the worktree path,
+    so symlinks pointing outside the worktree (to the original project dir)
+    are not accessible. A physical copy ensures agents can read .claude/rules/
+    and other configuration files directly.
+
+    This replaces the previous symlink approach which failed due to sandbox
+    restrictions. If a symlink already exists at the target, it is removed
+    before copying.
 
     Args:
         project_dir: The main project directory
         worktree_path: Path to the worktree
 
     Returns:
-        List of symlinked paths (relative to worktree)
+        List of copied paths (relative to worktree)
     """
-    symlinked = []
+    copied = []
 
     source_path = project_dir / ".claude"
     target_path = worktree_path / ".claude"
 
     # Skip if source doesn't exist
     if not source_path.exists():
-        debug(MODULE, "Skipping .claude/ - source does not exist")
-        return symlinked
+        debug(MODULE, "Skipping .claude/ copy - source does not exist")
+        return copied
 
-    # Skip if target already exists
-    if target_path.exists():
-        debug(MODULE, "Skipping .claude/ - target already exists")
-        return symlinked
-
-    # Also skip if target is a symlink (even if broken)
+    # If target is a symlink (from a previous run or old code), remove it
+    # so we can replace it with a real copy
     if target_path.is_symlink():
-        debug(MODULE, "Skipping .claude/ - symlink already exists (possibly broken)")
-        return symlinked
+        debug(MODULE, "Removing existing .claude/ symlink to replace with copy")
+        try:
+            target_path.unlink()
+        except OSError as e:
+            debug_warning(MODULE, f"Could not remove .claude/ symlink: {e}")
+            print_status(
+                "Warning: Could not remove existing .claude/ symlink",
+                "warning",
+            )
+            return copied
+
+    # If target already exists as a real directory, remove it to get a fresh copy
+    if target_path.exists():
+        debug(MODULE, "Removing existing .claude/ directory to refresh copy")
+        try:
+            shutil.rmtree(target_path)
+        except (OSError, shutil.Error) as e:
+            debug_warning(MODULE, f"Could not remove existing .claude/ directory: {e}")
+            print_status(
+                "Warning: Could not refresh .claude/ directory in worktree",
+                "warning",
+            )
+            return copied
 
     # Ensure parent directory exists
     target_path.parent.mkdir(parents=True, exist_ok=True)
 
     try:
-        if sys.platform == "win32":
-            # On Windows, use junctions instead of symlinks (no admin rights required)
-            result = subprocess.run(
-                ["cmd", "/c", "mklink", "/J", str(target_path), str(source_path)],
-                capture_output=True,
-                text=True,
-            )
-            if result.returncode != 0:
-                raise OSError(result.stderr or "mklink /J failed")
-        else:
-            # On macOS/Linux, use relative symlinks for portability
-            relative_source = os.path.relpath(source_path, target_path.parent)
-            os.symlink(relative_source, target_path)
-        symlinked.append(".claude")
-        debug(MODULE, f"Symlinked .claude/ -> {source_path}")
-    except OSError as e:
+        shutil.copytree(source_path, target_path)
+        copied.append(".claude")
+        debug(MODULE, f"Copied .claude/ to worktree from {source_path}")
+    except (OSError, shutil.Error) as e:
         debug_warning(
             MODULE,
-            f"Could not symlink .claude/: {e}. Claude Code features may not work in worktree terminals.",
+            f"Could not copy .claude/: {e}. Claude Code rules may not work in agent worktrees.",
         )
         print_status(
-            "Warning: Could not link .claude/ - Claude Code features may not work in terminals",
+            "Warning: Could not copy .claude/ - Claude Code rules may not work in agent worktrees",
             "warning",
         )
 
-    return symlinked
+    return copied
+
+
+# Backward-compatible alias for callers that reference the old name
+symlink_claude_config_to_worktree = copy_claude_config_to_worktree
 
 
 def copy_spec_to_worktree(
@@ -398,12 +412,14 @@ def setup_workspace(
                 f"Dependencies ({strategy_name}): {', '.join(paths)}", "success"
             )
 
-    # Symlink .claude/ config to worktree for Claude Code features (settings, commands, etc.)
-    symlinked_claude = symlink_claude_config_to_worktree(
+    # Copy .claude/ config to worktree for Claude Code features (rules, settings, etc.)
+    # Uses a physical copy instead of symlink because agents run in a sandboxed
+    # filesystem restricted to the worktree path and cannot follow symlinks outside it.
+    copied_claude = copy_claude_config_to_worktree(
         project_dir, worktree_info.path
     )
-    if symlinked_claude:
-        print_status(f"Claude config linked: {', '.join(symlinked_claude)}", "success")
+    if copied_claude:
+        print_status(f"Claude config copied: {', '.join(copied_claude)}", "success")
 
     # Copy security configuration files if they exist
     # Note: Unlike env files, security files always overwrite to ensure

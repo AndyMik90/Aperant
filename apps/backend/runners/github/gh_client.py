@@ -16,11 +16,13 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from core.gh_executable import get_gh_executable
+from core.platform import get_binary_directories, get_path_delimiter, is_macos
 
 try:
     from .rate_limiter import RateLimiter, RateLimitExceeded
@@ -109,6 +111,49 @@ class GHClient:
         if enable_rate_limiting:
             self._rate_limiter = RateLimiter.get_instance()
 
+        # Build subprocess environment once at init
+        self._subprocess_env = self._build_subprocess_env()
+
+    @staticmethod
+    def _build_subprocess_env() -> dict[str, str]:
+        """Build an augmented environment for gh CLI subprocess calls.
+
+        When Electron launches from Finder/Dock on macOS, the process inherits
+        a stripped-down PATH that may not include Homebrew or other common tool
+        directories. This method augments PATH with platform-appropriate binary
+        directories so that `gh` (and tools it invokes like `git`) can be found.
+
+        Also forwards GH_TOKEN / GITHUB_TOKEN if present in the parent env,
+        ensuring authentication tokens propagate to subprocess calls.
+
+        Returns:
+            Environment dict suitable for asyncio.create_subprocess_exec(env=...).
+        """
+        env = os.environ.copy()
+
+        # Augment PATH with platform-specific binary directories
+        current_path = env.get("PATH", "")
+        delimiter = get_path_delimiter()
+        existing_dirs = set(current_path.split(delimiter))
+
+        bin_dirs = get_binary_directories()
+        extra_paths: list[str] = []
+
+        for directory in bin_dirs["system"] + bin_dirs["user"]:
+            if directory not in existing_dirs and os.path.isdir(directory):
+                extra_paths.append(directory)
+
+        # On macOS, also include Homebrew sbin (used by some git/gh dependencies)
+        if is_macos():
+            for sbin_path in ["/opt/homebrew/sbin", "/usr/local/sbin"]:
+                if sbin_path not in existing_dirs and os.path.isdir(sbin_path):
+                    extra_paths.append(sbin_path)
+
+        if extra_paths:
+            env["PATH"] = current_path + delimiter + delimiter.join(extra_paths)
+
+        return env
+
     async def run(
         self,
         args: list[str],
@@ -157,12 +202,13 @@ class GHClient:
                     f"Executing gh command (attempt {attempt}/{self.max_retries}): {' '.join(cmd)}"
                 )
 
-                # Create subprocess
+                # Create subprocess with augmented environment
                 proc = await asyncio.create_subprocess_exec(
                     *cmd,
                     cwd=self.project_dir,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
+                    env=self._subprocess_env,
                 )
 
                 # Wait for completion with timeout
