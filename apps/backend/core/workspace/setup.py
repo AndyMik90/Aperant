@@ -263,15 +263,19 @@ def copy_claude_config_to_worktree(
             )
             return copied
 
-    # If target already exists as a real directory, remove it to get a fresh copy
+    # If target already exists as a real directory or file, remove it to get a fresh copy
     if target_path.exists():
-        debug(MODULE, "Removing existing .claude/ directory to refresh copy")
         try:
-            shutil.rmtree(target_path)
+            if target_path.is_dir():
+                debug(MODULE, "Removing existing .claude/ directory to refresh copy")
+                shutil.rmtree(target_path)
+            else:
+                debug(MODULE, "Removing existing .claude/ file to refresh copy")
+                target_path.unlink()
         except (OSError, shutil.Error) as e:
-            debug_warning(MODULE, f"Could not remove existing .claude/ directory: {e}")
+            debug_warning(MODULE, f"Could not remove existing .claude/ target: {e}")
             print_status(
-                "Warning: Could not refresh .claude/ directory in worktree",
+                "Warning: Could not refresh .claude/ in worktree",
                 "warning",
             )
             return copied
