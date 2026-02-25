@@ -29,10 +29,23 @@ jobs:
       should_release: ${{ steps.check.outputs.should_release }}
       new_version: ${{ steps.check.outputs.new_version }}
     steps:
+      # Fail fast with clear error if PAT_TOKEN is not configured
+      - name: Validate PAT_TOKEN is configured
+        run: |
+          if [ -z "${{ secrets.PAT_TOKEN }}" ]; then
+            echo "::error::PAT_TOKEN secret is not configured."
+            echo "::error::This secret is required for automatic release triggering."
+            echo "::error::See https://github.com/AndyMik90/Auto-Claude/pull/1043 for setup instructions."
+            exit 1
+          fi
+
+      # IMPORTANT: Use PAT_TOKEN instead of GITHUB_TOKEN
+      # When GITHUB_TOKEN pushes a tag, it does NOT trigger other workflows (GitHub security feature)
+      # PAT_TOKEN allows the tag push to trigger release.yml automatically
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
 
       - name: Get package version
         id: package

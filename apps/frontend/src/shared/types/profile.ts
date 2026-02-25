@@ -1,3 +1,5 @@
+import type { ClaudeUsageData, ClaudeRateLimitEvent } from './agent';
+
 /**
  * API Profile Management Types
  *
@@ -27,6 +29,10 @@ export interface APIProfile {
   };
   createdAt: number; // Unix timestamp (ms)
   updatedAt: number; // Unix timestamp (ms)
+  /** Current usage data from API */
+  usage?: ClaudeUsageData;
+  /** Recent rate limit events for this profile */
+  rateLimitEvents?: ClaudeRateLimitEvent[];
 }
 
 /**
@@ -72,7 +78,7 @@ export interface TestConnectionResult {
  * Model information from /v1/models endpoint
  */
 export interface ModelInfo {
-  id: string; // Model ID (e.g., "claude-sonnet-4-20250514")
+  id: string; // Model ID (e.g., "claude-sonnet-4-5-20250929")
   display_name: string; // Human-readable name (e.g., "Claude Sonnet 4")
 }
 

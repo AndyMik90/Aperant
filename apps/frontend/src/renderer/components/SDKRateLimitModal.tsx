@@ -94,6 +94,7 @@ export function SDKRateLimitModal() {
         });
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSDKModalOpen, sdkRateLimitInfo, profiles]);
 
   // Reset selection when modal closes
@@ -155,28 +156,21 @@ export function SDKRateLimitModal() {
       });
 
       if (result.success && result.data) {
-        // Initialize the profile (creates terminal and runs claude setup-token)
-        const initResult = await window.electronAPI.initializeClaudeProfile(result.data.id);
+        // Reload profiles
+        loadClaudeProfiles();
+        setNewProfileName('');
+        // Close the modal
+        hideSDKRateLimitModal();
 
-        if (initResult.success) {
-          // Reload profiles
-          loadClaudeProfiles();
-          setNewProfileName('');
-          // Close the modal so user can see the terminal
-          hideSDKRateLimitModal();
-
-          // Notify the user about the terminal (non-blocking)
-          toast({
-            title: t('rateLimit.toast.authenticating', { profileName }),
-            description: t('rateLimit.toast.checkTerminal'),
-          });
-        } else {
-          toast({
-            variant: 'destructive',
-            title: t('rateLimit.toast.authStartFailed'),
-            description: initResult.error || t('rateLimit.toast.tryAgain'),
-          });
-        }
+        // Direct user to Settings to complete authentication
+        alert(
+          `${t('profileCreated.title', { profileName })}\n\n` +
+          `${t('profileCreated.instructions')}\n` +
+          `1. ${t('profileCreated.step1')}\n` +
+          `2. ${t('profileCreated.step2')}\n` +
+          `3. ${t('profileCreated.step3')}\n\n` +
+          `${t('profileCreated.footer')}`
+        );
       }
     } catch (err) {
       debugError('[SDKRateLimitModal] Failed to add profile:', err);

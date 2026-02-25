@@ -87,7 +87,7 @@ class ClaudeAnalysisClient:
         }
 
         settings_file = self.project_dir / ".claude_ai_analyzer_settings.json"
-        with open(settings_file, "w") as f:
+        with open(settings_file, "w", encoding="utf-8") as f:
             json.dump(settings, f, indent=2)
 
         return settings_file

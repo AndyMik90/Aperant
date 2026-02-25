@@ -29,16 +29,13 @@ from pydantic_models import (
     FindingResolution,
     FollowupFinding,
     FollowupReviewResponse,
-    # Orchestrator review models
-    OrchestratorFinding,
-    OrchestratorReviewResponse,
-    # Initial review models
-    QuickScanResult,
-    SecurityFinding,
-    QualityFinding,
-    DeepAnalysisFinding,
-    StructuralIssue,
-    AICommentTriage,
+    # Verification evidence models
+    VerificationEvidence,
+    ParallelOrchestratorFinding,
+    # Specialist models
+    SpecialistFinding,
+    # Parallel follow-up models
+    ParallelFollowupFinding,
 )
 
 
@@ -82,7 +79,7 @@ class TestFollowupFinding:
     """Tests for FollowupFinding model."""
 
     def test_valid_finding(self):
-        """Test valid follow-up finding."""
+        """Test valid follow-up finding (no verification required)."""
         data = {
             "id": "new-1",
             "severity": "high",
@@ -116,33 +113,46 @@ class TestFollowupFinding:
         assert result.suggested_fix is None
         assert result.fixable is False
 
-    def test_invalid_severity_rejected(self):
-        """Test that invalid severity is rejected."""
+    def test_invalid_severity_normalized(self):
+        """Test that invalid severity is normalized to 'medium'."""
         data = {
             "id": "new-1",
-            "severity": "extreme",  # Invalid
+            "severity": "extreme",  # Invalid — normalized to medium
             "category": "security",
             "title": "Test",
             "description": "Test",
             "file": "test.py",
         }
-        with pytest.raises(ValidationError) as exc_info:
-            FollowupFinding.model_validate(data)
-        assert "severity" in str(exc_info.value)
+        result = FollowupFinding.model_validate(data)
+        assert result.severity == "medium"
 
-    def test_invalid_category_rejected(self):
-        """Test that invalid category is rejected."""
+    def test_invalid_category_normalized(self):
+        """Test that invalid category is normalized to 'quality'."""
         data = {
             "id": "new-1",
             "severity": "high",
-            "category": "unknown_category",  # Invalid
+            "category": "unknown_category",  # Invalid — normalized to quality
             "title": "Test",
             "description": "Test",
             "file": "test.py",
         }
-        with pytest.raises(ValidationError) as exc_info:
-            FollowupFinding.model_validate(data)
-        assert "category" in str(exc_info.value)
+        result = FollowupFinding.model_validate(data)
+        assert result.category == "quality"
+
+    def test_verification_not_required(self):
+        """Test that verification field is not required on FollowupFinding."""
+        data = {
+            "id": "new-1",
+            "severity": "medium",
+            "category": "quality",
+            "title": "Test",
+            "description": "Test",
+            "file": "test.py",
+        }
+        result = FollowupFinding.model_validate(data)
+        assert not hasattr(result, "verification") or not hasattr(
+            result.__class__.model_fields, "verification"
+        )
 
 
 class TestFollowupReviewResponse:
@@ -219,110 +229,6 @@ class TestFollowupReviewResponse:
             assert result.verdict == verdict
 
 
-class TestOrchestratorFinding:
-    """Tests for OrchestratorFinding model."""
-
-    def test_valid_finding(self):
-        """Test valid orchestrator finding with evidence field."""
-        data = {
-            "file": "src/api.py",
-            "line": 25,
-            "title": "Missing error handling",
-            "description": "API endpoint lacks try-catch block",
-            "category": "quality",
-            "severity": "medium",
-            "suggestion": "Add error handling with proper logging",
-            "evidence": "def handle_request(req):\n    result = db.query(req.id)  # no try-catch",
-        }
-        result = OrchestratorFinding.model_validate(data)
-        assert result.file == "src/api.py"
-        assert result.evidence is not None
-        assert "no try-catch" in result.evidence
-
-    def test_evidence_optional(self):
-        """Test that evidence field is optional."""
-        data = {
-            "file": "test.py",
-            "title": "Test",
-            "description": "Test finding",
-            "category": "quality",
-            "severity": "low",
-        }
-        result = OrchestratorFinding.model_validate(data)
-        assert result.evidence is None
-
-
-class TestOrchestratorReviewResponse:
-    """Tests for OrchestratorReviewResponse model."""
-
-    def test_valid_response(self):
-        """Test valid orchestrator review response."""
-        data = {
-            "verdict": "NEEDS_REVISION",
-            "verdict_reasoning": "Critical security issue found",
-            "findings": [
-                {
-                    "file": "auth.py",
-                    "line": 10,
-                    "title": "Hardcoded secret",
-                    "description": "API key exposed in source",
-                    "category": "security",
-                    "severity": "critical",
-                    "evidence": "API_KEY = 'sk-prod-12345abcdef'",
-                }
-            ],
-            "summary": "Found 1 critical security issue",
-        }
-        result = OrchestratorReviewResponse.model_validate(data)
-        assert result.verdict == "NEEDS_REVISION"
-        assert len(result.findings) == 1
-        assert result.findings[0].severity == "critical"
-
-    def test_empty_findings(self):
-        """Test response with no findings."""
-        data = {
-            "verdict": "READY_TO_MERGE",
-            "verdict_reasoning": "All checks passed",
-            "findings": [],
-            "summary": "Clean PR, ready for merge",
-        }
-        result = OrchestratorReviewResponse.model_validate(data)
-        assert len(result.findings) == 0
-
-
-class TestQuickScanResult:
-    """Tests for QuickScanResult model."""
-
-    def test_valid_quick_scan(self):
-        """Test valid quick scan result."""
-        data = {
-            "purpose": "Add user authentication",
-            "actual_changes": "Implements OAuth login flow",
-            "purpose_match": True,
-            "risk_areas": ["Security", "Session management"],
-            "red_flags": [],
-            "requires_deep_verification": True,
-            "complexity": "medium",
-        }
-        result = QuickScanResult.model_validate(data)
-        assert result.purpose_match is True
-        assert result.complexity == "medium"
-        assert len(result.risk_areas) == 2
-
-    def test_complexity_values(self):
-        """Test all valid complexity values."""
-        for complexity in ["low", "medium", "high"]:
-            data = {
-                "purpose": "Test",
-                "actual_changes": "Test",
-                "purpose_match": True,
-                "requires_deep_verification": False,
-                "complexity": complexity,
-            }
-            result = QuickScanResult.model_validate(data)
-            assert result.complexity == complexity
-
-
 class TestSchemaGeneration:
     """Tests for JSON schema generation."""
 
@@ -340,15 +246,6 @@ class TestSchemaGeneration:
         verdict_schema = schema["properties"]["verdict"]
         assert "enum" in verdict_schema or "$ref" in str(schema)
 
-    def test_orchestrator_schema_generation(self):
-        """Test that OrchestratorReviewResponse generates valid JSON schema."""
-        schema = OrchestratorReviewResponse.model_json_schema()
-
-        assert "properties" in schema
-        assert "verdict" in schema["properties"]
-        assert "findings" in schema["properties"]
-        assert "summary" in schema["properties"]
-
     def test_schema_has_descriptions(self):
         """Test that schema includes field descriptions for AI guidance."""
         schema = FollowupReviewResponse.model_json_schema()
@@ -358,86 +255,334 @@ class TestSchemaGeneration:
         assert "properties" in schema or "$defs" in schema
 
 
-class TestSecurityFinding:
-    """Tests for SecurityFinding model."""
+# =============================================================================
+# Verification Evidence Tests
+# =============================================================================
 
-    def test_security_category_default(self):
-        """Test that SecurityFinding has security category by default."""
+
+class TestVerificationEvidence:
+    """Tests for VerificationEvidence model."""
+
+    def test_valid_verification(self):
+        """Test valid verification evidence."""
         data = {
-            "id": "sec-1",
-            "severity": "high",
-            "title": "XSS vulnerability",
-            "description": "Unescaped user input",
-            "file": "template.html",
-            "line": 50,
+            "code_examined": "def process_input(user_input):\n    return eval(user_input)",
+            "line_range_examined": [10, 11],
+            "verification_method": "direct_code_inspection",
         }
-        result = SecurityFinding.model_validate(data)
-        assert result.category == "security"
+        result = VerificationEvidence.model_validate(data)
+        assert "eval" in result.code_examined
+        assert result.line_range_examined == [10, 11]
+        assert result.verification_method == "direct_code_inspection"
 
-
-class TestDeepAnalysisFinding:
-    """Tests for DeepAnalysisFinding model."""
-
-    def test_evidence_field(self):
-        """Test evidence field for proof of issue."""
+    def test_empty_code_examined_accepted(self):
+        """Test that empty code_examined is accepted (no min_length constraint)."""
         data = {
-            "id": "deep-1",
-            "severity": "medium",
-            "title": "Potential race condition",
-            "description": "Concurrent access without lock",
-            "file": "worker.py",
-            "line": 100,
-            "category": "logic",
-            "evidence": "shared_state += 1  # no lock protection",
+            "code_examined": "",
+            "line_range_examined": [1, 5],
+            "verification_method": "direct_code_inspection",
         }
-        result = DeepAnalysisFinding.model_validate(data)
-        assert result.evidence == "shared_state += 1  # no lock protection"
+        result = VerificationEvidence.model_validate(data)
+        assert result.code_examined == ""
 
-    def test_verification_note(self):
-        """Test verification note field."""
+    def test_line_range_defaults_to_empty_list(self):
+        """Test that line_range_examined defaults to empty list when omitted."""
         data = {
-            "id": "deep-2",
-            "severity": "low",
-            "title": "Unverified assumption",
-            "description": "Could not verify behavior",
-            "file": "lib.py",
-            "category": "verification_failed",
-            "verification_note": "Unable to find test coverage",
+            "code_examined": "some code",
+            "verification_method": "direct_code_inspection",
         }
-        result = DeepAnalysisFinding.model_validate(data)
-        assert result.verification_note == "Unable to find test coverage"
+        result = VerificationEvidence.model_validate(data)
+        assert result.line_range_examined == []
 
-
-class TestAICommentTriage:
-    """Tests for AICommentTriage model."""
-
-    def test_valid_triage(self):
-        """Test valid AI comment triage."""
+    def test_single_element_line_range_accepted(self):
+        """Test that single element line range is accepted (list[int])."""
         data = {
-            "comment_id": 12345,
-            "tool_name": "CodeRabbit",
-            "verdict": "important",
-            "reasoning": "Valid security concern raised",
-            "response_comment": "Thank you, we will address this.",
+            "code_examined": "some code",
+            "line_range_examined": [1],
+            "verification_method": "direct_code_inspection",
         }
-        result = AICommentTriage.model_validate(data)
-        assert result.comment_id == 12345
-        assert result.verdict == "important"
+        result = VerificationEvidence.model_validate(data)
+        assert result.line_range_examined == [1]
 
-    def test_all_verdict_values(self):
-        """Test all valid triage verdict values."""
-        for verdict in [
-            "critical",
-            "important",
-            "nice_to_have",
-            "trivial",
-            "false_positive",
-        ]:
+    def test_custom_verification_method_accepted(self):
+        """Test that any string verification method is accepted."""
+        data = {
+            "code_examined": "some code",
+            "line_range_examined": [1, 5],
+            "verification_method": "custom_method",
+        }
+        result = VerificationEvidence.model_validate(data)
+        assert result.verification_method == "custom_method"
+
+    def test_all_verification_methods(self):
+        """Test common verification methods."""
+        methods = [
+            "direct_code_inspection",
+            "cross_file_trace",
+            "test_verification",
+            "dependency_analysis",
+        ]
+        for method in methods:
             data = {
-                "comment_id": 1,
-                "tool_name": "Test",
-                "verdict": verdict,
-                "reasoning": f"Testing {verdict}",
+                "code_examined": "code",
+                "line_range_examined": [1, 5],
+                "verification_method": method,
             }
-            result = AICommentTriage.model_validate(data)
-            assert result.verdict == verdict
+            result = VerificationEvidence.model_validate(data)
+            assert result.verification_method == method
+
+
+class TestParallelOrchestratorFindingVerification:
+    """Tests for verification field on ParallelOrchestratorFinding."""
+
+    def test_missing_verification_accepted(self):
+        """Test that findings without verification are accepted (now optional)."""
+        data = {
+            "id": "test-1",
+            "file": "test.py",
+            "line": 10,
+            "title": "Test finding",
+            "description": "A test finding without verification",
+            "category": "quality",
+            "severity": "medium",
+            # No verification field — should succeed (now optional)
+        }
+        result = ParallelOrchestratorFinding.model_validate(data)
+        assert result.verification is None
+
+    def test_valid_finding_with_verification(self):
+        """Test valid finding with verification evidence."""
+        data = {
+            "id": "test-1",
+            "file": "test.py",
+            "line": 10,
+            "title": "SQL Injection vulnerability",
+            "description": "User input passed directly to query",
+            "category": "security",
+            "severity": "critical",
+            "verification": {
+                "code_examined": "cursor.execute(f'SELECT * FROM users WHERE id={user_id}')",
+                "line_range_examined": [10, 10],
+                "verification_method": "direct_code_inspection",
+            },
+        }
+        result = ParallelOrchestratorFinding.model_validate(data)
+        assert result.verification.code_examined is not None
+        assert result.verification.verification_method == "direct_code_inspection"
+
+    def test_is_impact_finding_default_false(self):
+        """Test is_impact_finding defaults to False."""
+        data = {
+            "id": "test-1",
+            "file": "test.py",
+            "line": 10,
+            "title": "Test",
+            "description": "Test",
+            "category": "quality",
+            "severity": "medium",
+        }
+        result = ParallelOrchestratorFinding.model_validate(data)
+        assert result.is_impact_finding is False
+
+    def test_is_impact_finding_true(self):
+        """Test is_impact_finding can be set True."""
+        data = {
+            "id": "test-1",
+            "file": "caller.py",
+            "line": 50,
+            "title": "Breaking change affects caller",
+            "description": "This file calls the changed function and will break",
+            "category": "logic",
+            "severity": "high",
+            "is_impact_finding": True,
+            "verification": {
+                "code_examined": "result = changed_function(x)",
+                "line_range_examined": [50, 50],
+                "verification_method": "cross_file_trace",
+            },
+        }
+        result = ParallelOrchestratorFinding.model_validate(data)
+        assert result.is_impact_finding is True
+
+    def test_checked_for_handling_elsewhere_default_false(self):
+        """Test checked_for_handling_elsewhere defaults to False."""
+        data = {
+            "id": "test-1",
+            "file": "test.py",
+            "line": 10,
+            "title": "Missing error handling",
+            "description": "No try-catch",
+            "category": "quality",
+            "severity": "medium",
+        }
+        result = ParallelOrchestratorFinding.model_validate(data)
+        assert result.checked_for_handling_elsewhere is False
+
+    def test_checked_for_handling_elsewhere_true(self):
+        """Test checked_for_handling_elsewhere can be set True."""
+        data = {
+            "id": "test-1",
+            "file": "api.py",
+            "line": 25,
+            "title": "Missing error handling",
+            "description": "No try-catch around database call",
+            "category": "quality",
+            "severity": "medium",
+            "checked_for_handling_elsewhere": True,
+            "verification": {
+                "code_examined": "result = db.query(user_input)",
+                "line_range_examined": [25, 25],
+                "verification_method": "cross_file_trace",
+            },
+        }
+        result = ParallelOrchestratorFinding.model_validate(data)
+        assert result.checked_for_handling_elsewhere is True
+
+    def test_invalid_severity_normalized(self):
+        """Test invalid severity is normalized to 'medium'."""
+        data = {
+            "id": "test-1",
+            "file": "test.py",
+            "line": 10,
+            "title": "Test",
+            "description": "Test",
+            "category": "quality",
+            "severity": "super_critical",
+        }
+        result = ParallelOrchestratorFinding.model_validate(data)
+        assert result.severity == "medium"
+
+    def test_invalid_category_normalized(self):
+        """Test invalid category is normalized to 'quality'."""
+        data = {
+            "id": "test-1",
+            "file": "test.py",
+            "line": 10,
+            "title": "Test",
+            "description": "Test",
+            "category": "unknown_thing",
+            "severity": "medium",
+        }
+        result = ParallelOrchestratorFinding.model_validate(data)
+        assert result.category == "quality"
+
+
+class TestVerificationSchemaGeneration:
+    """Tests for JSON schema generation with VerificationEvidence."""
+
+    def test_verification_in_parallel_orchestrator_schema(self):
+        """Test that VerificationEvidence appears in schema."""
+        schema = ParallelOrchestratorFinding.model_json_schema()
+
+        # verification should be in properties
+        assert "verification" in schema["properties"]
+
+        # Check $defs includes VerificationEvidence
+        assert "$defs" in schema
+        assert "VerificationEvidence" in schema["$defs"]
+
+        # Check VerificationEvidence has correct fields
+        ve_schema = schema["$defs"]["VerificationEvidence"]
+        assert "code_examined" in ve_schema["properties"]
+        assert "line_range_examined" in ve_schema["properties"]
+        assert "verification_method" in ve_schema["properties"]
+
+    def test_new_boolean_fields_in_schema(self):
+        """Test is_impact_finding and checked_for_handling_elsewhere in schema."""
+        schema = ParallelOrchestratorFinding.model_json_schema()
+
+        assert "is_impact_finding" in schema["properties"]
+        assert "checked_for_handling_elsewhere" in schema["properties"]
+
+
+# =============================================================================
+# Specialist Finding Tests
+# =============================================================================
+
+
+class TestSpecialistFinding:
+    """Tests for SpecialistFinding model."""
+
+    def test_empty_evidence_accepted(self):
+        """Test that empty evidence is accepted (no min_length)."""
+        data = {
+            "severity": "medium",
+            "category": "quality",
+            "title": "Test finding",
+            "description": "A test",
+            "file": "test.py",
+            "evidence": "",
+        }
+        result = SpecialistFinding.model_validate(data)
+        assert result.evidence == ""
+
+    def test_evidence_defaults_to_empty(self):
+        """Test that evidence defaults to empty string."""
+        data = {
+            "severity": "medium",
+            "category": "quality",
+            "title": "Test finding",
+            "description": "A test",
+            "file": "test.py",
+        }
+        result = SpecialistFinding.model_validate(data)
+        assert result.evidence == ""
+
+    def test_invalid_severity_normalized(self):
+        """Test invalid severity is normalized."""
+        data = {
+            "severity": "urgent",
+            "category": "security",
+            "title": "Test",
+            "description": "Test",
+            "file": "test.py",
+        }
+        result = SpecialistFinding.model_validate(data)
+        assert result.severity == "medium"
+
+    def test_invalid_category_normalized(self):
+        """Test invalid category is normalized."""
+        data = {
+            "severity": "high",
+            "category": "style",
+            "title": "Test",
+            "description": "Test",
+            "file": "test.py",
+        }
+        result = SpecialistFinding.model_validate(data)
+        assert result.category == "quality"
+
+
+# =============================================================================
+# Parallel Follow-up Finding Tests
+# =============================================================================
+
+
+class TestParallelFollowupFinding:
+    """Tests for ParallelFollowupFinding model."""
+
+    def test_invalid_severity_normalized(self):
+        """Test invalid severity is normalized."""
+        data = {
+            "id": "pf-1",
+            "file": "test.py",
+            "title": "Test",
+            "description": "Test",
+            "category": "quality",
+            "severity": "extreme",
+        }
+        result = ParallelFollowupFinding.model_validate(data)
+        assert result.severity == "medium"
+
+    def test_invalid_category_normalized(self):
+        """Test invalid category is normalized."""
+        data = {
+            "id": "pf-1",
+            "file": "test.py",
+            "title": "Test",
+            "description": "Test",
+            "category": "unknown",
+            "severity": "medium",
+        }
+        result = ParallelFollowupFinding.model_validate(data)
+        assert result.category == "quality"

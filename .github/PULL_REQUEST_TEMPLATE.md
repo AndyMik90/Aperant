@@ -33,6 +33,21 @@ Follow conventional commits: `<type>: <subject>`
 
 **Example:** `feat: add user authentication system`
 
+## AI Disclosure
+
+<!-- Check the box below if any part of this PR was written with AI assistance. -->
+
+- [ ] This PR includes AI-generated code (Claude, Codex, Copilot, etc.)
+
+<!-- If checked, please also fill in: -->
+**Tool(s) used:** <!-- e.g., Claude Code, GitHub Copilot, ChatGPT -->
+**Testing level:**
+- [ ] Untested -- AI output not yet verified
+- [ ] Lightly tested -- ran the app / spot-checked key paths
+- [ ] Fully tested -- all tests pass, manually verified behavior
+
+- [ ] I understand what this PR does and how the underlying code works
+
 ## Checklist
 
 - [ ] I've synced with `develop` branch
@@ -40,9 +55,21 @@ Follow conventional commits: `<type>: <subject>`
 - [ ] I've followed the code principles (SOLID, DRY, KISS)
 - [ ] My PR is small and focused (< 400 lines ideally)
 
+## Platform Testing Checklist
+
+**CRITICAL:** This project supports Windows, macOS, and Linux. Platform-specific bugs are a common source of breakage.
+
+- [ ] **Windows tested** (either on Windows or via CI)
+- [ ] **macOS tested** (either on macOS or via CI)
+- [ ] **Linux tested** (CI covers this)
+- [ ] Used centralized `platform/` module instead of direct `process.platform` checks
+- [ ] No hardcoded paths (used `findExecutable()` or platform abstractions)
+
+**If you only have access to one OS:** CI now tests on all platforms. Ensure all checks pass before submitting.
+
 ## CI/Testing Requirements
 
-- [ ] All CI checks pass
+- [ ] All CI checks pass on **all platforms** (Windows, macOS, Linux)
 - [ ] All existing tests pass
 - [ ] New features include test coverage
 - [ ] Bug fixes include regression tests

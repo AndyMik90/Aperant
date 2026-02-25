@@ -105,6 +105,14 @@ export interface GitHubIssue {
   repoFullName: string;
 }
 
+/**
+ * Result type for paginated issue fetching
+ */
+export interface PaginatedIssuesResult {
+  issues: GitHubIssue[];
+  hasMore: boolean;
+}
+
 export interface GitHubSyncStatus {
   connected: boolean;
   repoFullName?: string;

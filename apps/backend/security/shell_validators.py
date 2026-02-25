@@ -16,7 +16,7 @@ from pathlib import Path
 
 from project_analyzer import is_command_allowed
 
-from .parser import extract_commands, split_command_segments
+from .parser import _cross_platform_basename, extract_commands, split_command_segments
 from .profile import get_security_profile
 from .validation_models import ValidationResult
 
@@ -80,7 +80,18 @@ def validate_shell_c_command(command_string: str) -> ValidationResult:
     inner_command = _extract_c_argument(command_string)
 
     if inner_command is None:
-        # Not a -c invocation (e.g., "bash script.sh") - allow it
+        # Not a -c invocation (e.g., "bash script.sh")
+        # Block dangerous shell constructs that could bypass sandbox restrictions:
+        # - Process substitution: <(...) or >(...)
+        # - Command substitution in dangerous contexts: $(...)
+        dangerous_patterns = ["<(", ">("]
+        for pattern in dangerous_patterns:
+            if pattern in command_string:
+                return (
+                    False,
+                    f"Process substitution '{pattern}' not allowed in shell commands",
+                )
+        # Allow simple shell invocations (e.g., "bash script.sh")
         # The script itself would need to be in allowed commands
         return True, ""
 
@@ -126,8 +137,8 @@ def validate_shell_c_command(command_string: str) -> ValidationResult:
         segment_commands = extract_commands(segment)
         if segment_commands:
             first_cmd = segment_commands[0]
-            # Handle paths like /bin/bash
-            base_cmd = first_cmd.rsplit("/", 1)[-1] if "/" in first_cmd else first_cmd
+            # Handle paths like /bin/bash or C:\Windows\System32\bash.exe
+            base_cmd = _cross_platform_basename(first_cmd)
             if base_cmd in SHELL_INTERPRETERS:
                 valid, err = validate_shell_c_command(segment)
                 if not valid:

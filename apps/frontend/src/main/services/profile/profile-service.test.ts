@@ -13,7 +13,7 @@ import {
   testConnection,
   discoverModels
 } from './profile-service';
-import type { APIProfile, ProfilesFile, TestConnectionResult } from '@shared/types/profile';
+import type { ProfilesFile, } from '@shared/types/profile';
 
 // Mock Anthropic SDK - use vi.hoisted to properly hoist the mock variable
 const { mockModelsList, mockMessagesCreate } = vi.hoisted(() => ({
@@ -266,7 +266,7 @@ describe('profile-service', () => {
         baseUrl: 'https://api.anthropic.com',
         apiKey: 'sk-ant-test-key',
         models: {
-          default: 'claude-3-5-sonnet-20241022'
+          default: 'claude-sonnet-4-5-20250929'
         }
       };
 
@@ -278,7 +278,7 @@ describe('profile-service', () => {
         baseUrl: 'https://api.anthropic.com',
         apiKey: 'sk-ant-test-key',
         models: {
-          default: 'claude-3-5-sonnet-20241022'
+          default: 'claude-sonnet-4-5-20250929'
         }
       });
       expect(result.createdAt).toBeGreaterThan(0);
@@ -377,7 +377,7 @@ describe('profile-service', () => {
         name: 'New Name',
         baseUrl: 'https://new-api.example.com',
         apiKey: 'sk-new-api-key-123',
-        models: { default: 'claude-3-5-sonnet-20241022' }
+        models: { default: 'claude-sonnet-4-5-20250929' }
       };
 
       const result = await updateProfile(input);
@@ -385,7 +385,7 @@ describe('profile-service', () => {
       expect(result.name).toBe('New Name');
       expect(result.baseUrl).toBe('https://new-api.example.com');
       expect(result.apiKey).toBe('sk-new-api-key-123');
-      expect(result.models).toEqual({ default: 'claude-3-5-sonnet-20241022' });
+      expect(result.models).toEqual({ default: 'claude-sonnet-4-5-20250929' });
       expect(result.updatedAt).toBeGreaterThan(1000000);
       expect(result.createdAt).toBe(1000000);
     });
@@ -573,10 +573,10 @@ describe('profile-service', () => {
             baseUrl: 'https://api.custom.com',
             apiKey: 'sk-test-key-12345678',
             models: {
-              default: 'claude-3-5-sonnet-20241022',
-              haiku: 'claude-3-5-haiku-20241022',
-              sonnet: 'claude-3-5-sonnet-20241022',
-              opus: 'claude-3-5-opus-20241022'
+              default: 'claude-sonnet-4-5-20250929',
+              haiku: 'claude-haiku-4-5-20251001',
+              sonnet: 'claude-sonnet-4-5-20250929',
+              opus: 'claude-opus-4-5-20251101'
             },
             createdAt: Date.now(),
             updatedAt: Date.now()
@@ -594,10 +594,10 @@ describe('profile-service', () => {
       expect(result).toEqual({
         ANTHROPIC_BASE_URL: 'https://api.custom.com',
         ANTHROPIC_AUTH_TOKEN: 'sk-test-key-12345678',
-        ANTHROPIC_MODEL: 'claude-3-5-sonnet-20241022',
-        ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-3-5-haiku-20241022',
-        ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-3-5-sonnet-20241022',
-        ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-3-5-opus-20241022'
+        ANTHROPIC_MODEL: 'claude-sonnet-4-5-20250929',
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-haiku-4-5-20251001',
+        ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-5-20250929',
+        ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-opus-4-5-20251101'
       });
     });
 
@@ -610,7 +610,7 @@ describe('profile-service', () => {
             baseUrl: '',
             apiKey: 'sk-test-key-12345678',
             models: {
-              default: 'claude-3-5-sonnet-20241022',
+              default: 'claude-sonnet-4-5-20250929',
               haiku: '',
               sonnet: ''
             },
@@ -632,7 +632,7 @@ describe('profile-service', () => {
       expect(result).not.toHaveProperty('ANTHROPIC_DEFAULT_SONNET_MODEL');
       expect(result).toEqual({
         ANTHROPIC_AUTH_TOKEN: 'sk-test-key-12345678',
-        ANTHROPIC_MODEL: 'claude-3-5-sonnet-20241022'
+        ANTHROPIC_MODEL: 'claude-sonnet-4-5-20250929'
       });
     });
   });
@@ -746,8 +746,8 @@ describe('profile-service', () => {
     it('should return list of models for successful response', async () => {
       mockModelsList.mockResolvedValue({
         data: [
-          { id: 'claude-3-5-sonnet-20241022', display_name: 'Claude Sonnet 3.5', created_at: '2024-10-22', type: 'model' },
-          { id: 'claude-3-5-haiku-20241022', display_name: 'Claude Haiku 3.5', created_at: '2024-10-22', type: 'model' }
+          { id: 'claude-sonnet-4-5-20250929', display_name: 'Claude Sonnet 4.5', created_at: '2024-10-22', type: 'model' },
+          { id: 'claude-haiku-4-5-20251001', display_name: 'Claude Haiku 4.5', created_at: '2024-10-22', type: 'model' }
         ]
       });
 
@@ -755,8 +755,8 @@ describe('profile-service', () => {
 
       expect(result).toEqual({
         models: [
-          { id: 'claude-3-5-sonnet-20241022', display_name: 'Claude Sonnet 3.5' },
-          { id: 'claude-3-5-haiku-20241022', display_name: 'Claude Haiku 3.5' }
+          { id: 'claude-sonnet-4-5-20250929', display_name: 'Claude Sonnet 4.5' },
+          { id: 'claude-haiku-4-5-20251001', display_name: 'Claude Haiku 4.5' }
         ]
       });
     });

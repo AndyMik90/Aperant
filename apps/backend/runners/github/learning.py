@@ -299,7 +299,7 @@ class LearningTracker:
         """Load all outcomes from disk."""
         for file in self.learning_dir.glob("*_outcomes.json"):
             try:
-                with open(file) as f:
+                with open(file, encoding="utf-8") as f:
                     data = json.load(f)
                     for item in data.get("outcomes", []):
                         outcome = ReviewOutcome.from_dict(item)

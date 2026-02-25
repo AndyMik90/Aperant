@@ -3,14 +3,16 @@
  * Includes status, categories, complexity, priority, and execution phases
  */
 
+import type { TaskStatus } from '@shared/types/task';
+
 // ============================================
 // Task Status (Kanban columns)
 // ============================================
 
 // Task status columns in Kanban board order
 export const TASK_STATUS_COLUMNS = [
-  'error',
   'backlog',
+  'queue',
   'in_progress',
   'ai_review',
   'human_review',
@@ -21,27 +23,45 @@ export type TaskStatusColumn = typeof TASK_STATUS_COLUMNS[number];
 
 // Status label translation keys (use with t() from react-i18next)
 // Note: pr_created maps to 'done' column in Kanban view (see KanbanBoard.tsx)
-export const TASK_STATUS_LABELS: Record<TaskStatusColumn | 'pr_created', string> = {
-  error: 'columns.error',
+// Note: error maps to 'human_review' column in Kanban view (errors need human attention)
+export const TASK_STATUS_LABELS: Record<TaskStatusColumn | 'pr_created' | 'error', string> = {
   backlog: 'columns.backlog',
+  queue: 'columns.queue',
   in_progress: 'columns.in_progress',
   ai_review: 'columns.ai_review',
   human_review: 'columns.human_review',
   done: 'columns.done',
-  pr_created: 'columns.pr_created'
+  pr_created: 'columns.pr_created',
+  error: 'columns.error'
 };
 
 // Status colors for UI
 // Note: pr_created maps to 'done' column in Kanban view (see KanbanBoard.tsx)
-export const TASK_STATUS_COLORS: Record<TaskStatusColumn | 'pr_created', string> = {
-  error: 'bg-destructive/10 text-destructive',
+// Note: error maps to 'human_review' column in Kanban view (errors need human attention)
+export const TASK_STATUS_COLORS: Record<TaskStatusColumn | 'pr_created' | 'error', string> = {
   backlog: 'bg-muted text-muted-foreground',
+  queue: 'bg-cyan-500/10 text-cyan-400',
   in_progress: 'bg-info/10 text-info',
   ai_review: 'bg-warning/10 text-warning',
   human_review: 'bg-purple-500/10 text-purple-400',
   done: 'bg-success/10 text-success',
-  pr_created: 'bg-info/10 text-info'
+  pr_created: 'bg-info/10 text-info',
+  error: 'bg-destructive/10 text-destructive'
 };
+
+// Status priority for deduplication: higher = more complete
+// Used in project-store.ts to resolve duplicate tasks (main vs worktree)
+// IMPORTANT: Must follow workflow order: backlog < queue < in_progress < review < done
+export const TASK_STATUS_PRIORITY: Record<TaskStatus, number> = {
+  'done': 100,           // Highest priority - task is complete
+  'pr_created': 90,
+  'human_review': 80,
+  'ai_review': 70,
+  'in_progress': 50,
+  'queue': 30,
+  'backlog': 20,
+  'error': 10           // Lowest priority
+} as const;
 
 // ============================================
 // Subtask Status
@@ -63,6 +83,8 @@ export const EXECUTION_PHASE_LABELS: Record<string, string> = {
   idle: 'Idle',
   planning: 'Planning',
   coding: 'Coding',
+  rate_limit_paused: 'Rate Limited',
+  auth_failure_paused: 'Auth Required',
   qa_review: 'AI Review',
   qa_fixing: 'Fixing Issues',
   complete: 'Complete',
@@ -74,6 +96,8 @@ export const EXECUTION_PHASE_COLORS: Record<string, string> = {
   idle: 'bg-muted text-muted-foreground',
   planning: 'bg-amber-500 text-amber-50',
   coding: 'bg-info text-info-foreground',
+  rate_limit_paused: 'bg-orange-500 text-orange-50',
+  auth_failure_paused: 'bg-red-500 text-red-50',
   qa_review: 'bg-purple-500 text-purple-50',
   qa_fixing: 'bg-warning text-warning-foreground',
   complete: 'bg-success text-success-foreground',
@@ -85,6 +109,8 @@ export const EXECUTION_PHASE_BADGE_COLORS: Record<string, string> = {
   idle: 'bg-muted/50 text-muted-foreground border-muted',
   planning: 'bg-amber-500/10 text-amber-500 border-amber-500/30',
   coding: 'bg-info/10 text-info border-info/30',
+  rate_limit_paused: 'bg-orange-500/10 text-orange-400 border-orange-500/30',
+  auth_failure_paused: 'bg-red-500/10 text-red-400 border-red-500/30',
   qa_review: 'bg-purple-500/10 text-purple-400 border-purple-500/30',
   qa_fixing: 'bg-warning/10 text-warning border-warning/30',
   complete: 'bg-success/10 text-success border-success/30',
@@ -96,6 +122,8 @@ export const EXECUTION_PHASE_WEIGHTS: Record<string, { start: number; end: numbe
   idle: { start: 0, end: 0 },
   planning: { start: 0, end: 20 },
   coding: { start: 20, end: 80 },
+  rate_limit_paused: { start: 20, end: 80 },  // Same as coding (pause during coding)
+  auth_failure_paused: { start: 20, end: 80 },  // Same as coding (pause during coding)
   qa_review: { start: 80, end: 95 },
   qa_fixing: { start: 80, end: 95 },  // Same range as qa_review, cycles back
   complete: { start: 100, end: 100 },
@@ -205,15 +233,32 @@ export const ALLOWED_IMAGE_TYPES = [
   'image/jpeg',
   'image/jpg',
   'image/gif',
-  'image/webp',
-  'image/svg+xml'
+  'image/webp'
 ] as const;
 
 // Allowed image file extensions (for display)
-export const ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'] as const;
+export const ALLOWED_IMAGE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.gif', '.webp'] as const;
 
 // Human-readable allowed types for error messages
-export const ALLOWED_IMAGE_TYPES_DISPLAY = 'PNG, JPEG, GIF, WebP, SVG';
+export const ALLOWED_IMAGE_TYPES_DISPLAY = 'PNG, JPEG, GIF, WebP';
 
 // Attachments directory name within spec folder
 export const ATTACHMENTS_DIR = 'attachments';
+
+// ============================================
+// JSON Error Markers
+// ============================================
+
+/**
+ * Marker prefix for task descriptions that failed JSON parsing.
+ * Format: __JSON_ERROR__:<error message>
+ * Used in project-store.ts when loading tasks with malformed implementation_plan.json
+ */
+export const JSON_ERROR_PREFIX = '__JSON_ERROR__:';
+
+/**
+ * Marker suffix for task titles that have JSON parsing errors.
+ * Appended to spec directory name, replaced with i18n suffix at render time.
+ * Used in project-store.ts when loading tasks with malformed implementation_plan.json
+ */
+export const JSON_ERROR_TITLE_SUFFIX = '__JSON_ERROR_SUFFIX__';

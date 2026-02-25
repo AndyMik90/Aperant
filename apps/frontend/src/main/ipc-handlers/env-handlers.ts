@@ -32,7 +32,7 @@ type ResolvedClaudeCliInvocation =
   | { command: string; env: Record<string, string> }
   | { error: string };
 
-function resolveClaudeCliInvocation(): ResolvedClaudeCliInvocation {
+function _resolveClaudeCliInvocation(): ResolvedClaudeCliInvocation {
   try {
     const invocation = getClaudeCliInvocation();
     if (!invocation?.command) {
@@ -235,7 +235,7 @@ export function registerEnvHandlers(
 CLAUDE_CODE_OAUTH_TOKEN=${existingVars['CLAUDE_CODE_OAUTH_TOKEN'] || ''}
 
 # Model override (OPTIONAL)
-${existingVars['AUTO_BUILD_MODEL'] ? `AUTO_BUILD_MODEL=${existingVars['AUTO_BUILD_MODEL']}` : '# AUTO_BUILD_MODEL=claude-opus-4-5-20251101'}
+${existingVars['AUTO_BUILD_MODEL'] ? `AUTO_BUILD_MODEL=${existingVars['AUTO_BUILD_MODEL']}` : '# AUTO_BUILD_MODEL=claude-opus-4-6'}
 
 # =============================================================================
 # LINEAR INTEGRATION (OPTIONAL)
@@ -562,17 +562,20 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
       const envPath = path.join(project.path, project.autoBuildPath, '.env');
 
       try {
-        // Read existing content if file exists
+        // Read existing content if file exists (atomic read, no TOCTOU)
         let existingContent: string | undefined;
-        if (existsSync(envPath)) {
+        try {
           existingContent = readFileSync(envPath, 'utf-8');
+        } catch (readErr: unknown) {
+          if ((readErr as NodeJS.ErrnoException).code !== 'ENOENT') throw readErr;
+          // File doesn't exist yet - existingContent stays undefined
         }
 
         // Generate new content
         const newContent = generateEnvContent(config, existingContent);
 
         // Write to file
-        writeFileSync(envPath, newContent);
+        writeFileSync(envPath, newContent, 'utf-8');
 
         return { success: true };
       } catch (error) {
@@ -612,11 +615,11 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
           let _stderr = '';
 
           proc.stdout?.on('data', (data: Buffer) => {
-            _stdout += data.toString();
+            _stdout += data.toString('utf-8');
           });
 
           proc.stderr?.on('data', (data: Buffer) => {
-            _stderr += data.toString();
+            _stderr += data.toString('utf-8');
           });
 
           proc.on('close', (code: number | null) => {

@@ -144,7 +144,7 @@ def gather_phase_outputs(spec_dir: Path, phase_name: str) -> str:
         file_path = spec_dir / filename
         if file_path.exists():
             try:
-                content = file_path.read_text()
+                content = file_path.read_text(encoding="utf-8")
                 # Limit individual file size
                 if len(content) > 10000:
                     content = content[:10000] + "\n\n[... file truncated ...]"

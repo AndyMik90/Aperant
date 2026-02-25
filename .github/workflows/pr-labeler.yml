@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Label PR
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           retries: 3
           retry-exempt-status-codes: 400,401,403,404,422
@@ -64,9 +64,7 @@ jobs:
               // Label definitions
               LABELS: Object.freeze({
                 SIZE: ['size/XS', 'size/S', 'size/M', 'size/L', 'size/XL'],
-                AREA: ['area/frontend', 'area/backend', 'area/fullstack', 'area/ci'],
-                STATUS: ['🔄 Checking', '✅ Ready for Review', '❌ Checks Failed'],
-                REVIEW: ['Missing AC Approval', 'AC: Approved', 'AC: Changes Requested', 'AC: Needs Re-review']
+                AREA: ['area/frontend', 'area/backend', 'area/fullstack', 'area/ci']
               }),
 
               // Pagination
@@ -230,7 +228,6 @@ jobs:
             const pr = context.payload.pull_request;
             const prNumber = pr.number;
             const title = pr.title || '';
-            const isNewPR = context.payload.action === 'opened' || context.payload.action === 'reopened';
 
             console.log(`::group::PR #${prNumber} - Auto-labeling`);
             console.log(`Title: ${title.slice(0, 100)}${title.length > 100 ? '...' : ''}`);
@@ -271,25 +268,9 @@ jobs:
             CONFIG.LABELS.SIZE.filter(l => l !== sizeLabel).forEach(l => labelsToRemove.add(l));
             console.log(`  📏 Size: ${sizeLabel} (${totalLines} lines)`);
 
-            // 4. Set status label (only on new PRs - let pr-status-gate handle updates on pushes)
-            // Note: On synchronize events, CI workflows will trigger pr-status-gate when they complete
-            if (isNewPR) {
-              labelsToAdd.add('🔄 Checking');
-              CONFIG.LABELS.STATUS.filter(l => l !== '🔄 Checking').forEach(l => labelsToRemove.add(l));
-              console.log(`  🔄 Status: Checking`);
-            } else {
-              console.log(`  ℹ️ Status: Unchanged (will be updated by pr-status-gate)`);
-            }
-
-            // 5. Add review label for new PRs only
-            if (isNewPR) {
-              labelsToAdd.add('Missing AC Approval');
-              console.log(`  ⏳ Review: Missing AC Approval`);
-            }
-
             console.log('::endgroup::');
 
-            // 6. Apply label changes
+            // 4. Apply label changes
             console.log(`::group::Applying labels`);
 
             // Remove labels that should be replaced (exclude ones we're adding)
@@ -302,7 +283,7 @@ jobs:
             console.log('::endgroup::');
             console.log(`✅ PR #${prNumber} labeled successfully`);
 
-            // 7. Write job summary
+            // 5. Write job summary
             const summaryType = type ? CONFIG.TYPE_MAP[type] || 'unknown' : 'none';
             const summaryArea = areaLabel ? areaLabel.replace('area/', '') : 'other';
 
@@ -312,9 +293,7 @@ jobs:
                 [{ data: 'Category', header: true }, { data: 'Label', header: true }],
                 ['Type', summaryType],
                 ['Area', summaryArea],
-                ['Size', sizeLabel],
-                ['Status', isNewPR ? '🔄 Checking' : '(unchanged)'],
-                ['Review', isNewPR ? 'Missing AC Approval' : '(unchanged)']
+                ['Size', sizeLabel]
               ])
               .addRaw(`\n**Files:** ${files.length} | **Lines:** +${pr.additions || 0} / -${pr.deletions || 0}\n`)
               .write();

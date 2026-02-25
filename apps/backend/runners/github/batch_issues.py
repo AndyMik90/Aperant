@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 # Import validators
 try:
+    from ..phase_config import resolve_model_id
     from .batch_validator import BatchValidator
     from .duplicates import SIMILAR_THRESHOLD
     from .file_lock import locked_json_write
@@ -30,6 +31,7 @@ except (ImportError, ValueError, SystemError):
     from batch_validator import BatchValidator
     from duplicates import SIMILAR_THRESHOLD
     from file_lock import locked_json_write
+    from phase_config import resolve_model_id
 
 
 class ClaudeBatchAnalyzer:
@@ -150,11 +152,13 @@ Respond with JSON only:
             )
 
             # Using Sonnet for better analysis (still just 1 call)
+            # Note: Model shorthand resolved via resolve_model_id() to respect env overrides
             from core.simple_client import create_simple_client
 
+            model = resolve_model_id("sonnet")
             client = create_simple_client(
                 agent_type="batch_analysis",
-                model="claude-sonnet-4-20250514",
+                model=model,
                 system_prompt="You are an expert at analyzing GitHub issues and grouping related ones. Respond ONLY with valid JSON. Do NOT use any tools.",
                 cwd=self.project_dir,
             )
@@ -364,7 +368,7 @@ class IssueBatch:
         if not batch_file.exists():
             return None
 
-        with open(batch_file) as f:
+        with open(batch_file, encoding="utf-8") as f:
             data = json.load(f)
         return cls.from_dict(data)
 
@@ -408,7 +412,8 @@ class IssueBatcher:
         api_key: str | None = None,
         # AI validation settings
         validate_batches: bool = True,
-        validation_model: str = "claude-sonnet-4-20250514",
+        # Note: validation_model uses shorthand which gets resolved via BatchValidator._resolve_model()
+        validation_model: str = "sonnet",
         validation_thinking_budget: int = 10000,  # Medium thinking
     ):
         self.github_dir = github_dir
@@ -443,7 +448,7 @@ class IssueBatcher:
         """Load batch index from disk."""
         index_file = self.github_dir / "batches" / "index.json"
         if index_file.exists():
-            with open(index_file) as f:
+            with open(index_file, encoding="utf-8") as f:
                 data = json.load(f)
             self._batch_index = {
                 int(k): v for k, v in data.get("issue_to_batch", {}).items()
@@ -455,7 +460,7 @@ class IssueBatcher:
         batches_dir.mkdir(parents=True, exist_ok=True)
 
         index_file = batches_dir / "index.json"
-        with open(index_file, "w") as f:
+        with open(index_file, "w", encoding="utf-8") as f:
             json.dump(
                 {
                     "issue_to_batch": self._batch_index,
@@ -1102,7 +1107,7 @@ class IssueBatcher:
         batches = []
         for batch_file in batches_dir.glob("batch_*.json"):
             try:
-                with open(batch_file) as f:
+                with open(batch_file, encoding="utf-8") as f:
                     data = json.load(f)
                 batches.append(IssueBatch.from_dict(data))
             except Exception as e:

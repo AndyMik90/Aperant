@@ -8,7 +8,7 @@ import { app } from 'electron';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 import { AUTO_BUILD_PATHS, DEFAULT_CHANGELOG_PATH } from '../../shared/constants';
-import { getToolPath } from '../cli-tool-manager';
+import { getToolPath, getToolInfo } from '../cli-tool-manager';
 import type {
   ChangelogTask,
   TaskSpecContent,
@@ -21,6 +21,7 @@ import type {
   GitBranchInfo,
   GitTagInfo
 } from '../../shared/types';
+import { isCompletedTask } from '../../shared/utils/task-status';
 import { ChangelogGenerator } from './generator';
 import { VersionSuggester } from './version-suggester';
 import { parseExistingChangelog } from './parser';
@@ -44,7 +45,6 @@ export class ChangelogService extends EventEmitter {
   private _pythonPath: string | null = null;
   private claudePath: string;
   private autoBuildSourcePath: string = '';
-  private cachedEnv: Record<string, string> | null = null;
   private debugEnabled: boolean | null = null;
   private generator: ChangelogGenerator | null = null;
   private versionSuggester: VersionSuggester | null = null;
@@ -68,8 +68,6 @@ export class ChangelogService extends EventEmitter {
 
     // Check process.env first
     if (
-      process.env.DEBUG === 'true' ||
-      process.env.DEBUG === '1' ||
       process.env.DEBUG === 'true' ||
       process.env.DEBUG === '1'
     ) {
@@ -176,25 +174,39 @@ export class ChangelogService extends EventEmitter {
   }
 
   /**
+   * Ensure prerequisites are met for changelog generation
+   * Validates auto-build source path and Claude CLI availability
+   * Returns the resolved Claude CLI path to ensure we use the freshly validated path
+   */
+  private ensurePrerequisites(): { autoBuildSource: string; claudePath: string } {
+    const autoBuildSource = this.getAutoBuildSourcePath();
+    if (!autoBuildSource) {
+      throw new Error('Auto-build source path not found');
+    }
+
+    const claudeInfo = getToolInfo('claude');
+    if (!claudeInfo.found || !claudeInfo.path) {
+      // Use claudeInfo.message directly to avoid redundant text
+      throw new Error(claudeInfo.message || 'Claude CLI not found. Install from https://claude.ai/download');
+    }
+
+    // Update cached path with freshly resolved value
+    this.claudePath = claudeInfo.path;
+    return { autoBuildSource, claudePath: claudeInfo.path };
+  }
+
+  /**
    * Get or create the generator instance
    */
   private getGenerator(): ChangelogGenerator {
     if (!this.generator) {
-      const autoBuildSource = this.getAutoBuildSourcePath();
-      if (!autoBuildSource) {
-        throw new Error('Auto-build source path not found');
-      }
-
-      // Verify claude CLI is available
-      if (this.claudePath !== 'claude' && !existsSync(this.claudePath)) {
-        throw new Error(`Claude CLI not found. Please ensure Claude Code is installed. Looked for: ${this.claudePath}`);
-      }
+      const { autoBuildSource, claudePath } = this.ensurePrerequisites();
 
       const autoBuildEnv = this.loadAutoBuildEnv();
 
       this.generator = new ChangelogGenerator(
         this.pythonPath,
-        this.claudePath,
+        claudePath,
         autoBuildSource,
         autoBuildEnv,
         this.isDebugEnabled()
@@ -226,19 +238,11 @@ export class ChangelogService extends EventEmitter {
    */
   private getVersionSuggester(): VersionSuggester {
     if (!this.versionSuggester) {
-      const autoBuildSource = this.getAutoBuildSourcePath();
-      if (!autoBuildSource) {
-        throw new Error('Auto-build source path not found');
-      }
-
-      // Verify claude CLI is available
-      if (this.claudePath !== 'claude' && !existsSync(this.claudePath)) {
-        throw new Error(`Claude CLI not found. Please ensure Claude Code is installed. Looked for: ${this.claudePath}`);
-      }
+      const { autoBuildSource, claudePath } = this.ensurePrerequisites();
 
       this.versionSuggester = new VersionSuggester(
         this.pythonPath,
-        this.claudePath,
+        claudePath,
         autoBuildSource,
         this.isDebugEnabled()
       );
@@ -258,7 +262,7 @@ export class ChangelogService extends EventEmitter {
     const specsDir = path.join(projectPath, specsBaseDir || AUTO_BUILD_PATHS.SPECS_DIR);
 
     return tasks
-      .filter(task => task.status === 'done' && !task.metadata?.archivedAt)
+      .filter(task => isCompletedTask(task.status, task.reviewReason) && !task.metadata?.archivedAt)
       .map(task => {
         const specDir = path.join(specsDir, task.specId);
         const hasSpecs = existsSync(specDir) && existsSync(path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE));
@@ -448,7 +452,7 @@ export class ChangelogService extends EventEmitter {
     }
 
     const parts = currentVersion.split('.').map(Number);
-    if (parts.length !== 3 || parts.some(isNaN)) {
+    if (parts.length !== 3 || parts.some(Number.isNaN)) {
       return '1.0.0';
     }
 
@@ -485,7 +489,7 @@ export class ChangelogService extends EventEmitter {
    * Suggest version using AI analysis of git commits
    */
   async suggestVersionFromCommits(
-    projectPath: string,
+    _projectPath: string,
     commits: import('../../shared/types').GitCommit[],
     currentVersion?: string
   ): Promise<{ version: string; reason: string }> {
@@ -496,7 +500,7 @@ export class ChangelogService extends EventEmitter {
       }
 
       const parts = currentVersion.split('.').map(Number);
-      if (parts.length !== 3 || parts.some(isNaN)) {
+      if (parts.length !== 3 || parts.some(Number.isNaN)) {
         return { version: '1.0.0', reason: 'Invalid current version, resetting to 1.0.0' };
       }
 

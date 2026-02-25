@@ -409,7 +409,7 @@ class LifecycleManager:
         if not file.exists():
             return None
 
-        with open(file) as f:
+        with open(file, encoding="utf-8") as f:
             data = json.load(f)
         return IssueLifecycle.from_dict(data)
 
@@ -426,7 +426,7 @@ class LifecycleManager:
     def save(self, lifecycle: IssueLifecycle) -> None:
         """Save lifecycle state."""
         file = self._get_file(lifecycle.repo, lifecycle.issue_number)
-        with open(file, "w") as f:
+        with open(file, "w", encoding="utf-8") as f:
             json.dump(lifecycle.to_dict(), f, indent=2)
 
     def transition(
@@ -509,7 +509,7 @@ class LifecycleManager:
         safe_repo = repo.replace("/", "_")
 
         for file in self.lifecycle_dir.glob(f"{safe_repo}_*.json"):
-            with open(file) as f:
+            with open(file, encoding="utf-8") as f:
                 data = json.load(f)
                 lifecycle = IssueLifecycle.from_dict(data)
                 if lifecycle.current_state == state:
@@ -523,7 +523,7 @@ class LifecycleManager:
         safe_repo = repo.replace("/", "_")
 
         for file in self.lifecycle_dir.glob(f"{safe_repo}_*.json"):
-            with open(file) as f:
+            with open(file, encoding="utf-8") as f:
                 data = json.load(f)
                 state = data.get("current_state", "new")
                 counts[state] = counts.get(state, 0) + 1

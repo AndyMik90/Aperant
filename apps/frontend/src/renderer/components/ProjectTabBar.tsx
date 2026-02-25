@@ -5,6 +5,7 @@ import { cn } from '../lib/utils';
 import { Button } from './ui/button';
 import { SortableProjectTab } from './SortableProjectTab';
 import { UsageIndicator } from './UsageIndicator';
+import { AuthStatusIndicator } from './AuthStatusIndicator';
 import type { Project } from '../../shared/types';
 
 interface ProjectTabBarProps {
@@ -47,7 +48,7 @@ export function ProjectTabBar({
       // Cmd/Ctrl + 1-9: Switch to tab N
       if (e.key >= '1' && e.key <= '9') {
         e.preventDefault();
-        const index = parseInt(e.key) - 1;
+        const index = parseInt(e.key, 10) - 1;
         if (index < projects.length) {
           onProjectSelect(projects[index].id);
         }
@@ -112,6 +113,7 @@ export function ProjectTabBar({
       </div>
 
       <div className="flex items-center gap-2 px-2 py-1">
+        <AuthStatusIndicator />
         <UsageIndicator />
         <Button
           variant="ghost"

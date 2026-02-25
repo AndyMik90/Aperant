@@ -83,10 +83,16 @@ def apply_single_task_changes(
             # Addition - need to determine where to add
             if change.change_type == ChangeType.ADD_IMPORT:
                 # Add import at top
+                # Content is already normalized to LF, so only check for \n
+                has_trailing_newline = content.endswith("\n")
                 lines = content.splitlines()
                 import_end = find_import_end(lines, file_path)
-                lines.insert(import_end, change.content_after)
+                # Strip trailing newline from content_after to prevent double newlines
+                # (content_after may include newline from diff generation)
+                lines.insert(import_end, change.content_after.rstrip("\n\r"))
                 content = line_ending.join(lines)
+                if has_trailing_newline:
+                    content += line_ending
             elif change.change_type == ChangeType.ADD_FUNCTION:
                 # Add function at end (before exports)
                 content += f"{line_ending}{line_ending}{change.content_after}"
@@ -149,13 +155,21 @@ def combine_non_conflicting_changes(
 
     # Add imports
     if imports:
+        # Content is already normalized to LF, so only check for \n
+        has_trailing_newline = content.endswith("\n")
         lines = content.splitlines()
         import_end = find_import_end(lines, file_path)
         for imp in imports:
-            if imp.content_after and imp.content_after not in content:
-                lines.insert(import_end, imp.content_after)
+            # Strip trailing newline from content_after to prevent double newlines
+            import_content = (
+                imp.content_after.rstrip("\n\r") if imp.content_after else ""
+            )
+            if import_content and import_content not in content:
+                lines.insert(import_end, import_content)
                 import_end += 1
         content = line_ending.join(lines)
+        if has_trailing_newline:
+            content += line_ending
 
     # Apply modifications
     for mod in modifications:

@@ -324,7 +324,7 @@ These issues have appeared {RECURRING_ISSUE_THRESHOLD}+ times without being reso
 - `implementation_plan.json` - Full iteration history
 """
 
-    escalation_file.write_text(content)
+    escalation_file.write_text(content, encoding="utf-8")
     print(f"\n📝 Escalation file created: {escalation_file}")
 
 
@@ -345,7 +345,7 @@ def create_manual_test_plan(spec_dir: Path, spec_name: str) -> Path:
     spec_file = spec_dir / "spec.md"
     spec_content = ""
     if spec_file.exists():
-        spec_content = spec_file.read_text()
+        spec_content = spec_file.read_text(encoding="utf-8")
 
     # Extract acceptance criteria from spec if present
     acceptance_criteria = []
@@ -439,7 +439,7 @@ _Add any observations or issues found during testing_
 
 """
 
-    manual_plan_file.write_text(content)
+    manual_plan_file.write_text(content, encoding="utf-8")
     return manual_plan_file
 
 
@@ -460,9 +460,9 @@ def check_test_discovery(spec_dir: Path) -> dict[str, Any] | None:
         return None
 
     try:
-        with open(discovery_file) as f:
+        with open(discovery_file, encoding="utf-8") as f:
             return json.load(f)
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return None
 
 

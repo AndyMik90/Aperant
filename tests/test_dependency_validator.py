@@ -4,23 +4,23 @@ Tests for dependency_validator module.
 
 Tests cover:
 - Platform-specific dependency validation
-- pywin32 validation on Windows Python 3.12+
+- pywin32 validation on Windows (all Python versions, ACS-306)
 - Helpful error messages for missing dependencies
 - No validation on non-Windows platforms
-- No validation on Python < 3.12
 """
 
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 # Add apps/backend directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
-from core.dependency_validator import validate_platform_dependencies, _exit_with_pywin32_error
-
+from core.dependency_validator import (
+    _exit_with_pywin32_error,
+    _warn_missing_secretstorage,
+    validate_platform_dependencies,
+)
 
 # =============================================================================
 # TESTS FOR validate_platform_dependencies
@@ -39,23 +39,31 @@ class TestValidatePlatformDependencies:
         """
         import builtins
 
-        with patch("sys.platform", "win32"), \
-             patch("sys.version_info", (3, 12, 0)), \
-             patch("core.dependency_validator._exit_with_pywin32_error") as mock_exit:
-
+        with (
+            patch("core.dependency_validator.is_windows", return_value=True),
+            patch("core.dependency_validator.is_linux", return_value=False),
+            patch("sys.version_info", (3, 12, 0)),
+            patch("core.dependency_validator._exit_with_pywin32_error") as mock_exit,
+            patch(
+                "core.dependency_validator._warn_missing_secretstorage"
+            ) as mock_warning,
+        ):
             # Mock pywintypes import to raise ImportError
             original_import = builtins.__import__
 
             def mock_import(name, *args, **kwargs):
                 if name == "pywintypes":
                     raise ImportError("No module named 'pywintypes'")
+                if name == "secretstorage":
+                    raise ImportError("No module named 'secretstorage'")
                 return original_import(name, *args, **kwargs)
 
             with patch("builtins.__import__", side_effect=mock_import):
                 validate_platform_dependencies()
 
-            # Should have called the error exit function
+            # Should have called the error exit function (not warning)
             mock_exit.assert_called_once()
+            mock_warning.assert_not_called()
 
     def test_windows_python_312_with_pywin32_installed_continues(self):
         """Windows + Python 3.12+ with pywin32 installed should continue."""
@@ -68,77 +76,347 @@ class TestValidatePlatformDependencies:
             """Return mock for pywintypes, delegate everything else to original."""
             if name == "pywintypes":
                 return MagicMock()
+            if name == "secretstorage":
+                raise ImportError("No module named 'secretstorage'")
             return original_import(name, *args, **kwargs)
 
-        with patch("sys.platform", "win32"), \
-             patch("sys.version_info", (3, 12, 0)), \
-             patch("builtins.__import__", side_effect=selective_mock):
+        with (
+            patch("core.dependency_validator.is_windows", return_value=True),
+            patch("core.dependency_validator.is_linux", return_value=False),
+            patch("sys.version_info", (3, 12, 0)),
+            patch(
+                "core.dependency_validator._warn_missing_secretstorage"
+            ) as mock_warning,
+            patch("builtins.__import__", side_effect=selective_mock),
+        ):
             # Should not raise SystemExit
             validate_platform_dependencies()
+            # Linux warning should not be called on Windows
+            mock_warning.assert_not_called()
 
-    def test_windows_python_311_skips_validation(self):
-        """Windows + Python < 3.12 should skip pywin32 validation."""
-        with patch("sys.platform", "win32"), \
-             patch("sys.version_info", (3, 11, 0)), \
-             patch("builtins.__import__") as mock_import:
+    def test_windows_python_311_validates_pywin32(self):
+        """Windows + Python 3.11 should validate pywin32 (ACS-306)."""
+        import builtins
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "pywintypes":
+                raise ImportError("No module named 'pywintypes'")
+            return original_import(name, *args, **kwargs)
+
+        with (
+            patch("core.dependency_validator.is_windows", return_value=True),
+            patch("core.dependency_validator.is_linux", return_value=False),
+            patch("sys.version_info", (3, 11, 0)),
+            patch("core.dependency_validator._exit_with_pywin32_error") as mock_exit,
+            patch(
+                "core.dependency_validator._warn_missing_secretstorage"
+            ) as mock_warning,
+            patch("builtins.__import__", side_effect=mock_import),
+        ):
+            # Should call exit error function
+            validate_platform_dependencies()
+            mock_exit.assert_called_once()
+            # Linux warning should not be called on Windows
+            mock_warning.assert_not_called()
+
+    def test_linux_skips_pywin32_validation(self):
+        """Linux should skip pywin32 validation but warn about secretstorage."""
+        import builtins
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "secretstorage":
+                raise ImportError("No module named 'secretstorage'")
+            return original_import(name, *args, **kwargs)
+
+        with (
+            patch("core.dependency_validator.is_windows", return_value=False),
+            patch("core.dependency_validator.is_linux", return_value=True),
+            patch("sys.version_info", (3, 12, 0)),
+            patch(
+                "core.dependency_validator._warn_missing_secretstorage"
+            ) as mock_warning,
+            patch("builtins.__import__", side_effect=mock_import),
+        ):
+            # Should not call pywin32 error, but should call secretstorage warning
+            validate_platform_dependencies()
+            mock_warning.assert_called_once()
+
+    def test_macos_skips_pywin32_validation(self):
+        """macOS should skip pywin32 validation and secretstorage warning."""
+        with (
+            patch("core.dependency_validator.is_windows", return_value=False),
+            patch("core.dependency_validator.is_linux", return_value=False),
+            patch("sys.version_info", (3, 12, 0)),
+            patch(
+                "core.dependency_validator._warn_missing_secretstorage"
+            ) as mock_warning,
+            patch("builtins.__import__") as mock_import,
+        ):
             # Even if pywintypes is not available, should not exit
             mock_import.side_effect = ImportError("No module named 'pywintypes'")
 
             # Should not raise SystemExit
             validate_platform_dependencies()
-
-    def test_linux_skips_validation(self):
-        """Non-Windows platforms should skip pywin32 validation."""
-        with patch("sys.platform", "linux"), \
-             patch("sys.version_info", (3, 12, 0)), \
-             patch("builtins.__import__") as mock_import:
-            # Even if pywintypes is not available, should not exit
-            mock_import.side_effect = ImportError("No module named 'pywintypes'")
-
-            # Should not raise SystemExit
-            validate_platform_dependencies()
-
-    def test_macos_skips_validation(self):
-        """macOS should skip pywin32 validation."""
-        with patch("sys.platform", "darwin"), \
-             patch("sys.version_info", (3, 12, 0)), \
-             patch("builtins.__import__") as mock_import:
-            # Even if pywintypes is not available, should not exit
-            mock_import.side_effect = ImportError("No module named 'pywintypes'")
-
-            # Should not raise SystemExit
-            validate_platform_dependencies()
+            # Linux warning should not be called on macOS
+            mock_warning.assert_not_called()
 
     def test_windows_python_313_validates(self):
         """Windows + Python 3.13+ should validate pywin32."""
         import builtins
 
-        with patch("sys.platform", "win32"), \
-             patch("sys.version_info", (3, 13, 0)), \
-             patch("core.dependency_validator._exit_with_pywin32_error") as mock_exit:
-
+        with (
+            patch("core.dependency_validator.is_windows", return_value=True),
+            patch("core.dependency_validator.is_linux", return_value=False),
+            patch("sys.version_info", (3, 13, 0)),
+            patch("core.dependency_validator._exit_with_pywin32_error") as mock_exit,
+            patch(
+                "core.dependency_validator._warn_missing_secretstorage"
+            ) as mock_warning,
+        ):
             original_import = builtins.__import__
 
             def mock_import(name, *args, **kwargs):
                 if name == "pywintypes":
                     raise ImportError("No module named 'pywintypes'")
+                if name == "secretstorage":
+                    raise ImportError("No module named 'secretstorage'")
                 return original_import(name, *args, **kwargs)
 
             with patch("builtins.__import__", side_effect=mock_import):
                 validate_platform_dependencies()
 
-            # Should have called the error exit function
+            # Should have called the error exit function (not warning)
             mock_exit.assert_called_once()
+            mock_warning.assert_not_called()
 
-    def test_windows_python_310_skips_validation(self):
-        """Windows + Python 3.10 should skip pywin32 validation."""
-        with patch("sys.platform", "win32"), \
-             patch("sys.version_info", (3, 10, 0)), \
-             patch("builtins.__import__") as mock_import:
-            mock_import.side_effect = ImportError("No module named 'pywintypes'")
+    def test_windows_python_310_validates_pywin32(self):
+        """Windows + Python 3.10 should validate pywin32 (ACS-306)."""
+        import builtins
 
-            # Should not raise SystemExit
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "pywintypes":
+                raise ImportError("No module named 'pywintypes'")
+            return original_import(name, *args, **kwargs)
+
+        with (
+            patch("core.dependency_validator.is_windows", return_value=True),
+            patch("core.dependency_validator.is_linux", return_value=False),
+            patch("sys.version_info", (3, 10, 0)),
+            patch("core.dependency_validator._exit_with_pywin32_error") as mock_exit,
+            patch(
+                "core.dependency_validator._warn_missing_secretstorage"
+            ) as mock_warning,
+            patch("builtins.__import__", side_effect=mock_import),
+        ):
+            # Should call exit error function
             validate_platform_dependencies()
+            mock_exit.assert_called_once()
+            # Linux warning should not be called on Windows
+            mock_warning.assert_not_called()
+
+
+# =============================================================================
+# TESTS FOR Linux secretstorage validation (ACS-310)
+# =============================================================================
+
+
+class TestLinuxSecretstorageValidation:
+    """Tests for Linux secretstorage dependency validation (ACS-310)."""
+
+    def test_linux_with_secretstorage_missing_warns(self):
+        """
+        Linux without secretstorage should warn but not exit (ACS-310).
+
+        Unlike Windows pywin32 which is required, secretstorage is optional
+        and falls back to .env file storage. The warning informs users about
+        the security implications.
+        """
+        import builtins
+
+        with (
+            patch("core.dependency_validator.is_windows", return_value=False),
+            patch("core.dependency_validator.is_linux", return_value=True),
+            patch(
+                "core.dependency_validator._warn_missing_secretstorage"
+            ) as mock_warning,
+        ):
+            original_import = builtins.__import__
+
+            def mock_import(name, *args, **kwargs):
+                if name == "secretstorage":
+                    raise ImportError("No module named 'secretstorage'")
+                return original_import(name, *args, **kwargs)
+
+            with patch("builtins.__import__", side_effect=mock_import):
+                validate_platform_dependencies()
+
+            # Should have called the warning function
+            mock_warning.assert_called_once()
+
+    def test_linux_with_secretstorage_installed_continues(self):
+        """Linux with secretstorage installed should continue without warning."""
+        import builtins
+
+        original_import = builtins.__import__
+
+        def selective_mock(name, *args, **kwargs):
+            """Return mock for secretstorage, delegate everything else to original."""
+            if name == "secretstorage":
+                return MagicMock()
+            return original_import(name, *args, **kwargs)
+
+        with (
+            patch("core.dependency_validator.is_windows", return_value=False),
+            patch("core.dependency_validator.is_linux", return_value=True),
+            patch("builtins.__import__", side_effect=selective_mock),
+            patch(
+                "core.dependency_validator._warn_missing_secretstorage"
+            ) as mock_warning,
+        ):
+            # Should not call warning function when secretstorage is installed
+            validate_platform_dependencies()
+            mock_warning.assert_not_called()
+
+    def test_windows_skips_secretstorage_validation(self):
+        """Windows should skip secretstorage validation."""
+        import builtins
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            # Allow pywintypes to succeed (Windows validation passes)
+            if name == "pywintypes":
+                return MagicMock()
+            # secretstorage import fails (but should be skipped on Windows)
+            if name == "secretstorage":
+                raise ImportError("No module named 'secretstorage'")
+            return original_import(name, *args, **kwargs)
+
+        with (
+            patch("core.dependency_validator.is_windows", return_value=True),
+            patch("core.dependency_validator.is_linux", return_value=False),
+            patch("sys.version_info", (3, 12, 0)),
+            patch(
+                "core.dependency_validator._warn_missing_secretstorage"
+            ) as mock_warning,
+            patch("builtins.__import__", side_effect=mock_import),
+        ):
+            # Should not call warning function
+            validate_platform_dependencies()
+            mock_warning.assert_not_called()
+
+    def test_macos_skips_secretstorage_validation(self):
+        """macOS should skip secretstorage validation."""
+        import builtins
+
+        original_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            # All platform-specific imports fail (macOS has none required)
+            if name in ("pywintypes", "secretstorage"):
+                raise ImportError(f"No module named '{name}'")
+            return original_import(name, *args, **kwargs)
+
+        with (
+            patch("core.dependency_validator.is_linux", return_value=False),
+            patch("core.dependency_validator.is_windows", return_value=False),
+            patch(
+                "core.dependency_validator._warn_missing_secretstorage"
+            ) as mock_warning,
+            patch("builtins.__import__", side_effect=mock_import),
+        ):
+            # Should not call warning function
+            validate_platform_dependencies()
+            mock_warning.assert_not_called()
+
+
+# =============================================================================
+# TESTS FOR _warn_missing_secretstorage (ACS-310)
+# =============================================================================
+
+
+class TestExitWithSecretstorageWarning:
+    """Tests for _warn_missing_secretstorage function (ACS-310)."""
+
+    def test_warning_message_contains_helpful_instructions(self, capsys):
+        """Warning message should include installation instructions."""
+        _warn_missing_secretstorage()
+
+        # Get stderr output
+        captured = capsys.readouterr()
+        message = captured.err
+
+        # Verify helpful content
+        assert "secretstorage" in message.lower()
+        assert "pip install" in message.lower()
+        assert "linux" in message.lower()
+        assert "keyring" in message.lower()
+
+    def test_warning_message_mentions_fallback_behavior(self, capsys):
+        """Warning should explain that app continues with .env fallback."""
+        _warn_missing_secretstorage()
+
+        captured = capsys.readouterr()
+        message = captured.err
+
+        # Should mention the fallback behavior
+        assert ".env" in message
+        assert "continue" in message.lower()
+
+    def test_warning_message_contains_venv_path(self, capsys, tmp_path):
+        """Warning message should include the virtual environment path when activate script exists."""
+        # Create a temporary venv-like structure with activate script
+        bin_dir = tmp_path / "bin"
+        bin_dir.mkdir()
+        activate_script = bin_dir / "activate"
+        activate_script.write_text("#!/bin/bash\n")
+
+        with patch("sys.prefix", str(tmp_path)):
+            _warn_missing_secretstorage()
+
+            captured = capsys.readouterr()
+            message = captured.err
+
+            # Should reference the full venv bin/activate path since it exists
+            assert str(tmp_path) in message
+            assert "bin" in message
+            assert "activate" in message
+
+    def test_warning_message_omits_activation_when_no_script(self, capsys, tmp_path):
+        """Warning message should omit activation instruction when activate script doesn't exist."""
+        # Use tmp_path without creating bin/activate script
+        with patch("sys.prefix", str(tmp_path)):
+            _warn_missing_secretstorage()
+
+            captured = capsys.readouterr()
+            message = captured.err
+
+            # Should NOT include activation instruction since activate script doesn't exist
+            assert "Activate your virtual environment" not in message
+            # Verify no line contains "source" (the activation command hint)
+            # Using all() ensures we check every line, not just the message as a whole
+            assert all(line.find("source") == -1 for line in message.splitlines())
+            # Should still have the install instructions
+            assert "Install secretstorage" in message
+
+    def test_warning_does_not_exit(self, capsys):
+        """Warning function should write to stderr but not exit."""
+        # This function should NOT call sys.exit
+        with patch("sys.exit") as mock_exit:
+            _warn_missing_secretstorage()
+
+            # Should NOT have called sys.exit
+            mock_exit.assert_not_called()
+
+        # But should have written to stderr
+        captured = capsys.readouterr()
+        assert len(captured.err) > 0
 
 
 # =============================================================================
@@ -150,7 +428,7 @@ class TestExitWithPywin32Error:
     """Tests for _exit_with_pywin32_error function."""
 
     def test_exit_message_contains_helpful_instructions(self):
-        """Error message should include installation instructions."""
+        """Error message should include installation instructions and mention MCP library."""
         with patch("sys.exit") as mock_exit:
             _exit_with_pywin32_error()
 
@@ -163,12 +441,17 @@ class TestExitWithPywin32Error:
             assert "pip install" in message.lower()
             assert "windows" in message.lower()
             assert "python" in message.lower()
+            # Should mention MCP library (ACS-306)
+            assert "mcp" in message.lower()
 
     def test_exit_message_contains_venv_path(self):
-        """Error message should include the virtual environment path."""
-        with patch("sys.exit") as mock_exit, \
-             patch("sys.prefix", "/path/to/venv"):
-
+        """Error message should include the virtual environment path when activate script exists."""
+        # Mock existsSync to return True for the activate script path
+        with (
+            patch("sys.exit") as mock_exit,
+            patch("sys.prefix", "/path/to/venv"),
+            patch("pathlib.Path.exists", return_value=True),
+        ):
             _exit_with_pywin32_error()
 
             # Get the message passed to sys.exit
@@ -176,14 +459,44 @@ class TestExitWithPywin32Error:
             message = str(call_args)
 
             # Should reference the full venv Scripts/activate path
-            assert "/path/to/venv" in message
+            # Path separators differ by platform: / on Unix, \ on Windows
+            # pathlib normalizes /path/to/venv to \path\to\venv on Windows
+            expected_path = str(Path("/path/to/venv"))
+            assert expected_path in message or "/path/to/venv" in message
             assert "Scripts" in message
+
+    def test_exit_message_without_venv_activate(self):
+        """Error message should not include venv path when activate script doesn't exist."""
+        # Mock existsSync to return False (simulate system Python or missing activate)
+        # Also mock Path.exists to make the test deterministic
+        with (
+            patch("sys.exit") as mock_exit,
+            patch("sys.prefix", "/usr"),
+            patch("pathlib.Path.exists", return_value=False),
+        ):
+            _exit_with_pywin32_error()
+
+            # Get the message passed to sys.exit
+            call_args = mock_exit.call_args[0][0]
+            message = str(call_args)
+
+            # Should NOT reference Scripts/activate when it doesn't exist
+            # Note: "Scripts" may appear in sys.executable path, so check specifically for activate references
+            assert (
+                "Scripts/activate" not in message and "Scripts\\activate" not in message
+            )
+            # Also check that "1. Activate your virtual environment" step is not present
+            assert "Activate your virtual environment" not in message
+            # Should still show installation instructions
+            assert "pip install" in message
+            assert "pywin32" in message
 
     def test_exit_message_contains_python_executable(self):
         """Error message should include the current Python executable."""
-        with patch("sys.exit") as mock_exit, \
-             patch("sys.executable", "/usr/bin/python3.12"):
-
+        with (
+            patch("sys.exit") as mock_exit,
+            patch("sys.executable", "/usr/bin/python3.12"),
+        ):
             _exit_with_pywin32_error()
 
             # Get the message passed to sys.exit
@@ -223,11 +536,13 @@ class TestImportOrderPreventsEarlyFailure:
             imported_modules.add(name)
             return original_import(name, *args, **kwargs)
 
-        # Use non-Windows to avoid import issues
-        with patch("builtins.__import__", side_effect=tracking_import), \
-             patch("sys.platform", "linux"), \
-             patch("sys.version_info", (3, 11, 0)):
-
+        # Use non-Windows platform to avoid pywin32 import issues on Windows CI
+        with (
+            patch("builtins.__import__", side_effect=tracking_import),
+            patch("core.dependency_validator.is_windows", return_value=False),
+            patch("core.dependency_validator.is_linux", return_value=True),
+            patch("sys.version_info", (3, 11, 0)),
+        ):
             validate_platform_dependencies()
 
         # Verify graphiti-related modules were NOT imported
@@ -267,20 +582,26 @@ class TestImportOrderPreventsEarlyFailure:
                 # Skip async functions and classes, find first regular function
                 continue
 
-        assert first_function_lineno is not None, "Could not find first function in cli/utils.py"
+        assert first_function_lineno is not None, (
+            "Could not find first function in cli/utils.py"
+        )
 
         # Check module-level imports (before the first function)
         lines = utils_content.split("\n")
         module_level_imports = "\n".join(lines[:first_function_lineno])
 
-        assert "from graphiti_config import" not in module_level_imports, \
+        assert "from graphiti_config import" not in module_level_imports, (
             "graphiti_config should not be imported at module level in cli/utils.py"
+        )
 
         # Verify that graphiti_config IS imported inside validate_environment()
         validate_env_lineno = None
         validate_env_end_lineno = len(lines)  # Initialize to end of file
         for node in tree.body:
-            if isinstance(node, ast.FunctionDef) and node.name == "validate_environment":
+            if (
+                isinstance(node, ast.FunctionDef)
+                and node.name == "validate_environment"
+            ):
                 validate_env_lineno = node.lineno
                 # Find the end of the function (next top-level node or end of file)
                 node_index = tree.body.index(node)
@@ -289,12 +610,17 @@ class TestImportOrderPreventsEarlyFailure:
                     validate_env_end_lineno = next_node.lineno
                 break
 
-        assert validate_env_lineno is not None, "Could not find validate_environment function"
+        assert validate_env_lineno is not None, (
+            "Could not find validate_environment function"
+        )
 
         # Look for the import within the function's body
-        validate_env_block = "\n".join(lines[validate_env_lineno - 1:validate_env_end_lineno])
-        assert "from graphiti_config import get_graphiti_status" in validate_env_block, \
-            "graphiti_config should be imported inside validate_environment()"
+        validate_env_block = "\n".join(
+            lines[validate_env_lineno - 1 : validate_env_end_lineno]
+        )
+        assert (
+            "from graphiti_config import get_graphiti_status" in validate_env_block
+        ), "graphiti_config should be imported inside validate_environment()"
 
     def test_entry_points_validate_before_cli_imports(self):
         """
@@ -309,8 +635,9 @@ class TestImportOrderPreventsEarlyFailure:
         run_content = run_py.read_text()
 
         # Verify validate_platform_dependencies is imported and called
-        assert "validate_platform_dependencies" in run_content, \
+        assert "validate_platform_dependencies" in run_content, (
             "run.py should import validate_platform_dependencies"
+        )
 
         # Find the position of validation call and cli import
         validation_pos = run_content.find("validate_platform_dependencies()")
@@ -318,24 +645,31 @@ class TestImportOrderPreventsEarlyFailure:
 
         assert validation_pos > 0, "run.py should call validate_platform_dependencies"
         assert cli_import_pos > 0, "run.py should import cli.main"
-        assert validation_pos < cli_import_pos, \
+        assert validation_pos < cli_import_pos, (
             "run.py should validate dependencies BEFORE importing cli.main"
+        )
 
         # Check spec_runner.py
         spec_runner_py = backend_dir / "runners" / "spec_runner.py"
         spec_runner_content = spec_runner_py.read_text()
 
-        assert "validate_platform_dependencies" in spec_runner_content, \
+        assert "validate_platform_dependencies" in spec_runner_content, (
             "spec_runner.py should import validate_platform_dependencies"
+        )
 
         # Find positions
-        validation_pos_spec = spec_runner_content.find("validate_platform_dependencies()")
+        validation_pos_spec = spec_runner_content.find(
+            "validate_platform_dependencies()"
+        )
         cli_utils_import_pos = spec_runner_content.find("from cli.utils import")
 
-        assert validation_pos_spec > 0, "spec_runner.py should call validate_platform_dependencies"
+        assert validation_pos_spec > 0, (
+            "spec_runner.py should call validate_platform_dependencies"
+        )
         assert cli_utils_import_pos > 0, "spec_runner.py should import cli.utils"
-        assert validation_pos_spec < cli_utils_import_pos, \
+        assert validation_pos_spec < cli_utils_import_pos, (
             "spec_runner.py should validate dependencies BEFORE importing cli.utils"
+        )
 
 
 # =============================================================================
@@ -402,7 +736,8 @@ class TestCliUtilsGetProjectDir:
         from cli.utils import get_project_dir
 
         result = get_project_dir(temp_dir)
-        assert result == temp_dir
+        # Resolve symlinks for comparison (macOS /var -> /private/var)
+        assert result.resolve() == temp_dir.resolve()
 
     def test_get_project_dir_auto_detects_backend(self, temp_dir):
         """Auto-detect when running from apps/backend directory."""
@@ -415,12 +750,14 @@ class TestCliUtilsGetProjectDir:
 
         # Change to backend directory
         import os
+
         original_cwd = os.getcwd()
         try:
             os.chdir(backend_dir)
             result = get_project_dir(None)
             # Should go up 2 levels from backend to project root
-            assert result == temp_dir
+            # Resolve symlinks for comparison (macOS /var -> /private/var)
+            assert result.resolve() == temp_dir.resolve()
         finally:
             os.chdir(original_cwd)
 
@@ -442,8 +779,9 @@ class TestCliUtilsSetupEnvironment:
         script_dir = setup_environment()
 
         # Verify script_dir is the apps/backend directory
-        assert script_dir.name == "backend"
-        assert script_dir.parent.name == "apps"
+        # Use case-insensitive comparison for macOS filesystem compatibility
+        assert script_dir.name.lower() == "backend"
+        assert script_dir.parent.name.lower() == "apps"
 
     def test_setup_environment_adds_to_path(self):
         """Add script directory to sys.path."""

@@ -31,7 +31,19 @@ vi.mock('@xterm/xterm', () => ({
       dispose: vi.fn(),
       write: vi.fn(),
       cols: 80,
-      rows: 24
+      rows: 24,
+      options: {
+        cursorBlink: true,
+        cursorStyle: 'block',
+        fontSize: 14,
+        fontFamily: 'monospace',
+        fontWeight: 'normal',
+        lineHeight: 1,
+        letterSpacing: 0,
+        theme: { cursorAccent: '#000000' },
+        scrollback: 1000
+      },
+      refresh: vi.fn()
     };
   })
 }));
@@ -76,6 +88,14 @@ describe('Terminal copy/paste integration', () => {
         disconnect: vi.fn()
       };
     });
+
+    // Mock requestAnimationFrame for xterm.js integration tests
+    global.requestAnimationFrame = vi.fn((callback: FrameRequestCallback) => {
+      // Synchronously execute the callback to avoid timing issues in tests
+      // Just pass timestamp directly - this context isn't used by RAF callbacks
+      callback(0);
+      return 0;
+    }) as unknown as Mock;
 
     // Mock navigator.clipboard
     mockClipboard = {
@@ -123,7 +143,19 @@ describe('Terminal copy/paste integration', () => {
           dispose: vi.fn(),
           write: vi.fn(),
           cols: 80,
-          rows: 24
+          rows: 24,
+          options: {
+            cursorBlink: true,
+            cursorStyle: 'block',
+            fontSize: 14,
+            fontFamily: 'monospace',
+            fontWeight: 'normal',
+            lineHeight: 1,
+            letterSpacing: 0,
+            theme: { cursorAccent: '#000000' },
+            scrollback: 1000
+          },
+          refresh: vi.fn()
         };
       });
 
@@ -199,7 +231,19 @@ describe('Terminal copy/paste integration', () => {
           dispose: vi.fn(),
           write: vi.fn(),
           cols: 80,
-          rows: 24
+          rows: 24,
+          options: {
+            cursorBlink: true,
+            cursorStyle: 'block',
+            fontSize: 14,
+            fontFamily: 'monospace',
+            fontWeight: 'normal',
+            lineHeight: 1,
+            letterSpacing: 0,
+            theme: { cursorAccent: '#000000' },
+            scrollback: 1000
+          },
+          refresh: vi.fn()
         };
       });
 
@@ -294,7 +338,19 @@ describe('Terminal copy/paste integration', () => {
           dispose: vi.fn(),
           write: vi.fn(),
           cols: 80,
-          rows: 24
+          rows: 24,
+          options: {
+            cursorBlink: true,
+            cursorStyle: 'block',
+            fontSize: 14,
+            fontFamily: 'monospace',
+            fontWeight: 'normal',
+            lineHeight: 1,
+            letterSpacing: 0,
+            theme: { cursorAccent: '#000000' },
+            scrollback: 1000
+          },
+          refresh: vi.fn()
         };
       });
 
@@ -373,7 +429,19 @@ describe('Terminal copy/paste integration', () => {
           dispose: vi.fn(),
           write: vi.fn(),
           cols: 80,
-          rows: 24
+          rows: 24,
+          options: {
+            cursorBlink: true,
+            cursorStyle: 'block',
+            fontSize: 14,
+            fontFamily: 'monospace',
+            fontWeight: 'normal',
+            lineHeight: 1,
+            letterSpacing: 0,
+            theme: { cursorAccent: '#000000' },
+            scrollback: 1000
+          },
+          refresh: vi.fn()
         };
       });
 
@@ -451,7 +519,19 @@ describe('Terminal copy/paste integration', () => {
           dispose: vi.fn(),
           write: vi.fn(),
           cols: 80,
-          rows: 24
+          rows: 24,
+          options: {
+            cursorBlink: true,
+            cursorStyle: 'block',
+            fontSize: 14,
+            fontFamily: 'monospace',
+            fontWeight: 'normal',
+            lineHeight: 1,
+            letterSpacing: 0,
+            theme: { cursorAccent: '#000000' },
+            scrollback: 1000
+          },
+          refresh: vi.fn()
         };
       });
 
@@ -553,7 +633,19 @@ describe('Terminal copy/paste integration', () => {
           dispose: vi.fn(),
           write: vi.fn(),
           cols: 80,
-          rows: 24
+          rows: 24,
+          options: {
+            cursorBlink: true,
+            cursorStyle: 'block',
+            fontSize: 14,
+            fontFamily: 'monospace',
+            fontWeight: 'normal',
+            lineHeight: 1,
+            letterSpacing: 0,
+            theme: { cursorAccent: '#000000' },
+            scrollback: 1000
+          },
+          refresh: vi.fn()
         };
       });
 
@@ -667,7 +759,19 @@ describe('Terminal copy/paste integration', () => {
           dispose: vi.fn(),
           write: vi.fn(),
           cols: 80,
-          rows: 24
+          rows: 24,
+          options: {
+            cursorBlink: true,
+            cursorStyle: 'block',
+            fontSize: 14,
+            fontFamily: 'monospace',
+            fontWeight: 'normal',
+            lineHeight: 1,
+            letterSpacing: 0,
+            theme: { cursorAccent: '#000000' },
+            scrollback: 1000
+          },
+          refresh: vi.fn()
         };
       });
 

@@ -48,7 +48,7 @@ def create_minimal_plan(spec_dir: Path, task_description: str) -> Path:
     }
 
     plan_file = spec_dir / "implementation_plan.json"
-    with open(plan_file, "w") as f:
+    with open(plan_file, "w", encoding="utf-8") as f:
         json.dump(plan, f, indent=2)
 
     return plan_file
@@ -61,7 +61,7 @@ def get_plan_stats(spec_dir: Path) -> dict:
         return {}
 
     try:
-        with open(plan_file) as f:
+        with open(plan_file, encoding="utf-8") as f:
             plan_data = json.load(f)
         total_subtasks = sum(
             len(p.get("subtasks", [])) for p in plan_data.get("phases", [])

@@ -37,8 +37,12 @@ class ContextBuilder:
         """Load project index from file or create new one (.auto-claude is the installed instance)."""
         index_file = self.project_dir / ".auto-claude" / "project_index.json"
         if index_file.exists():
-            with open(index_file) as f:
-                return json.load(f)
+            try:
+                with open(index_file, encoding="utf-8") as f:
+                    return json.load(f)
+            except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+                # Corrupted or legacy-encoded file, regenerate
+                pass
 
         # Try to create one
         from analyzer import analyze_project
@@ -230,7 +234,9 @@ class ContextBuilder:
         if context_file.exists():
             return {
                 "source": "SERVICE_CONTEXT.md",
-                "content": context_file.read_text()[:2000],  # First 2000 chars
+                "content": context_file.read_text(encoding="utf-8")[
+                    :2000
+                ],  # First 2000 chars
             }
 
         # Generate basic context from service info

@@ -186,7 +186,6 @@ The release workflow **validates** that `CHANGELOG.md` has an entry for the vers
 |----------|---------|---------|
 | `prepare-release.yml` | Push to `main` | Detects version bump, **validates CHANGELOG.md**, creates tag |
 | `release.yml` | Tag `v*` pushed | Builds binaries, extracts changelog, creates release |
-| `validate-version.yml` | Tag `v*` pushed | Validates tag matches package.json |
 | `update-readme` (in release.yml) | After release | Updates README with new version |
 
 ## Troubleshooting

@@ -37,6 +37,17 @@ export const WINDOWS_GIT_PATHS: WindowsToolPaths = {
   ],
 };
 
+export const WINDOWS_GLAB_PATHS: WindowsToolPaths = {
+  toolName: 'GitLab CLI',
+  executable: 'glab.exe',
+  patterns: [
+    // Official Inno Setup installer path (DefaultDirName={autopf}\glab)
+    '%PROGRAMFILES%\\glab',
+    '%PROGRAMFILES(X86)%\\glab',
+    '%LOCALAPPDATA%\\Programs\\glab',
+  ],
+};
+
 export function isSecurePath(pathStr: string): boolean {
   const dangerousPatterns = [
     /[;&|`${}[\]<>!"^]/,  // Shell metacharacters (parentheses removed - safe when quoted)
@@ -120,6 +131,38 @@ export function getWindowsExecutablePaths(
 }
 
 /**
+ * Get the Windows system root directory (e.g., C:\Windows).
+ * Checks both casing variants of the environment variable with a safe fallback.
+ */
+export function getSystemRoot(): string {
+  return process.env.SystemRoot || process.env.SYSTEMROOT || 'C:\\Windows';
+}
+
+/**
+ * Get the full path to where.exe.
+ * Using the full path ensures where.exe works even when System32 isn't in PATH,
+ * which can happen in restricted environments or when Electron doesn't inherit
+ * the full system PATH.
+ *
+ * @returns Full path to where.exe (e.g., C:\Windows\System32\where.exe)
+ */
+export function getWhereExePath(): string {
+  return path.join(getSystemRoot(), 'System32', 'where.exe');
+}
+
+/**
+ * Get the full path to taskkill.exe.
+ * Using the full path ensures taskkill.exe works even when System32 isn't in PATH,
+ * which can happen in restricted environments or when Electron doesn't inherit
+ * the full system PATH.
+ *
+ * @returns Full path to taskkill.exe (e.g., C:\Windows\System32\taskkill.exe)
+ */
+export function getTaskkillExePath(): string {
+  return path.join(getSystemRoot(), 'System32', 'taskkill.exe');
+}
+
+/**
  * Find a Windows executable using the `where` command.
  * This is the most reliable method as it searches:
  * - All directories in PATH
@@ -147,9 +190,10 @@ export function findWindowsExecutableViaWhere(
   }
 
   try {
-    // Use 'where' command to find the executable
-    // where.exe is a built-in Windows command that finds executables
-    const result = execFileSync('where.exe', [executable], {
+    // Use full path to where.exe to ensure it works even when System32 isn't in PATH
+    // This fixes issues in restricted environments or when Electron doesn't inherit system PATH
+    const whereExe = getWhereExePath();
+    const result = execFileSync(whereExe, [executable], {
       encoding: 'utf-8',
       timeout: 5000,
       windowsHide: true,
@@ -250,9 +294,10 @@ export async function findWindowsExecutableViaWhereAsync(
   }
 
   try {
-    // Use 'where' command to find the executable
-    // where.exe is a built-in Windows command that finds executables
-    const { stdout } = await execFileAsync('where.exe', [executable], {
+    // Use full path to where.exe to ensure it works even when System32 isn't in PATH
+    // This fixes issues in restricted environments or when Electron doesn't inherit system PATH
+    const whereExe = getWhereExePath();
+    const { stdout } = await execFileAsync(whereExe, [executable], {
       encoding: 'utf-8',
       timeout: 5000,
       windowsHide: true,

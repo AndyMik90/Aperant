@@ -9,7 +9,7 @@
 
 import { WebglAddon } from '@xterm/addon-webgl';
 import type { Terminal } from '@xterm/xterm';
-import { supportsWebGL2, getMaxWebGLContexts } from './webgl-utils';
+import { supportsWebGL2, getMaxWebGLContexts, isSafari } from './webgl-utils';
 
 class WebGLContextManager {
   private static instance: WebGLContextManager;
@@ -21,10 +21,18 @@ class WebGLContextManager {
 
   private constructor() {
     // Check WebGL support once at startup
-    this.isSupported = supportsWebGL2();
+    // Skip WebGL on Safari due to known rendering issues with xterm.js WebGL addon
+    // Safari will use Canvas renderer fallback for more stable rendering
+    const safariDetected = isSafari();
+    this.isSupported = !safariDetected && supportsWebGL2();
     // Use conservative max based on browser detection
     this.MAX_CONTEXTS = Math.min(getMaxWebGLContexts(), 8);
 
+    if (safariDetected) {
+      console.warn(
+        '[WebGLContextManager] Safari detected - WebGL disabled, using Canvas renderer fallback'
+      );
+    }
     console.warn(
       `[WebGLContextManager] Initialized - Supported: ${this.isSupported}, Max contexts: ${this.MAX_CONTEXTS}`
     );
@@ -175,6 +183,9 @@ class WebGLContextManager {
     }
   }
 }
+
+/** Type alias for the manager — used by consumers that import lazily via dynamic import() */
+export type WebGLContextManagerType = WebGLContextManager;
 
 // Export singleton instance
 export const webglContextManager = WebGLContextManager.getInstance();

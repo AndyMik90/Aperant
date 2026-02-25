@@ -301,7 +301,7 @@ class OnboardingManager:
 
         if self.state_file.exists():
             try:
-                with open(self.state_file) as f:
+                with open(self.state_file, encoding="utf-8") as f:
                     data = json.load(f)
                     self._state = OnboardingState.from_dict(data)
             except (json.JSONDecodeError, KeyError):
@@ -315,7 +315,7 @@ class OnboardingManager:
         """Save onboarding state."""
         state = self.get_state()
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
-        with open(self.state_file, "w") as f:
+        with open(self.state_file, "w", encoding="utf-8") as f:
             json.dump(state.to_dict(), f, indent=2)
 
     async def run_setup(

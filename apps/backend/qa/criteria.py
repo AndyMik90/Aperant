@@ -8,7 +8,7 @@ Manages acceptance criteria validation and status tracking.
 import json
 from pathlib import Path
 
-from progress import is_build_complete
+from progress import is_build_ready_for_qa
 
 # =============================================================================
 # IMPLEMENTATION PLAN I/O
@@ -21,9 +21,9 @@ def load_implementation_plan(spec_dir: Path) -> dict | None:
     if not plan_file.exists():
         return None
     try:
-        with open(plan_file) as f:
+        with open(plan_file, encoding="utf-8") as f:
             return json.load(f)
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return None
 
 
@@ -31,7 +31,7 @@ def save_implementation_plan(spec_dir: Path, plan: dict) -> bool:
     """Save the implementation plan JSON."""
     plan_file = spec_dir / "implementation_plan.json"
     try:
-        with open(plan_file, "w") as f:
+        with open(plan_file, "w", encoding="utf-8") as f:
             json.dump(plan, f, indent=2)
         return True
     except OSError:
@@ -95,10 +95,10 @@ def should_run_qa(spec_dir: Path) -> bool:
     Determine if QA validation should run.
 
     QA should run when:
-    - All subtasks are completed
+    - All subtasks have reached a terminal state (completed, failed, or stuck)
     - QA has not yet approved
     """
-    if not is_build_complete(spec_dir):
+    if not is_build_ready_for_qa(spec_dir):
         return False
 
     if is_qa_approved(spec_dir):

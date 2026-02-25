@@ -71,11 +71,17 @@ Common AI reviewers you'll encounter:
 - Performance optimizations
 - Documentation improvements
 
+### Addressed (Acknowledge)
+- Valid issue that was fixed in a later commit
+- AI correctly identified the problem, contributor fixed it
+- The issue no longer exists BECAUSE of a fix
+- **Use this instead of False Positive when the AI was RIGHT but the fix already happened**
+
 ### False Positive (Dismiss)
-- Incorrect analysis
+- Incorrect analysis (AI was WRONG - issue never existed)
 - Not applicable to this context
-- Already addressed
 - Stylistic preferences
+- **Do NOT use for valid issues that were fixed - use Addressed instead**
 
 ## Output Format
 
@@ -161,6 +167,21 @@ Common bot patterns:
 - Known bot names: dependabot, renovate, snyk-bot, sonarcloud
 - Automated review format (structured markdown)
 
+## CRITICAL: Timeline Awareness
+
+**AI tools comment at specific points in time. The code may have changed since their comments.**
+
+When evaluating AI tool comments:
+1. **Check when the AI commented** - Look at the timestamp
+2. **Check when commits were made** - Were there commits AFTER the AI comment?
+3. **Check if commits fixed the issue** - Did the contributor address the AI's feedback?
+
+**Common Mistake to Avoid:**
+- AI says "Line 45 has a bug" at 2:00 PM
+- Contributor fixes it in a commit at 2:30 PM
+- You see the fixed code and think "AI was wrong, there's no bug"
+- WRONG! The AI was RIGHT - the fix came later → Use **Addressed**, not False Positive
+
 ## Important Notes
 
 1. **Humans first**: Prioritize human feedback over AI suggestions
@@ -168,6 +189,7 @@ Common bot patterns:
 3. **Don't duplicate**: If an issue is already in previous findings, reference it
 4. **Be constructive**: Extract actionable items, not just concerns
 5. **Verify AI findings**: AI tools can be wrong - assess validity
+6. **Timeline matters**: A valid finding that was later fixed is ADDRESSED, not a false positive
 
 ## Sample Workflow
 

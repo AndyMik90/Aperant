@@ -364,7 +364,7 @@ async def run_ai_complexity_assessment(
     # Load requirements if available
     requirements_file = spec_dir / "requirements.json"
     if requirements_file.exists():
-        with open(requirements_file) as f:
+        with open(requirements_file, encoding="utf-8") as f:
             req = json.load(f)
             context += f"""
 ## Requirements (from user)
@@ -382,7 +382,7 @@ async def run_ai_complexity_assessment(
         context += f"\n**Task Description**: {task_description or 'Not provided'}\n"
 
     # Add project index if available
-    auto_build_index = spec_dir.parent.parent / "auto-claude" / "project_index.json"
+    auto_build_index = spec_dir.parent.parent / "project_index.json"
     if auto_build_index.exists():
         context += f"\n**Project Index**: Available at {auto_build_index}\n"
 
@@ -397,7 +397,7 @@ async def run_ai_complexity_assessment(
         )
 
         if success and assessment_file.exists():
-            with open(assessment_file) as f:
+            with open(assessment_file, encoding="utf-8") as f:
                 data = json.load(f)
 
             # Parse AI assessment into ComplexityAssessment
@@ -440,7 +440,7 @@ def save_assessment(spec_dir: Path, assessment: ComplexityAssessment) -> Path:
     assessment_file = spec_dir / "complexity_assessment.json"
     phases = assessment.phases_to_run()
 
-    with open(assessment_file, "w") as f:
+    with open(assessment_file, "w", encoding="utf-8") as f:
         json.dump(
             {
                 "complexity": assessment.complexity.value,

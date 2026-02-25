@@ -32,7 +32,8 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { calculateProgress } from '../../lib/utils';
-import { startTask, stopTask, submitReview, recoverStuckTask, deleteTask, useTaskStore } from '../../stores/task-store';
+import { stopTask, submitReview, recoverStuckTask, deleteTask, useTaskStore, startTaskOrQueue } from '../../stores/task-store';
+import { useProjectStore } from '../../stores/project-store';
 import { TASK_STATUS_LABELS } from '../../../shared/constants';
 import { TaskEditDialog } from '../TaskEditDialog';
 import { useTaskDetail } from './hooks/useTaskDetail';
@@ -80,6 +81,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
   const { t } = useTranslation(['tasks']);
   const { toast } = useToast();
   const state = useTaskDetail({ task });
+  const activeProject = useProjectStore(s => s.getActiveProject());
   const showFilesTab = isFilesTabEnabled();
   const progressPercent = calculateProgress(task.subtasks);
   const completedSubtasks = task.subtasks.filter(s => s.status === 'completed').length;
@@ -103,7 +105,16 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
           return;
         }
       }
-      startTask(task.id);
+      const result = await startTaskOrQueue(task.id);
+      if (!result.success) {
+        toast({
+          title: t('tasks:wizard.errors.startFailed'),
+          description: result.error,
+          variant: 'destructive',
+        });
+      } else if (result.action === 'queued') {
+        toast({ title: t('tasks:queue.movedToQueue') });
+      }
     }
   };
 
@@ -187,7 +198,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
         // Update single task in store with new status and prUrl (more efficient than reloading all tasks)
         if (result.data.success && result.data.prUrl && !result.data.alreadyExists) {
           useTaskStore.getState().updateTask(task.id, {
-            status: 'pr_created',
+            status: 'done',
             metadata: { ...task.metadata, prUrl: result.data.prUrl }
           });
         }
@@ -220,7 +231,6 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
     if (isStuck) return 'warning';
     switch (status) {
       case 'done':
-      case 'pr_created':
         return 'success';
       case 'human_review':
         return 'purple';
@@ -294,16 +304,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
       );
     }
 
-    if (task.status === 'done') {
-      return (
-        <div className="completion-state text-sm flex items-center gap-2 text-success">
-          <CheckCircle2 className="h-5 w-5" />
-          <span className="font-medium">{t('tasks:status.complete')}</span>
-        </div>
-      );
-    }
-
-    if (task.status === 'pr_created') {
+    if (task.status === 'done' && task.metadata?.prUrl) {
       return (
         <div className="flex items-center gap-4">
           <div className="completion-state text-sm flex items-center gap-2 text-success">
@@ -313,13 +314,26 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
            {task.metadata?.prUrl && (
              <button
                type="button"
-               onClick={() => window.electronAPI?.openExternal(task.metadata!.prUrl!)}
+               onClick={() => {
+                 if (task.metadata?.prUrl) {
+                   window.electronAPI?.openExternal(task.metadata.prUrl);
+                 }
+               }}
                className="completion-state text-sm flex items-center gap-2 text-info cursor-pointer hover:underline bg-transparent border-none p-0"
              >
               <GitPullRequest className="h-5 w-5" />
               <span className="font-medium">{t(TASK_STATUS_LABELS[task.status])}</span>
             </button>
           )}
+        </div>
+      );
+    }
+
+    if (task.status === 'done') {
+      return (
+        <div className="completion-state text-sm flex items-center gap-2 text-success">
+          <CheckCircle2 className="h-5 w-5" />
+          <span className="font-medium">{t('tasks:status.complete')}</span>
         </div>
       );
     }
@@ -373,12 +387,10 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                           Stuck
                         </Badge>
                       ) : state.isIncomplete ? (
-                        <>
-                          <Badge variant="warning" className="text-xs flex items-center gap-1">
+                        <Badge variant="warning" className="text-xs flex items-center gap-1">
                             <AlertTriangle className="h-3 w-3" />
                             Incomplete
                           </Badge>
-                        </>
                       ) : (
                         <>
                            <Badge
@@ -394,7 +406,8 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                             >
                               {task.reviewReason === 'completed' ? 'Completed' :
                                task.reviewReason === 'errors' ? 'Has Errors' :
-                               task.reviewReason === 'plan_review' ? 'Approve Plan' : 'QA Issues'}
+                               task.reviewReason === 'plan_review' ? 'Approve Plan' :
+                               task.reviewReason === 'stopped' ? 'Stopped' : 'QA Issues'}
                             </Badge>
                           )}
                         </>
@@ -407,6 +420,13 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                       )}
                     </div>
                   </DialogPrimitive.Description>
+                  {window.DEBUG && (
+                    <div className="mt-1 text-[11px] text-muted-foreground font-mono">
+                      status={task.status} reviewReason={task.reviewReason ?? 'none'} phase={task.executionProgress?.phase ?? 'none'} reviewRequired={task.metadata?.requireReviewBeforeCoding ? 'true' : 'false'}
+                      <br />
+                      projectId={activeProject?.id ?? 'none'} projectName={activeProject?.name ?? 'none'}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 shrink-0 electron-no-drag">
                   <Button
@@ -606,15 +626,32 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-destructive" />
-              Delete Task
+              {t('tasks:deleteDialog.title')}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="text-sm text-muted-foreground space-y-3">
                 <p>
-                  Are you sure you want to delete <strong className="text-foreground">"{task.title}"</strong>?
+                  {t('tasks:deleteDialog.confirmMessage')} <strong className="text-foreground">"{task.title}"</strong>?
                 </p>
+                {state.isCheckingChanges && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {t('tasks:deleteDialog.checkingChanges')}
+                  </div>
+                )}
+                {state.worktreeChangesInfo?.hasChanges && (
+                  <div className="bg-amber-500/10 border border-amber-500/30 px-3 py-2 rounded-lg text-sm space-y-1">
+                    <p className="font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                      <AlertTriangle className="h-4 w-4" />
+                      {t('tasks:deleteDialog.uncommittedChanges', { count: state.worktreeChangesInfo.changedFileCount })}
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      {t('tasks:deleteDialog.uncommittedChangesHint')}
+                    </p>
+                  </div>
+                )}
                 <p className="text-destructive">
-                  This action cannot be undone. All task files, including the spec, implementation plan, and any generated code will be permanently deleted from the project.
+                  {t('tasks:deleteDialog.destructiveWarning')}
                 </p>
                 {state.deleteError && (
                   <p className="text-destructive bg-destructive/10 px-3 py-2 rounded-lg text-sm">
@@ -625,7 +662,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={state.isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={state.isDeleting}>{t('tasks:deleteDialog.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
@@ -637,12 +674,12 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
               {state.isDeleting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Deleting...
+                  {t('tasks:deleteDialog.deleting')}
                 </>
               ) : (
                 <>
                   <Trash2 className="mr-2 h-4 w-4" />
-                  Delete Permanently
+                  {t('tasks:deleteDialog.deletePermanently')}
                 </>
               )}
             </AlertDialogAction>

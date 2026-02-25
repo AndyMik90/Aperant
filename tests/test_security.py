@@ -393,9 +393,10 @@ class TestSecurityProfileIntegration:
 class TestGitCommitValidator:
     """Tests for git commit validation (secret scanning)."""
 
-    def test_allows_normal_commit(self, temp_git_repo, stage_files):
+    def test_allows_normal_commit(self, temp_git_repo, stage_files, monkeypatch):
         """Allows commit without secrets."""
         stage_files({"normal.py": "x = 42\n"})
+        monkeypatch.chdir(temp_git_repo)
 
         allowed, reason = validate_git_commit("git commit -m 'test'")
         assert allowed is True

@@ -10,6 +10,7 @@ import type { TerminalProcess, WindowGetter } from './types';
 import { getTerminalSessionStore, type TerminalSession } from '../terminal-session-store';
 import { IPC_CHANNELS } from '../../shared/constants';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
+import { safeSendToRenderer } from '../ipc-handlers/utils';
 
 /**
  * Track session IDs that have been claimed by terminals to prevent race conditions.
@@ -146,6 +147,25 @@ export function findClaudeSessionAfter(
 }
 
 /**
+ * Create a TerminalSession object from a TerminalProcess.
+ * Shared helper used by both persistSession and persistSessionAsync.
+ */
+function createSessionObject(terminal: TerminalProcess): TerminalSession {
+  return {
+    id: terminal.id,
+    title: terminal.title,
+    cwd: terminal.cwd,
+    projectPath: terminal.projectPath!,
+    isClaudeMode: terminal.isClaudeMode,
+    claudeSessionId: terminal.claudeSessionId,
+    outputBuffer: terminal.outputBuffer,
+    createdAt: new Date().toISOString(),
+    lastActiveAt: new Date().toISOString(),
+    worktreeConfig: terminal.worktreeConfig,
+  };
+}
+
+/**
  * Persist a terminal session to disk
  */
 export function persistSession(terminal: TerminalProcess): void {
@@ -154,32 +174,67 @@ export function persistSession(terminal: TerminalProcess): void {
   }
 
   const store = getTerminalSessionStore();
-  const session: TerminalSession = {
-    id: terminal.id,
-    title: terminal.title,
-    cwd: terminal.cwd,
-    projectPath: terminal.projectPath,
-    isClaudeMode: terminal.isClaudeMode,
-    claudeSessionId: terminal.claudeSessionId,
-    outputBuffer: terminal.outputBuffer,
-    createdAt: new Date().toISOString(),
-    lastActiveAt: new Date().toISOString(),
-    worktreeConfig: terminal.worktreeConfig,
-  };
-  store.saveSession(session);
+  store.saveSession(createSessionObject(terminal));
 }
 
 /**
- * Persist all active sessions
+ * Persist a terminal session to disk asynchronously (fire-and-forget).
+ * This is non-blocking and prevents the main process from freezing during disk writes.
+ */
+export function persistSessionAsync(terminal: TerminalProcess): void {
+  if (!terminal.projectPath) {
+    return;
+  }
+
+  const store = getTerminalSessionStore();
+  store.saveSessionAsync(createSessionObject(terminal)).catch((error) => {
+    debugError('[SessionHandler] Failed to persist session:', error);
+  });
+}
+
+/**
+ * Persist all active sessions asynchronously
+ *
+ * Uses async persistence to avoid blocking the main process when saving
+ * multiple sessions (e.g., on app quit).
+ */
+export async function persistAllSessionsAsync(terminals: Map<string, TerminalProcess>): Promise<void> {
+  const store = getTerminalSessionStore();
+
+  const savePromises: Promise<void>[] = [];
+  terminals.forEach((terminal) => {
+    if (terminal.projectPath) {
+      savePromises.push(store.saveSessionAsync(createSessionObject(terminal)));
+    }
+  });
+
+  await Promise.all(savePromises);
+}
+
+/**
+ * Persist all active sessions (blocking sync version)
+ *
+ * @deprecated Use persistAllSessionsAsync for non-blocking persistence.
+ * This function is kept for backwards compatibility with existing callers.
  */
 export function persistAllSessions(terminals: Map<string, TerminalProcess>): void {
-  const _store = getTerminalSessionStore();
-
   terminals.forEach((terminal) => {
     if (terminal.projectPath) {
       persistSession(terminal);
     }
   });
+}
+
+/**
+ * Clear a terminal ID from pendingDelete, allowing session saves to proceed.
+ *
+ * Must be called when re-creating a terminal with a previously-used ID
+ * (e.g., worktree switching, terminal restart after shell exit). Without this,
+ * the pendingDelete guard blocks persistence for the new terminal.
+ */
+export function clearPendingDelete(terminalId: string): void {
+  const store = getTerminalSessionStore();
+  store.clearPendingDelete(terminalId);
 }
 
 /**
@@ -241,6 +296,17 @@ export function getSessionsForDate(date: string, projectPath: string): TerminalS
 }
 
 /**
+ * Update display orders for terminals after drag-drop reorder
+ */
+export function updateDisplayOrders(
+  projectPath: string,
+  orders: Array<{ terminalId: string; displayOrder: number }>
+): void {
+  const store = getTerminalSessionStore();
+  store.updateDisplayOrders(projectPath, orders);
+}
+
+/**
  * Attempt to capture Claude session ID by polling the session directory.
  * Uses the claim mechanism to prevent race conditions when multiple terminals
  * invoke Claude simultaneously - each terminal will get a unique session ID.
@@ -283,10 +349,8 @@ export function captureClaudeSessionId(
           updateClaudeSessionId(terminal.projectPath, terminalId, sessionId);
         }
 
-        const win = getWindow();
-        if (win) {
-          win.webContents.send(IPC_CHANNELS.TERMINAL_CLAUDE_SESSION, terminalId, sessionId);
-        }
+        // Use safeSendToRenderer with isDestroyed() check to prevent crashes
+        safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_CLAUDE_SESSION, terminalId, sessionId);
       } else {
         // Session was claimed by another terminal, keep polling for a different one
         debugLog('[SessionHandler] Session ID was claimed by another terminal, continuing to poll:', sessionId);

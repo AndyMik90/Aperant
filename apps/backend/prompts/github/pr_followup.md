@@ -88,9 +88,16 @@ Check contributor and AI bot comments for:
 - Concerns raised ("I'm worried about performance here")
 
 **AI bot suggestions:**
-- CodeRabbit, Copilot, or other AI feedback
+- CodeRabbit, Copilot, Gemini Code Assist, or other AI feedback
 - Security warnings from automated scanners
 - Suggestions that align with your findings
+
+**IMPORTANT - Timeline Awareness for AI Comments:**
+AI tools comment at specific points in time. When evaluating AI bot comments:
+- Check the comment timestamp vs commit timestamps
+- If an AI flagged an issue that was LATER FIXED by a commit, the AI was RIGHT (not a false positive)
+- If an AI comment seems wrong but the code is now correct, check if a recent commit fixed it
+- Don't dismiss valid AI feedback just because the fix already happened - acknowledge the issue was caught and fixed
 
 For important unaddressed comments, create a finding:
 ```json

@@ -28,18 +28,22 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
   const tasks = useTaskStore((state) => state.tasks);
 
   const {
-    issues,
     syncStatus,
     isLoading,
+    isLoadingMore,
     error,
     selectedIssueNumber,
     selectedIssue,
     filterState,
+    hasMore,
     selectIssue,
     getFilteredIssues,
     getOpenIssuesCount,
     handleRefresh,
     handleFilterChange,
+    handleLoadMore,
+    handleSearchStart,
+    handleSearchClear,
   } = useGitHubIssues(selectedProject?.id);
 
   const {
@@ -49,7 +53,13 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     resetInvestigationStatus,
   } = useGitHubInvestigation(selectedProject?.id);
 
-  const { searchQuery, setSearchQuery, filteredIssues } = useIssueFiltering(getFilteredIssues());
+  const { searchQuery, setSearchQuery, filteredIssues, isSearchActive } = useIssueFiltering(
+    getFilteredIssues(),
+    {
+      onSearchStart: handleSearchStart,
+      onSearchClear: handleSearchClear,
+    }
+  );
 
   const {
     config: autoFixConfig,
@@ -158,9 +168,14 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
             issues={filteredIssues}
             selectedIssueNumber={selectedIssueNumber}
             isLoading={isLoading}
+            isLoadingMore={isLoadingMore}
+            hasMore={hasMore && !isSearchActive}
             error={error}
             onSelectIssue={selectIssue}
             onInvestigate={handleInvestigate}
+            onLoadMore={!isSearchActive ? handleLoadMore : undefined}
+            onRetry={handleRefresh}
+            onOpenSettings={onOpenSettings}
           />
         </div>
 

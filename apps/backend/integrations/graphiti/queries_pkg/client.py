@@ -5,13 +5,37 @@ Handles database connection, initialization, and lifecycle management.
 Uses LadybugDB as the embedded graph database (no Docker required, Python 3.12+).
 """
 
+import asyncio
 import logging
+import random
 import sys
 from datetime import datetime, timezone
 
+from core.sentry import capture_exception
 from graphiti_config import GraphitiConfig, GraphitiState
 
 logger = logging.getLogger(__name__)
+
+# Retry configuration for LadybugDB lock contention
+MAX_LOCK_RETRIES = 5
+INITIAL_BACKOFF_SECONDS = 0.5
+MAX_BACKOFF_SECONDS = 8.0
+JITTER_PERCENT = 0.2
+
+
+def _is_lock_error(error: Exception) -> bool:
+    """Check if an error indicates database lock contention."""
+    error_msg = str(error).lower()
+    return "could not set lock" in error_msg or (
+        "lock" in error_msg and ("file" in error_msg or "database" in error_msg)
+    )
+
+
+def _backoff_with_jitter(attempt: int) -> float:
+    """Calculate exponential backoff with jitter for retry delays."""
+    backoff = min(INITIAL_BACKOFF_SECONDS * (2**attempt), MAX_BACKOFF_SECONDS)
+    jitter = backoff * JITTER_PERCENT * (2 * random.random() - 1)
+    return max(0.01, backoff + jitter)
 
 
 def _apply_ladybug_monkeypatch() -> bool:
@@ -133,9 +157,23 @@ class GraphitiClient:
                 )
             except ProviderNotInstalled as e:
                 logger.warning(f"LLM provider packages not installed: {e}")
+                capture_exception(
+                    e,
+                    error_type="ProviderNotInstalled",
+                    provider_type="llm",
+                    llm_provider=self.config.llm_provider,
+                    embedder_provider=self.config.embedder_provider,
+                )
                 return False
             except ProviderError as e:
                 logger.warning(f"LLM provider configuration error: {e}")
+                capture_exception(
+                    e,
+                    error_type="ProviderError",
+                    provider_type="llm",
+                    llm_provider=self.config.llm_provider,
+                    embedder_provider=self.config.embedder_provider,
+                )
                 return False
 
             try:
@@ -145,9 +183,23 @@ class GraphitiClient:
                 )
             except ProviderNotInstalled as e:
                 logger.warning(f"Embedder provider packages not installed: {e}")
+                capture_exception(
+                    e,
+                    error_type="ProviderNotInstalled",
+                    provider_type="embedder",
+                    llm_provider=self.config.llm_provider,
+                    embedder_provider=self.config.embedder_provider,
+                )
                 return False
             except ProviderError as e:
                 logger.warning(f"Embedder provider configuration error: {e}")
+                capture_exception(
+                    e,
+                    error_type="ProviderError",
+                    provider_type="embedder",
+                    llm_provider=self.config.llm_provider,
+                    embedder_provider=self.config.embedder_provider,
+                )
                 return False
 
             # Apply LadybugDB monkeypatch to use it via graphiti's KuzuDriver
@@ -167,21 +219,46 @@ class GraphitiClient:
                 )
 
                 db_path = self.config.get_db_path()
-                try:
-                    self._driver = create_patched_kuzu_driver(db=str(db_path))
-                except (OSError, PermissionError) as e:
-                    logger.warning(
-                        f"Failed to initialize LadybugDB driver at {db_path}: {e}"
-                    )
-                    return False
-                except Exception as e:
-                    logger.warning(
-                        f"Unexpected error initializing LadybugDB driver at {db_path}: {e}"
-                    )
-                    return False
+
+                # Retry with exponential backoff for lock contention
+                for attempt in range(MAX_LOCK_RETRIES + 1):
+                    try:
+                        self._driver = create_patched_kuzu_driver(db=str(db_path))
+                        if attempt > 0:
+                            logger.info(
+                                f"LadybugDB lock acquired after {attempt} retries"
+                            )
+                        break  # Success
+                    except Exception as e:
+                        if _is_lock_error(e) and attempt < MAX_LOCK_RETRIES:
+                            wait_time = _backoff_with_jitter(attempt)
+                            logger.debug(
+                                f"LadybugDB lock contention (attempt {attempt + 1}/{MAX_LOCK_RETRIES}), retrying in {wait_time:.2f}s"
+                            )
+                            await asyncio.sleep(wait_time)
+                            continue
+                        logger.warning(
+                            f"Failed to initialize LadybugDB driver at {db_path}: {e}"
+                        )
+                        capture_exception(
+                            e,
+                            error_type=type(e).__name__,
+                            db_path=str(db_path),
+                            llm_provider=self.config.llm_provider,
+                            embedder_provider=self.config.embedder_provider,
+                        )
+                        return False
+
                 logger.info(f"Initialized LadybugDB driver (patched) at: {db_path}")
             except ImportError as e:
                 logger.warning(f"KuzuDriver not available: {e}")
+                capture_exception(
+                    e,
+                    error_type="ImportError",
+                    component="kuzu_driver_patched",
+                    llm_provider=self.config.llm_provider,
+                    embedder_provider=self.config.embedder_provider,
+                )
                 return False
 
             # Initialize Graphiti with the custom providers
@@ -216,10 +293,23 @@ class GraphitiClient:
                 f"Graphiti packages not installed: {e}. "
                 "Install with: pip install real_ladybug graphiti-core"
             )
+            capture_exception(
+                e,
+                error_type="ImportError",
+                component="graphiti_core",
+                llm_provider=self.config.llm_provider,
+                embedder_provider=self.config.embedder_provider,
+            )
             return False
 
         except Exception as e:
             logger.warning(f"Failed to initialize Graphiti client: {e}")
+            capture_exception(
+                e,
+                error_type=type(e).__name__,
+                llm_provider=self.config.llm_provider,
+                embedder_provider=self.config.embedder_provider,
+            )
             return False
 
     async def close(self) -> None:

@@ -71,13 +71,13 @@ class TimelinePersistence:
             return timelines
 
         try:
-            with open(index_path) as f:
+            with open(index_path, encoding="utf-8") as f:
                 index = json.load(f)
 
             for file_path in index.get("files", []):
                 timeline_file = self._get_timeline_file_path(file_path)
                 if timeline_file.exists():
-                    with open(timeline_file) as f:
+                    with open(timeline_file, encoding="utf-8") as f:
                         data = json.load(f)
                     timelines[file_path] = FileTimeline.from_dict(data)
 
@@ -101,7 +101,7 @@ class TimelinePersistence:
             timeline_file = self._get_timeline_file_path(file_path)
             timeline_file.parent.mkdir(parents=True, exist_ok=True)
 
-            with open(timeline_file, "w") as f:
+            with open(timeline_file, "w", encoding="utf-8") as f:
                 json.dump(timeline.to_dict(), f, indent=2)
 
         except Exception as e:
@@ -119,7 +119,7 @@ class TimelinePersistence:
             "files": file_paths,
             "last_updated": datetime.now().isoformat(),
         }
-        with open(index_path, "w") as f:
+        with open(index_path, "w", encoding="utf-8") as f:
             json.dump(index, f, indent=2)
 
     def _get_timeline_file_path(self, file_path: str) -> Path:

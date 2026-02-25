@@ -2,8 +2,15 @@ import { create } from 'zustand';
 import type {
   PRReviewProgress,
   PRReviewResult,
-  NewCommitsCheck
+  NewCommitsCheck,
+  PRReviewStatePayload
 } from '../../../preload/api/modules/github-api';
+import type {
+  ChecksStatus,
+  ReviewsStatus,
+  MergeableState,
+  PRStatusUpdate
+} from '../../../shared/types/pr-status';
 
 /**
  * PR review state for a single PR
@@ -21,6 +28,16 @@ interface PRReviewState {
   error: string | null;
   /** Cached result of new commits check - updated when detail view checks */
   newCommitsCheck: NewCommitsCheck | null;
+  /** CI checks status from polling */
+  checksStatus: ChecksStatus | null;
+  /** Review status from polling */
+  reviewsStatus: ReviewsStatus | null;
+  /** Mergeable state from polling */
+  mergeableState: MergeableState | null;
+  /** Timestamp of last status poll (ISO 8601 string) */
+  lastPolled: string | null;
+  /** Whether this review was initiated externally (e.g., from PR list) rather than from detail view */
+  isExternalReview: boolean;
 }
 
 interface PRReviewStoreState {
@@ -28,100 +45,90 @@ interface PRReviewStoreState {
   // Key: `${projectId}:${prNumber}`
   prReviews: Record<string, PRReviewState>;
 
-  // Actions
-  startPRReview: (projectId: string, prNumber: number) => void;
-  startFollowupReview: (projectId: string, prNumber: number) => void;
-  setPRReviewProgress: (projectId: string, progress: PRReviewProgress) => void;
-  setPRReviewResult: (projectId: string, result: PRReviewResult, options?: { preserveNewCommitsCheck?: boolean }) => void;
-  setPRReviewError: (projectId: string, prNumber: number, error: string) => void;
+  // XState state change handler
+  handlePRReviewStateChange: (key: string, payload: PRReviewStatePayload) => void;
+
+  // Kept actions (not managed by XState)
+  /** Load a review result from disk into the store (not triggered by XState) */
+  setLoadedReviewResult: (projectId: string, result: PRReviewResult, options?: { preserveNewCommitsCheck?: boolean }) => void;
   setNewCommitsCheck: (projectId: string, prNumber: number, check: NewCommitsCheck) => void;
-  clearPRReview: (projectId: string, prNumber: number) => void;
+  /** Update PR status from polling (CI checks, reviews, mergeability) */
+  setPRStatus: (projectId: string, prNumber: number, status: {
+    checksStatus: ChecksStatus;
+    reviewsStatus: ReviewsStatus;
+    mergeableState: MergeableState;
+    lastPolled: string;
+  }) => void;
+  /** Clear PR status fields for a specific PR */
+  clearPRStatus: (projectId: string, prNumber: number) => void;
 
   // Selectors
   getPRReviewState: (projectId: string, prNumber: number) => PRReviewState | null;
   getActivePRReviews: (projectId: string) => PRReviewState[];
+
+  // Refresh callbacks - called when reviews complete
+  registerRefreshCallback: (callback: () => void) => void;
+  unregisterRefreshCallback: (callback: () => void) => void;
 }
+
+// Store for refresh callbacks outside of Zustand state (to avoid re-renders on registration)
+const refreshCallbacks = new Set<() => void>();
 
 export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
   // Initial state
   prReviews: {},
 
-  // Actions
-  startPRReview: (projectId: string, prNumber: number) => set((state) => {
-    const key = `${projectId}:${prNumber}`;
-    const existing = state.prReviews[key];
-    return {
-      prReviews: {
-        ...state.prReviews,
-        [key]: {
-          prNumber,
-          projectId,
-          isReviewing: true,
-          startedAt: new Date().toISOString(),
-          progress: null,
-          result: null,
-          previousResult: null,
-          error: null,
-          newCommitsCheck: existing?.newCommitsCheck ?? null
-        }
-      }
-    };
-  }),
+  // XState state change handler — maps XState state/context back to PRReviewState shape
+  handlePRReviewStateChange: (key: string, payload: PRReviewStatePayload) => {
+    const isCompleted = payload.state === 'completed';
 
-  startFollowupReview: (projectId: string, prNumber: number) => set((state) => {
-    const key = `${projectId}:${prNumber}`;
-    const existing = state.prReviews[key];
+    set((state) => {
+      const existing = state.prReviews[key];
 
-    // Log warning if starting follow-up without a previous result
-    if (!existing?.result) {
-      console.warn(
-        `[PRReviewStore] Starting follow-up review for PR #${prNumber} without a previous result. ` +
-        `This may indicate the follow-up was triggered incorrectly.`
-      );
+      const updated: PRReviewState = {
+        prNumber: payload.prNumber,
+        projectId: payload.projectId,
+        isReviewing: payload.state === 'reviewing' || payload.state === 'externalReview',
+        startedAt: payload.startedAt,
+        progress: payload.progress,
+        result: payload.result,
+        previousResult: payload.previousResult,
+        error: payload.error,
+        isExternalReview: payload.isExternalReview,
+        // Preserve polling data — not managed by XState
+        checksStatus: existing?.checksStatus ?? null,
+        reviewsStatus: existing?.reviewsStatus ?? null,
+        mergeableState: existing?.mergeableState ?? null,
+        lastPolled: existing?.lastPolled ?? null,
+        // Preserve newCommitsCheck unless review completed (it was just reviewed)
+        newCommitsCheck: isCompleted ? null : (existing?.newCommitsCheck ?? null),
+      };
+
+      return {
+        prReviews: {
+          ...state.prReviews,
+          [key]: updated,
+        },
+      };
+    });
+
+    // Trigger registered refresh callbacks when review completes
+    if (isCompleted) {
+      refreshCallbacks.forEach(callback => {
+        Promise.resolve(callback()).catch(error => {
+          console.error('[PRReviewStore] Error in refresh callback:', error);
+        });
+      });
     }
+  },
 
-    return {
-      prReviews: {
-        ...state.prReviews,
-        [key]: {
-          prNumber,
-          projectId,
-          isReviewing: true,
-          startedAt: new Date().toISOString(),
-          progress: null,
-          result: null,
-          previousResult: existing?.result ?? null,  // Preserve for follow-up continuity
-          error: null,
-          newCommitsCheck: existing?.newCommitsCheck ?? null
-        }
-      }
-    };
-  }),
-
-  setPRReviewProgress: (projectId: string, progress: PRReviewProgress) => set((state) => {
-    const key = `${projectId}:${progress.prNumber}`;
-    const existing = state.prReviews[key];
-    return {
-      prReviews: {
-        ...state.prReviews,
-        [key]: {
-          prNumber: progress.prNumber,
-          projectId,
-          isReviewing: true,
-          startedAt: existing?.startedAt ?? null,
-          progress,
-          result: existing?.result ?? null,
-          previousResult: existing?.previousResult ?? null,
-          error: null,
-          newCommitsCheck: existing?.newCommitsCheck ?? null
-        }
-      }
-    };
-  }),
-
-  setPRReviewResult: (projectId: string, result: PRReviewResult, options?: { preserveNewCommitsCheck?: boolean }) => set((state) => {
+  setLoadedReviewResult: (projectId: string, result: PRReviewResult, options?: { preserveNewCommitsCheck?: boolean }) => set((state) => {
     const key = `${projectId}:${result.prNumber}`;
     const existing = state.prReviews[key];
+    // Don't overwrite active review state from XState
+    if (existing?.isReviewing) {
+      return state;
+    }
     return {
       prReviews: {
         ...state.prReviews,
@@ -129,37 +136,19 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
           prNumber: result.prNumber,
           projectId,
           isReviewing: false,
-          startedAt: existing?.startedAt ?? null,
+          startedAt: null,
           progress: null,
           result,
           previousResult: existing?.previousResult ?? null,
-          error: result.error ?? null,
-          // Clear new commits check when review completes (it was just reviewed)
-          // BUT preserve it during preload/refresh to avoid race condition
-          newCommitsCheck: options?.preserveNewCommitsCheck ? (existing?.newCommitsCheck ?? null) : null
-        }
-      }
-    };
-  }),
-
-  setPRReviewError: (projectId: string, prNumber: number, error: string) => set((state) => {
-    const key = `${projectId}:${prNumber}`;
-    const existing = state.prReviews[key];
-    return {
-      prReviews: {
-        ...state.prReviews,
-        [key]: {
-          prNumber,
-          projectId,
-          isReviewing: false,
-          startedAt: existing?.startedAt ?? null,
-          progress: null,
-          result: existing?.result ?? null,
-          previousResult: existing?.previousResult ?? null,
-          error,
-          newCommitsCheck: existing?.newCommitsCheck ?? null
-        }
-      }
+          error: null,
+          newCommitsCheck: options?.preserveNewCommitsCheck ? (existing?.newCommitsCheck ?? null) : null,
+          checksStatus: existing?.checksStatus ?? null,
+          reviewsStatus: existing?.reviewsStatus ?? null,
+          mergeableState: existing?.mergeableState ?? null,
+          lastPolled: existing?.lastPolled ?? null,
+          isExternalReview: false,
+        },
+      },
     };
   }),
 
@@ -180,7 +169,12 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
             result: null,
             previousResult: null,
             error: null,
-            newCommitsCheck: check
+            newCommitsCheck: check,
+            checksStatus: null,
+            reviewsStatus: null,
+            mergeableState: null,
+            lastPolled: null,
+            isExternalReview: false
           }
         }
       };
@@ -196,10 +190,71 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
     };
   }),
 
-  clearPRReview: (projectId: string, prNumber: number) => set((state) => {
+
+  setPRStatus: (projectId: string, prNumber: number, status: {
+    checksStatus: ChecksStatus;
+    reviewsStatus: ReviewsStatus;
+    mergeableState: MergeableState;
+    lastPolled: string;
+  }) => set((state) => {
     const key = `${projectId}:${prNumber}`;
-    const { [key]: _, ...rest } = state.prReviews;
-    return { prReviews: rest };
+    const existing = state.prReviews[key];
+    if (!existing) {
+      // Create a minimal state if none exists
+      return {
+        prReviews: {
+          ...state.prReviews,
+          [key]: {
+            prNumber,
+            projectId,
+            isReviewing: false,
+            startedAt: null,
+            progress: null,
+            result: null,
+            previousResult: null,
+            error: null,
+            newCommitsCheck: null,
+            checksStatus: status.checksStatus,
+            reviewsStatus: status.reviewsStatus,
+            mergeableState: status.mergeableState,
+            lastPolled: status.lastPolled,
+            isExternalReview: false
+          }
+        }
+      };
+    }
+    return {
+      prReviews: {
+        ...state.prReviews,
+        [key]: {
+          ...existing,
+          checksStatus: status.checksStatus,
+          reviewsStatus: status.reviewsStatus,
+          mergeableState: status.mergeableState,
+          lastPolled: status.lastPolled
+        }
+      }
+    };
+  }),
+
+  clearPRStatus: (projectId: string, prNumber: number) => set((state) => {
+    const key = `${projectId}:${prNumber}`;
+    const existing = state.prReviews[key];
+    if (!existing) {
+      return state;
+    }
+    return {
+      prReviews: {
+        ...state.prReviews,
+        [key]: {
+          ...existing,
+          checksStatus: null,
+          reviewsStatus: null,
+          mergeableState: null,
+          lastPolled: null
+        }
+      }
+    };
   }),
 
   // Selectors
@@ -214,6 +269,15 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
     return Object.values(prReviews).filter(
       review => review.projectId === projectId && review.isReviewing
     );
+  },
+
+  // Refresh callbacks - called when reviews complete
+  registerRefreshCallback: (callback: () => void) => {
+    refreshCallbacks.add(callback);
+  },
+
+  unregisterRefreshCallback: (callback: () => void) => {
+    refreshCallbacks.delete(callback);
   }
 }));
 
@@ -223,6 +287,7 @@ export const usePRReviewStore = create<PRReviewStoreState>((set, get) => ({
  * regardless of which component is mounted.
  */
 let prReviewListenersInitialized = false;
+let cleanupFunctions: (() => void)[] = [];
 
 export function initializePRReviewListeners(): void {
   if (prReviewListenersInitialized) {
@@ -231,45 +296,65 @@ export function initializePRReviewListeners(): void {
 
   const store = usePRReviewStore.getState();
 
-  // Listen for PR review progress events
-  window.electronAPI.github.onPRReviewProgress(
-    (projectId: string, progress: PRReviewProgress) => {
-      store.setPRReviewProgress(projectId, progress);
-    }
-  );
+  // Check if GitHub PR Review API is available
+  if (!window.electronAPI?.github?.onPRReviewStateChange) {
+    console.warn('[GitHub PR Store] GitHub PR Review API not available, skipping listener setup');
+    return;
+  }
 
-  // Listen for PR review completion events
-  window.electronAPI.github.onPRReviewComplete(
-    (projectId: string, result: PRReviewResult) => {
-      store.setPRReviewResult(projectId, result);
+  // Listen for XState state changes — single handler replaces progress/complete/error listeners
+  const cleanupStateChange = window.electronAPI.github.onPRReviewStateChange(
+    (key: string, payload: PRReviewStatePayload) => {
+      store.handlePRReviewStateChange(key, payload);
     }
   );
+  cleanupFunctions.push(cleanupStateChange);
 
-  // Listen for PR review error events
-  window.electronAPI.github.onPRReviewError(
-    (projectId: string, data: { prNumber: number; error: string }) => {
-      store.setPRReviewError(projectId, data.prNumber, data.error);
+  // Listen for GitHub auth changes - clear all PR review state when account changes
+  const cleanupAuthChanged = window.electronAPI.github.onGitHubAuthChanged(
+    (data: { oldUsername: string | null; newUsername: string }) => {
+      console.warn(
+        `[PRReviewStore] GitHub auth changed from "${data.oldUsername ?? 'none'}" to "${data.newUsername}". ` +
+        `Clearing all PR review state.`
+      );
+      // Clear all PR review state since the token has changed
+      usePRReviewStore.setState({ prReviews: {} });
     }
   );
+  cleanupFunctions.push(cleanupAuthChanged);
+
+  // Listen for PR status polling updates (CI checks, reviews, mergeability)
+  const cleanupStatusUpdate = window.electronAPI.github.onPRStatusUpdate(
+    (update: PRStatusUpdate) => {
+      const { projectId, statuses } = update;
+      for (const status of statuses) {
+        store.setPRStatus(projectId, status.prNumber, {
+          checksStatus: status.checksStatus,
+          reviewsStatus: status.reviewsStatus,
+          mergeableState: status.mergeableState,
+          lastPolled: status.lastPolled ?? new Date().toISOString()
+        });
+      }
+    }
+  );
+  cleanupFunctions.push(cleanupStatusUpdate);
 
   prReviewListenersInitialized = true;
 }
 
 /**
- * Start a PR review and track it in the store
+ * Cleanup PR review listeners.
+ * Call this when the app is being unmounted or during hot-reload.
  */
-export function startPRReview(projectId: string, prNumber: number): void {
-  const store = usePRReviewStore.getState();
-  store.startPRReview(projectId, prNumber);
-  window.electronAPI.github.runPRReview(projectId, prNumber);
-}
-
-/**
- * Start a follow-up PR review and track it in the store
- * Uses startFollowupReview action to preserve previous result for continuity
- */
-export function startFollowupReview(projectId: string, prNumber: number): void {
-  const store = usePRReviewStore.getState();
-  store.startFollowupReview(projectId, prNumber);
-  window.electronAPI.github.runFollowupReview(projectId, prNumber);
+export function cleanupPRReviewListeners(): void {
+  for (const cleanup of cleanupFunctions) {
+    try {
+      cleanup();
+    } catch {
+      // Ignore cleanup errors
+    }
+  }
+  cleanupFunctions = [];
+  refreshCallbacks.clear();
+  prReviewListenersInitialized = false;
 }

@@ -9,6 +9,8 @@ import json
 import logging
 from pathlib import Path
 
+from core.sentry import capture_exception
+
 from .schema import (
     EPISODE_TYPE_GOTCHA,
     EPISODE_TYPE_PATTERN,
@@ -65,7 +67,8 @@ class GraphitiSearch:
         Args:
             query: Search query
             num_results: Maximum number of results to return
-            include_project_context: If True and in PROJECT mode, search project-wide
+            include_project_context: If True and in SPEC mode, also search project-wide
+            min_score: Minimum relevance score threshold (0.0 to 1.0)
 
         Returns:
             List of relevant context items with content, score, and type
@@ -99,10 +102,14 @@ class GraphitiSearch:
                     or str(result)
                 )
 
+                # Normalize score to float, treating None as 0.0
+                raw_score = getattr(result, "score", None)
+                score = raw_score if raw_score is not None else 0.0
+
                 context_items.append(
                     {
                         "content": content,
-                        "score": getattr(result, "score", 0.0),
+                        "score": score,
                         "type": getattr(result, "type", "unknown"),
                     }
                 )
@@ -110,7 +117,9 @@ class GraphitiSearch:
             # Filter by minimum score if specified
             if min_score > 0:
                 context_items = [
-                    item for item in context_items if item.get("score", 0) >= min_score
+                    item
+                    for item in context_items
+                    if (item.get("score", 0.0)) >= min_score
                 ]
 
             logger.info(
@@ -120,6 +129,12 @@ class GraphitiSearch:
 
         except Exception as e:
             logger.warning(f"Failed to search context: {e}")
+            capture_exception(
+                e,
+                query_summary=query[:100] if query else "",
+                group_id=self.group_id,
+                operation="get_relevant_context",
+            )
             return []
 
     async def get_session_history(
@@ -174,6 +189,11 @@ class GraphitiSearch:
 
         except Exception as e:
             logger.warning(f"Failed to get session history: {e}")
+            capture_exception(
+                e,
+                group_id=self.group_id,
+                operation="get_session_history",
+            )
             return []
 
     async def get_similar_task_outcomes(
@@ -212,12 +232,14 @@ class GraphitiSearch:
                         if not isinstance(data, dict):
                             continue
                         if data.get("type") == EPISODE_TYPE_TASK_OUTCOME:
+                            raw_score = getattr(result, "score", None)
+                            score = raw_score if raw_score is not None else 0.0
                             outcomes.append(
                                 {
                                     "task_id": data.get("task_id"),
                                     "success": data.get("success"),
                                     "outcome": data.get("outcome"),
-                                    "score": getattr(result, "score", 0.0),
+                                    "score": score,
                                 }
                             )
                     except (json.JSONDecodeError, TypeError, AttributeError):
@@ -227,6 +249,12 @@ class GraphitiSearch:
 
         except Exception as e:
             logger.warning(f"Failed to get similar task outcomes: {e}")
+            capture_exception(
+                e,
+                query_summary=task_description[:100] if task_description else "",
+                group_id=self.group_id,
+                operation="get_similar_task_outcomes",
+            )
             return []
 
     async def get_patterns_and_gotchas(
@@ -265,7 +293,8 @@ class GraphitiSearch:
                 content = getattr(result, "content", None) or getattr(
                     result, "fact", None
                 )
-                score = getattr(result, "score", 0.0)
+                raw_score = getattr(result, "score", None)
+                score = raw_score if raw_score is not None else 0.0
 
                 if score < min_score:
                     continue
@@ -301,7 +330,8 @@ class GraphitiSearch:
                 content = getattr(result, "content", None) or getattr(
                     result, "fact", None
                 )
-                score = getattr(result, "score", 0.0)
+                raw_score = getattr(result, "score", None)
+                score = raw_score if raw_score is not None else 0.0
 
                 if score < min_score:
                     continue
@@ -337,4 +367,10 @@ class GraphitiSearch:
 
         except Exception as e:
             logger.warning(f"Failed to get patterns/gotchas: {e}")
+            capture_exception(
+                e,
+                query_summary=query[:100] if query else "",
+                group_id=self.group_id,
+                operation="get_patterns_and_gotchas",
+            )
             return [], []

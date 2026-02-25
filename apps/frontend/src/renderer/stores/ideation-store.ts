@@ -11,6 +11,8 @@ import type {
 import { DEFAULT_IDEATION_CONFIG } from '../../shared/constants';
 
 const GENERATION_TIMEOUT_MS = 5 * 60 * 1000;
+/** Maximum number of log entries to retain in memory for debugging */
+const MAX_LOG_ENTRIES = 500;
 
 const generationTimeoutIds = new Map<string, ReturnType<typeof setTimeout>>();
 
@@ -266,7 +268,7 @@ export const useIdeationStore = create<IdeationState>((set) => ({
 
   addLog: (log) =>
     set((state) => ({
-      logs: [...state.logs, log].slice(-100) // Keep last 100 logs
+      logs: [...state.logs, log].slice(-MAX_LOG_ENTRIES)
     })),
 
   clearLogs: () => set({ logs: [] }),

@@ -44,7 +44,7 @@ const testProfiles: APIProfile[] = [
     name: 'Production API',
     baseUrl: 'https://api.anthropic.com',
     apiKey: 'sk-ant-prod-key-1234',
-    models: { default: 'claude-3-5-sonnet-20241022' },
+    models: { default: 'claude-sonnet-4-5-20250929' },
     createdAt: Date.now(),
     updatedAt: Date.now()
   },

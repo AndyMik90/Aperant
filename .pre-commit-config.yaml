@@ -76,6 +76,17 @@ repos:
         files: ^package\.json$
         pass_filenames: false
 
+  # Python encoding check - prevent regression of UTF-8 encoding fixes (PR #782)
+  - repo: local
+    hooks:
+      - id: check-file-encoding
+        name: Check file encoding parameters
+        entry: python scripts/check_encoding.py
+        language: system
+        types: [python]
+        files: ^apps/backend/
+        description: Ensures all file operations specify encoding="utf-8"
+
   # Python linting (apps/backend/)
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.14.10
@@ -86,9 +97,8 @@ repos:
       - id: ruff-format
         files: ^apps/backend/
 
-  # Python tests (apps/backend/) - skip slow/integration tests for pre-commit speed
+  # Python tests (apps/backend/) - run full test suite from project root
   # Tests to skip: graphiti (external deps), merge_file_tracker/service_orchestrator/worktree/workspace (Windows path/git issues)
-  # NOTE: Skip this hook in worktrees (where .git is a file, not a directory)
   - repo: local
     hooks:
       - id: pytest
@@ -97,53 +107,46 @@ repos:
         args:
           - -c
           - |
-            # Skip in worktrees - .git is a file pointing to main repo, not a directory
-            # This prevents path resolution issues with ../../tests/ in worktree context
-            if [ -f ".git" ]; then
-              echo "Skipping pytest in worktree (path resolution would fail)"
-              exit 0
-            fi
-            cd apps/backend
-            if [ -f ".venv/bin/pytest" ]; then
-              PYTEST_CMD=".venv/bin/pytest"
-            elif [ -f ".venv/Scripts/pytest.exe" ]; then
-              PYTEST_CMD=".venv/Scripts/pytest.exe"
+            # Run pytest directly from project root
+            if [ -f "apps/backend/.venv/bin/pytest" ]; then
+              PYTEST_CMD="apps/backend/.venv/bin/pytest"
+            elif [ -f "apps/backend/.venv/Scripts/pytest.exe" ]; then
+              PYTEST_CMD="apps/backend/.venv/Scripts/pytest.exe"
             else
               PYTEST_CMD="python -m pytest"
             fi
-            PYTHONPATH=. $PYTEST_CMD \
-              ../../tests/ \
+            $PYTEST_CMD tests/ \
               -v \
               --tb=short \
               -x \
               -m "not slow and not integration" \
-              --ignore=../../tests/test_graphiti.py \
-              --ignore=../../tests/test_merge_file_tracker.py \
-              --ignore=../../tests/test_service_orchestrator.py \
-              --ignore=../../tests/test_worktree.py \
-              --ignore=../../tests/test_workspace.py
+              --ignore=tests/test_graphiti.py \
+              --ignore=tests/test_merge_file_tracker.py \
+              --ignore=tests/test_service_orchestrator.py \
+              --ignore=tests/test_worktree.py \
+              --ignore=tests/test_workspace.py
         language: system
         files: ^(apps/backend/.*\.py$|tests/.*\.py$)
         pass_filenames: false
 
-  # Frontend linting (apps/frontend/)
+  # Frontend linting (apps/frontend/) - Biome is 15-25x faster than ESLint
   # NOTE: These hooks check for worktree context to avoid npm/node_modules issues
   - repo: local
     hooks:
-      - id: eslint
-        name: ESLint
+      - id: biome
+        name: Biome (lint + format)
         entry: bash
         args:
           - -c
           - |
-            # Skip in worktrees if node_modules doesn't exist (dependencies not installed)
+            # Skip in worktrees if node_modules doesn't exist (Biome not installed)
             if [ -f ".git" ] && [ ! -d "apps/frontend/node_modules" ]; then
-              echo "Skipping ESLint in worktree (node_modules not found)"
+              echo "Skipping Biome in worktree (node_modules not found)"
               exit 0
             fi
-            cd apps/frontend && npm run lint
+            cd apps/frontend && npx biome check --write --no-errors-on-unmatched .
         language: system
-        files: ^apps/frontend/.*\.(ts|tsx|js|jsx)$
+        files: ^apps/frontend/.*\.(ts|tsx|js|jsx|json)$
         pass_filenames: false
 
       - id: typecheck

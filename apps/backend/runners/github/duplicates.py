@@ -347,7 +347,7 @@ class DuplicateDetector:
         if not cache_file.exists():
             return {}
 
-        with open(cache_file) as f:
+        with open(cache_file, encoding="utf-8") as f:
             data = json.load(f)
 
         cache = {}
@@ -365,7 +365,7 @@ class DuplicateDetector:
             "embeddings": [e.to_dict() for e in cache.values()],
             "last_updated": datetime.now(timezone.utc).isoformat(),
         }
-        with open(cache_file, "w") as f:
+        with open(cache_file, "w", encoding="utf-8") as f:
             json.dump(data, f)
 
     async def get_embedding(

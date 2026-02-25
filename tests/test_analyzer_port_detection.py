@@ -17,7 +17,7 @@ import sys
 import json
 
 # Add parent directory to path to import analyzer
-sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 from analyzer import ServiceAnalyzer
 

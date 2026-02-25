@@ -7,6 +7,7 @@ import * as OutputParser from './output-parser';
 import * as ClaudeIntegration from './claude-integration-handler';
 import type { TerminalProcess, WindowGetter } from './types';
 import { IPC_CHANNELS } from '../../shared/constants';
+import { safeSendToRenderer } from '../ipc-handlers/utils';
 
 /**
  * Event handler callbacks
@@ -15,6 +16,7 @@ export interface EventHandlerCallbacks {
   onClaudeSessionId: (terminal: TerminalProcess, sessionId: string) => void;
   onRateLimit: (terminal: TerminalProcess, data: string) => void;
   onOAuthToken: (terminal: TerminalProcess, data: string) => void;
+  onOnboardingComplete: (terminal: TerminalProcess, data: string) => void;
   onClaudeBusyChange: (terminal: TerminalProcess, isBusy: boolean) => void;
   onClaudeExit: (terminal: TerminalProcess) => void;
 }
@@ -45,6 +47,9 @@ export function handleTerminalData(
 
   // Check for OAuth token
   callbacks.onOAuthToken(terminal, data);
+
+  // Check for onboarding complete (after login, Claude shows ready state)
+  callbacks.onOnboardingComplete(terminal, data);
 
   // Detect Claude busy state changes (only when in Claude mode)
   if (terminal.isClaudeMode) {
@@ -101,11 +106,11 @@ export function createEventCallbacks(
     onOAuthToken: (terminal, data) => {
       ClaudeIntegration.handleOAuthToken(terminal, data, getWindow);
     },
+    onOnboardingComplete: (terminal, data) => {
+      ClaudeIntegration.handleOnboardingComplete(terminal, data, getWindow);
+    },
     onClaudeBusyChange: (terminal, isBusy) => {
-      const win = getWindow();
-      if (win) {
-        win.webContents.send(IPC_CHANNELS.TERMINAL_CLAUDE_BUSY, terminal.id, isBusy);
-      }
+      safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_CLAUDE_BUSY, terminal.id, isBusy);
     },
     onClaudeExit: (terminal) => {
       ClaudeIntegration.handleClaudeExit(terminal, getWindow);

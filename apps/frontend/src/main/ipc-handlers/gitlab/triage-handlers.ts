@@ -20,6 +20,7 @@ import type {
   GitLabTriageResult,
   GitLabTriageCategory,
 } from './types';
+import { sanitizeStringArray } from '../shared/sanitize';
 
 // Debug logging
 function debugLog(message: string, ...args: unknown[]): void {
@@ -36,18 +37,6 @@ const TRIAGE_CATEGORIES: GitLabTriageCategory[] = [
   'feature_creep',
 ];
 
-function stripControlChars(value: string): string {
-  let sanitized = '';
-  for (let i = 0; i < value.length; i += 1) {
-    const code = value.charCodeAt(i);
-    if (code <= 0x1F || code === 0x7F) {
-      continue;
-    }
-    sanitized += value[i];
-  }
-  return sanitized;
-}
-
 function sanitizeIssueIid(value: unknown): number | null {
   const issueIid = typeof value === 'number' ? value : Number(value);
   if (!Number.isInteger(issueIid) || issueIid <= 0) {
@@ -60,15 +49,8 @@ function sanitizeCategory(value: unknown): GitLabTriageCategory {
   return TRIAGE_CATEGORIES.includes(value as GitLabTriageCategory) ? (value as GitLabTriageCategory) : 'feature';
 }
 
-function sanitizeLabel(value: unknown): string {
-  if (typeof value !== 'string') return '';
-  const sanitized = stripControlChars(value).trim();
-  return sanitized.length > 50 ? sanitized.substring(0, 50) : sanitized;
-}
-
 function sanitizeLabels(values: string[]): string[] {
-  const sanitized = values.map(label => sanitizeLabel(label)).filter(label => Boolean(label));
-  return sanitized.length > 50 ? sanitized.slice(0, 50) : sanitized;
+  return sanitizeStringArray(values, 50, 50);
 }
 
 function sanitizeConfidence(value: number): number {
@@ -171,7 +153,7 @@ function saveTriageConfig(project: Project, config: GitLabTriageConfig): void {
     triage_enable_comments: config.enableComments,
   };
 
-  fs.writeFileSync(configPath, JSON.stringify(updatedConfig, null, 2));
+  fs.writeFileSync(configPath, JSON.stringify(updatedConfig, null, 2), 'utf-8');
 }
 
 /**
@@ -438,9 +420,11 @@ export function registerTriageHandlers(
             }
 
             // Save result
+            // lgtm[js/http-to-file-access] - triageDir from controlled project path, issue_iid is numeric
             fs.writeFileSync(
               path.join(triageDir, `triage_${sanitizedResult.issue_iid}.json`),
-              JSON.stringify(sanitizedResult, null, 2)
+              JSON.stringify(sanitizedResult, null, 2),
+              'utf-8'
             );
 
             results.push(result);

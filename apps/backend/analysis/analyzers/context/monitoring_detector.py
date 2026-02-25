@@ -77,7 +77,7 @@ class MonitoringDetector(BaseAnalyzer):
                 continue
 
             try:
-                content = file_path.read_text()
+                content = file_path.read_text(encoding="utf-8")
                 # Look for actual Prometheus imports or usage patterns
                 prometheus_patterns = [
                     "from prometheus_client import",

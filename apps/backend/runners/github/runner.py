@@ -77,6 +77,7 @@ from core.sentry import capture_exception, init_sentry, set_context
 init_sentry(component="github-runner")
 
 from debug import debug_error
+from phase_config import sanitize_thinking_level
 
 # Add github runner directory to path for direct imports
 sys.path.insert(0, str(Path(__file__).parent))
@@ -100,26 +101,21 @@ def print_progress(callback: ProgressCallback) -> None:
 
 def get_config(args) -> GitHubRunnerConfig:
     """Build config from CLI args and environment."""
-    import shutil
     import subprocess
+
+    from core.gh_executable import get_gh_executable
 
     token = args.token or os.environ.get("GITHUB_TOKEN", "")
     bot_token = args.bot_token or os.environ.get("GITHUB_BOT_TOKEN")
-    repo = args.repo or os.environ.get("GITHUB_REPO", "")
 
-    # Find gh CLI - use shutil.which for cross-platform support
-    gh_path = shutil.which("gh")
-    if not gh_path and sys.platform == "win32":
-        # Fallback: check common Windows installation paths
-        common_paths = [
-            r"C:\Program Files\GitHub CLI\gh.exe",
-            r"C:\Program Files (x86)\GitHub CLI\gh.exe",
-            os.path.expandvars(r"%LOCALAPPDATA%\Programs\GitHub CLI\gh.exe"),
-        ]
-        for path in common_paths:
-            if os.path.exists(path):
-                gh_path = path
-                break
+    # Repo detection priority:
+    # 1. Explicit --repo flag (highest priority)
+    # 2. Auto-detect from project's git remote (primary for multi-project setups)
+    # 3. GITHUB_REPO env var (fallback only)
+    repo = args.repo  # Only use explicit CLI flag initially
+
+    # Find gh CLI - use get_gh_executable for cross-platform support
+    gh_path = get_gh_executable()
 
     if os.environ.get("DEBUG"):
         safe_print(f"[DEBUG] gh CLI path: {gh_path}")
@@ -141,8 +137,8 @@ def get_config(args) -> GitHubRunnerConfig:
         except FileNotFoundError:
             pass  # gh not installed or not in PATH
 
+    # Auto-detect repo from project's git remote (takes priority over env var)
     if not repo and gh_path:
-        # Try to detect from git remote
         try:
             result = subprocess.run(
                 [
@@ -165,6 +161,10 @@ def get_config(args) -> GitHubRunnerConfig:
         except FileNotFoundError:
             pass  # gh not installed or not in PATH
 
+    # Fall back to environment variable only if auto-detection failed
+    if not repo:
+        repo = os.environ.get("GITHUB_REPO", "")
+
     if not token:
         safe_print(
             "Error: No GitHub token found. Set GITHUB_TOKEN or run 'gh auth login'"
@@ -183,6 +183,7 @@ def get_config(args) -> GitHubRunnerConfig:
         bot_token=bot_token,
         model=args.model,
         thinking_level=args.thinking_level,
+        fast_mode=getattr(args, "fast_mode", False),
         auto_fix_enabled=getattr(args, "auto_fix_enabled", False),
         auto_fix_labels=getattr(args, "auto_fix_labels", ["auto-fix"]),
         auto_post_reviews=getattr(args, "auto_post", False),
@@ -234,6 +235,12 @@ async def cmd_review_pr(args) -> int:
         safe_print(f"[DEBUG] review_pr returned, success={result.success}")
 
     if result.success:
+        # For in_progress results (not saved to disk), output JSON so the frontend
+        # can parse it from stdout instead of relying on the disk file.
+        if result.overall_status == "in_progress":
+            safe_print(f"__RESULT_JSON__:{json.dumps(result.to_dict())}")
+            return 0
+
         safe_print(f"\n{'=' * 60}")
         safe_print(f"PR #{result.pr_number} Review Complete")
         safe_print(f"{'=' * 60}")
@@ -623,9 +630,9 @@ async def cmd_approve_batches(args) -> int:
 
     # Load approved batches from file
     try:
-        with open(args.batch_file) as f:
+        with open(args.batch_file, encoding="utf-8") as f:
             approved_batches = json.load(f)
-    except (json.JSONDecodeError, FileNotFoundError) as e:
+    except (json.JSONDecodeError, FileNotFoundError, UnicodeDecodeError) as e:
         safe_print(f"Error loading batch file: {e}")
         return 1
 
@@ -682,15 +689,19 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default="claude-sonnet-4-20250514",
+        default="claude-sonnet-4-5-20250929",
         help="AI model to use",
     )
     parser.add_argument(
         "--thinking-level",
         type=str,
         default="medium",
-        choices=["none", "low", "medium", "high"],
-        help="Thinking level for extended reasoning",
+        help="Thinking level for extended reasoning (low, medium, high)",
+    )
+    parser.add_argument(
+        "--fast-mode",
+        action="store_true",
+        help="Enable Fast Mode for faster Opus 4.6 output",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
@@ -796,6 +807,9 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # Validate and sanitize thinking level (handles legacy values like 'ultrathink')
+    args.thinking_level = sanitize_thinking_level(args.thinking_level)
 
     if not args.command:
         parser.print_help()

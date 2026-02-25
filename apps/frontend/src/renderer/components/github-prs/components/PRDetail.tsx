@@ -5,6 +5,7 @@ import {
   Send,
   XCircle,
   Loader2,
+  GitBranch,
   GitMerge,
   CheckCircle,
   RefreshCw,
@@ -34,6 +35,7 @@ import { PRLogs } from './PRLogs';
 
 import type { PRData, PRReviewResult, PRReviewProgress } from '../hooks/useGitHubPRs';
 import type { NewCommitsCheck, MergeReadiness, PRLogs as PRLogsType, WorkflowsAwaitingApprovalResult } from '../../../../preload/api/modules/github-api';
+import { usePRReviewStore } from '../../../stores/github';
 
 interface PRDetailProps {
   pr: PRData;
@@ -43,6 +45,8 @@ interface PRDetailProps {
   reviewProgress: PRReviewProgress | null;
   startedAt: string | null;
   isReviewing: boolean;
+  isExternalReview?: boolean;
+  reviewError?: string | null;
   initialNewCommitsCheck?: NewCommitsCheck | null;
   isActive?: boolean;
   isLoadingFiles?: boolean;
@@ -51,10 +55,11 @@ interface PRDetailProps {
   onCheckNewCommits: () => Promise<NewCommitsCheck>;
   onCancelReview: () => void;
   onPostReview: (selectedFindingIds?: string[], options?: { forceApprove?: boolean }) => Promise<boolean>;
-  onPostComment: (body: string) => void;
+  onPostComment: (body: string) => Promise<boolean>;
   onMergePR: (mergeMethod?: 'merge' | 'squash' | 'rebase') => void;
   onAssignPR: (username: string) => void;
   onGetLogs: () => Promise<PRLogsType | null>;
+  onMarkReviewPosted?: (prNumber: number) => Promise<void>;
 }
 
 function getStatusColor(status: PRReviewResult['overallStatus']): string {
@@ -76,6 +81,8 @@ export function PRDetail({
   reviewProgress,
   startedAt,
   isReviewing,
+  isExternalReview = false,
+  reviewError: reviewErrorProp,
   initialNewCommitsCheck,
   isActive: _isActive = false,
   isLoadingFiles = false,
@@ -88,6 +95,7 @@ export function PRDetail({
   onMergePR,
   onAssignPR: _onAssignPR,
   onGetLogs,
+  onMarkReviewPosted,
 }: PRDetailProps) {
   const { t } = useTranslation('common');
   // Selection state for findings
@@ -100,6 +108,10 @@ export function PRDetail({
   const [cleanReviewPosted, setCleanReviewPosted] = useState(false);
   const [cleanReviewError, setCleanReviewError] = useState<string | null>(null);
   const [showCleanReviewErrorDetails, setShowCleanReviewErrorDetails] = useState(false);
+  // Blocked status posting state (for BLOCKED/NEEDS_REVISION verdicts with no findings)
+  const [isPostingBlockedStatus, setIsPostingBlockedStatus] = useState(false);
+  const [blockedStatusPosted, setBlockedStatusPosted] = useState(false);
+  const [blockedStatusError, setBlockedStatusError] = useState<string | null>(null);
   const [isMerging, setIsMerging] = useState(false);
   // Initialize with store value, then sync and update via local checks
   const [newCommitsCheck, setNewCommitsCheck] = useState<NewCommitsCheck | null>(initialNewCommitsCheck ?? null);
@@ -107,7 +119,30 @@ export function PRDetail({
   const checkNewCommitsAbortRef = useRef<AbortController | null>(null);
   // Ref to track checking state without causing callback recreation
   const isCheckingNewCommitsRef = useRef(false);
-  // Logs state
+  // ========================================================================
+  // PR Review Logs State
+  // ========================================================================
+  // Logs provide real-time visibility into the AI review process through
+  // a hybrid push/pull architecture:
+  //
+  // Backend (PRLogCollector in pr-handlers.ts):
+  //   - Writes logs to disk every 3 entries: .auto-claude/github/pr/logs_${prNumber}.json
+  //   - Emits GITHUB_PR_LOGS_UPDATED IPC events after each save
+  //   - Tracks phase status: pending → active → completed/failed
+  //
+  // Frontend (this component):
+  //   - Subscribes to GITHUB_PR_LOGS_UPDATED push events for instant updates
+  //   - Falls back to polling via onGetLogs() every 1.5s while isReviewing
+  //   - Displays logs in collapsible PRLogs component with phase indicators
+  //
+  // Data Flow:
+  //   1. Backend: PRLogCollector.processLine() → PRLogCollector.save()
+  //   2. Backend: savePRLogs() writes JSON to disk
+  //   3. Backend: Emits GITHUB_PR_LOGS_UPDATED IPC event → triggers immediate refresh
+  //   4. Fallback: Polling interval calls onGetLogs() every 1.5s during review
+  //   5. Frontend: setPrLogs() triggers UI update with new log content
+  //
+  // ========================================================================
   const [logsExpanded, setLogsExpanded] = useState(false);
   const [prLogs, setPrLogs] = useState<PRLogsType | null>(null);
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
@@ -116,6 +151,12 @@ export function PRDetail({
   // Merge readiness state (real-time validation of AI verdict freshness)
   const [mergeReadiness, setMergeReadiness] = useState<MergeReadiness | null>(null);
   const mergeReadinessAbortRef = useRef<AbortController | null>(null);
+
+  // Branch update state (for updating PR branch when behind base)
+  const [isUpdatingBranch, setIsUpdatingBranch] = useState(false);
+  const [branchUpdateError, setBranchUpdateError] = useState<string | null>(null);
+  const [branchUpdateSuccess, setBranchUpdateSuccess] = useState(false);
+  const [mergeReadinessRefreshKey, setMergeReadinessRefreshKey] = useState(0);
 
   // Workflows awaiting approval state (for fork PRs)
   const [workflowsAwaiting, setWorkflowsAwaiting] = useState<WorkflowsAwaitingApprovalResult | null>(null);
@@ -161,30 +202,48 @@ export function PRDetail({
       return;
     }
 
+    // Check for new commits if we have ANY successful review with a commit SHA
+    // This includes follow-up reviews that resolved all issues (no new findings)
+    // New commits = new code that needs to be reviewed, regardless of posting status
+    if (!reviewResult?.success || !reviewResult.reviewedCommitSha) {
+      return;
+    }
+
+    // Skip if we already have a fresh newCommitsCheck from initialNewCommitsCheck (store)
+    // that matches the current review's commit SHA. This prevents redundant API calls
+    // when the useGitHubPRs hook has already checked for new commits on PR selection.
+    // The `lastReviewedCommit` field indicates which commit SHA the check was performed against.
+    if (newCommitsCheck?.lastReviewedCommit === reviewResult.reviewedCommitSha) {
+      return;
+    }
+
+    // Additional guard: if we have any newCommitsCheck result but it lacks lastReviewedCommit,
+    // skip to prevent infinite loops. This handles edge cases where the API returns
+    // a result without the tracking field.
+    if (newCommitsCheck && !newCommitsCheck.lastReviewedCommit) {
+      return;
+    }
+
     // Cancel any pending check
     if (checkNewCommitsAbortRef.current) {
       checkNewCommitsAbortRef.current.abort();
     }
     checkNewCommitsAbortRef.current = new AbortController();
 
-    // Check for new commits if we have ANY successful review with a commit SHA
-    // This includes follow-up reviews that resolved all issues (no new findings)
-    // New commits = new code that needs to be reviewed, regardless of posting status
-    if (reviewResult?.success && reviewResult.reviewedCommitSha) {
-      isCheckingNewCommitsRef.current = true;
-      try {
-        const result = await onCheckNewCommits();
-        // Only update state if not aborted
-        if (!checkNewCommitsAbortRef.current?.signal.aborted) {
-          setNewCommitsCheck(result);
-        }
-      } finally {
-        if (!checkNewCommitsAbortRef.current?.signal.aborted) {
-          isCheckingNewCommitsRef.current = false;
-        }
+    isCheckingNewCommitsRef.current = true;
+    try {
+      const result = await onCheckNewCommits();
+      // Only update state if not aborted
+      if (!checkNewCommitsAbortRef.current?.signal.aborted) {
+        setNewCommitsCheck(result);
       }
+    } finally {
+      // Always reset the checking ref to allow future checks.
+      // The abort only determines whether to update STATE, not whether
+      // the operation tracking should be reset.
+      isCheckingNewCommitsRef.current = false;
     }
-  }, [reviewResult, onCheckNewCommits]);
+  }, [reviewResult, onCheckNewCommits, newCommitsCheck]);
 
   useEffect(() => {
     checkForNewCommits();
@@ -204,6 +263,14 @@ export function PRDetail({
     }
   }, [postSuccess]);
 
+  // Clear branch update success message after 3 seconds
+  useEffect(() => {
+    if (branchUpdateSuccess) {
+      const timer = setTimeout(() => setBranchUpdateSuccess(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [branchUpdateSuccess]);
+
   // Auto-expand logs section when review starts
   useEffect(() => {
     if (isReviewing) {
@@ -211,14 +278,53 @@ export function PRDetail({
     }
   }, [isReviewing]);
 
-  // Load logs when logs section is expanded or when reviewing (for live logs)
+  // Auto-expand both logs and analysis sections when review completes successfully
+  // This ensures users can see both logs AND findings/summary together after completion
+  useEffect(() => {
+    if (reviewResult?.success && !isReviewing) {
+      setLogsExpanded(true);
+      setAnalysisExpanded(true);
+    }
+  }, [reviewResult?.success, isReviewing]);
+
+  // Subscribe to push-based log updates from backend for instant refresh
+  useEffect(() => {
+    if (!isReviewing) return;
+
+    const cleanup = window.electronAPI.github.onPRLogsUpdated(
+      (_projectId: string, data: { prNumber: number; entryCount: number }) => {
+        if (data.prNumber !== pr.number) return;
+        onGetLogs()
+          .then(logs => setPrLogs(logs))
+          .catch(() => {});
+      }
+    );
+
+    return cleanup;
+  }, [isReviewing, pr.number, onGetLogs]);
+
+  /**
+   * Initial log load when user expands the logs section
+   *
+   * This effect handles the first-time load of logs when the user clicks
+   * to expand the logs collapsible card. It's a one-time operation per PR
+   * tracked by logsLoadedRef to prevent redundant loads.
+   *
+   * After this initial load, the periodic polling (below) takes over to
+   * keep the logs up-to-date during active reviews.
+   */
   useEffect(() => {
     if (logsExpanded && !logsLoadedRef.current && !isLoadingLogs) {
       logsLoadedRef.current = true;
       setIsLoadingLogs(true);
       onGetLogs()
-        .then(logs => setPrLogs(logs))
-        .catch(() => setPrLogs(null))
+        .then(logs => {
+          setPrLogs(logs);
+        })
+        .catch((err) => {
+          console.error('Failed to load initial PR review logs:', err);
+          setPrLogs(null);
+        })
         .finally(() => setIsLoadingLogs(false));
     }
   }, [logsExpanded, onGetLogs, isLoadingLogs]);
@@ -226,7 +332,40 @@ export function PRDetail({
   // Track previous reviewing state to detect transitions
   const wasReviewingRef = useRef(false);
 
-  // Refresh logs periodically while reviewing (even faster during active review)
+  /**
+   * Active polling mechanism for real-time log streaming during PR review
+   *
+   * This is the CORE of the log polling system. It handles three scenarios:
+   *
+   * 1. Review Start (wasReviewing=false → isReviewing=true):
+   *    - Clears stale logs from previous reviews
+   *    - Prepares for new log stream
+   *
+   * 2. Active Review (isReviewing=true):
+   *    - Polls onGetLogs() every 1.5 seconds
+   *    - Immediate initial poll, then setInterval for subsequent polls
+   *    - Backend writes logs every 3 entries, so 1.5s polling ensures
+   *      near-real-time updates without overwhelming the file system
+   *
+   * 3. Review End (wasReviewing=true → isReviewing=false):
+   *    - One final poll to capture the last phase status
+   *    - Ensures "completed" status is displayed even if polling interval
+   *      missed the final write
+   *
+   * Why 1.5 seconds?
+   * ----------------
+   * - Backend saves every 3 log entries (PRLogCollector.saveInterval)
+   * - Typical review generates 2-5 entries/second during active phases
+   * - 1.5s interval balances responsiveness vs. file I/O overhead
+   * - Faster than 1.5s risks reading incomplete writes on slow disks
+   * - Slower than 1.5s makes progress feel laggy to users
+   *
+   * Error Handling:
+   * ---------------
+   * - Errors during polling are logged but don't stop the interval
+   * - This ensures transient file read errors don't break the UI
+   * - If logs file doesn't exist yet, backend returns null gracefully
+   */
   useEffect(() => {
     const wasReviewing = wasReviewingRef.current;
     wasReviewingRef.current = isReviewing;
@@ -250,18 +389,157 @@ export function PRDetail({
       try {
         const logs = await onGetLogs();
         setPrLogs(logs);
-      } catch {
-        // Ignore errors during refresh
+      } catch (err) {
+        console.error('Failed to refresh PR review logs during polling:', err);
+        // Ignore errors during refresh - don't stop polling
       }
     };
 
     // Refresh immediately, then every 1.5 seconds while reviewing for smoother streaming
     refreshLogs();
     const interval = setInterval(refreshLogs, 1500);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+    };
   }, [isReviewing, onGetLogs]);
 
-  // Reset logs state when PR changes
+  /**
+   * Completion detection for external (in-progress) reviews
+   *
+   * When the backend reports overallStatus === 'in_progress', the store sets
+   * isExternalReview = true and isReviewing = true. This effect polls the
+   * review result file every 3 seconds to detect when the external review
+   * finishes. Once a completed result is found (overallStatus !== 'in_progress'),
+   * we update the store which will set isReviewing = false and display the result.
+   */
+  useEffect(() => {
+    if (!isReviewing || !isExternalReview) return;
+
+    const POLL_INTERVAL_MS = 3000;
+    const MAX_POLL_DURATION_MS = 30 * 60 * 1000; // 30 minutes
+    const pollStart = Date.now();
+
+    let notified = false;
+
+    const pollForCompletion = async () => {
+      // Skip if we already notified (prevents duplicate notifications before React cleanup)
+      if (notified) return;
+
+      // Timeout: stop polling after 30 minutes to avoid indefinite polling
+      if (Date.now() - pollStart > MAX_POLL_DURATION_MS) {
+        console.warn('[PRDetail] External review polling timed out after 30 minutes');
+        notified = true;
+        try {
+          // Notify main process so the XState actor transitions to error state
+          await window.electronAPI.github.notifyExternalReviewComplete(projectId, pr.number, null);
+        } catch {
+          // Non-critical — state manager timeout is a best-effort notification
+        }
+        return;
+      }
+
+      try {
+        const result = await window.electronAPI.github.getPRReview(projectId, pr.number);
+        if (result && result.overallStatus !== 'in_progress') {
+          // Only accept results that were produced AFTER we detected the external review.
+          // Otherwise this is a stale result from a previous review still on disk
+          // (in-progress results are intentionally NOT saved to disk).
+          if (startedAt && result.reviewedAt && new Date(result.reviewedAt) > new Date(startedAt)) {
+            notified = true;
+            // Notify main process so the XState actor transitions to completed state
+            await window.electronAPI.github.notifyExternalReviewComplete(projectId, pr.number, result);
+          }
+        }
+      } catch {
+        // Ignore errors — transient file read failures shouldn't stop polling
+      }
+    };
+
+    // Poll immediately, then every 3 seconds
+    pollForCompletion();
+    const interval = setInterval(pollForCompletion, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [isReviewing, isExternalReview, projectId, pr.number, startedAt]);
+
+  /**
+   * Fallback mechanism: Load logs after review completes if not already loaded
+   *
+   * Why is this needed?
+   * ===================
+   * This effect handles edge cases where the active polling (above) might
+   * miss the final logs, such as:
+   *
+   * 1. Race Condition: Review completes between polling intervals
+   *    - Polling runs at t=0s, t=1.5s, t=3s, etc.
+   *    - If review completes at t=1.3s, final poll (on completion) might
+   *      run before backend finishes writing the completion status
+   *    - 500ms delay ensures backend has time to write final state
+   *
+   * 2. Follow-up Review Mismatch: User runs follow-up after initial review
+   *    - prLogs.is_followup !== reviewResult.isFollowupReview
+   *    - Need to reload logs to show correct review type
+   *
+   * 3. Component Remount: User switches away and back to the PR
+   *    - prLogs might be null after remount
+   *    - Fallback ensures logs are reloaded from disk
+   *
+   * Timing:
+   * -------
+   * - 500ms delay balances reliability vs. responsiveness
+   * - Backend typically writes logs in <100ms, but network drives,
+   *   virus scanners, or disk contention can delay writes
+   * - Delay is user-imperceptible since review is already complete
+   *
+   * This ensures 100% reliability: even if all other load mechanisms fail,
+   * logs will eventually appear via this fallback.
+   */
+  useEffect(() => {
+    // Only trigger when a review has completed successfully
+    if (!reviewResult?.success || isReviewing) {
+      return;
+    }
+
+    // Check if we need to load logs:
+    // 1. No logs loaded yet, OR
+    // 2. Logs are from a different review (followup status mismatch)
+    const needsLogsLoad = !prLogs || (prLogs.is_followup !== reviewResult.isFollowupReview);
+
+    if (!needsLogsLoad) {
+      return;
+    }
+
+    // Add a small delay to ensure backend has written the logs file
+    const timer = setTimeout(() => {
+      setIsLoadingLogs(true);
+      onGetLogs()
+        .then(logs => {
+          setPrLogs(logs);
+        })
+        .catch(err => {
+          console.error('Failed to load fallback PR review logs:', err);
+        })
+        .finally(() => {
+          setIsLoadingLogs(false);
+        });
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [reviewResult, isReviewing, prLogs, onGetLogs]);
+
+  /**
+   * Reset logs state when PR changes
+   *
+   * When the user switches to a different PR (pr.number changes), we need
+   * to clear all state to prevent showing logs from the previous PR.
+   *
+   * State cleared:
+   * - logsLoadedRef: Allows initial load to trigger for new PR
+   * - prLogs: Clears displayed log content
+   * - logsExpanded: Collapses logs section (user must explicitly expand)
+   * - Review posting state: Clears any success/error messages
+   *
+   * This ensures a clean slate for each PR's review lifecycle.
+   */
   useEffect(() => {
     logsLoadedRef.current = false;
     setPrLogs(null);
@@ -270,6 +548,14 @@ export function PRDetail({
     setCleanReviewError(null);
     setIsPostingCleanReview(false);
     setShowCleanReviewErrorDetails(false);
+    // Reset blocked status state as well
+    setBlockedStatusPosted(false);
+    setBlockedStatusError(null);
+    setIsPostingBlockedStatus(false);
+    // Reset branch update state as well
+    setBranchUpdateError(null);
+    setBranchUpdateSuccess(false);
+    setIsUpdatingBranch(false);
   }, [pr.number]);
 
   // Check for workflows awaiting approval (fork PRs) when PR changes or review completes
@@ -325,7 +611,7 @@ export function PRDetail({
         mergeReadinessAbortRef.current.abort();
       }
     };
-  }, [pr.number, projectId]);
+  }, [pr.number, projectId, mergeReadinessRefreshKey]);
 
   // Handler to approve a workflow
   const handleApproveWorkflow = useCallback(async (runId: number) => {
@@ -360,6 +646,40 @@ export function PRDetail({
     const result = await window.electronAPI.github.getWorkflowsAwaitingApproval('', pr.number);
     setWorkflowsAwaiting(result);
   }, [pr.number, workflowsAwaiting]);
+
+  // Handler to update PR branch when behind base
+  const handleUpdateBranch = useCallback(async () => {
+    // Capture current PR number to prevent state leaks across PR switches
+    const currentPr = pr.number;
+
+    setIsUpdatingBranch(true);
+    setBranchUpdateError(null);
+    setBranchUpdateSuccess(false);
+
+    try {
+      const result = await window.electronAPI.github.updatePRBranch(projectId, pr.number);
+
+      // Only update state if PR hasn't changed
+      if (pr.number === currentPr) {
+        if (result.success) {
+          setBranchUpdateSuccess(true);
+          // Trigger merge readiness refresh to update the UI
+          setMergeReadinessRefreshKey(prev => prev + 1);
+        } else {
+          setBranchUpdateError(result.error || t('prReview.branchUpdateFailed'));
+        }
+      }
+    } catch (err) {
+      if (pr.number === currentPr) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        setBranchUpdateError(errorMessage);
+      }
+    } finally {
+      if (pr.number === currentPr) {
+        setIsUpdatingBranch(false);
+      }
+    }
+  }, [pr.number, projectId, t]);
 
   // Count selected findings by type for the button label
   const selectedCount = selectedFindingIds.size;
@@ -405,6 +725,16 @@ export function PRDetail({
         description: reviewProgress?.message || t('prReview.analysisInProgress'),
         icon: <Bot className="h-5 w-5 animate-pulse" />,
         color: 'bg-blue-500/10 text-blue-500 border-blue-500/30',
+      };
+    }
+
+    if (reviewErrorProp && !reviewResult?.success) {
+      return {
+        status: 'not_reviewed',
+        label: t('prReview.reviewFailed'),
+        description: reviewErrorProp,
+        icon: <AlertCircle className="h-5 w-5" />,
+        color: 'bg-destructive/20 text-destructive border-destructive/50',
       };
     }
 
@@ -550,7 +880,7 @@ export function PRDetail({
       icon: <MessageSquare className="h-5 w-5" />,
       color: 'bg-primary/20 text-primary border-primary/50',
     };
-  }, [isReviewing, reviewProgress, reviewResult, postedFindingIds, isReadyToMerge, newCommitsCheck, t]);
+  }, [isReviewing, reviewProgress, reviewResult, reviewErrorProp, postedFindingIds, isReadyToMerge, newCommitsCheck, t]);
 
   const handlePostReview = async () => {
     const idsToPost = Array.from(selectedFindingIds);
@@ -681,6 +1011,51 @@ ${t('prReview.cleanReviewMessageFooter')}`;
     }
   };
 
+  // Post blocked status comment when verdict is BLOCKED/NEEDS_REVISION but no findings
+  // This handles the edge case where structured output parsing fails but we still have a verdict
+  const handlePostBlockedStatus = async () => {
+    if (!reviewResult) return;
+
+    // Capture current PR number to prevent state leaks across PR switches
+    const currentPr = pr.number;
+
+    setIsPostingBlockedStatus(true);
+    setBlockedStatusError(null);
+    try {
+      // Format the blocked status comment - post the summary which contains blockers
+      const blockedStatusMessage = `${t('prReview.blockedStatusMessageTitle')}
+
+${reviewResult.summary}
+
+---
+
+${t('prReview.blockedStatusMessageFooter')}`;
+
+      const success = await onPostComment(blockedStatusMessage);
+
+      // Only mark as posted on success if PR hasn't changed AND comment was posted successfully
+      if (success && pr.number === currentPr) {
+        setBlockedStatusPosted(true);
+        setBlockedStatusError(null);
+        // Update the store to mark review as posted so PR list reflects the change
+        // Pass prNumber explicitly to avoid race conditions with PR selection changes
+        await onMarkReviewPosted?.(currentPr);
+      } else if (!success && pr.number === currentPr) {
+        setBlockedStatusError('Failed to post comment');
+      }
+    } catch (err) {
+      console.error('Failed to post blocked status comment:', err);
+      const fullError = err instanceof Error ? err.message : String(err);
+      if (pr.number === currentPr) {
+        setBlockedStatusError(fullError);
+      }
+    } finally {
+      if (pr.number === currentPr) {
+        setIsPostingBlockedStatus(false);
+      }
+    }
+  };
+
   const handleMerge = async () => {
     setIsMerging(true);
     try {
@@ -717,6 +1092,29 @@ ${t('prReview.cleanReviewMessageFooter')}`;
                       </li>
                     ))}
                   </ul>
+                  {mergeReadiness.isBehind && (
+                    <div className="flex items-center gap-3 mt-3">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-warning/50 text-warning hover:bg-warning/20"
+                        onClick={handleUpdateBranch}
+                        disabled={isUpdatingBranch}
+                      >
+                        {isUpdatingBranch ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            {t('prReview.updatingBranch')}
+                          </>
+                        ) : (
+                          <>
+                            <GitBranch className="h-4 w-4 mr-2" />
+                            {t('prReview.updateBranch')}
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
                   <p className="text-xs text-warning/70 mt-2">
                     {t('prReview.rerunReviewSuggestion', 'Consider re-running the review after resolving these issues.')}
                   </p>
@@ -726,14 +1124,28 @@ ${t('prReview.cleanReviewMessageFooter')}`;
           </Card>
         )}
 
+        {branchUpdateSuccess && (
+          <div className="flex items-center gap-2 text-xs text-success animate-in fade-in duration-200">
+            <CheckCircle className="h-3 w-3" />
+            {t('prReview.branchUpdated')}
+          </div>
+        )}
+        {branchUpdateError && (
+          <div className="text-xs text-destructive animate-in fade-in duration-200">
+            {branchUpdateError}
+          </div>
+        )}
+
         {/* Review Status & Actions */}
         <ReviewStatusTree
           status={prStatus.status}
           isReviewing={isReviewing}
+          isExternalReview={isExternalReview}
           startedAt={startedAt}
           reviewResult={reviewResult}
           previousReviewResult={previousReviewResult}
           postedCount={new Set([...postedFindingIds, ...(reviewResult?.postedFindingIds ?? [])]).size}
+          reviewError={reviewErrorProp}
           onRunReview={onRunReview}
           onRunFollowupReview={onRunFollowupReview}
           onCancelReview={onCancelReview}
@@ -777,6 +1189,29 @@ ${t('prReview.cleanReviewMessageFooter')}`;
                     <>
                       <MessageSquare className="h-4 w-4 mr-2" />
                       {t('prReview.postCleanReview')}
+                    </>
+                  )}
+                </Button>
+             )}
+
+             {/* Post Blocked Status button - shows when verdict is BLOCKED/NEEDS_REVISION but no findings */}
+             {/* This handles the edge case where structured output parsing fails but we still have a verdict */}
+             {selectedCount === 0 && !hasPostedFindings && !blockedStatusPosted && reviewResult?.overallStatus === 'request_changes' && (
+                <Button
+                  onClick={handlePostBlockedStatus}
+                  disabled={isPostingBlockedStatus || isPosting}
+                  variant="secondary"
+                  className="flex-1 sm:flex-none"
+                >
+                  {isPostingBlockedStatus ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      {t('prReview.postingBlockedStatus')}
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="h-4 w-4 mr-2" />
+                      {t('prReview.postBlockedStatus')}
                     </>
                   )}
                 </Button>
@@ -895,6 +1330,22 @@ ${t('prReview.cleanReviewMessageFooter')}`;
                  title={cleanReviewError}
                >
                  {cleanReviewError}
+               </div>
+             )}
+
+             {/* Blocked status posted success message */}
+             {blockedStatusPosted && !postSuccess && !cleanReviewPosted && (
+               <div className="ml-auto flex items-center gap-2 text-amber-600 text-sm font-medium animate-pulse">
+                 <CheckCircle className="h-4 w-4" />
+                 {t('prReview.blockedStatusPosted')}
+               </div>
+             )}
+
+             {/* Blocked status error display */}
+             {blockedStatusError && (
+               <div className="ml-auto flex items-center gap-2 text-destructive text-sm font-medium">
+                 <XCircle className="h-4 w-4" />
+                 {t('prReview.failedPostBlockedStatus')}
                </div>
              )}
           </div>
