@@ -35,8 +35,10 @@ log.transports.file.fileName = 'main.log';
 // Note: We use electron-log's default archiveLogFn which properly rotates logs
 // by renaming old files to .old format. Custom implementations were problematic.
 
-// Console transport - always show warnings and errors, debug only in dev mode
-log.transports.console.level = process.env.NODE_ENV === 'development' ? 'debug' : 'warn';
+// Console transport - enable in dev mode only; in production (packaged app) console.log
+// writes to a pipe/PTY whose buffer can fill up, blocking the main thread synchronously
+// and causing UI hangs (see: hang report 2026-02-25, 66s freeze on write()).
+log.transports.console.level = process.env.NODE_ENV === 'development' ? 'debug' : false;
 log.transports.console.format = '[{h}:{i}:{s}] [{level}] {text}';
 // Guard console transport writes so broken stdio streams do not crash the app.
 {
