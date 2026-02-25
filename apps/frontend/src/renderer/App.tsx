@@ -70,7 +70,7 @@ import { COLOR_THEMES, UI_SCALE_MIN, UI_SCALE_MAX, UI_SCALE_DEFAULT } from '../s
 import type { Task, Project, ColorTheme } from '../shared/types';
 import { ProjectTabBar } from './components/ProjectTabBar';
 import { AddProjectModal } from './components/AddProjectModal';
-import { ViewStateProvider } from './contexts/ViewStateContext';
+import { ViewStateProvider, useViewState } from './contexts/ViewStateContext';
 
 // Version constant for version-specific warnings (e.g., reauthentication notices)
 const VERSION_WARNING_275 = '2.7.5';
@@ -84,9 +84,7 @@ interface ProjectTabBarWithContextProps {
   onAddProject: () => void;
   onRefresh?: () => void;
   isRefreshing?: boolean;
-  showArchived?: boolean;
-  onToggleArchived?: () => void;
-  archivedCount?: number;
+  tasks: Task[];
 }
 
 function ProjectTabBarWithContext({
@@ -97,10 +95,16 @@ function ProjectTabBarWithContext({
   onAddProject,
   onRefresh,
   isRefreshing,
-  showArchived,
-  onToggleArchived,
-  archivedCount
+  tasks
 }: ProjectTabBarWithContextProps) {
+  // Get showArchived from shared context for cross-view sync with Ideation
+  const { showArchived, toggleShowArchived } = useViewState();
+
+  // Calculate archived task count
+  const archivedCount = useMemo(() => tasks.filter(
+    (task) => task.metadata?.archivedAt
+  ).length, [tasks]);
+
   return (
     <ProjectTabBar
       projects={projects}
@@ -111,7 +115,7 @@ function ProjectTabBarWithContext({
       onRefresh={onRefresh}
       isRefreshing={isRefreshing}
       showArchived={showArchived}
-      onToggleArchived={onToggleArchived}
+      onToggleArchived={toggleShowArchived}
       archivedCount={archivedCount}
     />
   );
@@ -155,7 +159,6 @@ export function App() {
   const [settingsInitialProjectSection, setSettingsInitialProjectSection] = useState<ProjectSettingsSection | undefined>(undefined);
   const [activeView, setActiveView] = useState<SidebarView>('kanban');
   const [isOnboardingWizardOpen, setIsOnboardingWizardOpen] = useState(false);
-  const [showArchived, setShowArchived] = useState(false);
   const [isVersionWarningModalOpen, setIsVersionWarningModalOpen] = useState(false);
   const [isRefreshingTasks, setIsRefreshingTasks] = useState(false);
 
@@ -837,15 +840,11 @@ export function App() {
     }
   };
 
-  // Handle toggle archived visibility
-  const handleToggleArchived = () => {
-    setShowArchived((prev) => !prev);
-  };
-
-  // Calculate archived task count
-  const archivedCount = useMemo(() => tasks.filter(
-    (task) => task.metadata?.archivedAt
-  ).length, [tasks]);
+  // Compute kanban-specific props once to avoid repetitive ternaries
+  const isKanban = activeView === 'kanban';
+  const kanbanOnlyProps = isKanban
+    ? { onRefresh: handleRefreshTasks, isRefreshing: isRefreshingTasks }
+    : {};
 
   return (
     <ViewStateProvider>
@@ -877,12 +876,8 @@ export function App() {
                   onProjectSelect={handleProjectTabSelect}
                   onProjectClose={handleProjectTabClose}
                   onAddProject={handleAddProject}
-                  // Only show refresh/archived controls on kanban view
-                  onRefresh={activeView === 'kanban' ? handleRefreshTasks : undefined}
-                  isRefreshing={activeView === 'kanban' ? isRefreshingTasks : undefined}
-                  showArchived={activeView === 'kanban' ? showArchived : undefined}
-                  onToggleArchived={activeView === 'kanban' ? handleToggleArchived : undefined}
-                  archivedCount={activeView === 'kanban' ? archivedCount : undefined}
+                  tasks={tasks}
+                  {...kanbanOnlyProps}
                 />
               </SortableContext>
 
@@ -909,7 +904,6 @@ export function App() {
                     tasks={tasks}
                     onTaskClick={handleTaskClick}
                     onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
-                    showArchived={showArchived}
                   />
                 )}
                 {/* TerminalGrid is always mounted but hidden when not active to preserve terminal state */}

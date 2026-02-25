@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef, memo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useViewState } from '../contexts/ViewStateContext';
 import {
   DndContext,
   DragOverlay,
@@ -68,7 +69,6 @@ interface KanbanBoardProps {
   tasks: Task[];
   onTaskClick: (task: Task) => void;
   onNewTaskClick?: () => void;
-  showArchived?: boolean;
 }
 
 interface DroppableColumnProps {
@@ -82,9 +82,6 @@ interface DroppableColumnProps {
   onQueueSettings?: () => void;
   onQueueAll?: () => void;
   maxParallelTasks?: number;
-  archivedCount?: number;
-  showArchived?: boolean;
-  onToggleArchived?: () => void;
   // Selection props for human_review column
   selectedTaskIds?: Set<string>;
   onSelectAll?: () => void;
@@ -144,9 +141,6 @@ function droppableColumnPropsAreEqual(
   if (prevProps.onQueueSettings !== nextProps.onQueueSettings) return false;
   if (prevProps.onQueueAll !== nextProps.onQueueAll) return false;
   if (prevProps.maxParallelTasks !== nextProps.maxParallelTasks) return false;
-  if (prevProps.archivedCount !== nextProps.archivedCount) return false;
-  if (prevProps.showArchived !== nextProps.showArchived) return false;
-  if (prevProps.onToggleArchived !== nextProps.onToggleArchived) return false;
   if (prevProps.onSelectAll !== nextProps.onSelectAll) return false;
   if (prevProps.onDeselectAll !== nextProps.onDeselectAll) return false;
   if (prevProps.onToggleSelect !== nextProps.onToggleSelect) return false;
@@ -228,11 +222,13 @@ const getEmptyStateContent = (status: TaskStatus, t: (key: string) => string): {
   }
 };
 
-const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, onArchiveAll, onQueueSettings, onQueueAll, maxParallelTasks, archivedCount, showArchived, onToggleArchived, selectedTaskIds, onSelectAll, onDeselectAll, onToggleSelect, isCollapsed, onToggleCollapsed, columnWidth, isResizing, onResizeStart, onResizeEnd, isLocked, onToggleLocked }: DroppableColumnProps) {
+const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskClick, onStatusChange, isOver, onAddClick, onArchiveAll, onQueueSettings, onQueueAll, maxParallelTasks, selectedTaskIds, onSelectAll, onDeselectAll, onToggleSelect, isCollapsed, onToggleCollapsed, columnWidth, isResizing, onResizeStart, onResizeEnd, isLocked, onToggleLocked }: DroppableColumnProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const { setNodeRef } = useDroppable({
     id: status
   });
+  // Get showArchived from shared context to conditionally show Archive All button
+  const { showArchived } = useViewState();
 
   // Calculate selection state for this column
   const taskCount = tasks.length;
@@ -511,7 +507,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
               <Settings className="h-4 w-4" />
             </Button>
           )}
-          {status === 'done' && onArchiveAll && tasks.length > 0 && (
+          {status === 'done' && onArchiveAll && tasks.length > 0 && !showArchived && (
             <Button
               variant="ghost"
               size="icon"
@@ -605,9 +601,11 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
   );
 }, droppableColumnPropsAreEqual);
 
-export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, showArchived = false }: KanbanBoardProps) {
+export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick }: KanbanBoardProps) {
   const { t } = useTranslation(['tasks', 'dialogs', 'common']);
   const { toast } = useToast();
+  // Get showArchived from shared context for cross-view sync with Ideation
+  const { showArchived } = useViewState();
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
 
