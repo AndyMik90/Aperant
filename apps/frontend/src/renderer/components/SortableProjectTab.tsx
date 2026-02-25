@@ -12,8 +12,6 @@ interface SortableProjectTabProps {
   tabIndex: number;
   onSelect: () => void;
   onClose: (e: React.MouseEvent) => void;
-  // Optional control props for active tab
-  onSettingsClick?: () => void;
 }
 
 // Detect if running on macOS for keyboard shortcut display
@@ -26,8 +24,7 @@ export function SortableProjectTab({
   canClose,
   tabIndex,
   onSelect,
-  onClose,
-  onSettingsClick
+  onClose
 }: SortableProjectTabProps) {
   const { t } = useTranslation('common');
   // Build tooltip with keyboard shortcut hint (only for tabs 1-9)

@@ -16,8 +16,6 @@ interface ProjectTabBarProps {
   onProjectClose: (projectId: string) => void;
   onAddProject: () => void;
   className?: string;
-  // Control props for active tab
-  onSettingsClick?: () => void;
   // Kanban board controls (only displayed when Kanban view is active)
   onRefresh?: () => void;
   isRefreshing?: boolean;
@@ -33,7 +31,6 @@ export function ProjectTabBar({
   onProjectClose,
   onAddProject,
   className,
-  onSettingsClick,
   onRefresh,
   isRefreshing = false,
   showArchived = false,
@@ -118,8 +115,6 @@ export function ProjectTabBar({
                 e.stopPropagation();
                 onProjectClose(project.id);
               }}
-              // Pass control props only for active tab
-              onSettingsClick={isActiveTab ? onSettingsClick : undefined}
             />
           );
         })}

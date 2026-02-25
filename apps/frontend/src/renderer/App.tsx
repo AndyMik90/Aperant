@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Download, RefreshCw, AlertCircle } from 'lucide-react';
 import { debugLog } from '../shared/utils/debug-logger';
@@ -82,7 +82,6 @@ interface ProjectTabBarWithContextProps {
   onProjectSelect: (projectId: string) => void;
   onProjectClose: (projectId: string) => void;
   onAddProject: () => void;
-  onSettingsClick: () => void;
   onRefresh?: () => void;
   isRefreshing?: boolean;
   showArchived?: boolean;
@@ -96,7 +95,6 @@ function ProjectTabBarWithContext({
   onProjectSelect,
   onProjectClose,
   onAddProject,
-  onSettingsClick,
   onRefresh,
   isRefreshing,
   showArchived,
@@ -110,7 +108,6 @@ function ProjectTabBarWithContext({
       onProjectSelect={onProjectSelect}
       onProjectClose={onProjectClose}
       onAddProject={onAddProject}
-      onSettingsClick={onSettingsClick}
       onRefresh={onRefresh}
       isRefreshing={isRefreshing}
       showArchived={showArchived}
@@ -141,7 +138,6 @@ export function App() {
   const setActiveProject = useProjectStore((state) => state.setActiveProject);
   const reorderTabs = useProjectStore((state) => state.reorderTabs);
   const tasks = useTaskStore((state) => state.tasks);
-  const isLoadingTasks = useTaskStore((state) => state.isLoading);
   const settings = useSettingsStore((state) => state.settings);
   const settingsLoading = useSettingsStore((state) => state.isLoading);
 
@@ -847,9 +843,9 @@ export function App() {
   };
 
   // Calculate archived task count
-  const archivedCount = tasks.filter(
+  const archivedCount = useMemo(() => tasks.filter(
     (task) => task.metadata?.archivedAt
-  ).length;
+  ).length, [tasks]);
 
   return (
     <ViewStateProvider>
@@ -881,7 +877,6 @@ export function App() {
                   onProjectSelect={handleProjectTabSelect}
                   onProjectClose={handleProjectTabClose}
                   onAddProject={handleAddProject}
-                  onSettingsClick={() => setIsSettingsDialogOpen(true)}
                   // Only show refresh/archived controls on kanban view
                   onRefresh={activeView === 'kanban' ? handleRefreshTasks : undefined}
                   isRefreshing={activeView === 'kanban' ? isRefreshingTasks : undefined}
