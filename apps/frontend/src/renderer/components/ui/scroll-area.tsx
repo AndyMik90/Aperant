@@ -5,23 +5,34 @@ import { cn } from '../../lib/utils';
 const ScrollArea = React.forwardRef<
   React.ElementRef<typeof ScrollAreaPrimitive.Root>,
   React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root> & {
-  viewportClassName?: string;
-}
->(({ className, children, viewportClassName, ...props }, ref) => (
-  <ScrollAreaPrimitive.Root
-    ref={ref}
-    className={cn('relative overflow-hidden', className)}
-    {...props}
-  >
-    <ScrollAreaPrimitive.Viewport
-      className={cn('h-full w-full rounded-[inherit]', viewportClassName)}
+    viewportClassName?: string;
+    onViewportRef?: (element: HTMLDivElement | null) => void;
+  }
+>(({ className, children, viewportClassName, onViewportRef, ...props }, ref) => {
+  const viewportRef = React.useCallback(
+    (element: HTMLDivElement | null) => {
+      onViewportRef?.(element);
+    },
+    [onViewportRef]
+  );
+
+  return (
+    <ScrollAreaPrimitive.Root
+      ref={ref}
+      className={cn('relative overflow-hidden', className)}
+      {...props}
     >
-      {children}
-    </ScrollAreaPrimitive.Viewport>
-    <ScrollBar />
-    <ScrollAreaPrimitive.Corner />
-  </ScrollAreaPrimitive.Root>
-));
+      <ScrollAreaPrimitive.Viewport
+        ref={viewportRef}
+        className={cn('h-full w-full rounded-[inherit]', viewportClassName)}
+      >
+        {children}
+      </ScrollAreaPrimitive.Viewport>
+      <ScrollBar />
+      <ScrollAreaPrimitive.Corner />
+    </ScrollAreaPrimitive.Root>
+  );
+});
 ScrollArea.displayName = ScrollAreaPrimitive.Root.displayName;
 
 const ScrollBar = React.forwardRef<

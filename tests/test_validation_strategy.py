@@ -18,9 +18,9 @@ import pytest
 
 # Add auto-claude to path for imports
 import sys
-sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
-from validation_strategy import (
+from spec.validation_strategy import (
     ValidationStep,
     ValidationStrategy,
     ValidationStrategyBuilder,
@@ -631,7 +631,7 @@ class TestEdgeCases:
 
     def test_nonexistent_directory(self, builder):
         """Test handling of non-existent directory."""
-        fake_dir = Path("/nonexistent/path")
+        fake_dir = Path("/tmp/test-nonexistent-validation-123456")
 
         # Should not crash, returns unknown
         strategy = builder.build_strategy(fake_dir, fake_dir, "medium")

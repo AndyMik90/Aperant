@@ -88,32 +88,32 @@ export function IdeaCard({ idea, isSelected, onClick, onConvert, onGoToTask, onD
                 {idea.status}
               </Badge>
             )}
-            {isCodeImprovementIdea(idea) && (
+            {isCodeImprovementIdea(idea) && typeof (idea as CodeImprovementIdea).estimatedEffort === 'string' && (
               <Badge variant="outline" className={IDEATION_EFFORT_COLORS[(idea as CodeImprovementIdea).estimatedEffort]}>
                 {(idea as CodeImprovementIdea).estimatedEffort}
               </Badge>
             )}
-            {isUIUXIdea(idea) && (
+            {isUIUXIdea(idea) && typeof (idea as UIUXImprovementIdea).category === 'string' && (
               <Badge variant="outline">
                 {UIUX_CATEGORY_LABELS[(idea as UIUXImprovementIdea).category]}
               </Badge>
             )}
-            {isDocumentationGapIdea(idea) && (
+            {isDocumentationGapIdea(idea) && typeof (idea as DocumentationGapIdea).category === 'string' && (
               <Badge variant="outline">
                 {DOCUMENTATION_CATEGORY_LABELS[(idea as DocumentationGapIdea).category]}
               </Badge>
             )}
-            {isSecurityHardeningIdea(idea) && (
+            {isSecurityHardeningIdea(idea) && typeof (idea as SecurityHardeningIdea).severity === 'string' && (
               <Badge variant="outline" className={SECURITY_SEVERITY_COLORS[(idea as SecurityHardeningIdea).severity]}>
                 {(idea as SecurityHardeningIdea).severity}
               </Badge>
             )}
-            {isPerformanceOptimizationIdea(idea) && (
+            {isPerformanceOptimizationIdea(idea) && typeof (idea as PerformanceOptimizationIdea).impact === 'string' && (
               <Badge variant="outline" className={IDEATION_IMPACT_COLORS[(idea as PerformanceOptimizationIdea).impact]}>
                 {(idea as PerformanceOptimizationIdea).impact} impact
               </Badge>
             )}
-            {isCodeQualityIdea(idea) && (
+            {isCodeQualityIdea(idea) && typeof (idea as CodeQualityIdea).severity === 'string' && (
               <Badge variant="outline" className={CODE_QUALITY_SEVERITY_COLORS[(idea as CodeQualityIdea).severity]}>
                 {(idea as CodeQualityIdea).severity}
               </Badge>

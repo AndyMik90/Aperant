@@ -1,4 +1,6 @@
-import { Globe, RefreshCw, TrendingUp, CheckCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Globe, RefreshCw, TrendingUp, CheckCircle, UserPlus } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -8,6 +10,7 @@ import {
   AlertDialogTitle,
 } from './ui/alert-dialog';
 import { Button } from './ui/button';
+import { AddCompetitorDialog } from './AddCompetitorDialog';
 
 interface ExistingCompetitorAnalysisDialogProps {
   open: boolean;
@@ -15,7 +18,9 @@ interface ExistingCompetitorAnalysisDialogProps {
   onUseExisting: () => void;
   onRunNew: () => void;
   onSkip: () => void;
+  onCompetitorAdded?: (competitorId: string) => void;
   analysisDate?: Date;
+  projectId: string;
 }
 
 export function ExistingCompetitorAnalysisDialog({
@@ -24,8 +29,20 @@ export function ExistingCompetitorAnalysisDialog({
   onUseExisting,
   onRunNew,
   onSkip,
+  onCompetitorAdded,
   analysisDate,
+  projectId,
 }: ExistingCompetitorAnalysisDialogProps) {
+  const { t, i18n } = useTranslation(['dialogs']);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+
+  // Reset child dialog state when this dialog reopens
+  useEffect(() => {
+    if (open) {
+      setShowAddDialog(false);
+    }
+  }, [open]);
+
   const handleUseExisting = () => {
     onUseExisting();
     onOpenChange(false);
@@ -42,8 +59,8 @@ export function ExistingCompetitorAnalysisDialog({
   };
 
   const formatDate = (date?: Date) => {
-    if (!date) return 'recently';
-    return new Intl.DateTimeFormat('en-US', {
+    if (!date) return t('dialogs:existingCompetitorAnalysis.recently');
+    return new Intl.DateTimeFormat(i18n.language, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -51,81 +68,112 @@ export function ExistingCompetitorAnalysisDialog({
   };
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="sm:max-w-[500px]">
-        <AlertDialogHeader>
-          <AlertDialogTitle className="flex items-center gap-2 text-foreground">
-            <TrendingUp className="h-5 w-5 text-primary" />
-            Competitor Analysis Options
-          </AlertDialogTitle>
-          <AlertDialogDescription className="text-muted-foreground">
-            This project has an existing competitor analysis from {formatDate(analysisDate)}
-          </AlertDialogDescription>
-        </AlertDialogHeader>
+    <>
+      <AlertDialog open={open} onOpenChange={onOpenChange}>
+        <AlertDialogContent className="sm:max-w-[500px]">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-foreground">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              {t('dialogs:existingCompetitorAnalysis.title')}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              {t('dialogs:existingCompetitorAnalysis.description', { date: formatDate(analysisDate) })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
 
-        <div className="py-4 space-y-3">
-          {/* Option 1: Use existing (recommended) */}
-          <button
-            onClick={handleUseExisting}
-            className="w-full rounded-lg bg-primary/10 border border-primary/30 p-4 text-left hover:bg-primary/20 transition-colors"
-          >
-            <div className="flex items-start gap-3">
-              <CheckCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
-                  Use existing analysis
-                  <span className="text-xs text-primary font-normal">(Recommended)</span>
-                </h4>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Reuse the competitor insights you already have. Faster and no additional web searches.
-                </p>
+          <div className="py-4 space-y-3">
+            {/* Option 1: Use existing (recommended) */}
+            <button
+              type="button"
+              onClick={handleUseExisting}
+              className="w-full rounded-lg bg-primary/10 border border-primary/30 p-4 text-left hover:bg-primary/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <div className="flex items-start gap-3">
+                <CheckCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="text-sm font-medium text-foreground flex items-center gap-2">
+                    {t('dialogs:existingCompetitorAnalysis.useExistingTitle')}
+                    <span className="text-xs text-primary font-normal">{t('dialogs:existingCompetitorAnalysis.recommended')}</span>
+                  </h4>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t('dialogs:existingCompetitorAnalysis.useExistingDescription')}
+                  </p>
+                </div>
               </div>
-            </div>
-          </button>
+            </button>
 
-          {/* Option 2: Run new analysis */}
-          <button
-            onClick={handleRunNew}
-            className="w-full rounded-lg bg-muted/50 border border-border p-4 text-left hover:bg-muted transition-colors"
-          >
-            <div className="flex items-start gap-3">
-              <RefreshCw className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h4 className="text-sm font-medium text-foreground">
-                  Run new analysis
-                </h4>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Perform fresh web searches to get updated competitor information. Takes longer.
-                </p>
+            {/* Option 2: Run new analysis */}
+            <button
+              type="button"
+              onClick={handleRunNew}
+              className="w-full rounded-lg bg-muted/50 border border-border p-4 text-left hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <div className="flex items-start gap-3">
+                <RefreshCw className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="text-sm font-medium text-foreground">
+                    {t('dialogs:existingCompetitorAnalysis.runNewTitle')}
+                  </h4>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t('dialogs:existingCompetitorAnalysis.runNewDescription')}
+                  </p>
+                </div>
               </div>
-            </div>
-          </button>
+            </button>
 
-          {/* Option 3: Skip */}
-          <button
-            onClick={handleSkip}
-            className="w-full rounded-lg bg-muted/30 border border-border/50 p-4 text-left hover:bg-muted/50 transition-colors"
-          >
-            <div className="flex items-start gap-3">
-              <Globe className="h-5 w-5 text-muted-foreground/60 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <h4 className="text-sm font-medium text-muted-foreground">
-                  Skip competitor analysis
-                </h4>
-                <p className="text-xs text-muted-foreground/80 mt-1">
-                  Generate roadmap without any competitor insights.
-                </p>
+            {/* Option 3: Add known competitors */}
+            <button
+              type="button"
+              onClick={() => setShowAddDialog(true)}
+              className="w-full rounded-lg bg-muted/50 border border-border p-4 text-left hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <div className="flex items-start gap-3">
+                <UserPlus className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="text-sm font-medium text-foreground">
+                    {t('dialogs:competitorAnalysis.addKnownCompetitors')}
+                  </h4>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t('dialogs:competitorAnalysis.addKnownCompetitorsDescription')}
+                  </p>
+                </div>
               </div>
-            </div>
-          </button>
-        </div>
+            </button>
 
-        <AlertDialogFooter className="sm:justify-start">
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+            {/* Option 4: Skip */}
+            <button
+              type="button"
+              onClick={handleSkip}
+              className="w-full rounded-lg bg-muted/30 border border-border/50 p-4 text-left hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            >
+              <div className="flex items-start gap-3">
+                <Globe className="h-5 w-5 text-muted-foreground/60 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="text-sm font-medium text-muted-foreground">
+                    {t('dialogs:existingCompetitorAnalysis.skipTitle')}
+                  </h4>
+                  <p className="text-xs text-muted-foreground/80 mt-1">
+                    {t('dialogs:existingCompetitorAnalysis.skipDescription')}
+                  </p>
+                </div>
+              </div>
+            </button>
+          </div>
+
+          <AlertDialogFooter className="sm:justify-start">
+            <Button variant="ghost" onClick={() => onOpenChange(false)}>
+              {t('dialogs:existingCompetitorAnalysis.cancel')}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AddCompetitorDialog
+        open={showAddDialog}
+        onOpenChange={setShowAddDialog}
+        onCompetitorAdded={onCompetitorAdded}
+        projectId={projectId}
+      />
+    </>
   );
 }

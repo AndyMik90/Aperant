@@ -47,7 +47,7 @@ interface ModelSearchableSelectProps {
  * @example
  * ```tsx
  * <ModelSearchableSelect
- *   value="claude-3-5-sonnet-20241022"
+ *   value="claude-sonnet-4-5-20250929"
  *   onChange={(modelId) => setModel(modelId)}
  *   baseUrl="https://api.anthropic.com"
  *   apiKey="sk-ant-..."
@@ -208,7 +208,7 @@ export function ModelSearchableSelect({
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isOpen]);
+  }, [isOpen, handleClose]);
 
   // Cleanup on unmount
   useEffect(() => {

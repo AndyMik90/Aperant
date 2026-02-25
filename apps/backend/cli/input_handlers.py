@@ -149,7 +149,7 @@ def read_from_file() -> str | None:
         # Expand ~ and resolve path
         file_path = Path(file_path_input).expanduser().resolve()
         if file_path.exists():
-            content = file_path.read_text().strip()
+            content = file_path.read_text(encoding="utf-8").strip()
             if content:
                 print_status(
                     f"Loaded {len(content)} characters from file",

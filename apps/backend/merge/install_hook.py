@@ -75,7 +75,7 @@ def install_hook(project_path: Path) -> bool:
     # Handle worktrees (where .git is a file, not directory)
     if git_dir.is_file():
         # Read the gitdir from the file
-        content = git_dir.read_text().strip()
+        content = git_dir.read_text(encoding="utf-8").strip()
         if content.startswith("gitdir:"):
             git_dir = Path(content.split(":", 1)[1].strip())
         else:
@@ -93,7 +93,7 @@ def install_hook(project_path: Path) -> bool:
 
     # Check if hook already exists
     if hook_path.exists():
-        existing = hook_path.read_text()
+        existing = hook_path.read_text(encoding="utf-8")
         if "FileTimelineTracker" in existing:
             print(f"Hook already installed at {hook_path}")
             return True
@@ -104,13 +104,13 @@ def install_hook(project_path: Path) -> bool:
         print(f"Backed up existing hook to {backup_path}")
 
         # Append our hook to existing
-        with open(hook_path, "a") as f:
+        with open(hook_path, "a", encoding="utf-8") as f:
             f.write("\n\n# FileTimelineTracker integration\n")
             f.write(HOOK_SCRIPT.split("#!/bin/bash", 1)[1])  # Skip shebang
         print(f"Appended FileTimelineTracker hook to {hook_path}")
     else:
         # Write new hook
-        hook_path.write_text(HOOK_SCRIPT)
+        hook_path.write_text(HOOK_SCRIPT, encoding="utf-8")
         print(f"Created new hook at {hook_path}")
 
     # Make executable
@@ -127,7 +127,7 @@ def uninstall_hook(project_path: Path) -> bool:
     git_dir = project_path / ".git"
 
     if git_dir.is_file():
-        content = git_dir.read_text().strip()
+        content = git_dir.read_text(encoding="utf-8").strip()
         if content.startswith("gitdir:"):
             git_dir = Path(content.split(":", 1)[1].strip())
 
@@ -137,7 +137,7 @@ def uninstall_hook(project_path: Path) -> bool:
         print("No hook to uninstall")
         return True
 
-    content = hook_path.read_text()
+    content = hook_path.read_text(encoding="utf-8")
     if "FileTimelineTracker" not in content:
         print("Hook does not contain FileTimelineTracker integration")
         return True

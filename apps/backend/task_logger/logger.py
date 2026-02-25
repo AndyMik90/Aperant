@@ -7,6 +7,7 @@ from pathlib import Path
 
 from core.debug import debug, debug_error, debug_info, debug_success, is_debug_enabled
 
+from .ansi import strip_ansi_codes
 from .models import LogEntry, LogEntryType, LogPhase
 from .storage import LogStorage
 from .streaming import emit_marker
@@ -160,6 +161,7 @@ class TaskLogger:
 
         # Add phase start entry
         phase_message = message or f"Starting {phase_key} phase"
+        phase_message = strip_ansi_codes(phase_message)
         entry = LogEntry(
             timestamp=self._timestamp(),
             type=LogEntryType.PHASE_START.value,
@@ -172,9 +174,8 @@ class TaskLogger:
         # Debug log (when DEBUG=true)
         self._debug_log(phase_message, LogEntryType.PHASE_START, phase_key)
 
-        # Also print the message
-        if message:
-            print(message, flush=True)
+        # Also print the message (sanitized)
+        print(phase_message, flush=True)
 
     def end_phase(
         self, phase: LogPhase, success: bool = True, message: str | None = None
@@ -203,6 +204,8 @@ class TaskLogger:
         phase_message = (
             message or f"{'Completed' if success else 'Failed'} {phase_key} phase"
         )
+        phase_message = strip_ansi_codes(phase_message)
+
         entry = LogEntry(
             timestamp=self._timestamp(),
             type=LogEntryType.PHASE_END.value,
@@ -216,8 +219,8 @@ class TaskLogger:
         entry_type = LogEntryType.SUCCESS if success else LogEntryType.ERROR
         self._debug_log(phase_message, entry_type, phase_key)
 
-        if message:
-            print(message, flush=True)
+        # Print the message (sanitized)
+        print(phase_message, flush=True)
 
         if phase == self.current_phase:
             self.current_phase = None
@@ -240,6 +243,10 @@ class TaskLogger:
             phase: Optional phase override (uses current_phase if not specified)
             print_to_console: Whether to also print to stdout (default True)
         """
+        # Sanitize content to remove ANSI escape codes before storage
+        if content:
+            content = strip_ansi_codes(content)
+
         phase_key = (phase or self.current_phase or LogPhase.CODING).value
 
         entry = LogEntry(
@@ -307,6 +314,13 @@ class TaskLogger:
         """
         phase_key = (phase or self.current_phase or LogPhase.CODING).value
 
+        # Sanitize content and detail before storage
+        if content:
+            content = strip_ansi_codes(content)
+
+        if detail:
+            detail = strip_ansi_codes(detail)
+
         entry = LogEntry(
             timestamp=self._timestamp(),
             type=entry_type.value,
@@ -363,6 +377,10 @@ class TaskLogger:
         """
         phase_key = (phase or self.current_phase or LogPhase.CODING).value
 
+        # Sanitize subphase before use
+        if subphase:
+            subphase = strip_ansi_codes(subphase)
+
         entry = LogEntry(
             timestamp=self._timestamp(),
             type=LogEntryType.INFO.value,
@@ -405,6 +423,10 @@ class TaskLogger:
             print_to_console: Whether to also print to stdout (default True)
         """
         phase_key = (phase or self.current_phase or LogPhase.CODING).value
+
+        # Sanitize tool_input before use
+        if tool_input:
+            tool_input = strip_ansi_codes(tool_input)
 
         # Truncate long inputs for display (increased limit to avoid hiding critical info)
         display_input = tool_input
@@ -462,8 +484,8 @@ class TaskLogger:
         """
         phase_key = (phase or self.current_phase or LogPhase.CODING).value
 
-        # Truncate long results for display (increased limit to avoid hiding critical info)
-        display_result = result
+        # Sanitize before truncation to avoid cutting ANSI sequences mid-stream
+        display_result = strip_ansi_codes(result) if result else None
         if display_result and len(display_result) > 300:
             display_result = display_result[:297] + "..."
 
@@ -472,12 +494,13 @@ class TaskLogger:
         if display_result:
             content += f": {display_result}"
 
-        # Truncate detail for storage (max 10KB to avoid bloating JSON)
-        stored_detail = detail
+        # Sanitize before truncating detail
+        stored_detail = strip_ansi_codes(detail) if detail else None
         if stored_detail and len(stored_detail) > 10240:
+            sanitized_len = len(stored_detail)
             stored_detail = (
                 stored_detail[:10240]
-                + f"\n\n... [truncated - full output was {len(detail)} chars]"
+                + f"\n\n... [truncated - full output was {sanitized_len} chars]"
             )
 
         entry = LogEntry(

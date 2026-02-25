@@ -6,6 +6,7 @@ import { Button } from './ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import { SortableProjectTab } from './SortableProjectTab';
 import { UsageIndicator } from './UsageIndicator';
+import { AuthStatusIndicator } from './AuthStatusIndicator';
 import type { Project } from '../../shared/types';
 
 interface ProjectTabBarProps {
@@ -59,7 +60,7 @@ export function ProjectTabBar({
       // Cmd/Ctrl + 1-9: Switch to tab N
       if (e.key >= '1' && e.key <= '9') {
         e.preventDefault();
-        const index = parseInt(e.key) - 1;
+        const index = parseInt(e.key, 10) - 1;
         if (index < projects.length) {
           onProjectSelect(projects[index].id);
         }
@@ -142,8 +143,9 @@ export function ProjectTabBar({
         </Tooltip>
       </div>
 
-      {/* Right side: Usage indicator + Refresh + Show Archived - anchored to right */}
+      {/* Right side: Auth + Usage indicators + Refresh + Show Archived - anchored to right */}
       <div className="flex items-center gap-2 px-2 flex-shrink-0">
+        <AuthStatusIndicator />
         <UsageIndicator />
 
         {/* Refresh button */}

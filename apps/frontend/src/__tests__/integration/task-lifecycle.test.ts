@@ -148,8 +148,8 @@ describe('Task Lifecycle Integration', () => {
       const getTasks = electronAPI['getTasks'] as (projectId: string) => Promise<unknown>;
       const result = await getTasks('project-id');
 
-      // Verify IPC invocation
-      expect(mockIpcRenderer.invoke).toHaveBeenCalledWith('task:list', 'project-id');
+      // Verify IPC invocation - second argument is optional options (undefined when not provided)
+      expect(mockIpcRenderer.invoke).toHaveBeenCalledWith('task:list', 'project-id', undefined);
 
       // Verify task data includes plan with subtasks
       expect(result).toMatchObject({
@@ -241,12 +241,12 @@ describe('Task Lifecycle Integration', () => {
       )?.[1];
 
       if (eventHandler) {
-        eventHandler({}, 'task-001', 'spec_complete');
+        eventHandler({}, 'task-001', 'spec_complete', undefined, undefined);
       }
 
-      // Verify callback was invoked with correct parameters (taskId, status, projectId)
-      // Note: projectId is optional and undefined when not provided
-      expect(callback).toHaveBeenCalledWith('task-001', 'spec_complete', undefined);
+      // Verify callback was invoked with correct parameters (taskId, status, projectId, reviewReason)
+      // Note: projectId/reviewReason are optional and undefined when not provided
+      expect(callback).toHaveBeenCalledWith('task-001', 'spec_complete', undefined, undefined);
     });
 
     it('should emit task:progress event with updated plan during spec creation', async () => {

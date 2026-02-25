@@ -270,12 +270,19 @@ Output JSON array of structural issues:
             ReviewPass.AI_COMMENT_TRIAGE: """
 You are triaging comments from other AI code review tools (CodeRabbit, Gemini Code Assist, Cursor, Greptile, etc).
 
+**CRITICAL: TIMELINE AWARENESS**
+AI comments were made at specific points in time. The current code may have FIXED issues that AI tools correctly identified.
+- If an AI flagged an issue that was LATER FIXED by a commit, use ADDRESSED (not FALSE_POSITIVE)
+- FALSE_POSITIVE means the AI was WRONG - the issue never existed
+- ADDRESSED means the AI was RIGHT - the issue existed but was fixed
+
 For each AI comment, determine:
 - CRITICAL: Genuine issue that must be addressed before merge
 - IMPORTANT: Valid issue that should be addressed
 - NICE_TO_HAVE: Valid but optional improvement
 - TRIVIAL: Style preference, can be ignored
-- FALSE_POSITIVE: The AI is wrong about this
+- ADDRESSED: Valid issue that was fixed in a subsequent commit
+- FALSE_POSITIVE: The AI is wrong about this (issue never existed)
 
 Output JSON array:
 ```json
@@ -284,7 +291,7 @@ Output JSON array:
     "comment_id": 12345678,
     "tool_name": "CodeRabbit",
     "original_summary": "Brief summary of what AI flagged (max 100 chars)",
-    "verdict": "critical|important|nice_to_have|trivial|false_positive",
+    "verdict": "critical|important|nice_to_have|trivial|addressed|false_positive",
     "reasoning": "2-3 sentence explanation of your verdict",
     "response_comment": "Concise reply to post on GitHub"
   }

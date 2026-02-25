@@ -53,7 +53,7 @@ def _get_version() -> str:
         if package_json.exists():
             import json
 
-            with open(package_json) as f:
+            with open(package_json, encoding="utf-8") as f:
                 data = json.load(f)
                 return data.get("version", "0.0.0")
     except Exception as e:
@@ -186,14 +186,12 @@ def _before_send(event: dict, hint: dict) -> dict | None:
 
 def init_sentry(
     component: str = "backend",
-    force_enable: bool = False,
 ) -> bool:
     """
     Initialize Sentry for the Python backend.
 
     Args:
         component: Component name for tagging (e.g., "backend", "github-runner")
-        force_enable: Force enable even without packaged app detection
 
     Returns:
         True if Sentry was initialized, False otherwise
@@ -212,20 +210,11 @@ def init_sentry(
         logger.debug("[Sentry] No SENTRY_DSN configured - error reporting disabled")
         return False
 
-    # Check if we should enable Sentry
-    # Enable if:
-    # - Running from packaged app (detected by __compiled__ or frozen)
-    # - SENTRY_DEV=true is set
-    # - force_enable is True
+    # DSN is present (checked above), so Sentry should be enabled.
+    # The Electron main process only passes SENTRY_DSN to subprocesses in
+    # production builds, so its presence is sufficient to gate activation.
+    # In dev, set SENTRY_DSN in your environment to opt-in.
     is_packaged = getattr(sys, "frozen", False) or hasattr(sys, "__compiled__")
-    sentry_dev = os.environ.get("SENTRY_DEV", "").lower() in ("true", "1", "yes")
-    should_enable = is_packaged or sentry_dev or force_enable
-
-    if not should_enable:
-        logger.debug(
-            "[Sentry] Development mode - error reporting disabled (set SENTRY_DEV=true to enable)"
-        )
-        return False
 
     try:
         import sentry_sdk
@@ -257,17 +246,28 @@ def init_sentry(
         event_level=logging.ERROR,  # Send ERROR and above as events
     )
 
-    # Initialize Sentry
-    sentry_sdk.init(
-        dsn=dsn,
-        environment=environment,
-        release=f"auto-claude@{version}",
-        traces_sample_rate=traces_sample_rate,
-        before_send=_before_send,
-        integrations=[logging_integration],
-        # Don't send PII
-        send_default_pii=False,
-    )
+    # Initialize Sentry with exception handling for malformed DSN
+    try:
+        sentry_sdk.init(
+            dsn=dsn,
+            environment=environment,
+            release=f"auto-claude@{version}",
+            traces_sample_rate=traces_sample_rate,
+            before_send=_before_send,
+            integrations=[logging_integration],
+            # Don't send PII
+            send_default_pii=False,
+        )
+    except Exception as e:
+        # Handle malformed DSN (e.g., missing public key) gracefully
+        # This prevents crashes when SENTRY_DSN is misconfigured
+        logger.warning(
+            f"[Sentry] Failed to initialize - invalid DSN configuration: {e}"
+        )
+        logger.debug(
+            "[Sentry] DSN should be in format: https://PUBLIC_KEY@o123.ingest.sentry.io/PROJECT_ID"
+        )
+        return False
 
     # Set component tag
     sentry_sdk.set_tag("component", component)

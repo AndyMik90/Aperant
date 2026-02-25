@@ -35,7 +35,7 @@ def create_openrouter_llm_client(config: "GraphitiConfig") -> Any:
         >>> from auto_claude.integrations.graphiti.config import GraphitiConfig
         >>> config = GraphitiConfig(
         ...     openrouter_api_key="sk-or-...",
-        ...     openrouter_llm_model="anthropic/claude-3.5-sonnet"
+        ...     openrouter_llm_model="anthropic/claude-sonnet-4"
         ... )
         >>> client = create_openrouter_llm_client(config)
     """

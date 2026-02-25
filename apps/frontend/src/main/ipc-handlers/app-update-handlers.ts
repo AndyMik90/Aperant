@@ -95,6 +95,10 @@ export function registerAppUpdateHandlers(): void {
     IPC_CHANNELS.APP_UPDATE_INSTALL,
     async (): Promise<IPCResult> => {
       try {
+        // quitAndInstall() returns false if blocked by read-only volume,
+        // but the user is notified via APP_UPDATE_READONLY_VOLUME event instead.
+        // The preload fires this as fire-and-forget, so the return value is
+        // only consumed by the .catch() handler for unexpected errors.
         quitAndInstall();
         return { success: true };
       } catch (error) {

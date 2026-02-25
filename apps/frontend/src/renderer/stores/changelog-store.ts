@@ -12,7 +12,8 @@ import type {
   GitTagInfo,
   GitCommit,
   GitHistoryOptions,
-  BranchDiffOptions
+  BranchDiffOptions,
+  IPCResult
 } from '../../shared/types';
 import { useTaskStore } from './task-store';
 import { useSettingsStore } from './settings-store';
@@ -196,7 +197,7 @@ export const useChangelogStore = create<ChangelogState>((set, get) => ({
     // Auto-suggest next version if we found a previous version
     if (changelog?.lastVersion) {
       const parts = changelog.lastVersion.split('.').map(Number);
-      if (parts.length === 3 && !parts.some(isNaN)) {
+      if (parts.length === 3 && !parts.some(Number.isNaN)) {
         const [major, minor, patch] = parts;
         set({ version: `${major}.${minor}.${patch + 1}` });
       }
@@ -424,7 +425,18 @@ export async function loadCommitsPreview(projectId: string): Promise<void> {
   }
 }
 
-export function generateChangelog(projectId: string): void {
+function handleGenerationError(store: ReturnType<typeof useChangelogStore.getState>, errorMessage: string): void {
+  store.setIsGenerating(false);
+  store.setError(errorMessage);
+  store.setGenerationProgress({
+    stage: 'error',
+    progress: 0,
+    message: errorMessage,
+    error: errorMessage
+  });
+}
+
+export async function generateChangelog(projectId: string): Promise<void> {
   const store = useChangelogStore.getState();
 
   // Validate based on source mode
@@ -476,34 +488,48 @@ export function generateChangelog(projectId: string): void {
     customInstructions: store.customInstructions || undefined
   };
 
-  if (store.sourceMode === 'tasks') {
-    window.electronAPI.generateChangelog({
-      ...baseRequest,
-      taskIds: store.selectedTaskIds
-    });
-  } else if (store.sourceMode === 'git-history') {
-    window.electronAPI.generateChangelog({
-      ...baseRequest,
-      gitHistory: {
-        type: store.gitHistoryType,
-        count: store.gitHistoryCount,
-        sinceDate: store.gitHistorySinceDate || undefined,
-        // For since-version, use gitHistorySinceVersion as fromTag
-        fromTag: store.gitHistoryType === 'since-version'
-          ? (store.gitHistorySinceVersion || undefined)
-          : (store.gitHistoryFromTag || undefined),
-        toTag: store.gitHistoryToTag || undefined,
-        includeMergeCommits: store.includeMergeCommits
-      }
-    });
-  } else if (store.sourceMode === 'branch-diff') {
-    window.electronAPI.generateChangelog({
-      ...baseRequest,
-      branchDiff: {
-        baseBranch: store.baseBranch,
-        compareBranch: store.compareBranch
-      }
-    });
+  try {
+    let result: IPCResult<void>;
+    if (store.sourceMode === 'tasks') {
+      result = await window.electronAPI.generateChangelog({
+        ...baseRequest,
+        taskIds: store.selectedTaskIds
+      });
+    } else if (store.sourceMode === 'git-history') {
+      result = await window.electronAPI.generateChangelog({
+        ...baseRequest,
+        gitHistory: {
+          type: store.gitHistoryType,
+          count: store.gitHistoryCount,
+          sinceDate: store.gitHistorySinceDate || undefined,
+          // For since-version, use gitHistorySinceVersion as fromTag
+          fromTag: store.gitHistoryType === 'since-version'
+            ? (store.gitHistorySinceVersion || undefined)
+            : (store.gitHistoryFromTag || undefined),
+          toTag: store.gitHistoryToTag || undefined,
+          includeMergeCommits: store.includeMergeCommits
+        }
+      });
+    } else if (store.sourceMode === 'branch-diff') {
+      result = await window.electronAPI.generateChangelog({
+        ...baseRequest,
+        branchDiff: {
+          baseBranch: store.baseBranch,
+          compareBranch: store.compareBranch
+        }
+      });
+    } else {
+      // This should never happen due to validation, but handle it for TypeScript
+      throw new Error(`Invalid source mode: ${store.sourceMode}`);
+    }
+
+    // Check if generation started successfully
+    if (!result.success) {
+      handleGenerationError(store, result.error || 'Failed to start changelog generation');
+    }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Failed to start changelog generation';
+    handleGenerationError(store, errorMessage);
   }
 }
 

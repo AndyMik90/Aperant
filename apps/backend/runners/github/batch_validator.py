@@ -21,7 +21,9 @@ logger = logging.getLogger(__name__)
 CLAUDE_SDK_AVAILABLE = importlib.util.find_spec("claude_agent_sdk") is not None
 
 # Default model and thinking configuration
-DEFAULT_MODEL = "claude-sonnet-4-20250514"
+# Note: Default uses shorthand "sonnet" which gets resolved via resolve_model_id()
+# to respect environment variable overrides (e.g., ANTHROPIC_DEFAULT_SONNET_MODEL)
+DEFAULT_MODEL = "sonnet"
 DEFAULT_THINKING_BUDGET = 10000  # Medium thinking
 
 
@@ -112,7 +114,8 @@ class BatchValidator:
         model: str = DEFAULT_MODEL,
         thinking_budget: int = DEFAULT_THINKING_BUDGET,
     ):
-        self.model = model
+        # Resolve model shorthand via environment variable override if configured
+        self.model = self._resolve_model(model)
         self.thinking_budget = thinking_budget
         self.project_dir = project_dir or Path.cwd()
 
@@ -120,6 +123,35 @@ class BatchValidator:
             logger.warning(
                 "claude-agent-sdk not available. Batch validation will be skipped."
             )
+
+    def _resolve_model(self, model: str) -> str:
+        """Resolve model shorthand via phase_config.resolve_model_id()."""
+        try:
+            # Use the established try/except pattern for imports (matching
+            # parallel_orchestrator_reviewer.py and other files in runners/github/services/)
+            # This ensures consistency across the codebase and proper caching in sys.modules.
+            from ..phase_config import resolve_model_id
+
+            return resolve_model_id(model)
+        except (ImportError, ValueError, SystemError):
+            # Fallback to absolute import - wrap in try/except for safety
+            try:
+                from phase_config import resolve_model_id
+
+                return resolve_model_id(model)
+            except Exception as e:
+                # Log and return original model as final fallback
+                logger.debug(
+                    f"Fallback import failed, using original model '{model}': {e}"
+                )
+                return model
+        except Exception as e:
+            # Log at debug level to aid diagnosis without polluting normal output
+            logger.debug(
+                f"Model resolution via phase_config failed, using original model '{model}': {e}"
+            )
+            # Fallback to returning the original model string
+            return model
 
     def _format_issues(self, issues: list[dict[str, Any]]) -> str:
         """Format issues for the prompt."""
@@ -198,7 +230,7 @@ class BatchValidator:
             }
 
             settings_file = self.project_dir / ".batch_validator_settings.json"
-            with open(settings_file, "w") as f:
+            with open(settings_file, "w", encoding="utf-8") as f:
                 json.dump(settings, f)
 
             try:

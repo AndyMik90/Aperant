@@ -300,12 +300,30 @@ export function SecuritySettings({
     // Ollama (Local) - uses OllamaModelSelector component
     if (embeddingProvider === 'ollama') {
       return (
-        <div className="space-y-3">
-          <Label className="text-sm font-medium text-foreground">Select Embedding Model</Label>
-          <OllamaModelSelector
-            selectedModel={envConfig.graphitiProviderConfig?.ollamaEmbeddingModel || ''}
-            onModelSelect={handleOllamaModelSelect}
-          />
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Base URL</Label>
+            <Input
+              placeholder="http://localhost:11434"
+              value={envConfig.graphitiProviderConfig?.ollamaBaseUrl || 'http://localhost:11434'}
+              onChange={(e) => updateEnvConfig({
+                graphitiProviderConfig: {
+                  ...envConfig.graphitiProviderConfig,
+                  embeddingProvider: 'ollama',
+                  ollamaBaseUrl: e.target.value,
+                }
+              })}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-sm font-medium text-foreground">Select Embedding Model</Label>
+            <OllamaModelSelector
+              selectedModel={envConfig.graphitiProviderConfig?.ollamaEmbeddingModel || ''}
+              baseUrl={envConfig.graphitiProviderConfig?.ollamaBaseUrl}
+              onModelSelect={handleOllamaModelSelect}
+            />
+          </div>
         </div>
       );
     }

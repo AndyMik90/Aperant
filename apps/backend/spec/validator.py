@@ -14,7 +14,7 @@ def create_minimal_research(spec_dir: Path, reason: str = "No research needed") 
     """Create minimal research.json file."""
     research_file = spec_dir / "research.json"
 
-    with open(research_file, "w") as f:
+    with open(research_file, "w", encoding="utf-8") as f:
         json.dump(
             {
                 "integrations_researched": [],
@@ -35,7 +35,7 @@ def create_minimal_critique(
     """Create minimal critique_report.json file."""
     critique_file = spec_dir / "critique_report.json"
 
-    with open(critique_file, "w") as f:
+    with open(critique_file, "w", encoding="utf-8") as f:
         json.dump(
             {
                 "issues_found": [],
@@ -54,7 +54,7 @@ def create_empty_hints(spec_dir: Path, enabled: bool, reason: str) -> Path:
     """Create empty graph_hints.json file."""
     hints_file = spec_dir / "graph_hints.json"
 
-    with open(hints_file, "w") as f:
+    with open(hints_file, "w", encoding="utf-8") as f:
         json.dump(
             {
                 "enabled": enabled,

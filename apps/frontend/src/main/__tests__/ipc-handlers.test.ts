@@ -80,6 +80,18 @@ vi.mock("electron-log/main.js", () => ({
   },
 }));
 
+// Mock cli-tool-manager to avoid blocking tool detection on Windows
+vi.mock("../cli-tool-manager", () => ({
+  getToolInfo: vi.fn(() => ({ found: false, path: null, source: "mock" })),
+  getToolPath: vi.fn((tool: string) => tool),
+  deriveGitBashPath: vi.fn(() => null),
+  clearCache: vi.fn(),
+  clearToolCache: vi.fn(),
+  configureTools: vi.fn(),
+  preWarmToolCache: vi.fn(() => Promise.resolve()),
+  getToolPathAsync: vi.fn((tool: string) => Promise.resolve(tool)),
+}));
+
 // Mock modules before importing
 vi.mock("electron", () => {
   const mockIpcMain = new (class extends EventEmitter {
@@ -141,8 +153,9 @@ function cleanupTestDirs(): void {
   }
 }
 
-// Increase timeout for all tests in this file due to dynamic imports and setup overhead
-describe("IPC Handlers", { timeout: 15000 }, () => {
+// Increase timeout for all tests in this file due to dynamic imports and setup overhead.
+// Windows requires longer timeout due to slower file system operations and module loading.
+describe("IPC Handlers", { timeout: 30000 }, () => {
   let ipcMain: EventEmitter & {
     handlers: Map<string, Function>;
     invokeHandler: (channel: string, event: unknown, ...args: unknown[]) => Promise<unknown>;
@@ -551,7 +564,7 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
 
       expect(result).toHaveProperty("success", true);
       const data = (result as { data: { theme: string } }).data;
-      expect(data).toHaveProperty("theme", "system");
+      expect(data).toHaveProperty("theme", "dark");
     });
   });
 
@@ -676,7 +689,8 @@ describe("IPC Handlers", { timeout: 15000 }, () => {
         "task:statusChange",
         "task-1",
         "human_review",
-        expect.any(String) // projectId for multi-project filtering
+        expect.any(String), // projectId for multi-project filtering
+        "errors"
       );
     });
   });

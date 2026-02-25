@@ -26,6 +26,8 @@ export interface ProjectSettings {
   mainBranch?: string;
   /** Include CLAUDE.md instructions in agent system prompt (default: true) */
   useClaudeMd?: boolean;
+  /** Maximum parallel tasks allowed (default: 3) */
+  maxParallelTasks?: number;
 }
 
 export interface NotificationSettings {
@@ -214,7 +216,7 @@ export interface GraphitiProviderConfig {
   // OpenRouter (multi-provider aggregator)
   openrouterApiKey?: string;
   openrouterBaseUrl?: string;  // Default: https://openrouter.ai/api/v1
-  openrouterLlmModel?: string;  // LLM model selection (e.g., 'anthropic/claude-3.5-sonnet')
+  openrouterLlmModel?: string;  // LLM model selection (e.g., 'anthropic/claude-sonnet-4')
   openrouterEmbeddingModel?: string;
 
   // Ollama Embeddings (local, no API key required)

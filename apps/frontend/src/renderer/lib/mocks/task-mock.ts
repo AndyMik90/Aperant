@@ -74,6 +74,20 @@ export const taskMock = {
 
   checkTaskRunning: async () => ({ success: true, data: false }),
 
+  resumePausedTask: async () => ({ success: true }),
+
+  // Worktree change detection
+  checkWorktreeChanges: async (_taskId: string) => ({
+    success: true as const,
+    data: { hasChanges: false }
+  }),
+
+  // Image operations
+  loadImageThumbnail: async (_projectPath: string, _specId: string, _imagePath: string) => ({
+    success: false,
+    error: 'Image loading not available in browser mode'
+  }),
+
   // Task logs operations
   getTaskLogs: async () => ({
     success: true,
@@ -91,5 +105,6 @@ export const taskMock = {
   onTaskStatusChange: () => () => {},
   onTaskExecutionProgress: () => () => {},
   onTaskLogsChanged: () => () => {},
-  onTaskLogsStream: () => () => {}
+  onTaskLogsStream: () => () => {},
+  onMergeProgress: () => () => {}
 };

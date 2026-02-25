@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 try:
+    from ...phase_config import get_model_betas, resolve_model_id
     from ..context_gatherer import PRContext
     from ..models import (
         AICommentTriage,
@@ -33,6 +34,7 @@ except (ImportError, ValueError, SystemError):
         ReviewPass,
         StructuralIssue,
     )
+    from phase_config import get_model_betas, resolve_model_id
     from services.io_utils import safe_print
     from services.prompt_manager import PromptManager
     from services.response_parsers import ResponseParser
@@ -137,18 +139,9 @@ class PRReviewEngine:
             files_list.append(f"- ... and {len(context.changed_files) - 20} more files")
         files_str = "\n".join(files_list)
 
-        # NEW: Format related files (imports, tests, etc.)
+        # Removed: Related files section
+        # LLM agents now discover relevant files themselves via Read, Grep, Glob tools
         related_files_str = ""
-        if context.related_files:
-            related_files_list = [f"- `{f}`" for f in context.related_files[:10]]
-            if len(context.related_files) > 10:
-                related_files_list.append(
-                    f"- ... and {len(context.related_files) - 10} more"
-                )
-            related_files_str = f"""
-### Related Files (imports, tests, configs)
-{chr(10).join(related_files_list)}
-"""
 
         # NEW: Format commits for context
         commits_str = ""
@@ -228,11 +221,17 @@ class PRReviewEngine:
             else self.project_dir
         )
 
+        # Resolve model shorthand (e.g., "sonnet") to full model ID for API compatibility
+        model_shorthand = self.config.model or "sonnet"
+        model = resolve_model_id(model_shorthand)
+        betas = get_model_betas(model_shorthand)
         client = create_client(
             project_dir=project_root,
             spec_dir=self.github_dir,
-            model=self.config.model,
+            model=model,
             agent_type="pr_reviewer",  # Read-only - no bash, no edits
+            betas=betas,
+            fast_mode=self.config.fast_mode,
         )
 
         result_text = ""
@@ -491,11 +490,17 @@ class PRReviewEngine:
             else self.project_dir
         )
 
+        # Resolve model shorthand (e.g., "sonnet") to full model ID for API compatibility
+        model_shorthand = self.config.model or "sonnet"
+        model = resolve_model_id(model_shorthand)
+        betas = get_model_betas(model_shorthand)
         client = create_client(
             project_dir=project_root,
             spec_dir=self.github_dir,
-            model=self.config.model,
+            model=model,
             agent_type="pr_reviewer",  # Read-only - no bash, no edits
+            betas=betas,
+            fast_mode=self.config.fast_mode,
         )
 
         result_text = ""
@@ -549,11 +554,17 @@ class PRReviewEngine:
             else self.project_dir
         )
 
+        # Resolve model shorthand (e.g., "sonnet") to full model ID for API compatibility
+        model_shorthand = self.config.model or "sonnet"
+        model = resolve_model_id(model_shorthand)
+        betas = get_model_betas(model_shorthand)
         client = create_client(
             project_dir=project_root,
             spec_dir=self.github_dir,
-            model=self.config.model,
+            model=model,
             agent_type="pr_reviewer",  # Read-only - no bash, no edits
+            betas=betas,
+            fast_mode=self.config.fast_mode,
         )
 
         result_text = ""
@@ -580,18 +591,39 @@ class PRReviewEngine:
             "",
             f"Found {len(context.ai_bot_comments)} comments from AI code review tools:",
             "",
+            "**IMPORTANT: Check the timeline! AI comments were made at specific times.",
+            "If a later commit fixed the issue the AI flagged, use ADDRESSED (not FALSE_POSITIVE).**",
+            "",
         ]
 
         for i, comment in enumerate(context.ai_bot_comments, 1):
             lines.append(f"### Comment {i}: {comment.tool_name}")
             lines.append(f"- **Comment ID**: {comment.comment_id}")
             lines.append(f"- **Author**: {comment.author}")
+            lines.append(
+                f"- **Commented At**: {comment.created_at}"
+            )  # Include timestamp
             lines.append(f"- **File**: {comment.file or 'General'}")
             if comment.line:
                 lines.append(f"- **Line**: {comment.line}")
             lines.append("")
             lines.append("**Comment:**")
             lines.append(comment.body)
+            lines.append("")
+
+        # Add commit timeline for reference
+        if context.commits:
+            lines.append("## Commit Timeline (for reference)")
+            lines.append("")
+            lines.append(
+                "Use this to determine if issues were fixed AFTER AI comments:"
+            )
+            lines.append("")
+            for commit in context.commits:
+                sha = commit.get("oid", "")[:8]
+                message = commit.get("messageHeadline", "")
+                committed_at = commit.get("committedDate", "")
+                lines.append(f"- `{sha}` ({committed_at}): {message}")
             lines.append("")
 
         return "\n".join(lines)

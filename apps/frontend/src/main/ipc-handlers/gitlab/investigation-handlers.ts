@@ -8,8 +8,8 @@ import { IPC_CHANNELS } from '../../../shared/constants';
 import type { GitLabInvestigationStatus, GitLabInvestigationResult } from '../../../shared/types';
 import { projectStore } from '../../project-store';
 import { getGitLabConfig, gitlabFetch, encodeProjectPath } from './utils';
-import type { GitLabAPIIssue, GitLabAPINote } from './types';
-import { buildIssueContext, createSpecForIssue } from './spec-utils';
+import type { GitLabAPIIssue, GitLabAPINoteBasic } from './types';
+import { createSpecForIssue, fetchAllIssueNotes } from './spec-utils';
 import type { AgentManager } from '../../agent';
 
 // Debug logging helper
@@ -71,7 +71,7 @@ function sendError(
  * Register investigation handler
  */
 export function registerInvestigateIssue(
-  agentManager: AgentManager,
+  _agentManager: AgentManager,
   getMainWindow: () => BrowserWindow | null
 ): void {
   ipcMain.on(
@@ -109,56 +109,31 @@ export function registerInvestigateIssue(
           `/projects/${encodedProject}/issues/${issueIid}`
         ) as GitLabAPIIssue;
 
-        // Fetch notes if any selected
-        let selectedNotes: GitLabAPINote[] = [];
+        // Fetch notes if any selected (with pagination to get all notes)
+        let filteredNotes: GitLabAPINoteBasic[] = [];
         if (selectedNoteIds && selectedNoteIds.length > 0) {
-          const allNotes = await gitlabFetch(
-            config.token,
-            config.instanceUrl,
-            `/projects/${encodedProject}/issues/${issueIid}/notes`
-          ) as GitLabAPINote[];
-
-          selectedNotes = allNotes.filter(note => selectedNoteIds.includes(note.id));
+          // Fetch all notes using the paginated utility function
+          const allNotes = await fetchAllIssueNotes(config, encodedProject, issueIid);
+          // Filter notes based on selection
+          filteredNotes = allNotes.filter(note => selectedNoteIds.includes(note.id));
         }
 
-        // Phase 2: Analyzing
-        sendProgress(getMainWindow, project.id, {
-          phase: 'analyzing',
-          issueIid,
-          progress: 30,
-          message: 'Analyzing issue with AI...'
-        });
-
-        // Build context for investigation
-        let context = buildIssueContext(issue, config.project, config.instanceUrl);
-
-        if (selectedNotes.length > 0) {
-          context += '\n\n## Selected Comments\n';
-          for (const note of selectedNotes) {
-            context += `\n### Comment by ${note.author.username} (${new Date(note.created_at).toLocaleDateString()})\n`;
-            context += note.body + '\n';
-          }
-        }
-
-        // Use agent manager to investigate
-        // Note: This is a simplified version - full implementation would use Claude SDK
-        sendProgress(getMainWindow, project.id, {
-          phase: 'analyzing',
-          issueIid,
-          progress: 50,
-          message: 'AI analyzing the issue...'
-        });
-
-        // Phase 3: Creating task
+        // Phase 2: Creating task
         sendProgress(getMainWindow, project.id, {
           phase: 'creating_task',
           issueIid,
-          progress: 80,
-          message: 'Creating task from analysis...'
+          progress: 50,
+          message: 'Creating task from issue...'
         });
 
-        // Create spec for the issue
-        const task = await createSpecForIssue(project, issue, config, project.settings?.mainBranch);
+        // Create spec for the issue with notes
+        const task = await createSpecForIssue(
+          project,
+          issue,
+          config,
+          project.settings?.mainBranch,
+          filteredNotes
+        );
 
         if (!task) {
           sendError(getMainWindow, project.id, 'Failed to create task from issue');

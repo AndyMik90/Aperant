@@ -34,7 +34,7 @@ class LogStorage:
             try:
                 with open(self.log_file, encoding="utf-8") as f:
                     return json.load(f)
-            except (OSError, json.JSONDecodeError):
+            except (OSError, json.JSONDecodeError, UnicodeDecodeError):
                 pass
 
         return {
@@ -176,7 +176,7 @@ def load_task_logs(spec_dir: Path) -> dict | None:
     try:
         with open(log_file, encoding="utf-8") as f:
             return json.load(f)
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return None
 
 

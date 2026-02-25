@@ -482,36 +482,39 @@ describe('AgentEvents', () => {
       );
 
       expect(result.phase).toBe('analyzing');
-      expect(result.progress).toBe(20);
+      // Updated to match granular progress values: PROJECT ANALYSIS → 10%
+      expect(result.progress).toBe(10);
     });
 
     it('should detect discovering phase', () => {
       const result = agentEvents.parseRoadmapProgress(
         'PROJECT DISCOVERY in progress',
         'analyzing',
-        20
+        25
       );
 
       expect(result.phase).toBe('discovering');
-      expect(result.progress).toBe(40);
+      // Updated to match granular progress values: PROJECT DISCOVERY → 30%
+      expect(result.progress).toBe(30);
     });
 
     it('should detect generating phase', () => {
       const result = agentEvents.parseRoadmapProgress(
         'FEATURE GENERATION starting',
         'discovering',
-        40
+        50
       );
 
       expect(result.phase).toBe('generating');
-      expect(result.progress).toBe(70);
+      // Updated to match granular progress values: FEATURE GENERATION → 55%
+      expect(result.progress).toBe(55);
     });
 
     it('should detect complete phase', () => {
       const result = agentEvents.parseRoadmapProgress(
         'ROADMAP GENERATED successfully',
         'generating',
-        70
+        90
       );
 
       expect(result.phase).toBe('complete');

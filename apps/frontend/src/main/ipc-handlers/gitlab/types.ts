@@ -51,6 +51,13 @@ export interface GitLabAPINote {
   system: boolean;
 }
 
+// Basic note type with only fields needed by investigation handlers
+export interface GitLabAPINoteBasic {
+  id: number;
+  body: string;
+  author: { username: string };
+}
+
 export interface GitLabAPIMergeRequest {
   id: number;
   iid: number;

@@ -9,17 +9,16 @@ Contains:
 - Factory functions for creating test data
 """
 
+import os
 import subprocess
 import sys
-from datetime import datetime
 from pathlib import Path
-from typing import Callable
-from unittest.mock import MagicMock
+from typing import Callable, Generator
 
 import pytest
 
 # Add auto-claude directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 from merge import (
     SemanticAnalyzer,
@@ -164,35 +163,71 @@ class Greeter:
 # =============================================================================
 
 @pytest.fixture
-def temp_project(tmp_path: Path) -> Path:
-    """Create a temporary project directory with git repo."""
-    # Initialize git repo
-    subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
-    subprocess.run(
-        ["git", "config", "user.email", "test@example.com"],
-        cwd=tmp_path, capture_output=True
-    )
-    subprocess.run(
-        ["git", "config", "user.name", "Test User"],
-        cwd=tmp_path, capture_output=True
-    )
+def temp_project(tmp_path: Path) -> Generator[Path, None, None]:
+    """Create a temporary project directory with git repo.
 
-    # Create initial files
-    (tmp_path / "src").mkdir()
-    (tmp_path / "src" / "App.tsx").write_text(SAMPLE_REACT_COMPONENT)
-    (tmp_path / "src" / "utils.py").write_text(SAMPLE_PYTHON_MODULE)
+    IMPORTANT: This fixture properly isolates git operations by clearing
+    git environment variables that may be set by pre-commit hooks. Without
+    this isolation, git operations could affect the parent repository when
+    tests run inside a git worktree (e.g., during pre-commit validation).
+    """
+    # Save original environment values to restore later
+    orig_env = {}
 
-    # Initial commit
-    subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
-    subprocess.run(
-        ["git", "commit", "-m", "Initial commit"],
-        cwd=tmp_path, capture_output=True
-    )
+    # These git env vars may be set by pre-commit hooks and MUST be cleared
+    git_vars_to_clear = [
+        "GIT_DIR",
+        "GIT_WORK_TREE",
+        "GIT_INDEX_FILE",
+        "GIT_OBJECT_DIRECTORY",
+        "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    ]
 
-    # Ensure branch is named 'main' (some git configs default to 'master')
-    subprocess.run(["git", "branch", "-M", "main"], cwd=tmp_path, capture_output=True)
+    # Clear interfering git environment variables
+    for key in git_vars_to_clear:
+        orig_env[key] = os.environ.get(key)
+        if key in os.environ:
+            del os.environ[key]
 
-    return tmp_path
+    # Set GIT_CEILING_DIRECTORIES to prevent git from discovering parent .git
+    orig_env["GIT_CEILING_DIRECTORIES"] = os.environ.get("GIT_CEILING_DIRECTORIES")
+    os.environ["GIT_CEILING_DIRECTORIES"] = str(tmp_path.parent)
+
+    try:
+        # Initialize git repo
+        subprocess.run(["git", "init"], cwd=tmp_path, capture_output=True, check=True)
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.com"],
+            cwd=tmp_path, capture_output=True
+        )
+        subprocess.run(
+            ["git", "config", "user.name", "Test User"],
+            cwd=tmp_path, capture_output=True
+        )
+
+        # Create initial files
+        (tmp_path / "src").mkdir()
+        (tmp_path / "src" / "App.tsx").write_text(SAMPLE_REACT_COMPONENT)
+        (tmp_path / "src" / "utils.py").write_text(SAMPLE_PYTHON_MODULE)
+
+        # Initial commit
+        subprocess.run(["git", "add", "."], cwd=tmp_path, capture_output=True)
+        subprocess.run(
+            ["git", "commit", "-m", "Initial commit"],
+            cwd=tmp_path, capture_output=True
+        )
+
+        # Ensure branch is named 'main' (some git configs default to 'master')
+        subprocess.run(["git", "branch", "-M", "main"], cwd=tmp_path, capture_output=True)
+
+        yield tmp_path
+    finally:
+        # Restore original environment variables
+        for key, value in orig_env.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
 
 # =============================================================================

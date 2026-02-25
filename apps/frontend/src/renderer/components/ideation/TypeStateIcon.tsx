@@ -13,7 +13,6 @@ export function TypeStateIcon({ state }: TypeStateIconProps) {
       return <XCircle className="h-4 w-4 text-destructive" />;
     case 'generating':
       return <Loader2 className="h-4 w-4 text-primary animate-spin" />;
-    case 'pending':
     default:
       return <Circle className="h-4 w-4 text-muted-foreground" />;
   }

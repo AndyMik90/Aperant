@@ -15,13 +15,23 @@ import {
 import type { ImageAttachment } from '../../../shared/types';
 import {
   MAX_IMAGES_PER_TASK,
+  MAX_IMAGE_SIZE,
   ALLOWED_IMAGE_TYPES_DISPLAY
 } from '../../../shared/constants';
+
+/** Data structure for file reference drops from FileTreeItem */
+export interface FileReferenceData {
+  type: 'file-reference';
+  path: string;
+  name: string;
+  isDirectory: boolean;
+}
 
 /** Error messages that can be customized/translated by callers */
 interface ImageUploadErrorMessages {
   maxImagesReached?: string;
   invalidImageType?: string;
+  imageTooLarge?: string;
   processPasteFailed?: string;
   processDropFailed?: string;
 }
@@ -37,6 +47,8 @@ interface UseImageUploadOptions {
   onError?: (error: string | null) => void;
   /** Custom error messages for i18n support */
   errorMessages?: ImageUploadErrorMessages;
+  /** Callback when a file reference is dropped (from FileTreeItem drag) */
+  onFileReferenceDrop?: (reference: string, data: FileReferenceData) => void;
 }
 
 interface UseImageUploadReturn {
@@ -64,6 +76,7 @@ interface UseImageUploadReturn {
 const DEFAULT_ERROR_MESSAGES: Required<ImageUploadErrorMessages> = {
   maxImagesReached: `Maximum of ${MAX_IMAGES_PER_TASK} images allowed`,
   invalidImageType: `Invalid image type. Allowed: ${ALLOWED_IMAGE_TYPES_DISPLAY}`,
+  imageTooLarge: `Image exceeds maximum size of ${Math.round(MAX_IMAGE_SIZE / 1024 / 1024)}MB`,
   processPasteFailed: 'Failed to process pasted image',
   processDropFailed: 'Failed to process dropped image'
 };
@@ -73,7 +86,8 @@ export function useImageUpload({
   onImagesChange,
   disabled = false,
   onError,
-  errorMessages = {}
+  errorMessages = {},
+  onFileReferenceDrop
 }: UseImageUploadOptions): UseImageUploadReturn {
   const [isDragOver, setIsDragOver] = useState(false);
   const [pasteSuccess, setPasteSuccess] = useState(false);
@@ -134,6 +148,12 @@ export function useImageUpload({
         // Validate image type
         if (!isValidImageMimeType(file.type)) {
           onError?.(errors.invalidImageType);
+          continue;
+        }
+
+        // Validate file size
+        if (file.size > MAX_IMAGE_SIZE) {
+          onError?.(errors.imageTooLarge);
           continue;
         }
 
@@ -229,15 +249,71 @@ export function useImageUpload({
   }, []);
 
   /**
-   * Handle drop on textarea for image files
-   * Note: Only prevents default if image files are detected, allowing file reference
-   * drops (which use text/plain) to work via browser's default behavior
+   * Parse file reference data from drag event dataTransfer
+   * Returns the parsed data if valid, null otherwise
+   */
+  const parseFileReferenceData = useCallback((dataTransfer: DataTransfer): FileReferenceData | null => {
+    // Check for application/json data (set by FileTreeItem)
+    const jsonData = dataTransfer.getData('application/json');
+    if (!jsonData) return null;
+
+    try {
+      const data = JSON.parse(jsonData) as Record<string, unknown>;
+      // Validate required fields - path and name must be non-empty strings
+      // isDirectory is optional and defaults to false if missing or not a boolean
+      // This aligns with parseFileReferenceDrop in shell-escape.ts
+      if (
+        data.type === 'file-reference' &&
+        typeof data.path === 'string' &&
+        data.path.length > 0 &&
+        typeof data.name === 'string' &&
+        data.name.length > 0
+      ) {
+        return {
+          type: 'file-reference',
+          path: data.path,
+          name: data.name,
+          isDirectory: typeof data.isDirectory === 'boolean' ? data.isDirectory : false
+        };
+      }
+    } catch {
+      // Invalid JSON, not a file reference
+    }
+    return null;
+  }, []);
+
+  /**
+   * Handle drop on textarea for image files and file references
+   * File references from FileTreeItem (drag from file tree) are detected and handled
+   * via the onFileReferenceDrop callback. Image files are processed as attachments.
    */
   const handleDrop = useCallback(
     async (e: DragEvent<HTMLTextAreaElement>) => {
+      // Check disabled state first, before any state changes or preventDefault calls
+      // This ensures drops are properly rejected when the component is disabled
+      if (disabled) {
+        setIsDragOver(false);
+        return;
+      }
+
       setIsDragOver(false);
 
-      if (disabled) return;
+      // First, check for file reference drops from FileTreeItem
+      // These have 'application/json' with type: 'file-reference' and 'text/plain' with @filename
+      const fileRefData = parseFileReferenceData(e.dataTransfer);
+      if (fileRefData) {
+        e.preventDefault();
+        e.stopPropagation();
+
+        // Get the @filename reference text
+        const reference = e.dataTransfer.getData('text/plain') || `@${fileRefData.name}`;
+
+        // Call the callback if provided
+        if (onFileReferenceDrop) {
+          onFileReferenceDrop(reference, fileRefData);
+        }
+        return;
+      }
 
       const files = e.dataTransfer?.files;
 
@@ -253,7 +329,7 @@ export function useImageUpload({
       }
 
       // Only prevent default if we have image files to process
-      // This allows file reference drops (@mention text) to work via default behavior
+      // This allows other drops to work via default behavior
       if (imageFiles.length === 0) return;
 
       e.preventDefault();
@@ -261,7 +337,7 @@ export function useImageUpload({
 
       await processImageItems(imageFiles, { isFromPaste: false });
     },
-    [disabled, processImageItems]
+    [disabled, processImageItems, parseFileReferenceData, onFileReferenceDrop]
   );
 
   /**

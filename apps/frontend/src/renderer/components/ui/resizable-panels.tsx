@@ -38,7 +38,7 @@ export function ResizablePanels({
         const stored = localStorage.getItem(storageKey);
         if (stored) {
           const parsed = parseFloat(stored);
-          if (!isNaN(parsed) && parsed >= minLeftWidth && parsed <= maxLeftWidth) {
+          if (!Number.isNaN(parsed) && parsed >= minLeftWidth && parsed <= maxLeftWidth) {
             return parsed;
           }
         }

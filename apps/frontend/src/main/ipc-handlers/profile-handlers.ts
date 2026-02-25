@@ -16,7 +16,6 @@ import type { IPCResult } from '../../shared/types';
 import type { APIProfile, ProfileFormData, ProfilesFile, TestConnectionResult, DiscoverModelsResult } from '@shared/types/profile';
 import {
   loadProfilesFile,
-  saveProfilesFile,
   validateFilePermissions,
   getProfilesFilePath,
   atomicModifyProfiles,

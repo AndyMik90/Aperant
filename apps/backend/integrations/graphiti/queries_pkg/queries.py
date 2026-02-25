@@ -8,6 +8,8 @@ import json
 import logging
 from datetime import datetime, timezone
 
+from core.sentry import capture_exception
+
 from .schema import (
     EPISODE_TYPE_CODEBASE_DISCOVERY,
     EPISODE_TYPE_GOTCHA,
@@ -82,6 +84,13 @@ class GraphitiQueries:
 
         except Exception as e:
             logger.warning(f"Failed to save session insights: {e}")
+            capture_exception(
+                e,
+                operation="add_session_insight",
+                group_id=self.group_id,
+                spec_id=self.spec_context_id,
+                session_number=session_num,
+            )
             return False
 
     async def add_codebase_discoveries(
@@ -124,6 +133,13 @@ class GraphitiQueries:
 
         except Exception as e:
             logger.warning(f"Failed to save codebase discoveries: {e}")
+            capture_exception(
+                e,
+                operation="add_codebase_discoveries",
+                group_id=self.group_id,
+                spec_id=self.spec_context_id,
+                discovery_count=len(discoveries),
+            )
             return False
 
     async def add_pattern(self, pattern: str) -> bool:
@@ -160,6 +176,13 @@ class GraphitiQueries:
 
         except Exception as e:
             logger.warning(f"Failed to save pattern: {e}")
+            capture_exception(
+                e,
+                operation="add_pattern",
+                group_id=self.group_id,
+                spec_id=self.spec_context_id,
+                content_summary=pattern[:100] if pattern else "",
+            )
             return False
 
     async def add_gotcha(self, gotcha: str) -> bool:
@@ -196,6 +219,13 @@ class GraphitiQueries:
 
         except Exception as e:
             logger.warning(f"Failed to save gotcha: {e}")
+            capture_exception(
+                e,
+                operation="add_gotcha",
+                group_id=self.group_id,
+                spec_id=self.spec_context_id,
+                content_summary=gotcha[:100] if gotcha else "",
+            )
             return False
 
     async def add_task_outcome(
@@ -245,6 +275,15 @@ class GraphitiQueries:
 
         except Exception as e:
             logger.warning(f"Failed to save task outcome: {e}")
+            capture_exception(
+                e,
+                operation="add_task_outcome",
+                group_id=self.group_id,
+                spec_id=self.spec_context_id,
+                task_id=task_id,
+                success=success,
+                content_summary=outcome[:100] if outcome else "",
+            )
             return False
 
     async def add_structured_insights(self, insights: dict) -> bool:
@@ -459,4 +498,26 @@ class GraphitiQueries:
 
         except Exception as e:
             logger.warning(f"Failed to save structured insights: {e}")
+            # Build content summary of insight types
+            insight_types = []
+            if insights.get("file_insights"):
+                insight_types.append(f"files:{len(insights['file_insights'])}")
+            if insights.get("patterns_discovered"):
+                insight_types.append(f"patterns:{len(insights['patterns_discovered'])}")
+            if insights.get("gotchas_discovered"):
+                insight_types.append(f"gotchas:{len(insights['gotchas_discovered'])}")
+            if insights.get("approach_outcome"):
+                insight_types.append("outcome:1")
+            if insights.get("recommendations"):
+                insight_types.append(
+                    f"recommendations:{len(insights['recommendations'])}"
+                )
+
+            capture_exception(
+                e,
+                operation="add_structured_insights",
+                group_id=self.group_id,
+                spec_id=self.spec_context_id,
+                content_summary=", ".join(insight_types) if insight_types else "empty",
+            )
             return False

@@ -13,6 +13,9 @@ pytest-mock>=3.0.0
 # For testing async code
 anyio>=4.0.0
 
+# For testing validation models (required by backend code)
+pydantic>=2.0.0
+
 # Code coverage
 coverage>=7.0.0
 

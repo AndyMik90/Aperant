@@ -9,6 +9,7 @@ import type { Project, TaskMetadata } from '../../../shared/types';
 import { withSpecNumberLock } from '../../utils/spec-number-lock';
 import { debugLog } from './utils/logger';
 import { labelMatchesWholeWord } from '../shared/label-utils';
+import { sanitizeText, sanitizeStringArray, sanitizeUrl } from '../shared/sanitize';
 
 export interface SpecCreationData {
   specId: string;
@@ -107,11 +108,17 @@ export async function createSpecForIssue(
     mkdirSync(specsDir, { recursive: true });
   }
 
+  // Sanitize network-sourced data before writing to disk
+  const safeTitle = sanitizeText(issueTitle, 500);
+  const safeDescription = sanitizeText(taskDescription, 50000, true);
+  const safeGithubUrl = sanitizeUrl(githubUrl);
+  const safeLabels = sanitizeStringArray(labels, 50, 200);
+
   // Use coordinated spec numbering with lock to prevent collisions
   return await withSpecNumberLock(project.path, async (lock) => {
     // Get next spec number from global scan (main + all worktrees)
     const specNumber = lock.getNextSpecNumber(project.autoBuildPath);
-    const slugifiedTitle = slugifyTitle(issueTitle);
+    const slugifiedTitle = slugifyTitle(safeTitle);
     const specId = `${String(specNumber).padStart(3, '0')}-${slugifiedTitle}`;
 
     // Create spec directory (inside lock to ensure atomicity)
@@ -123,50 +130,56 @@ export async function createSpecForIssue(
 
     // implementation_plan.json
     const implementationPlan = {
-      feature: issueTitle,
-      description: taskDescription,
+      feature: safeTitle,
+      description: safeDescription,
       created_at: now,
       updated_at: now,
       status: 'pending',
       phases: []
     };
+    // lgtm[js/http-to-file-access] - specDir is controlled, slugifiedTitle sanitizes input
     writeFileSync(
       path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN),
-      JSON.stringify(implementationPlan, null, 2)
+      JSON.stringify(implementationPlan, null, 2),
+      'utf-8'
     );
 
     // requirements.json
     const requirements = {
-      task_description: taskDescription,
+      task_description: safeDescription,
       workflow_type: 'feature'
     };
+    // lgtm[js/http-to-file-access] - specDir is controlled, slugifiedTitle sanitizes input
     writeFileSync(
       path.join(specDir, AUTO_BUILD_PATHS.REQUIREMENTS),
-      JSON.stringify(requirements, null, 2)
+      JSON.stringify(requirements, null, 2),
+      'utf-8'
     );
 
     // Determine category from GitHub issue labels
-    const category = determineCategoryFromLabels(labels);
+    const category = determineCategoryFromLabels(safeLabels);
 
     // task_metadata.json
     const metadata: TaskMetadata = {
       sourceType: 'github',
       githubIssueNumber: issueNumber,
-      githubUrl,
+      githubUrl: safeGithubUrl,
       category,
       // Store baseBranch for worktree creation and QA comparison
       // This comes from project.settings.mainBranch or task-level override
       ...(baseBranch && { baseBranch })
     };
+    // lgtm[js/http-to-file-access] - specDir is controlled, slugifiedTitle sanitizes input
     writeFileSync(
       path.join(specDir, 'task_metadata.json'),
-      JSON.stringify(metadata, null, 2)
+      JSON.stringify(metadata, null, 2),
+      'utf-8'
     );
 
     return {
       specId,
       specDir,
-      taskDescription,
+      taskDescription: safeDescription,
       metadata
     };
   });
@@ -228,7 +241,7 @@ export function updateImplementationPlanStatus(specDir: string, status: string):
     const plan = JSON.parse(content);
     plan.status = status;
     plan.updated_at = new Date().toISOString();
-    writeFileSync(planPath, JSON.stringify(plan, null, 2));
+    writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
   } catch (error) {
     // File doesn't exist or couldn't be read - this is expected for new specs
     // Log legitimate errors (malformed JSON, disk write failures, permission errors)

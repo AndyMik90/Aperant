@@ -16,11 +16,11 @@ import path from 'path';
 import fs from 'fs';
 import { randomUUID } from 'crypto';
 import { IPC_CHANNELS, MODEL_ID_MAP, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING } from '../../../shared/constants';
+import type { AuthFailureInfo } from '../../../shared/types/terminal';
 import { getGitLabConfig, gitlabFetch, encodeProjectPath } from './utils';
 import { readSettingsFile } from '../../settings-utils';
 import type { Project, AppSettings } from '../../../shared/types';
 import type {
-  MRReviewFinding,
   MRReviewResult,
   MRReviewProgress,
   NewCommitsCheck,
@@ -236,6 +236,10 @@ async function runMRReview(
     },
     onStdout: (line) => debugLog('STDOUT:', line),
     onStderr: (line) => debugLog('STDERR:', line),
+    onAuthFailure: (authFailureInfo: AuthFailureInfo) => {
+      debugLog('Auth failure detected in MR review', authFailureInfo);
+      mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+    },
     onComplete: () => {
       const reviewResult = getReviewResult(project, mrIid);
       if (!reviewResult) {
@@ -845,6 +849,10 @@ export function registerMRReviewHandlers(
             },
             onStdout: (line) => debugLog('STDOUT:', line),
             onStderr: (line) => debugLog('STDERR:', line),
+            onAuthFailure: (authFailureInfo: AuthFailureInfo) => {
+              debugLog('Auth failure detected in follow-up MR review', authFailureInfo);
+              mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+            },
             onComplete: () => {
               const reviewResult = getReviewResult(project, mrIid);
               if (!reviewResult) {

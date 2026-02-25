@@ -198,7 +198,7 @@ class RoadmapOrchestrator:
         if not roadmap_file.exists():
             return
 
-        with open(roadmap_file) as f:
+        with open(roadmap_file, encoding="utf-8") as f:
             roadmap = json.load(f)
 
         features = roadmap.get("features", [])

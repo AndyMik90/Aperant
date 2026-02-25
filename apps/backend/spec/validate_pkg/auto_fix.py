@@ -6,9 +6,96 @@ Automated fixes for common implementation plan issues.
 """
 
 import json
+import logging
+import re
 from pathlib import Path
 
+from core.file_utils import write_json_atomic
 from core.plan_normalization import normalize_subtask_aliases
+
+
+def _repair_json_syntax(content: str) -> str | None:
+    """
+    Attempt to repair common JSON syntax errors.
+
+    Args:
+        content: Raw JSON string that failed to parse
+
+    Returns:
+        Repaired JSON string if successful, None if repair failed
+    """
+    if not content or not content.strip():
+        return None
+
+    # Defensive limit on input size to prevent processing extremely large malformed files.
+    # Implementation plans are typically <100KB; 1MB provides ample headroom.
+    max_content_size = 1024 * 1024  # 1 MB
+    if len(content) > max_content_size:
+        logging.warning(
+            f"JSON repair skipped: content size {len(content)} exceeds limit {max_content_size}"
+        )
+        return None
+
+    repaired = content
+
+    # Remove trailing commas before closing brackets/braces
+    # Match: comma followed by optional whitespace and closing bracket/brace
+    repaired = re.sub(r",(\s*[}\]])", r"\1", repaired)
+
+    # Strip string contents before counting brackets to avoid counting
+    # brackets inside JSON string values (e.g., {"desc": "array[0]"})
+    stripped = re.sub(r'"(?:[^"\\]|\\.)*"', '""', repaired)
+
+    # Handle truncated JSON by attempting to close open brackets/braces
+    # Use stack-based approach to track bracket order for correct closing
+    bracket_stack: list[str] = []
+    for char in stripped:
+        if char == "{":
+            bracket_stack.append("{")
+        elif char == "[":
+            bracket_stack.append("[")
+        elif char == "}":
+            if bracket_stack and bracket_stack[-1] == "{":
+                bracket_stack.pop()
+        elif char == "]":
+            if bracket_stack and bracket_stack[-1] == "[":
+                bracket_stack.pop()
+
+    if bracket_stack:
+        # Try to find a reasonable truncation point and close
+        # First, strip any incomplete key-value pair at the end
+        # Pattern: trailing incomplete string or number after last complete element
+        repaired = re.sub(r',\s*"(?:[^"\\]|\\.)*$', "", repaired)  # Incomplete key
+        repaired = re.sub(r",\s*$", "", repaired)  # Trailing comma
+        repaired = re.sub(
+            r':\s*"(?:[^"\\]|\\.)*$', ': ""', repaired
+        )  # Incomplete string value
+        repaired = re.sub(r":\s*[0-9.]+$", ": 0", repaired)  # Incomplete number
+
+        # Close remaining open brackets in reverse order (stack-based)
+        repaired = repaired.rstrip()
+        for bracket in reversed(bracket_stack):
+            if bracket == "{":
+                repaired += "}"
+            elif bracket == "[":
+                repaired += "]"
+
+    # Fix unquoted string values (common LLM error)
+    # Match: quoted key followed by colon and unquoted word
+    # Require a quoted key to avoid matching inside string values
+    # (e.g., {"description": "status: pending review"} should not be modified)
+    repaired = re.sub(
+        r'("[^"]+"\s*):\s*(pending|in_progress|completed|failed|done|backlog)\s*([,}\]])',
+        r'\1: "\2"\3',
+        repaired,
+    )
+
+    # Try to parse the repaired JSON
+    try:
+        json.loads(repaired)
+        return repaired
+    except json.JSONDecodeError:
+        return None
 
 
 def _normalize_status(value: object) -> str:
@@ -35,6 +122,9 @@ def _normalize_status(value: object) -> str:
 def auto_fix_plan(spec_dir: Path) -> bool:
     """Attempt to auto-fix common implementation_plan.json issues.
 
+    This function handles both structural issues (missing fields, wrong types)
+    and syntax issues (trailing commas, truncated JSON).
+
     Args:
         spec_dir: Path to the spec directory
 
@@ -46,10 +136,29 @@ def auto_fix_plan(spec_dir: Path) -> bool:
     if not plan_file.exists():
         return False
 
+    plan = None
+    json_repaired = False
+
     try:
         with open(plan_file, encoding="utf-8") as f:
-            plan = json.load(f)
-    except (OSError, json.JSONDecodeError):
+            content = f.read()
+        plan = json.loads(content)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        # Attempt JSON syntax repair
+        try:
+            with open(plan_file, encoding="utf-8") as f:
+                content = f.read()
+            repaired = _repair_json_syntax(content)
+            if repaired:
+                plan = json.loads(repaired)
+                json_repaired = True
+                logging.info(f"JSON syntax repaired: {plan_file}")
+        except Exception as e:
+            logging.warning(f"JSON repair attempt failed for {plan_file}: {e}")
+    except OSError:
+        return False
+
+    if plan is None:
         return False
 
     fixed = False
@@ -169,12 +278,13 @@ def auto_fix_plan(spec_dir: Path) -> bool:
                     subtask["status"] = normalized_status
                     fixed = True
 
-    if fixed:
+    if fixed or json_repaired:
         try:
-            with open(plan_file, "w", encoding="utf-8") as f:
-                json.dump(plan, f, indent=2, ensure_ascii=False)
+            # Use atomic write to prevent file corruption if interrupted
+            write_json_atomic(plan_file, plan, indent=2, ensure_ascii=False)
         except OSError:
             return False
-        print(f"Auto-fixed: {plan_file}")
+        if fixed:
+            logging.info(f"Auto-fixed: {plan_file}")
 
-    return fixed
+    return fixed or json_repaired

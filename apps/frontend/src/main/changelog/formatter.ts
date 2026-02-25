@@ -196,7 +196,9 @@ ${taskSummaries}
 
 ${request.customInstructions ? `Note: ${request.customInstructions}` : ''}
 
-CRITICAL: Output ONLY the raw changelog content. Do NOT include ANY introductory text, analysis, or explanation. Start directly with the changelog heading (## or #). No "Here's the changelog" or similar phrases.`;
+CRITICAL: Output ONLY the raw changelog content. Do NOT include ANY introductory text, analysis, or explanation. Start directly with the changelog heading (## or #). No "Here's the changelog" or similar phrases.
+
+DO NOT ask questions or request clarifications. Work with the information provided and make reasonable assumptions if needed. Generate the changelog immediately based on the completed tasks listed above.`;
 }
 
 /**
@@ -313,11 +315,16 @@ ${commitLines}
 
 ${request.customInstructions ? `Note: ${request.customInstructions}` : ''}
 
-CRITICAL: Output ONLY the raw changelog content. Do NOT include ANY introductory text, analysis, or explanation. Start directly with the changelog heading (## or #). No "Here's the changelog" or similar phrases. Intelligently group and summarize related commits - don't just list each commit individually. Only include sections that have actual changes.`;
+CRITICAL: Output ONLY the raw changelog content. Do NOT include ANY introductory text, analysis, or explanation. Start directly with the changelog heading (## or #). No "Here's the changelog" or similar phrases. Intelligently group and summarize related commits - don't just list each commit individually. Only include sections that have actual changes.
+
+DO NOT ask questions or request clarifications. Work with the information provided and make reasonable assumptions if needed. Generate the changelog immediately based on the git commits listed above.`;
 }
 
 /**
  * Create Python script for Claude generation
+ *
+ * On Windows, .cmd/.bat files require shell=True in subprocess.run() because
+ * they are batch scripts that need cmd.exe to execute, not direct executables.
  */
 export function createGenerationScript(prompt: string, claudePath: string): string {
   // Convert prompt to base64 to avoid any string escaping issues in Python
@@ -325,6 +332,10 @@ export function createGenerationScript(prompt: string, claudePath: string): stri
 
   // Escape the claude path for Python string
   const escapedClaudePath = claudePath.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+
+  // Detect if this is a Windows batch file (.cmd or .bat)
+  // These require shell=True in subprocess.run() because they need cmd.exe to execute
+  const isCmdFile = /\.(cmd|bat)$/i.test(claudePath);
 
   return `
 import subprocess
@@ -337,12 +348,14 @@ try:
 
     # Use Claude Code CLI to generate
     # stdin=DEVNULL prevents hanging when claude checks for interactive input
+    # shell=${isCmdFile ? 'True' : 'False'} - Windows .cmd files require shell execution
     result = subprocess.run(
         ['${escapedClaudePath}', '-p', prompt, '--output-format', 'text', '--model', 'haiku'],
         capture_output=True,
         text=True,
         stdin=subprocess.DEVNULL,
-        timeout=300
+        timeout=300,
+        shell=${isCmdFile ? 'True' : 'False'}
     )
 
     if result.returncode == 0:

@@ -43,7 +43,7 @@ class ContextValidator:
             return ValidationResult(False, "context", errors, warnings, fixes)
 
         try:
-            with open(context_file) as f:
+            with open(context_file, encoding="utf-8") as f:
                 context = json.load(f)
         except json.JSONDecodeError as e:
             errors.append(f"context.json is invalid JSON: {e}")

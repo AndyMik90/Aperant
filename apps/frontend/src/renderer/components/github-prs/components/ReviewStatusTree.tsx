@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle, Circle, CircleDot, Play, RefreshCw } from 'lucide-react';
+import { AlertCircle, CheckCircle, Circle, CircleDot, Play, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../ui/button';
 import { cn } from '../../../lib/utils';
@@ -21,10 +21,12 @@ export type ReviewStatus =
 export interface ReviewStatusTreeProps {
   status: ReviewStatus;
   isReviewing: boolean;
+  isExternalReview?: boolean;
   startedAt: string | null;
   reviewResult: PRReviewResult | null;
   previousReviewResult: PRReviewResult | null;
   postedCount: number;
+  reviewError?: string | null;
   onRunReview: () => void;
   onRunFollowupReview: () => void;
   onCancelReview: () => void;
@@ -39,10 +41,12 @@ export interface ReviewStatusTreeProps {
 export function ReviewStatusTree({
   status,
   isReviewing,
+  isExternalReview = false,
   startedAt,
   reviewResult,
   previousReviewResult,
   postedCount,
+  reviewError,
   onRunReview,
   onRunFollowupReview,
   onCancelReview,
@@ -55,8 +59,26 @@ export function ReviewStatusTree({
   // Determine if this is a follow-up review in progress (for edge case handling)
   const isFollowupInProgress = isReviewing && (previousReviewResult !== null || reviewResult?.isFollowupReview);
 
-  // If not reviewed, show simple status
+  // If not reviewed, show simple status (with error if present)
   if (status === 'not_reviewed' && !isReviewing) {
+    if (reviewError) {
+      return (
+        <div className="flex flex-wrap items-center justify-between gap-y-3 p-4 border rounded-lg bg-card shadow-sm border-destructive/30">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-destructive" />
+            <div className="min-w-0">
+              <span className="font-medium text-destructive truncate block">{t('prReview.reviewFailed')}</span>
+              <span className="text-xs text-muted-foreground truncate block mt-0.5">{reviewError}</span>
+            </div>
+          </div>
+          <Button onClick={onRunReview} size="sm" variant="outline" className="gap-2 shrink-0 ml-auto sm:ml-0">
+            <RefreshCw className="h-3.5 w-3.5" />
+            {t('prReview.retryReview')}
+          </Button>
+        </div>
+      );
+    }
+
     return (
       <div className="flex flex-wrap items-center justify-between gap-y-3 p-4 border rounded-lg bg-card shadow-sm">
         <div className="flex items-center gap-3 min-w-0">
@@ -137,7 +159,9 @@ export function ReviewStatusTree({
     if (isReviewing) {
       steps.push({
         id: 'analysis',
-        label: t('prReview.analysisInProgress'),
+        label: isExternalReview
+          ? t('prReview.reviewStartedExternally')
+          : t('prReview.analysisInProgress'),
         status: 'current',
         date: null
       });
@@ -178,25 +202,56 @@ export function ReviewStatusTree({
       });
     }
 
-    // Step 4: Follow-up (only show when not currently reviewing AND commits happened after posting)
-    // This prevents showing follow-up prompts for commits that were made during/before the review
-    if (!isReviewing && newCommitsCheck?.hasNewCommits && newCommitsCheck?.hasCommitsAfterPosting) {
-      steps.push({
-        id: 'new_commits',
-        label: t('prReview.newCommits', { count: newCommitsCheck.newCommitCount }),
-        status: 'alert',
-        date: null
-      });
-      steps.push({
-        id: 'followup',
-        label: t('prReview.readyForFollowup'),
-        status: 'pending',
-        action: (
-          <Button size="sm" variant="outline" onClick={onRunFollowupReview} className="ml-2 h-6 text-xs px-2">
-            {t('prReview.runFollowup')}
-          </Button>
-        )
-      });
+    // Step 4: Follow-up (only show when findings were POSTED and new commits happened after posting)
+    // This prevents showing follow-up prompts when initial review was never posted to GitHub
+    const hasPostedFindings = postedCount > 0 || reviewResult?.hasPostedFindings;
+    if (!isReviewing && hasPostedFindings && newCommitsCheck?.hasNewCommits && newCommitsCheck?.hasCommitsAfterPosting) {
+      // Check if new commits overlap with files that had findings
+      const hasOverlap = newCommitsCheck.hasOverlapWithFindings ?? true; // Default to true for safety
+
+      if (hasOverlap) {
+        // Files with findings were modified - need verification
+        steps.push({
+          id: 'new_commits',
+          label: t('prReview.newCommitsOverlap', {
+            count: newCommitsCheck.newCommitCount,
+            files: newCommitsCheck.overlappingFiles?.length ?? 0
+          }),
+          status: 'alert',
+          date: null
+        });
+        steps.push({
+          id: 'followup',
+          label: t('prReview.verifyChanges'),
+          status: 'pending',
+          action: (
+            <Button size="sm" variant="outline" onClick={onRunFollowupReview} className="ml-2 h-6 text-xs px-2">
+              {t('prReview.runFollowup')}
+            </Button>
+          )
+        });
+      } else {
+        // No overlap - branch synced, previous review still valid
+        steps.push({
+          id: 'branch_synced',
+          label: newCommitsCheck.isMergeFromBase
+            ? t('prReview.branchSynced', { count: newCommitsCheck.newCommitCount })
+            : t('prReview.newCommitsNoOverlap', { count: newCommitsCheck.newCommitCount }),
+          status: 'completed',
+          date: null,
+          action: (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onRunFollowupReview}
+              className="ml-2 h-6 text-xs px-2 text-muted-foreground hover:text-foreground"
+              title={t('prReview.runFollowupAnyway')}
+            >
+              {t('prReview.verifyAnyway')}
+            </Button>
+          )
+        });
+      }
     }
   }
 
@@ -224,7 +279,7 @@ export function ReviewStatusTree({
 
   // Status label - explicitly handle all statuses
   const getStatusLabel = (): string => {
-    if (isReviewing) return t('prReview.aiReviewInProgress');
+    if (isReviewing) return isExternalReview ? t('prReview.externalReviewDetected') : t('prReview.aiReviewInProgress');
     switch (status) {
       case 'ready_to_merge':
         return t('prReview.readyToMerge');
@@ -248,7 +303,7 @@ export function ReviewStatusTree({
     <CollapsibleCard
       title={statusLabel}
       icon={<div className={statusDotColor} />}
-      headerAction={isReviewing ? (
+      headerAction={isReviewing && !isExternalReview ? (
         <Button
           variant="ghost"
           size="sm"

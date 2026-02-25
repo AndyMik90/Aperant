@@ -9,6 +9,7 @@ import { EventEmitter } from 'events';
 const mockSpawn = vi.fn();
 const mockExecSync = vi.fn();
 const mockExecFileSync = vi.fn();
+const mockExecFile = vi.fn();
 
 vi.mock('child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('child_process')>();
@@ -16,7 +17,8 @@ vi.mock('child_process', async (importOriginal) => {
     ...actual,
     spawn: (...args: unknown[]) => mockSpawn(...args),
     execSync: (...args: unknown[]) => mockExecSync(...args),
-    execFileSync: (...args: unknown[]) => mockExecFileSync(...args)
+    execFileSync: (...args: unknown[]) => mockExecFileSync(...args),
+    execFile: (...args: unknown[]) => mockExecFile(...args)
   };
 });
 
@@ -110,6 +112,10 @@ function createMockProcess(): EventEmitter & {
   return proc;
 }
 
+// Helper to wait for async setup (getCurrentGitHubUsername) to complete
+// This is needed because the handler now awaits async operations before spawning
+const waitForAsyncSetup = () => new Promise(resolve => setTimeout(resolve, 20));
+
 describe('GitHub OAuth Handlers', () => {
   let ipcMain: EventEmitter & {
     handlers: Map<string, Function>;
@@ -124,6 +130,24 @@ describe('GitHub OAuth Handlers', () => {
     // Set up default env-utils mocks
     mockGetAugmentedEnv.mockReturnValue(process.env as Record<string, string>);
     mockFindExecutable.mockReturnValue(null); // Default: executable not found
+
+    // Set up default execFile mock for getCurrentGitHubUsername (async)
+    // This returns null by default (not authenticated)
+    mockExecFile.mockImplementation(
+      (
+        _cmd: string,
+        _args: string[],
+        _options: unknown,
+        callback?: (error: Error | null, stdout: string, stderr: string) => void
+      ) => {
+        // If callback provided, call it with error to simulate not authenticated
+        if (callback) {
+          callback(new Error('not authenticated'), '', '');
+        }
+        // Return a mock ChildProcess-like object
+        return { on: vi.fn(), stdout: null, stderr: null };
+      }
+    );
 
     // Get mocked ipcMain
     const electron = await import('electron');
@@ -145,6 +169,9 @@ describe('GitHub OAuth Handlers', () => {
 
       // Start the handler
       const resultPromise = ipcMain.invokeHandler('github:startAuth', {});
+
+      // Wait for async setup (getCurrentGitHubUsername) to complete
+      await waitForAsyncSetup();
 
       // Simulate gh CLI output with device code
       mockProcess.stderr?.emit('data', '! First copy your one-time code: ABCD-1234\n');
@@ -171,6 +198,9 @@ describe('GitHub OAuth Handlers', () => {
 
       const resultPromise = ipcMain.invokeHandler('github:startAuth', {});
 
+      // Wait for async setup
+      await waitForAsyncSetup();
+
       // Alternate format: "code: XXXX-XXXX" without "one-time"
       mockProcess.stderr?.emit('data', 'Enter the code: EFGH-5678\n');
       mockProcess.emit('close', 0);
@@ -192,6 +222,9 @@ describe('GitHub OAuth Handlers', () => {
 
       const resultPromise = ipcMain.invokeHandler('github:startAuth', {});
 
+      // Wait for async setup
+      await waitForAsyncSetup();
+
       // Device code in stdout instead of stderr
       mockProcess.stdout?.emit('data', '! First copy your one-time code: IJKL-9012\n');
       mockProcess.emit('close', 0);
@@ -211,6 +244,9 @@ describe('GitHub OAuth Handlers', () => {
       registerStartGhAuth();
 
       const resultPromise = ipcMain.invokeHandler('github:startAuth', {});
+
+      // Wait for async setup
+      await waitForAsyncSetup();
 
       // Output without device code
       mockProcess.stderr?.emit('data', 'Some other message\n');
@@ -232,6 +268,9 @@ describe('GitHub OAuth Handlers', () => {
       registerStartGhAuth();
 
       const resultPromise = ipcMain.invokeHandler('github:startAuth', {});
+
+      // Wait for async setup
+      await waitForAsyncSetup();
 
       mockProcess.stderr?.emit('data', '! First copy your one-time code: MNOP-3456\n');
       mockProcess.stderr?.emit('data', 'Then visit https://github.com/login/device to authenticate\n');
@@ -256,9 +295,12 @@ describe('GitHub OAuth Handlers', () => {
 
       const resultPromise = ipcMain.invokeHandler('github:startAuth', {});
 
+      // Wait for async setup
+      await waitForAsyncSetup();
+
       mockProcess.stderr?.emit('data', '! First copy your one-time code: QRST-7890\n');
 
-      // Wait for next tick to allow async browser opening
+      // Wait for async browser opening
       await new Promise(resolve => setTimeout(resolve, 10));
 
       mockProcess.emit('close', 0);
@@ -276,6 +318,9 @@ describe('GitHub OAuth Handlers', () => {
       registerStartGhAuth();
 
       const resultPromise = ipcMain.invokeHandler('github:startAuth', {});
+
+      // Wait for async setup
+      await waitForAsyncSetup();
 
       mockProcess.stderr?.emit('data', '! First copy your one-time code: UVWX-1234\n');
 
@@ -300,6 +345,9 @@ describe('GitHub OAuth Handlers', () => {
 
       const resultPromise = ipcMain.invokeHandler('github:startAuth', {});
 
+      // Wait for async setup
+      await waitForAsyncSetup();
+
       mockProcess.stderr?.emit('data', '! First copy your one-time code: YZAB-5678\n');
 
       // Wait for async browser opening to fail
@@ -323,6 +371,9 @@ describe('GitHub OAuth Handlers', () => {
 
       const resultPromise = ipcMain.invokeHandler('github:startAuth', {});
 
+      // Wait for async setup
+      await waitForAsyncSetup();
+
       mockProcess.stderr?.emit('data', '! First copy your one-time code: CDEF-9012\n');
 
       // Wait for async browser opening to fail
@@ -345,6 +396,9 @@ describe('GitHub OAuth Handlers', () => {
       registerStartGhAuth();
 
       const resultPromise = ipcMain.invokeHandler('github:startAuth', {});
+
+      // Wait for async setup
+      await waitForAsyncSetup();
 
       mockProcess.stderr?.emit('data', '! First copy your one-time code: GHIJ-3456\n');
 
@@ -370,6 +424,9 @@ describe('GitHub OAuth Handlers', () => {
 
       const resultPromise = ipcMain.invokeHandler('github:startAuth', {});
 
+      // Wait for async setup
+      await waitForAsyncSetup();
+
       // Emit error event
       mockProcess.emit('error', new Error('spawn gh ENOENT'));
 
@@ -390,6 +447,9 @@ describe('GitHub OAuth Handlers', () => {
 
       const resultPromise = ipcMain.invokeHandler('github:startAuth', {});
 
+      // Wait for async setup
+      await waitForAsyncSetup();
+
       mockProcess.stderr?.emit('data', 'error: some authentication error\n');
       mockProcess.emit('close', 1);
 
@@ -409,6 +469,9 @@ describe('GitHub OAuth Handlers', () => {
       registerStartGhAuth();
 
       const resultPromise = ipcMain.invokeHandler('github:startAuth', {});
+
+      // Wait for async setup
+      await waitForAsyncSetup();
 
       // Device code output followed by failure
       mockProcess.stderr?.emit('data', '! First copy your one-time code: KLMN-7890\n');
@@ -436,6 +499,9 @@ describe('GitHub OAuth Handlers', () => {
 
       const resultPromise = ipcMain.invokeHandler('github:startAuth', {});
 
+      // Wait for async setup
+      await waitForAsyncSetup();
+
       mockProcess.emit('error', new Error('spawn gh ENOENT'));
 
       const result = await resultPromise;
@@ -452,7 +518,7 @@ describe('GitHub OAuth Handlers', () => {
       mockFindExecutable.mockReturnValue('/usr/local/bin/gh');
 
       // Mock execFileSync for version check
-      mockExecFileSync.mockImplementation((cmd: string, args?: string[]) => {
+      mockExecFileSync.mockImplementation((_cmd: string, args?: string[]) => {
         if (args && args[0] === '--version') {
           return 'gh version 2.65.0 (2024-01-15)\n';
         }
@@ -487,7 +553,7 @@ describe('GitHub OAuth Handlers', () => {
 
   describe('gh Auth Check Handler', () => {
     it('should return authenticated: true with username when logged in', async () => {
-      mockExecFileSync.mockImplementation((cmd: string, args?: string[]) => {
+      mockExecFileSync.mockImplementation((_cmd: string, args?: string[]) => {
         if (args && args[0] === 'auth' && args[1] === 'status') {
           return 'Logged in to github.com as testuser\n';
         }
@@ -532,7 +598,11 @@ describe('GitHub OAuth Handlers', () => {
       const { registerStartGhAuth } = await import('../oauth-handlers');
       registerStartGhAuth();
 
-      ipcMain.invokeHandler('github:startAuth', {});
+      // Start the handler (this is async due to getCurrentGitHubUsername)
+      const resultPromise = ipcMain.invokeHandler('github:startAuth', {});
+
+      // Wait for the async getCurrentGitHubUsername to complete and spawn to be called
+      await new Promise(resolve => setTimeout(resolve, 10));
 
       expect(mockSpawn).toHaveBeenCalledWith(
         'gh',
@@ -541,6 +611,10 @@ describe('GitHub OAuth Handlers', () => {
           stdio: ['pipe', 'pipe', 'pipe']
         })
       );
+
+      // Complete the process to avoid hanging promise
+      mockProcess.emit('close', 0);
+      await resultPromise;
     });
   });
 

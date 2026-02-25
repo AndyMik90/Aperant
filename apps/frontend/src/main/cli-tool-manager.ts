@@ -20,22 +20,23 @@
  * - Graceful fallbacks when tools not found
  */
 
-import { execFileSync, execFile } from 'child_process';
+import { execFileSync, execFile, type ExecFileOptionsWithStringEncoding, type ExecFileSyncOptions } from 'child_process';
 import { existsSync, readdirSync, promises as fsPromises } from 'fs';
 import path from 'path';
 import os from 'os';
 import { promisify } from 'util';
 import { app } from 'electron';
 import { findExecutable, findExecutableAsync, getAugmentedEnv, getAugmentedEnvAsync, shouldUseShell, existsAsync } from './env-utils';
+import { isWindows, isMacOS, isUnix, joinPaths, getExecutableExtension } from './platform';
 import type { ToolDetectionResult } from '../shared/types';
 import { findHomebrewPython as findHomebrewPythonUtil } from './utils/homebrew-python';
 
 const execFileAsync = promisify(execFile);
 
-type ExecFileSyncOptionsWithVerbatim = import('child_process').ExecFileSyncOptions & {
+export type ExecFileSyncOptionsWithVerbatim = ExecFileSyncOptions & {
   windowsVerbatimArguments?: boolean;
 };
-type ExecFileAsyncOptionsWithVerbatim = import('child_process').ExecFileOptionsWithStringEncoding & {
+export type ExecFileAsyncOptionsWithVerbatim = ExecFileOptionsWithStringEncoding & {
   windowsVerbatimArguments?: boolean;
 };
 
@@ -45,6 +46,7 @@ import {
   getWindowsExecutablePaths,
   getWindowsExecutablePathsAsync,
   WINDOWS_GIT_PATHS,
+  WINDOWS_GLAB_PATHS,
   findWindowsExecutableViaWhere,
   findWindowsExecutableViaWhereAsync,
   isSecurePath,
@@ -53,7 +55,7 @@ import {
 /**
  * Supported CLI tools managed by this system
  */
-export type CLITool = 'python' | 'git' | 'gh' | 'claude';
+export type CLITool = 'python' | 'git' | 'gh' | 'glab' | 'claude';
 
 /**
  * User configuration for CLI tool paths
@@ -63,6 +65,7 @@ export interface ToolConfig {
   pythonPath?: string;
   gitPath?: string;
   githubCLIPath?: string;
+  gitlabCLIPath?: string;
   claudePath?: string;
 }
 
@@ -95,9 +98,7 @@ interface CacheEntry {
 function isWrongPlatformPath(pathStr: string | undefined): boolean {
   if (!pathStr) return false;
 
-  const isWindows = process.platform === 'win32';
-
-  if (isWindows) {
+  if (isWindows()) {
     // On Windows, reject Unix-style absolute paths (starting with /)
     // but allow relative paths and Windows paths
     if (pathStr.startsWith('/') && !pathStr.startsWith('//')) {
@@ -147,15 +148,9 @@ interface ClaudeDetectionPaths {
  * This pure function consolidates path configuration used by both sync
  * and async detection methods.
  *
- * IMPORTANT: This function has a corresponding implementation in the Python backend:
- * apps/backend/core/client.py (_get_claude_detection_paths)
- *
- * Both implementations MUST be kept in sync to ensure consistent detection behavior
- * across the Electron frontend and Python backend.
- *
- * When adding new detection paths, update BOTH:
- * 1. This function (getClaudeDetectionPaths in cli-tool-manager.ts)
- * 2. _get_claude_detection_paths() in client.py
+ * Note: This is the single source of truth for CLI detection paths.
+ * The Python backend relies on the Claude Agent SDK's bundled CLI,
+ * so it no longer needs its own path detection logic.
  *
  * @param homeDir - User's home directory (from os.homedir())
  * @returns Object containing homebrew, platform, and NVM paths
@@ -170,20 +165,20 @@ export function getClaudeDetectionPaths(homeDir: string): ClaudeDetectionPaths {
     '/usr/local/bin/claude',    // Intel Mac
   ];
 
-  const platformPaths = process.platform === 'win32'
+  const platformPaths = isWindows()
     ? [
-        path.join(homeDir, 'AppData', 'Local', 'Programs', 'claude', 'claude.exe'),
-        path.join(homeDir, 'AppData', 'Roaming', 'npm', 'claude.cmd'),
-        path.join(homeDir, '.local', 'bin', 'claude.exe'),
+        joinPaths(homeDir, 'AppData', 'Local', 'Programs', 'claude', `claude${getExecutableExtension()}`),
+        joinPaths(homeDir, 'AppData', 'Roaming', 'npm', 'claude.cmd'),
+        joinPaths(homeDir, '.local', 'bin', `claude${getExecutableExtension()}`),
         'C:\\Program Files\\Claude\\claude.exe',
         'C:\\Program Files (x86)\\Claude\\claude.exe',
       ]
     : [
-        path.join(homeDir, '.local', 'bin', 'claude'),
-        path.join(homeDir, 'bin', 'claude'),
+        joinPaths(homeDir, '.local', 'bin', 'claude'),
+        joinPaths(homeDir, 'bin', 'claude'),
       ];
 
-  const nvmVersionsDir = path.join(homeDir, '.nvm', 'versions', 'node');
+  const nvmVersionsDir = joinPaths(homeDir, '.nvm', 'versions', 'node');
 
   return { homebrewPaths, platformPaths, nvmVersionsDir };
 }
@@ -314,7 +309,7 @@ class CLIToolManager {
     // Check cache first
     const cached = this.cache.get(tool);
     if (cached) {
-      console.warn(
+      console.debug(
         `[CLI Tools] Using cached ${tool}: ${cached.path} (${cached.source})`
       );
       return cached.path;
@@ -338,6 +333,30 @@ class CLIToolManager {
   }
 
   /**
+   * Get Claude CLI path for SDK usage
+   *
+   * Returns null when a .cmd file is detected on Windows, so the SDK
+   * can use its bundled claude.exe instead. The SDK's bundled CLI is
+   * a proper Windows executable that can be spawned by anyio.open_process().
+   *
+   * @returns Claude CLI path, or null if SDK should use bundled CLI
+   */
+  getClaudeCliPathForSdk(): string | null {
+    const claudePath = this.getToolPath('claude');
+
+    // On Windows, .cmd files cannot be executed by anyio.open_process() / asyncio.create_subprocess_exec().
+    // Return null so the Claude Agent SDK uses its bundled claude.exe instead.
+    if (isWindows() && claudePath.toLowerCase().endsWith('.cmd')) {
+      console.warn(
+        `[CLI Tools] Claude CLI is .cmd file, returning null so SDK uses bundled CLI: ${claudePath}`
+      );
+      return null;
+    }
+
+    return claudePath;
+  }
+
+  /**
    * Detect the path for a specific CLI tool
    *
    * Implements multi-level detection strategy based on tool type.
@@ -353,6 +372,8 @@ class CLIToolManager {
         return this.detectGit();
       case 'gh':
         return this.detectGitHubCLI();
+      case 'glab':
+        return this.detectGitLabCLI();
       case 'claude':
         return this.detectClaude();
       default:
@@ -422,7 +443,7 @@ class CLIToolManager {
     }
 
     // 3. Homebrew Python (macOS)
-    if (process.platform === 'darwin') {
+    if (isMacOS()) {
       const homebrewPath = this.findHomebrewPython();
       if (homebrewPath) {
         const validation = this.validatePython(homebrewPath);
@@ -440,7 +461,7 @@ class CLIToolManager {
 
     // 4. System PATH (augmented)
     const candidates =
-      process.platform === 'win32'
+      isWindows()
         ? ['py -3', 'python', 'python3', 'py']
         : ['python3', 'python'];
 
@@ -519,7 +540,7 @@ class CLIToolManager {
     }
 
     // 2. Homebrew (macOS)
-    if (process.platform === 'darwin') {
+    if (isMacOS()) {
       const homebrewPaths = [
         '/opt/homebrew/bin/git', // Apple Silicon
         '/usr/local/bin/git', // Intel Mac
@@ -557,7 +578,7 @@ class CLIToolManager {
     }
 
     // 4. Windows-specific detection using 'where' command (most reliable for custom installs)
-    if (process.platform === 'win32') {
+    if (isWindows()) {
       // First try 'where' command - finds git regardless of installation location
       const whereGitPath = findWindowsExecutableViaWhere('git', '[Git]');
       if (whereGitPath) {
@@ -634,7 +655,7 @@ class CLIToolManager {
     }
 
     // 2. Homebrew (macOS)
-    if (process.platform === 'darwin') {
+    if (isMacOS()) {
       const homebrewPaths = [
         '/opt/homebrew/bin/gh', // Apple Silicon
         '/usr/local/bin/gh', // Intel Mac
@@ -672,7 +693,7 @@ class CLIToolManager {
     }
 
     // 4. Windows Program Files
-    if (process.platform === 'win32') {
+    if (isWindows()) {
       const windowsPaths = [
         'C:\\Program Files\\GitHub CLI\\gh.exe',
         'C:\\Program Files (x86)\\GitHub CLI\\gh.exe',
@@ -703,6 +724,105 @@ class CLIToolManager {
   }
 
   /**
+   * Detect GitLab CLI with multi-level priority
+   *
+   * Priority order:
+   * 1. User configuration (if valid for current platform)
+   * 2. Homebrew glab (macOS)
+   * 3. System PATH
+   * 4. Windows Program Files
+   *
+   * @returns Detection result for GitLab CLI
+   */
+  private detectGitLabCLI(): ToolDetectionResult {
+    // 1. User configuration
+    if (this.userConfig.gitlabCLIPath) {
+      // Check if path is from wrong platform (e.g., Windows path on macOS)
+      if (isWrongPlatformPath(this.userConfig.gitlabCLIPath)) {
+        console.warn(
+          `[GitLab CLI] User-configured path is from different platform, ignoring: ${this.userConfig.gitlabCLIPath}`
+        );
+      } else {
+        const validation = this.validateGitLabCLI(this.userConfig.gitlabCLIPath);
+        if (validation.valid) {
+          return {
+            found: true,
+            path: this.userConfig.gitlabCLIPath,
+            version: validation.version,
+            source: 'user-config',
+            message: `Using user-configured GitLab CLI: ${this.userConfig.gitlabCLIPath}`,
+          };
+        }
+        console.warn(
+          `[GitLab CLI] User-configured path invalid: ${validation.message}`
+        );
+      }
+    }
+
+    // 2. Homebrew (macOS)
+    if (isMacOS()) {
+      const homebrewPaths = [
+        '/opt/homebrew/bin/glab', // Apple Silicon
+        '/usr/local/bin/glab', // Intel Mac
+      ];
+
+      for (const glabPath of homebrewPaths) {
+        if (existsSync(glabPath)) {
+          const validation = this.validateGitLabCLI(glabPath);
+          if (validation.valid) {
+            return {
+              found: true,
+              path: glabPath,
+              version: validation.version,
+              source: 'homebrew',
+              message: `Using Homebrew GitLab CLI: ${glabPath}`,
+            };
+          }
+        }
+      }
+    }
+
+    // 3. System PATH (augmented)
+    const glabPath = findExecutable('glab');
+    if (glabPath) {
+      const validation = this.validateGitLabCLI(glabPath);
+      if (validation.valid) {
+        return {
+          found: true,
+          path: glabPath,
+          version: validation.version,
+          source: 'system-path',
+          message: `Using system GitLab CLI: ${glabPath}`,
+        };
+      }
+    }
+
+    // 4. Windows Program Files
+    if (isWindows()) {
+      const windowsPaths = getWindowsExecutablePaths(WINDOWS_GLAB_PATHS, '[GitLab CLI]');
+      for (const glabPath of windowsPaths) {
+        const validation = this.validateGitLabCLI(glabPath);
+        if (validation.valid) {
+          return {
+            found: true,
+            path: glabPath,
+            version: validation.version,
+            source: 'system-path',
+            message: `Using Windows GitLab CLI: ${glabPath}`,
+          };
+        }
+      }
+    }
+
+    // 5. Not found
+    return {
+      found: false,
+      source: 'fallback',
+      message: 'GitLab CLI (glab) not found. Install from https://gitlab.com/gitlab-org/cli',
+    };
+  }
+
+  /**
    * Detect Claude CLI with multi-level priority
    *
    * Priority order:
@@ -725,7 +845,7 @@ class CLIToolManager {
         console.warn(
           `[Claude CLI] User-configured path is from different platform, ignoring: ${this.userConfig.claudePath}`
         );
-      } else if (process.platform === 'win32' && !isSecurePath(this.userConfig.claudePath)) {
+      } else if (isWindows() && !isSecurePath(this.userConfig.claudePath)) {
         console.warn(
           `[Claude CLI] User-configured path failed security validation, ignoring: ${this.userConfig.claudePath}`
         );
@@ -740,7 +860,7 @@ class CLIToolManager {
     }
 
     // 2. Homebrew (macOS)
-    if (process.platform === 'darwin') {
+    if (isMacOS()) {
       for (const claudePath of paths.homebrewPaths) {
         if (existsSync(claudePath)) {
           const validation = this.validateClaude(claudePath);
@@ -759,7 +879,7 @@ class CLIToolManager {
     }
 
     // 4. Windows where.exe detection (Windows only - most reliable for custom installs)
-    if (process.platform === 'win32') {
+    if (isWindows()) {
       const whereClaudePath = findWindowsExecutableViaWhere('claude', '[Claude CLI]');
       if (whereClaudePath) {
         const validation = this.validateClaude(whereClaudePath);
@@ -769,7 +889,7 @@ class CLIToolManager {
     }
 
     // 5. NVM paths (Unix only) - check before platform paths for better Node.js integration
-    if (process.platform !== 'win32') {
+    if (isUnix()) {
       try {
         if (existsSync(paths.nvmVersionsDir)) {
           const nodeVersions = readdirSync(paths.nvmVersionsDir, { withFileTypes: true });
@@ -829,6 +949,7 @@ class CLIToolManager {
         encoding: 'utf-8',
         timeout: 5000,
         windowsHide: true,
+        env: getAugmentedEnv(),
       }).trim();
 
       const match = version.match(/Python (\d+\.\d+\.\d+)/);
@@ -879,6 +1000,7 @@ class CLIToolManager {
         encoding: 'utf-8',
         timeout: 5000,
         windowsHide: true,
+        env: getAugmentedEnv(),
       }).trim();
 
       const match = version.match(/git version (\d+\.\d+\.\d+)/);
@@ -909,6 +1031,7 @@ class CLIToolManager {
         encoding: 'utf-8',
         timeout: 5000,
         windowsHide: true,
+        env: getAugmentedEnv(),
       }).trim();
 
       const match = version.match(/gh version (\d+\.\d+\.\d+)/);
@@ -923,6 +1046,38 @@ class CLIToolManager {
       return {
         valid: false,
         message: `Failed to validate GitHub CLI: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+
+  /**
+   * Validate GitLab CLI availability and version
+   *
+   * @param glabCmd - The GitLab CLI command to validate
+   * @returns Validation result with version information
+   */
+  private validateGitLabCLI(glabCmd: string): ToolValidation {
+    try {
+      const version = execFileSync(glabCmd, ['--version'], {
+        encoding: 'utf-8',
+        timeout: 5000,
+        windowsHide: true,
+        env: getAugmentedEnv(),
+      }).trim();
+
+      // glab version output format: "glab X.Y.Z (hash)" - note: no "version" word
+      const match = version.match(/glab\s+(\d+\.\d+\.\d+)/);
+      const versionStr = match ? match[1] : version.split('\n')[0];
+
+      return {
+        valid: true,
+        version: versionStr,
+        message: `GitLab CLI ${versionStr} is available`,
+      };
+    } catch (error) {
+      return {
+        valid: false,
+        message: `Failed to validate GitLab CLI: ${error instanceof Error ? error.message : String(error)}`,
       };
     }
   }
@@ -1016,7 +1171,7 @@ class CLIToolManager {
     // Check cache first (instant return if cached)
     const cached = this.cache.get(tool);
     if (cached) {
-      console.warn(
+      console.debug(
         `[CLI Tools] Using cached ${tool}: ${cached.path} (${cached.source})`
       );
       return cached.path;
@@ -1040,6 +1195,29 @@ class CLIToolManager {
   }
 
   /**
+   * Get Claude CLI path for SDK usage asynchronously (non-blocking)
+   *
+   * Returns null when a .cmd file is detected on Windows, so the SDK
+   * can use its bundled claude.exe instead.
+   *
+   * @returns Promise resolving to Claude CLI path, or null if SDK should use bundled CLI
+   */
+  async getClaudeCliPathForSdkAsync(): Promise<string | null> {
+    const claudePath = await this.getToolPathAsync('claude');
+
+    // On Windows, .cmd files cannot be executed by anyio.open_process() / asyncio.create_subprocess_exec().
+    // Return null so the Claude Agent SDK uses its bundled claude.exe instead.
+    if (isWindows() && claudePath.toLowerCase().endsWith('.cmd')) {
+      console.warn(
+        `[CLI Tools] Claude CLI is .cmd file, returning null so SDK uses bundled CLI: ${claudePath}`
+      );
+      return null;
+    }
+
+    return claudePath;
+  }
+
+  /**
    * Detect tool path asynchronously
    *
    * All tools now use async detection methods to prevent blocking the main process.
@@ -1057,6 +1235,8 @@ class CLIToolManager {
         return this.detectGitAsync();
       case 'gh':
         return this.detectGitHubCLIAsync();
+      case 'glab':
+        return this.detectGitLabCLIAsync();
       default:
         return {
           found: false,
@@ -1259,6 +1439,39 @@ class CLIToolManager {
   }
 
   /**
+   * Validate GitLab CLI availability and version asynchronously (non-blocking)
+   *
+   * @param glabCmd - The GitLab CLI command to validate
+   * @returns Promise resolving to validation result
+   */
+  private async validateGitLabCLIAsync(glabCmd: string): Promise<ToolValidation> {
+    try {
+      const { stdout } = await execFileAsync(glabCmd, ['--version'], {
+        encoding: 'utf-8',
+        timeout: 5000,
+        windowsHide: true,
+        env: await getAugmentedEnvAsync(),
+      });
+
+      const version = stdout.trim();
+      // glab version output format: "glab X.Y.Z (hash)" - note: no "version" word
+      const match = version.match(/glab\s+(\d+\.\d+\.\d+)/);
+      const versionStr = match ? match[1] : version.split('\n')[0];
+
+      return {
+        valid: true,
+        version: versionStr,
+        message: `GitLab CLI ${versionStr} is available`,
+      };
+    } catch (error) {
+      return {
+        valid: false,
+        message: `Failed to validate GitLab CLI: ${error instanceof Error ? error.message : String(error)}`,
+      };
+    }
+  }
+
+  /**
    * Detect Claude CLI asynchronously (non-blocking)
    *
    * Priority order:
@@ -1281,7 +1494,7 @@ class CLIToolManager {
         console.warn(
           `[Claude CLI] User-configured path is from different platform, ignoring: ${this.userConfig.claudePath}`
         );
-      } else if (process.platform === 'win32' && !isSecurePath(this.userConfig.claudePath)) {
+      } else if (isWindows() && !isSecurePath(this.userConfig.claudePath)) {
         console.warn(
           `[Claude CLI] User-configured path failed security validation, ignoring: ${this.userConfig.claudePath}`
         );
@@ -1296,7 +1509,7 @@ class CLIToolManager {
     }
 
     // 2. Homebrew (macOS)
-    if (process.platform === 'darwin') {
+    if (isMacOS()) {
       for (const claudePath of paths.homebrewPaths) {
         if (await existsAsync(claudePath)) {
           const validation = await this.validateClaudeAsync(claudePath);
@@ -1315,7 +1528,7 @@ class CLIToolManager {
     }
 
     // 4. Windows where.exe detection (async, non-blocking)
-    if (process.platform === 'win32') {
+    if (isWindows()) {
       const whereClaudePath = await findWindowsExecutableViaWhereAsync('claude', '[Claude CLI]');
       if (whereClaudePath) {
         const validation = await this.validateClaudeAsync(whereClaudePath);
@@ -1325,7 +1538,7 @@ class CLIToolManager {
     }
 
     // 5. NVM paths (Unix only) - check before platform paths for better Node.js integration
-    if (process.platform !== 'win32') {
+    if (isUnix()) {
       try {
         if (await existsAsync(paths.nvmVersionsDir)) {
           const nodeVersions = await fsPromises.readdir(paths.nvmVersionsDir, { withFileTypes: true });
@@ -1411,7 +1624,7 @@ class CLIToolManager {
     }
 
     // 3. Homebrew Python (macOS) - simplified async version
-    if (process.platform === 'darwin') {
+    if (isMacOS()) {
       const homebrewPaths = [
         '/opt/homebrew/bin/python3',
         '/opt/homebrew/bin/python3.12',
@@ -1437,7 +1650,7 @@ class CLIToolManager {
 
     // 4. System PATH (augmented)
     const candidates =
-      process.platform === 'win32'
+      isWindows()
         ? ['py -3', 'python', 'python3', 'py']
         : ['python3', 'python'];
 
@@ -1510,7 +1723,7 @@ class CLIToolManager {
     }
 
     // 2. Homebrew (macOS)
-    if (process.platform === 'darwin') {
+    if (isMacOS()) {
       const homebrewPaths = [
         '/opt/homebrew/bin/git',
         '/usr/local/bin/git',
@@ -1548,7 +1761,7 @@ class CLIToolManager {
     }
 
     // 4. Windows-specific detection (async to avoid blocking main process)
-    if (process.platform === 'win32') {
+    if (isWindows()) {
       const whereGitPath = await findWindowsExecutableViaWhereAsync('git', '[Git]');
       if (whereGitPath) {
         const validation = await this.validateGitAsync(whereGitPath);
@@ -1616,7 +1829,7 @@ class CLIToolManager {
     }
 
     // 2. Homebrew (macOS)
-    if (process.platform === 'darwin') {
+    if (isMacOS()) {
       const homebrewPaths = [
         '/opt/homebrew/bin/gh',
         '/usr/local/bin/gh',
@@ -1654,7 +1867,7 @@ class CLIToolManager {
     }
 
     // 4. Windows Program Files
-    if (process.platform === 'win32') {
+    if (isWindows()) {
       const windowsPaths = [
         'C:\\Program Files\\GitHub CLI\\gh.exe',
         'C:\\Program Files (x86)\\GitHub CLI\\gh.exe',
@@ -1685,6 +1898,98 @@ class CLIToolManager {
   }
 
   /**
+   * Detect GitLab CLI asynchronously (non-blocking)
+   *
+   * Same detection logic as detectGitLabCLI but uses async validation.
+   *
+   * @returns Promise resolving to detection result
+   */
+  private async detectGitLabCLIAsync(): Promise<ToolDetectionResult> {
+    // 1. User configuration
+    if (this.userConfig.gitlabCLIPath) {
+      if (isWrongPlatformPath(this.userConfig.gitlabCLIPath)) {
+        console.warn(
+          `[GitLab CLI] User-configured path is from different platform, ignoring: ${this.userConfig.gitlabCLIPath}`
+        );
+      } else {
+        const validation = await this.validateGitLabCLIAsync(this.userConfig.gitlabCLIPath);
+        if (validation.valid) {
+          return {
+            found: true,
+            path: this.userConfig.gitlabCLIPath,
+            version: validation.version,
+            source: 'user-config',
+            message: `Using user-configured GitLab CLI: ${this.userConfig.gitlabCLIPath}`,
+          };
+        }
+        console.warn(`[GitLab CLI] User-configured path invalid: ${validation.message}`);
+      }
+    }
+
+    // 2. Homebrew (macOS)
+    if (isMacOS()) {
+      const homebrewPaths = [
+        '/opt/homebrew/bin/glab',
+        '/usr/local/bin/glab',
+      ];
+
+      for (const glabPath of homebrewPaths) {
+        if (await existsAsync(glabPath)) {
+          const validation = await this.validateGitLabCLIAsync(glabPath);
+          if (validation.valid) {
+            return {
+              found: true,
+              path: glabPath,
+              version: validation.version,
+              source: 'homebrew',
+              message: `Using Homebrew GitLab CLI: ${glabPath}`,
+            };
+          }
+        }
+      }
+    }
+
+    // 3. System PATH (augmented)
+    const glabPath = await findExecutableAsync('glab');
+    if (glabPath) {
+      const validation = await this.validateGitLabCLIAsync(glabPath);
+      if (validation.valid) {
+        return {
+          found: true,
+          path: glabPath,
+          version: validation.version,
+          source: 'system-path',
+          message: `Using system GitLab CLI: ${glabPath}`,
+        };
+      }
+    }
+
+    // 4. Windows Program Files
+    if (isWindows()) {
+      const windowsPaths = await getWindowsExecutablePathsAsync(WINDOWS_GLAB_PATHS, '[GitLab CLI]');
+      for (const winGlabPath of windowsPaths) {
+        const validation = await this.validateGitLabCLIAsync(winGlabPath);
+        if (validation.valid) {
+          return {
+            found: true,
+            path: winGlabPath,
+            version: validation.version,
+            source: 'system-path',
+            message: `Using Windows GitLab CLI: ${winGlabPath}`,
+          };
+        }
+      }
+    }
+
+    // 5. Not found
+    return {
+      found: false,
+      source: 'fallback',
+      message: 'GitLab CLI (glab) not found. Install from https://gitlab.com/gitlab-org/cli',
+    };
+  }
+
+  /**
    * Get bundled Python path for packaged apps
    *
    * Only available in packaged Electron apps where Python is bundled
@@ -1698,9 +2003,7 @@ class CLIToolManager {
     }
 
     const resourcesPath = process.resourcesPath;
-    const isWindows = process.platform === 'win32';
-
-    const pythonPath = isWindows
+    const pythonPath = isWindows()
       ? path.join(resourcesPath, 'python', 'python.exe')
       : path.join(resourcesPath, 'python', 'bin', 'python3');
 
@@ -1770,6 +2073,31 @@ const cliToolManager = new CLIToolManager();
  */
 export function getToolPath(tool: CLITool): string {
   return cliToolManager.getToolPath(tool);
+}
+
+/**
+ * Get Claude CLI path for SDK usage
+ *
+ * Returns null when a .cmd file is detected on Windows, so the SDK
+ * can use its bundled claude.exe instead. The SDK's bundled CLI is
+ * a proper Windows executable that can be spawned by anyio.open_process().
+ *
+ * Use this function when passing a CLI path to the Claude Agent SDK.
+ * For other uses (like spawning claude directly), use getToolPath('claude').
+ *
+ * @returns Claude CLI path, or null if SDK should use bundled CLI
+ *
+ * @example
+ * ```typescript
+ * import { getClaudeCliPathForSdk } from './cli-tool-manager';
+ *
+ * const cliPath = getClaudeCliPathForSdk();
+ * // Pass to Python backend which uses Claude Agent SDK
+ * // If null, SDK will use its bundled claude.exe
+ * ```
+ */
+export function getClaudeCliPathForSdk(): string | null {
+  return cliToolManager.getClaudeCliPathForSdk();
 }
 
 /**
@@ -1880,6 +2208,26 @@ export function isPathFromWrongPlatform(pathStr: string | undefined): boolean {
  */
 export async function getToolPathAsync(tool: CLITool): Promise<string> {
   return cliToolManager.getToolPathAsync(tool);
+}
+
+/**
+ * Get Claude CLI path for SDK usage asynchronously (non-blocking)
+ *
+ * Returns null when a .cmd file is detected on Windows, so the SDK
+ * can use its bundled claude.exe instead.
+ *
+ * @returns Promise resolving to Claude CLI path, or null if SDK should use bundled CLI
+ *
+ * @example
+ * ```typescript
+ * import { getClaudeCliPathForSdkAsync } from './cli-tool-manager';
+ *
+ * const cliPath = await getClaudeCliPathForSdkAsync();
+ * // Pass to Python backend which uses Claude Agent SDK
+ * ```
+ */
+export async function getClaudeCliPathForSdkAsync(): Promise<string | null> {
+  return cliToolManager.getClaudeCliPathForSdkAsync();
 }
 
 /**

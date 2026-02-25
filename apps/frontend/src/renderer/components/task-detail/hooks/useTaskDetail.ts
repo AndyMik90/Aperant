@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useProjectStore } from '../../../stores/project-store';
-import { checkTaskRunning, isIncompleteHumanReview, getTaskProgress, useTaskStore, loadTasks } from '../../../stores/task-store';
+import { useSettingsStore } from '../../../stores/settings-store';
+import { checkTaskRunning, isIncompleteHumanReview, getTaskProgress, useTaskStore, loadTasks, hasRecentActivity } from '../../../stores/task-store';
 import type { Task, TaskLogs, TaskLogPhase, WorktreeStatus, WorktreeDiff, MergeConflict, MergeStats, GitConflictInfo, ImageAttachment } from '../../../../shared/types';
 
 /**
@@ -60,6 +61,8 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [worktreeChangesInfo, setWorktreeChangesInfo] = useState<{ hasChanges: boolean; worktreePath?: string; changedFileCount?: number } | null>(null);
+  const [isCheckingChanges, setIsCheckingChanges] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [worktreeStatus, setWorktreeStatus] = useState<WorktreeStatus | null>(null);
   const [worktreeDiff, setWorktreeDiff] = useState<WorktreeDiff | null>(null);
@@ -93,6 +96,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   const [isCreatingPR, setIsCreatingPR] = useState(false);
 
   const selectedProject = useProjectStore((state) => state.getSelectedProject());
+  const logOrder = useSettingsStore(s => s.settings.logOrder);
   const isRunning = task.status === 'in_progress';
   // isActiveTask includes ai_review for stuck detection (CHANGELOG documents this feature)
   const isActiveTask = task.status === 'in_progress' || task.status === 'ai_review';
@@ -102,58 +106,75 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   const isIncomplete = isIncompleteHumanReview(task);
   const taskProgress = getTaskProgress(task);
 
-  // Check if task is stuck (status says in_progress/ai_review but no actual process)
-  // Add a grace period to avoid false positives during process spawn
+  // Catastrophic stuck detection — last-resort safety net.
+  // XState handles all normal process-exit transitions via PROCESS_EXITED events.
+  // This only fires if XState somehow fails to transition after 60s with no activity.
   useEffect(() => {
-    let timeoutId: NodeJS.Timeout | undefined;
-
-    // IMPORTANT: If execution phase is 'complete' or 'failed', the task is NOT stuck.
-    // It means the process has finished and status update is pending.
-    // This prevents false-positive "stuck" indicators when the process exits normally.
-    const isPhaseTerminal = executionPhase === 'complete' || executionPhase === 'failed';
-    if (isPhaseTerminal) {
+    if (!isActiveTask) {
       setIsStuck(false);
-      setHasCheckedRunning(true);
+      setHasCheckedRunning(false);
       return;
     }
 
-    if (isActiveTask && !hasCheckedRunning) {
-      // Wait 2 seconds before checking - gives process time to spawn and register
-      timeoutId = setTimeout(() => {
-        checkTaskRunning(task.id).then((actuallyRunning) => {
-          // Double-check the phase in case it changed while waiting
-          const latestPhase = task.executionProgress?.phase;
-          if (latestPhase === 'complete' || latestPhase === 'failed') {
-            setIsStuck(false);
-          } else {
-            setIsStuck(!actuallyRunning);
-          }
-          setHasCheckedRunning(true);
-        });
-      }, 2000);
-    } else if (!isActiveTask) {
-      setIsStuck(false);
-      setHasCheckedRunning(false);
+    const intervalId = setInterval(() => {
+      if (hasRecentActivity(task.id)) {
+        setIsStuck(false);
+        return;
+      }
+
+      checkTaskRunning(task.id).then((actuallyRunning) => {
+        if (hasRecentActivity(task.id)) {
+          setIsStuck(false);
+        } else {
+          setIsStuck(!actuallyRunning);
+        }
+        setHasCheckedRunning(true);
+      });
+    }, 60_000);
+
+    return () => clearInterval(intervalId);
+  }, [task.id, isActiveTask]);
+
+  // Check for uncommitted worktree changes when delete dialog opens
+  useEffect(() => {
+    if (showDeleteDialog && task) {
+      setIsCheckingChanges(true);
+      window.electronAPI.checkWorktreeChanges(task.id).then((result) => {
+        if (result.success && result.data) {
+          setWorktreeChangesInfo(result.data);
+        }
+        setIsCheckingChanges(false);
+      }).catch(() => setIsCheckingChanges(false));
+    } else {
+      setWorktreeChangesInfo(null);
     }
+  }, [showDeleteDialog, task]);
 
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [task.id, isActiveTask, hasCheckedRunning, executionPhase, task.executionProgress?.phase]);
-
-  // Handle scroll events in logs to detect if user scrolled up
+  // Handle scroll events in logs to detect if user scrolled away from anchor
   const handleLogsScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const target = e.target as HTMLDivElement;
-    const isNearBottom = target.scrollHeight - target.scrollTop - target.clientHeight < 100;
-    setIsUserScrolledUp(!isNearBottom);
+    const isReverseOrder = logOrder === 'reverse-chronological';
+
+    // Check distance from top for reverse order, bottom for chronological
+    const isAtAnchor = isReverseOrder
+      ? target.scrollTop < 100
+      : target.scrollHeight - target.scrollTop - target.clientHeight < 100;
+
+    setIsUserScrolledUp(!isAtAnchor);
   };
 
-  // Auto-scroll logs to bottom only if user hasn't scrolled up
+  // Auto-scroll logs to anchor (top for reverse, bottom for chronological) only if user hasn't scrolled away
   useEffect(() => {
-    if (activeTab === 'logs' && logsEndRef.current && !isUserScrolledUp) {
-      logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    const isReverseOrder = logOrder === 'reverse-chronological';
+
+    if (activeTab === 'logs' && !isUserScrolledUp) {
+      if (isReverseOrder && logsContainerRef.current) {
+        logsContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+      } else if (!isReverseOrder && logsEndRef.current) {
+        logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
     }
-  }, [task.logs, activeTab, isUserScrolledUp]);
+  }, [activeTab, isUserScrolledUp, logOrder, phaseLogs]);
 
   // Reset scroll state when switching to logs tab
   useEffect(() => {
@@ -165,7 +186,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   // Reset feedback images when task changes to prevent image leakage between tasks
   useEffect(() => {
     setFeedbackImages([]);
-  }, [task.id]);
+  }, []);
 
   // Load worktree status when task is in human_review
   useEffect(() => {
@@ -292,16 +313,58 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     }
   }, [task.id]);
 
-  // Load merge preview (conflict detection)
+  // Load merge preview (conflict detection) and refresh worktree status
   const loadMergePreview = useCallback(async () => {
     setIsLoadingPreview(true);
+    // Clear any previous workspace error before loading
+    setWorkspaceError(null);
+
     try {
-      const result = await window.electronAPI.mergeWorktreePreview(task.id);
-      if (result.success && result.data?.preview) {
-        setMergePreview(result.data.preview);
+      // Fetch both merge preview and updated worktree status in parallel
+      // This ensures the branch information (currentProjectBranch) is refreshed
+      // when the user clicks the refresh button after switching branches locally
+      // Use Promise.allSettled to handle partial failures - if one API call fails,
+      // the other's result is still processed rather than being discarded
+      const [previewResult, statusResult] = await Promise.allSettled([
+        window.electronAPI.mergeWorktreePreview(task.id),
+        window.electronAPI.getWorktreeStatus(task.id)
+      ]);
+
+      const errors: string[] = [];
+
+      // Process merge preview result if fulfilled
+      if (previewResult.status === 'fulfilled') {
+        const result = previewResult.value;
+        if (result.success && result.data?.preview) {
+          setMergePreview(result.data.preview);
+        } else if (!result.success && result.error) {
+          errors.push(`Merge preview: ${result.error}`);
+        }
+      } else {
+        console.error('[useTaskDetail] Failed to load merge preview:', previewResult.reason);
+        errors.push('Failed to load merge preview');
+      }
+
+      // Update worktree status with fresh branch information if fulfilled
+      if (statusResult.status === 'fulfilled') {
+        const result = statusResult.value;
+        if (result.success && result.data) {
+          setWorktreeStatus(result.data);
+        } else if (!result.success && result.error) {
+          errors.push(`Worktree status: ${result.error}`);
+        }
+      } else {
+        console.error('[useTaskDetail] Failed to load worktree status:', statusResult.reason);
+        errors.push('Failed to load worktree status');
+      }
+
+      // Set workspace error if any API calls failed
+      if (errors.length > 0) {
+        setWorkspaceError(errors.join('; '));
       }
     } catch (err) {
-      console.error('[useTaskDetail] Failed to load merge preview:', err);
+      console.error('[useTaskDetail] Unexpected error in loadMergePreview:', err);
+      setWorkspaceError('An unexpected error occurred while loading workspace information');
     } finally {
       hasLoadedPreviewRef.current = task.id;
       setIsLoadingPreview(false);
@@ -440,6 +503,8 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     showDeleteDialog,
     isDeleting,
     deleteError,
+    worktreeChangesInfo,
+    isCheckingChanges,
     isEditDialogOpen,
     worktreeStatus,
     worktreeDiff,
@@ -484,6 +549,8 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     setShowDeleteDialog,
     setIsDeleting,
     setDeleteError,
+    setWorktreeChangesInfo,
+    setIsCheckingChanges,
     setIsEditDialogOpen,
     setWorktreeStatus,
     setWorktreeDiff,
