@@ -116,6 +116,24 @@ class ProjectAnalyzer:
                             "language"
                         ):  # Only include if we detected something
                             services[item.name] = service_info
+
+            # Also check the project root itself for dependencies.
+            # Monorepo roots often have their own package.json + node_modules
+            # (e.g., npm/pnpm workspaces) that need to be shared with worktrees.
+            already_covered = self.project_dir in {
+                Path(s.get("path", "")) for s in services.values()
+            }
+            if not already_covered:
+                dep_indicators = ("package.json", "requirements.txt", "pyproject.toml")
+                root_has_deps = any(
+                    (self.project_dir / f).exists() for f in dep_indicators
+                )
+                if root_has_deps:
+                    root_analyzer = ServiceAnalyzer(self.project_dir, "root")
+                    root_info = root_analyzer.analyze()
+                    root_deps = root_info.get("dependency_locations", [])
+                    if root_deps:
+                        services["root"] = root_info
         else:
             # Single project - analyze root
             analyzer = ServiceAnalyzer(self.project_dir, "main")
