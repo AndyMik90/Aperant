@@ -127,8 +127,8 @@
   }
 
   @keyframes subtask-dot-glow {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(var(--info), 0.4); }
-    50% { box-shadow: 0 0 0 4px rgba(var(--info), 0); }
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--info) 40%, transparent); }
+    50% { box-shadow: 0 0 0 4px transparent; }
   }
 }
 

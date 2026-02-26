@@ -30,7 +30,7 @@ export function TaskFileExplorerDrawer({ isOpen, onClose, projectPath }: TaskFil
       <div
         className={cn(
           'flex flex-col h-full w-72',
-          'transition-[transform,opacity] duration-250 delay-100 ease-[cubic-bezier(0.4,0,0.2,1)]',
+          'transition-[transform,opacity] duration-200 delay-100 ease-[cubic-bezier(0.4,0,0.2,1)]',
           isOpen ? 'translate-x-0 opacity-100' : 'translate-x-5 opacity-0'
         )}
       >

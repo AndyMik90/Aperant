@@ -1,14 +1,6 @@
 import { lazy, Suspense } from 'react';
 import type { Components } from 'react-markdown';
-
-function MarkdownFallback() {
-  return (
-    <div className="space-y-2 animate-pulse">
-      <div className="h-4 bg-muted rounded w-3/4" />
-      <div className="h-4 bg-muted rounded w-1/2" />
-    </div>
-  );
-}
+import { MarkdownFallback } from './markdown-fallback';
 
 interface LazyMarkdownHtmlProps {
   children: string;
@@ -43,7 +35,7 @@ const LazyMarkdownHtmlInner = lazy(() =>
 
 export function LazyMarkdownHtml({ children, components, className }: LazyMarkdownHtmlProps) {
   return (
-    <Suspense fallback={<MarkdownFallback />}>
+    <Suspense fallback={<MarkdownFallback lines={2} />}>
       <LazyMarkdownHtmlInner components={components} className={className}>
         {children}
       </LazyMarkdownHtmlInner>

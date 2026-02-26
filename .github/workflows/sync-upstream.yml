@@ -2,9 +2,9 @@ name: Sync Fork with Upstream
 
 on:
   schedule:
-    # Executa todos os dias às 06:00 UTC
+    # Runs daily at 06:00 UTC
     - cron: '0 6 * * *'
-  workflow_dispatch: # Permite executar manualmente pelo GitHub UI
+  workflow_dispatch: # Allows manual triggering from GitHub UI
 
 jobs:
   sync:
@@ -35,5 +35,9 @@ jobs:
           fi
 
           echo "Found $BEHIND new commits from upstream. Merging..."
-          git merge upstream/develop --no-edit
+          if ! git merge upstream/develop --no-edit; then
+            echo "::error::Merge conflict detected. Manual intervention required."
+            git merge --abort
+            exit 1
+          fi
           git push origin develop

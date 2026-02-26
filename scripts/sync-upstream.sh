@@ -5,48 +5,55 @@ UPSTREAM_REMOTE="upstream"
 UPSTREAM_BRANCH="develop"
 LOCAL_BRANCH="develop"
 
-echo "=== Sync Fork com Upstream ==="
+echo "=== Sync Fork with Upstream ==="
 
-# Verificar se upstream existe
+# Check if upstream remote exists
 if ! git remote | grep -q "^${UPSTREAM_REMOTE}$"; then
-    echo "Adicionando remote upstream..."
+    echo "Adding upstream remote..."
     git remote add "$UPSTREAM_REMOTE" https://github.com/AndyMik90/Auto-Claude.git
 fi
 
 # Fetch upstream
-echo "Buscando atualizacoes do upstream..."
+echo "Fetching updates from upstream..."
 git fetch "$UPSTREAM_REMOTE"
 
-# Verificar branch atual
+# Check current branch
 CURRENT_BRANCH=$(git branch --show-current)
 
-# Verificar se há commits novos
+# Check for new commits
 BEHIND=$(git rev-list --count "${LOCAL_BRANCH}..${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}")
 
 if [ "$BEHIND" -eq 0 ]; then
-    echo "Ja esta atualizado. Nada para sincronizar."
+    echo "Already up to date. Nothing to sync."
     exit 0
 fi
 
-echo "Encontrados $BEHIND commits novos no upstream."
+echo "Found $BEHIND new commits in upstream."
 
-# Se estiver na develop, fazer merge direto
+# If on develop, merge directly
 if [ "$CURRENT_BRANCH" = "$LOCAL_BRANCH" ]; then
-    echo "Fazendo merge do upstream/${UPSTREAM_BRANCH}..."
-    git merge "${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}" --no-edit
+    echo "Merging from upstream/${UPSTREAM_BRANCH}..."
+    if ! git merge "${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}" --no-edit; then
+        echo "Merge conflict detected. Resolve conflicts manually, then:"
+        echo "  git add ."
+        echo "  git commit"
+        echo "  git push origin $LOCAL_BRANCH"
+        exit 1
+    fi
     git push origin "$LOCAL_BRANCH"
-    echo "Branch develop atualizada com sucesso!"
+    echo "develop branch updated successfully!"
 else
-    # Se estiver em outra branch, atualizar develop sem sair da branch atual
-    echo "Voce esta na branch '$CURRENT_BRANCH'. Atualizando develop sem trocar de branch..."
-    git fetch origin "$LOCAL_BRANCH"
-    git push origin "${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}:refs/heads/${LOCAL_BRANCH}"
-    echo "Branch develop atualizada no origin!"
-
+    # If on another branch, guide user to switch instead of force-pushing
+    echo "You are on branch '$CURRENT_BRANCH'. Please switch to develop to safely merge:"
+    echo "  git checkout develop"
+    echo "  ./scripts/sync-upstream.sh"
     echo ""
-    echo "Para atualizar sua branch atual com as mudancas do develop:"
-    echo "  git rebase develop"
+    echo "Or merge manually:"
+    echo "  git fetch upstream"
+    echo "  git checkout develop"
+    echo "  git merge upstream/develop"
+    exit 1
 fi
 
 echo ""
-echo "=== Sync concluido ==="
+echo "=== Sync complete ==="

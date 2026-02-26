@@ -139,7 +139,7 @@ function HeartbeatIndicator({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <div className={cn('flex items-center gap-1.5 cursor-help', isActive && 'animate-heartbeat')}>
+        <div className={cn('flex items-center gap-1.5 cursor-help', 'animate-heartbeat')}>
           <div className={cn('h-2 w-2 rounded-full', color)} />
           <span className="text-xs text-muted-foreground">{processingLabel}</span>
         </div>
