@@ -136,51 +136,25 @@ function droppableColumnPropsAreEqual(
   prevProps: DroppableColumnProps,
   nextProps: DroppableColumnProps
 ): boolean {
-  // Quick checks first
+  // Only compare data props that affect visual output.
+  // Handler refs are skipped — they are derived from stable useCallbacks/useMemo
+  // and their identity doesn't change rendering output, only interaction behavior.
   if (prevProps.status !== nextProps.status) return false;
   if (prevProps.isOver !== nextProps.isOver) return false;
-  if (prevProps.onTaskClick !== nextProps.onTaskClick) return false;
-  if (prevProps.onStatusChange !== nextProps.onStatusChange) return false;
-  if (prevProps.onAddClick !== nextProps.onAddClick) return false;
-  if (prevProps.onArchiveAll !== nextProps.onArchiveAll) return false;
-  if (prevProps.onQueueSettings !== nextProps.onQueueSettings) return false;
-  if (prevProps.onQueueAll !== nextProps.onQueueAll) return false;
   if (prevProps.maxParallelTasks !== nextProps.maxParallelTasks) return false;
   if (prevProps.archivedCount !== nextProps.archivedCount) return false;
   if (prevProps.showArchived !== nextProps.showArchived) return false;
-  if (prevProps.onToggleArchived !== nextProps.onToggleArchived) return false;
-  if (prevProps.onSelectAll !== nextProps.onSelectAll) return false;
-  if (prevProps.onDeselectAll !== nextProps.onDeselectAll) return false;
-  if (prevProps.onToggleSelect !== nextProps.onToggleSelect) return false;
   if (prevProps.isCollapsed !== nextProps.isCollapsed) return false;
-  if (prevProps.onToggleCollapsed !== nextProps.onToggleCollapsed) return false;
   if (prevProps.columnWidth !== nextProps.columnWidth) return false;
   if (prevProps.isResizing !== nextProps.isResizing) return false;
-  if (prevProps.onResizeStart !== nextProps.onResizeStart) return false;
-  if (prevProps.onResizeEnd !== nextProps.onResizeEnd) return false;
   if (prevProps.isLocked !== nextProps.isLocked) return false;
-  if (prevProps.onToggleLocked !== nextProps.onToggleLocked) return false;
 
-  // Compare selection props
-  const prevSelected = prevProps.selectedTaskIds;
-  const nextSelected = nextProps.selectedTaskIds;
-  if (prevSelected !== nextSelected) {
-    if (!prevSelected || !nextSelected) return false;
-    if (prevSelected.size !== nextSelected.size) return false;
-    for (const id of prevSelected) {
-      if (!nextSelected.has(id)) return false;
-    }
-  }
+  // Selection comparison: reference equality is sufficient here because
+  // SortableTaskCard's own memo comparator handles fine-grained per-task checks
+  if (prevProps.selectedTaskIds !== nextProps.selectedTaskIds) return false;
 
   // Deep compare tasks
-  const tasksEqual = tasksAreEquivalent(prevProps.tasks, nextProps.tasks);
-
-  // Only log when re-rendering (reduces noise)
-  if (window.DEBUG && !tasksEqual) {
-    console.log(`[DroppableColumn] Re-render: ${nextProps.status} column (${nextProps.tasks.length} tasks)`);
-  }
-
-  return tasksEqual;
+  return tasksAreEquivalent(prevProps.tasks, nextProps.tasks);
 }
 
 // Empty state content for each column
@@ -261,50 +235,8 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
   // Memoize taskIds to prevent SortableContext from re-rendering unnecessarily
   const taskIds = useMemo(() => tasks.map((t) => t.id), [tasks]);
 
-  // Create stable onClick handlers for each task to prevent unnecessary re-renders
-  const onClickHandlers = useMemo(() => {
-    const handlers = new Map<string, () => void>();
-    tasks.forEach((task) => {
-      handlers.set(task.id, () => onTaskClick(task));
-    });
-    return handlers;
-  }, [tasks, onTaskClick]);
-
-  // Create stable onStatusChange handlers for each task
-  const onStatusChangeHandlers = useMemo(() => {
-    const handlers = new Map<string, (newStatus: TaskStatus) => unknown>();
-    tasks.forEach((task) => {
-      handlers.set(task.id, (newStatus: TaskStatus) => onStatusChange(task.id, newStatus));
-    });
-    return handlers;
-  }, [tasks, onStatusChange]);
-
-  // Create stable onToggleSelect handlers for each task (for bulk selection)
-  const onToggleSelectHandlers = useMemo(() => {
-    if (!onToggleSelect) return null;
-    const handlers = new Map<string, () => void>();
-    tasks.forEach((task) => {
-      handlers.set(task.id, () => onToggleSelect(task.id));
-    });
-    return handlers;
-  }, [tasks, onToggleSelect]);
-
-  // Memoize task card elements to prevent recreation on every render
-  const taskCards = useMemo(() => {
-    if (tasks.length === 0) return null;
-    const isSelectable = !!onToggleSelectHandlers;
-    return tasks.map((task) => (
-      <SortableTaskCard
-        key={task.id}
-        task={task}
-        onClick={onClickHandlers.get(task.id)!}
-        onStatusChange={onStatusChangeHandlers.get(task.id)}
-        isSelectable={isSelectable}
-        isSelected={isSelectable ? selectedTaskIds?.has(task.id) : undefined}
-        onToggleSelect={onToggleSelectHandlers?.get(task.id)}
-      />
-    ));
-  }, [tasks, onClickHandlers, onStatusChangeHandlers, onToggleSelectHandlers, selectedTaskIds]);
+  // Whether this column supports task selection (for bulk actions)
+  const isSelectable = !!onToggleSelect;
 
   const getColumnBorderColor = (): string => {
     switch (status) {
@@ -591,7 +523,17 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
                   )}
                 </div>
               ) : (
-                taskCards
+                tasks.map((task) => (
+                  <SortableTaskCard
+                    key={task.id}
+                    task={task}
+                    onTaskClick={onTaskClick}
+                    onStatusChange={onStatusChange}
+                    isSelectable={isSelectable}
+                    selectedTaskIds={selectedTaskIds}
+                    onToggleSelect={onToggleSelect}
+                  />
+                ))
               )}
             </div>
           </SortableContext>
@@ -826,16 +768,18 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
   const selectAllTasks = useCallback((columnStatus?: typeof TASK_STATUS_COLUMNS[number]) => {
     if (columnStatus) {
-      // Select all in specific column
-      const columnTasks = tasksByStatus[columnStatus] || [];
+      // Select all in specific column — compute from ref to avoid dependency on tasksByStatus
+      const columnTasks = filteredTasksRef.current.filter(
+        t => getVisualColumn(t.status) === columnStatus
+      );
       const columnIds = new Set(columnTasks.map((t: Task) => t.id));
       setSelectedTaskIds(prev => new Set<string>([...prev, ...columnIds]));
     } else {
       // Select all across all columns
-      const allIds = new Set(filteredTasks.map(t => t.id));
+      const allIds = new Set(filteredTasksRef.current.map(t => t.id));
       setSelectedTaskIds(allIds);
     }
-  }, [tasksByStatus, filteredTasks]);
+  }, []);
 
   const deselectAllTasks = useCallback(() => {
     setSelectedTaskIds(new Set());
@@ -895,22 +839,36 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   }, [selectedTaskIds, deselectAllTasks, toast, t]);
 
-  const handleArchiveAll = async () => {
+  // Refs for tasks/filteredTasks to avoid stale closures in callbacks that don't need to
+  // re-render when the tasks array changes (e.g., handleArchiveAll, handleStatusChange)
+  const tasksRef = useRef(tasks);
+  tasksRef.current = tasks;
+  const filteredTasksRef = useRef(filteredTasks);
+  filteredTasksRef.current = filteredTasks;
+
+  // Ref for projectId to use in stable callbacks without adding it as a dependency
+  const projectIdRef = useRef(projectId);
+  projectIdRef.current = projectId;
+
+  const handleArchiveAll = useCallback(async () => {
     // Get projectId from the first task (all tasks should have the same projectId)
-    const projectId = tasks[0]?.projectId;
-    if (!projectId) {
+    const pid = tasksRef.current[0]?.projectId;
+    if (!pid) {
       console.error('[KanbanBoard] No projectId found');
       return;
     }
 
-    const doneTaskIds = tasksByStatus.done.map((t) => t.id);
+    // Compute done tasks inline from ref to avoid dependency on tasksByStatus
+    const doneTaskIds = filteredTasksRef.current
+      .filter(t => getVisualColumn(t.status) === 'done')
+      .map(t => t.id);
     if (doneTaskIds.length === 0) return;
 
-    const result = await archiveTasks(projectId, doneTaskIds);
+    const result = await archiveTasks(pid, doneTaskIds);
     if (!result.success) {
       console.error('[KanbanBoard] Failed to archive tasks:', result.error);
     }
-  };
+  }, []);
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
@@ -947,8 +905,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
    * Handle status change with worktree cleanup dialog support
    * Consolidated handler that accepts an optional task object for the dialog title
    */
-  const handleStatusChange = async (taskId: string, requestedStatus: TaskStatus, providedTask?: Task) => {
-    const task = providedTask || tasks.find(t => t.id === taskId);
+  const handleStatusChange = useCallback(async (taskId: string, requestedStatus: TaskStatus, providedTask?: Task) => {
+    const task = providedTask || tasksRef.current.find(t => t.id === taskId);
     let newStatus = requestedStatus;
 
     // ============================================
@@ -989,7 +947,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     // Note: queue auto-promotion when a task leaves in_progress is handled by the
     // useEffect task status change listener (registerTaskStatusChangeListener), so
     // no explicit processQueue() call is needed here.
-  };
+  }, [t, toast]);
 
   /**
    * Handle worktree cleanup confirmation
@@ -1018,32 +976,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         error: result.error || t('dialogs:worktreeCleanup.errorDescription')
       }));
     }
-  };
-
-  /**
-   * Move all backlog tasks to queue
-   */
-  const handleQueueAll = async () => {
-    const backlogTasks = tasksByStatus.backlog;
-    if (backlogTasks.length === 0) return;
-
-    let movedCount = 0;
-    for (const task of backlogTasks) {
-      const result = await persistTaskStatus(task.id, 'queue');
-      if (result.success) {
-        movedCount++;
-      } else {
-        console.error(`[Queue] Failed to move task ${task.id} to queue:`, result.error);
-      }
-    }
-
-    // Auto-promote queued tasks to fill available capacity
-    await processQueue();
-
-    toast({
-      title: t('queue.queueAllSuccess', { count: movedCount }),
-      variant: 'default'
-    });
   };
 
   /**
@@ -1158,6 +1090,35 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     return unregister;
   }, [processQueue]);
 
+  /**
+   * Move all backlog tasks to queue
+   */
+  const handleQueueAll = useCallback(async () => {
+    // Compute backlog tasks from ref to avoid dependency on tasksByStatus
+    const backlogTasks = filteredTasksRef.current.filter(
+      t => getVisualColumn(t.status) === 'backlog'
+    );
+    if (backlogTasks.length === 0) return;
+
+    let movedCount = 0;
+    for (const task of backlogTasks) {
+      const result = await persistTaskStatus(task.id, 'queue');
+      if (result.success) {
+        movedCount++;
+      } else {
+        console.error(`[Queue] Failed to move task ${task.id} to queue:`, result.error);
+      }
+    }
+
+    // Auto-promote queued tasks to fill available capacity
+    await processQueue();
+
+    toast({
+      title: t('queue.queueAllSuccess', { count: movedCount }),
+      variant: 'default'
+    });
+  }, [processQueue, toast, t]);
+
   // Get task order actions from store
   const reorderTasksInColumn = useTaskStore((state) => state.reorderTasksInColumn);
   const moveTaskToColumnTop = useTaskStore((state) => state.moveTaskToColumnTop);
@@ -1265,6 +1226,33 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     setResizingColumn(null);
     resizeProjectIdRef.current = null;
   }, [resizingColumn, saveKanbanPreferences]);
+
+  // Pre-compute stable per-column handler objects so the .map() in JSX passes
+  // referentially-stable props to each DroppableColumn, enabling memo to skip re-renders.
+  const columnHandlers = useMemo(() => {
+    const handlers: Record<string, {
+      onSelectAll: () => void;
+      onToggleCollapsed: () => void;
+      onResizeStart: (startX: number) => void;
+      onToggleLocked: () => void;
+      onQueueSettings?: () => void;
+    }> = {};
+    for (const status of TASK_STATUS_COLUMNS) {
+      handlers[status] = {
+        onSelectAll: () => selectAllTasks(status),
+        onToggleCollapsed: () => handleToggleColumnCollapsed(status),
+        onResizeStart: (startX: number) => handleResizeStart(status, startX),
+        onToggleLocked: () => handleToggleColumnLocked(status),
+      };
+    }
+    handlers['queue'].onQueueSettings = () => {
+      const pid = projectIdRef.current;
+      if (!pid) return;
+      queueSettingsProjectIdRef.current = pid;
+      setShowQueueSettings(true);
+    };
+    return handlers;
+  }, [selectAllTasks, handleToggleColumnCollapsed, handleResizeStart, handleToggleColumnLocked]);
 
   // Document-level event listeners for resize dragging
   useEffect(() => {
@@ -1480,29 +1468,24 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
               isOver={overColumnId === status}
               onAddClick={status === 'backlog' ? onNewTaskClick : undefined}
               onQueueAll={status === 'backlog' ? handleQueueAll : undefined}
-              onQueueSettings={status === 'queue' ? () => {
-                // Only open modal if we have a valid projectId
-                if (!projectId) return;
-                queueSettingsProjectIdRef.current = projectId;
-                setShowQueueSettings(true);
-              } : undefined}
+              onQueueSettings={status === 'queue' ? columnHandlers[status].onQueueSettings : undefined}
               onArchiveAll={status === 'done' ? handleArchiveAll : undefined}
               maxParallelTasks={status === 'in_progress' ? maxParallelTasks : undefined}
               archivedCount={status === 'done' ? archivedCount : undefined}
               showArchived={status === 'done' ? showArchived : undefined}
               onToggleArchived={status === 'done' ? toggleShowArchived : undefined}
               selectedTaskIds={selectedTaskIds}
-              onSelectAll={() => selectAllTasks(status)}
+              onSelectAll={columnHandlers[status].onSelectAll}
               onDeselectAll={deselectAllTasks}
               onToggleSelect={toggleTaskSelection}
               isCollapsed={columnPreferences?.[status]?.isCollapsed}
-              onToggleCollapsed={() => handleToggleColumnCollapsed(status)}
+              onToggleCollapsed={columnHandlers[status].onToggleCollapsed}
               columnWidth={columnPreferences?.[status]?.width}
               isResizing={resizingColumn === status}
-              onResizeStart={(startX) => handleResizeStart(status, startX)}
+              onResizeStart={columnHandlers[status].onResizeStart}
               onResizeEnd={handleResizeEnd}
               isLocked={columnPreferences?.[status]?.isLocked}
-              onToggleLocked={() => handleToggleColumnLocked(status)}
+              onToggleLocked={columnHandlers[status].onToggleLocked}
             />
           ))}
         </div>
