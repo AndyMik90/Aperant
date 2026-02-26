@@ -21,7 +21,7 @@ const SOCKET_PATH = isWindows()
 const MAX_BUFFER_SIZE = 100_000;
 
 // Ring buffer to prevent memory growth
-const RING_BUFFER_MAX_CHUNKS = 1000;
+const RING_BUFFER_MAX_CHUNKS = 10;
 
 /**
  * Sanitize an ID for safe logging to prevent log injection attacks.
