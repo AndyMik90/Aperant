@@ -89,7 +89,6 @@
     "i18next": "^25.7.3",
     "lucide-react": "^0.562.0",
     "minimatch": "^10.1.1",
-    "motion": "^12.23.26",
     "proper-lockfile": "^4.1.2",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",

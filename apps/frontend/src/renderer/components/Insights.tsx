@@ -18,8 +18,8 @@ import {
   Camera,
   X
 } from 'lucide-react';
-import ReactMarkdown, { type Components } from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import type { Components } from 'react-markdown';
+import { LazyMarkdown } from './ui/lazy-markdown';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { ScrollArea } from './ui/scroll-area';
@@ -513,9 +513,9 @@ export function Insights({ projectId }: InsightsProps) {
                   </div>
                   {streamingContent && (
                     <div className="prose prose-sm dark:prose-invert max-w-none">
-                      <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                      <LazyMarkdown components={markdownComponents}>
                         {streamingContent}
-                      </ReactMarkdown>
+                      </LazyMarkdown>
                     </div>
                   )}
                   {/* Tool usage indicator */}
@@ -702,9 +702,9 @@ function MessageBubble({
         </div>
         {message.content && (
           <div className="prose prose-sm dark:prose-invert max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+            <LazyMarkdown components={markdownComponents}>
               {message.content}
-            </ReactMarkdown>
+            </LazyMarkdown>
           </div>
         )}
 

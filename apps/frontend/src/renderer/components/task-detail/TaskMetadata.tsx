@@ -18,8 +18,7 @@ import {
   ChevronDown,
   ChevronUp
 } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import { LazyMarkdown } from '../ui/lazy-markdown';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
@@ -190,9 +189,9 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
               )}
               style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}
             >
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              <LazyMarkdown>
                 {displayDescription}
-              </ReactMarkdown>
+              </LazyMarkdown>
             </div>
 
             {/* Gradient overlay when collapsed and has overflow */}
