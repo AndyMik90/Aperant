@@ -27,11 +27,17 @@ import { writeFileAtomicSync } from '../../utils/atomic-file';
 
 // In-memory locks for plan file operations
 // Key: plan file path, Value: Promise chain for serializing operations
+// LRU cache with max size of 100 entries to prevent unbounded memory growth
 const planLocks = new Map<string, Promise<void>>();
+const MAX_PLAN_LOCKS = 100;
 
 /**
  * Serialize operations on a specific plan file to prevent race conditions.
  * Each operation waits for the previous one to complete before starting.
+ *
+ * Implements LRU eviction: when the cache reaches MAX_PLAN_LOCKS entries,
+ * the least recently used (oldest) entry is evicted to make room for new ones.
+ * Locks are automatically cleaned up after operations complete.
  */
 async function withPlanLock<T>(planPath: string, operation: () => Promise<T>): Promise<T> {
   // Get or create the lock chain for this file
@@ -40,6 +46,18 @@ async function withPlanLock<T>(planPath: string, operation: () => Promise<T>): P
   // Create a new promise that will resolve after our operation completes
   let resolve: () => void;
   const newLock = new Promise<void>((r) => { resolve = r; });
+
+  // Enforce max size with LRU eviction before adding new entry
+  // Only evict if this is a new entry (not updating an existing lock)
+  if (!planLocks.has(planPath) && planLocks.size >= MAX_PLAN_LOCKS) {
+    // Evict the least recently used (first/oldest) entry
+    // JavaScript Maps maintain insertion order, so the first entry is the LRU one
+    const firstKey = planLocks.keys().next().value;
+    if (firstKey !== undefined) {
+      planLocks.delete(firstKey);
+    }
+  }
+
   planLocks.set(planPath, newLock);
 
   try {
