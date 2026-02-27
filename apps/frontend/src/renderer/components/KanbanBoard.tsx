@@ -47,6 +47,25 @@ import {
 } from './ui/alert-dialog';
 import type { Task, TaskStatus, TaskOrderState } from '../../shared/types';
 
+/**
+ * KanbanBoard Performance Optimization (Spec 001)
+ *
+ * This component has been optimized to minimize re-renders through stable handler functions
+ * and React memoization. All handlers passed to columnHandlers are wrapped in useCallback
+ * with stable dependencies (or refs for non-reactive values) to prevent unnecessary
+ * DroppableColumn re-renders.
+ *
+ * PERFORMANCE VERIFICATION:
+ * To verify the optimization is working correctly, use React DevTools Profiler:
+ * - See: .auto-claude/specs/001-fix-kanbanboard-rendering-cascade-from-broken-memo/PROFILER_VERIFICATION_GUIDE.md
+ * - Expected: Task status changes only re-render affected components (2-3 components, not 100+)
+ * - Expected: Column interactions only re-render that specific column
+ *
+ * CRITICAL: Handler functions (selectAllTasks, handleToggleColumnCollapsed, handleResizeStart,
+ * handleToggleColumnLocked) MUST remain stable. If adding new handlers, wrap them in useCallback
+ * with stable dependencies and update columnHandlers useMemo dependencies accordingly.
+ */
+
 // Type guard for valid drop column targets - preserves literal type from TASK_STATUS_COLUMNS
 const VALID_DROP_COLUMNS = new Set<string>(TASK_STATUS_COLUMNS);
 function isValidDropColumn(id: string): id is typeof TASK_STATUS_COLUMNS[number] {
