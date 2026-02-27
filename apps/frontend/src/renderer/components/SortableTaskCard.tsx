@@ -64,8 +64,8 @@ export const SortableTaskCard = memo(function SortableTaskCard({ task, onTaskCli
     [onStatusChange, task.id]
   );
 
-  const handleToggleSelect = useCallback(
-    () => onToggleSelect?.(task.id),
+  const handleToggleSelect = useMemo(
+    () => onToggleSelect ? () => onToggleSelect(task.id) : undefined,
     [onToggleSelect, task.id]
   );
 

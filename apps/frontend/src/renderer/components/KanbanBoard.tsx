@@ -862,13 +862,11 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   }, [selectedTaskIds, deselectAllTasks, toast, t]);
 
-  // Refs for tasks/filteredTasks to avoid stale closures in callbacks that don't need to
-  // re-render when the tasks array changes (e.g., handleArchiveAll, handleStatusChange)
+  // Refs to avoid stale closures in stable callbacks
   const tasksRef = useRef(tasks);
   const filteredTasksRef = useRef(filteredTasks);
-
-  // Ref for projectId to use in stable callbacks without adding it as a dependency
   const projectIdRef = useRef(projectId);
+  const columnPreferencesRef = useRef(columnPreferences);
 
   // Sync refs after commit to avoid mutating during render
   useEffect(() => {
@@ -877,9 +875,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     projectIdRef.current = projectId;
     columnPreferencesRef.current = columnPreferences;
   });
-
-  // Ref for columnPreferences to use in stable callbacks without adding it as a dependency
-  const columnPreferencesRef = useRef(columnPreferences);
 
   const handleArchiveAll = useCallback(async () => {
     // Get projectId from the first task (all tasks should have the same projectId)
