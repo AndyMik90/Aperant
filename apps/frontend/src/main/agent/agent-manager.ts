@@ -40,7 +40,10 @@ export class AgentManager extends EventEmitter {
     projectId?: string;
     /** Generation counter to prevent stale cleanup after restart */
     generation: number;
+    /** Timestamp of last activity (Date.now()) for TTL-based cleanup */
+    lastActivity: number;
   }> = new Map();
+  private contextCleanupInterval?: NodeJS.Timeout;
 
   constructor() {
     super();
@@ -97,6 +100,52 @@ export class AgentManager extends EventEmitter {
         // Otherwise keep context for potential restart
       }, 1000); // Delay to allow restart logic to run first
     });
+
+    // Periodic cleanup of stale task contexts (every 5 minutes)
+    // Removes entries older than 1 hour with no activity to prevent memory leaks
+    this.contextCleanupInterval = setInterval(() => {
+      this.cleanupStaleTaskContexts();
+    }, 5 * 60 * 1000); // 5 minutes
+  }
+
+  /**
+   * Clean up task contexts that have been inactive for more than 1 hour
+   * Prevents memory leaks from abandoned or failed tasks that weren't cleaned up
+   */
+  private cleanupStaleTaskContexts(): void {
+    const now = Date.now();
+    const oneHourMs = 60 * 60 * 1000; // 1 hour in milliseconds
+    let cleanedCount = 0;
+
+    for (const [taskId, context] of this.taskExecutionContext.entries()) {
+      // Skip tasks that are currently running
+      if (this.isRunning(taskId)) {
+        continue;
+      }
+
+      // Remove entries older than 1 hour
+      if (now - context.lastActivity > oneHourMs) {
+        this.taskExecutionContext.delete(taskId);
+        // Also unregister from OperationRegistry
+        getOperationRegistry().unregisterOperation(taskId);
+        cleanedCount++;
+      }
+    }
+
+    if (cleanedCount > 0) {
+      // eslint-disable-next-line no-console
+      console.log(`[AgentManager] Cleaned up ${cleanedCount} stale task context(s)`);
+    }
+  }
+
+  /**
+   * Stop the cleanup interval (called on app shutdown)
+   */
+  destroy(): void {
+    if (this.contextCleanupInterval) {
+      clearInterval(this.contextCleanupInterval);
+      this.contextCleanupInterval = undefined;
+    }
   }
 
   /**
@@ -572,6 +621,7 @@ export class AgentManager extends EventEmitter {
       swapCount, // Preserve existing count instead of resetting
       projectId,
       generation, // Incremented to prevent stale exit cleanup
+      lastActivity: Date.now(), // Track activity timestamp for TTL-based cleanup
     });
   }
 
@@ -605,6 +655,7 @@ export class AgentManager extends EventEmitter {
     }
 
     context.swapCount++;
+    context.lastActivity = Date.now(); // Update activity timestamp on restart
     console.log('[AgentManager] Incremented swap count to:', context.swapCount);
 
     // If a new profile was specified, ensure it's set as active before restart
