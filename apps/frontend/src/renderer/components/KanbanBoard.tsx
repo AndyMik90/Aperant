@@ -1235,6 +1235,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
   // Pre-compute stable per-column handler objects so the .map() in JSX passes
   // referentially-stable props to each DroppableColumn, enabling memo to skip re-renders.
+  // All dependencies are stable:
+  // - selectAllTasks, handleToggleColumnCollapsed, handleResizeStart, handleToggleColumnLocked: useCallback with stable deps
+  // - setShowQueueSettings: React state setter (guaranteed stable)
   const columnHandlers = useMemo(() => {
     const handlers: Record<string, {
       onSelectAll: () => void;
@@ -1258,7 +1261,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       setShowQueueSettings(true);
     };
     return handlers;
-  }, [selectAllTasks, handleToggleColumnCollapsed, handleResizeStart, handleToggleColumnLocked]);
+  }, [selectAllTasks, handleToggleColumnCollapsed, handleResizeStart, handleToggleColumnLocked, setShowQueueSettings]);
 
   // Document-level event listeners for resize dragging
   useEffect(() => {
