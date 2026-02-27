@@ -1192,17 +1192,16 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
   // Create a callback to toggle locked state and save to storage
   const handleToggleColumnLocked = useCallback((status: typeof TASK_STATUS_COLUMNS[number]) => {
-    // Capture projectId at function start to avoid stale closure in setTimeout
-    const currentProjectId = projectId;
     toggleColumnLocked(status);
     // Save preferences after toggling
+    const currentProjectId = projectIdRef.current;
     if (currentProjectId) {
       // Use setTimeout to ensure state is updated before saving
       setTimeout(() => {
         saveKanbanPreferences(currentProjectId);
       }, 0);
     }
-  }, [toggleColumnLocked, saveKanbanPreferences, projectId]);
+  }, [toggleColumnLocked, saveKanbanPreferences]);
 
   // Resize handlers for column width adjustment
   // Uses refs for columnPreferences and projectId to maintain stable identity across renders
