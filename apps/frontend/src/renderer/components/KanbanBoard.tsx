@@ -1154,19 +1154,19 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   }, [projectId, loadKanbanPreferences]);
 
-  // Create a callback to toggle collapsed state and save to storage
+  // Memoize handleToggleColumnCollapsed to ensure stable identity across renders
+  // Uses projectIdRef to capture current projectId without adding it as a dependency
   const handleToggleColumnCollapsed = useCallback((status: typeof TASK_STATUS_COLUMNS[number]) => {
-    // Capture projectId at function start to avoid stale closure in setTimeout
-    const currentProjectId = projectId;
     toggleColumnCollapsed(status);
     // Save preferences after toggling
+    const currentProjectId = projectIdRef.current;
     if (currentProjectId) {
       // Use setTimeout to ensure state is updated before saving
       setTimeout(() => {
         saveKanbanPreferences(currentProjectId);
       }, 0);
     }
-  }, [toggleColumnCollapsed, saveKanbanPreferences, projectId]);
+  }, [toggleColumnCollapsed, saveKanbanPreferences]);
 
   // Create a callback to expand all collapsed columns and save to storage
   const handleExpandAll = useCallback(() => {
