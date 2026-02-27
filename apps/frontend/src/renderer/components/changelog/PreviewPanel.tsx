@@ -3,8 +3,8 @@ import { FileText, Copy, Save, CheckCircle, Image as ImageIcon, Loader2 } from '
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
-import ReactMarkdown, { Components } from 'react-markdown';
-import remarkGfm from 'remark-gfm';
+import type { Components } from 'react-markdown';
+import { LazyMarkdown } from '../ui/lazy-markdown';
 
 // Component for loading local images via IPC
 interface LocalImageProps {
@@ -114,7 +114,7 @@ export function PreviewPanel({
 }: PreviewPanelProps) {
   const [viewMode, setViewMode] = useState<'markdown' | 'preview'>('markdown');
 
-  // Custom components for ReactMarkdown to handle local image paths
+  // Custom components for markdown rendering to handle local image paths
   const markdownComponents: Components = useMemo(() => ({
     img: ({ src, alt }) => {
       return <LocalImage src={src || ''} alt={alt || ''} projectPath={projectPath} />;
@@ -226,12 +226,11 @@ export function PreviewPanel({
             ) : (
               <div className="h-full overflow-auto">
                 <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
+                  <LazyMarkdown
                     components={markdownComponents}
                   >
                     {generatedChangelog}
-                  </ReactMarkdown>
+                  </LazyMarkdown>
                 </div>
               </div>
             )}

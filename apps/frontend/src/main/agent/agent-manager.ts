@@ -18,6 +18,11 @@ import { resetStuckSubtasks } from '../ipc-handlers/task/plan-file-utils';
 import { AUTO_BUILD_PATHS, getSpecsDir, sanitizeThinkingLevel } from '../../shared/constants';
 import { projectStore } from '../project-store';
 
+/** How often to run the stale task context cleanup (5 minutes) */
+const CONTEXT_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+/** Maximum age of an inactive task context before it is considered stale (1 hour) */
+const CONTEXT_STALENESS_THRESHOLD_MS = 60 * 60 * 1000;
+
 /**
  * Main AgentManager - orchestrates agent process lifecycle
  * This is a slim facade that delegates to focused modules
@@ -40,7 +45,10 @@ export class AgentManager extends EventEmitter {
     projectId?: string;
     /** Generation counter to prevent stale cleanup after restart */
     generation: number;
+    /** Timestamp of last activity (Date.now()) for TTL-based cleanup */
+    lastActivity: number;
   }> = new Map();
+  private contextCleanupInterval?: NodeJS.Timeout;
 
   constructor() {
     super();
@@ -97,6 +105,51 @@ export class AgentManager extends EventEmitter {
         // Otherwise keep context for potential restart
       }, 1000); // Delay to allow restart logic to run first
     });
+
+    // Periodic cleanup of stale task contexts
+    // Removes entries older than CONTEXT_STALENESS_THRESHOLD_MS with no activity to prevent memory leaks
+    this.contextCleanupInterval = setInterval(() => {
+      this.cleanupStaleTaskContexts();
+    }, CONTEXT_CLEANUP_INTERVAL_MS);
+  }
+
+  /**
+   * Clean up task contexts that have been inactive for longer than CONTEXT_STALENESS_THRESHOLD_MS.
+   * Prevents memory leaks from abandoned or failed tasks that weren't cleaned up.
+   */
+  private cleanupStaleTaskContexts(): void {
+    const now = Date.now();
+    let cleanedCount = 0;
+
+    for (const [taskId, context] of this.taskExecutionContext.entries()) {
+      // Skip tasks that are currently running
+      if (this.isRunning(taskId)) {
+        continue;
+      }
+
+      // Remove entries older than the staleness threshold
+      if (now - context.lastActivity > CONTEXT_STALENESS_THRESHOLD_MS) {
+        this.taskExecutionContext.delete(taskId);
+        // Also unregister from OperationRegistry
+        getOperationRegistry().unregisterOperation(taskId);
+        cleanedCount++;
+      }
+    }
+
+    if (cleanedCount > 0) {
+      // eslint-disable-next-line no-console
+      console.log(`[AgentManager] Cleaned up ${cleanedCount} stale task context(s)`);
+    }
+  }
+
+  /**
+   * Stop the cleanup interval (called on app shutdown)
+   */
+  destroy(): void {
+    if (this.contextCleanupInterval) {
+      clearInterval(this.contextCleanupInterval);
+      this.contextCleanupInterval = undefined;
+    }
   }
 
   /**
@@ -572,6 +625,7 @@ export class AgentManager extends EventEmitter {
       swapCount, // Preserve existing count instead of resetting
       projectId,
       generation, // Incremented to prevent stale exit cleanup
+      lastActivity: Date.now(), // Track activity timestamp for TTL-based cleanup
     });
   }
 
@@ -605,6 +659,7 @@ export class AgentManager extends EventEmitter {
     }
 
     context.swapCount++;
+    context.lastActivity = Date.now(); // Update activity timestamp on restart
     console.log('[AgentManager] Incremented swap count to:', context.swapCount);
 
     // If a new profile was specified, ensure it's set as active before restart

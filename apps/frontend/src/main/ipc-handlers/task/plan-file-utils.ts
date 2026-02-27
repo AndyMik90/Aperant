@@ -27,11 +27,21 @@ import { writeFileAtomicSync } from '../../utils/atomic-file';
 
 // In-memory locks for plan file operations
 // Key: plan file path, Value: Promise chain for serializing operations
+// Bounded to MAX_PLAN_LOCKS entries to prevent unbounded memory growth.
+// planLockRefCounts tracks the number of in-flight operations per path
+// so that LRU eviction only drops idle entries (refCount 0).
 const planLocks = new Map<string, Promise<void>>();
+const planLockRefCounts = new Map<string, number>();
+const MAX_PLAN_LOCKS = 100;
 
 /**
  * Serialize operations on a specific plan file to prevent race conditions.
  * Each operation waits for the previous one to complete before starting.
+ *
+ * Implements LRU eviction: when the cache reaches MAX_PLAN_LOCKS entries,
+ * the least recently used idle entry is evicted to make room for new ones.
+ * Active entries (with in-flight operations) are never evicted.
+ * Locks are automatically cleaned up after all operations complete.
  */
 async function withPlanLock<T>(planPath: string, operation: () => Promise<T>): Promise<T> {
   // Get or create the lock chain for this file
@@ -40,6 +50,29 @@ async function withPlanLock<T>(planPath: string, operation: () => Promise<T>): P
   // Create a new promise that will resolve after our operation completes
   let resolve: () => void;
   const newLock = new Promise<void>((r) => { resolve = r; });
+
+  // Enforce max size with LRU eviction before adding new entry
+  // Only evict if this is a new entry (not updating an existing lock)
+  if (!planLocks.has(planPath) && planLocks.size >= MAX_PLAN_LOCKS) {
+    // Find the first idle entry (refCount 0) to evict safely
+    let evicted = false;
+    for (const [key] of planLocks) {
+      if ((planLockRefCounts.get(key) ?? 0) <= 0) {
+        planLocks.delete(key);
+        planLockRefCounts.delete(key);
+        evicted = true;
+        break;
+      }
+    }
+    if (!evicted) {
+      // All entries have active operations — allow temporary growth
+      // rather than dropping an active lock chain and causing a race condition
+      console.warn(`[plan-file-utils] All ${MAX_PLAN_LOCKS} plan locks are active, allowing temporary growth`);
+    }
+  }
+
+  // Track active operations for safe eviction
+  planLockRefCounts.set(planPath, (planLockRefCounts.get(planPath) ?? 0) + 1);
   planLocks.set(planPath, newLock);
 
   try {
@@ -50,9 +83,17 @@ async function withPlanLock<T>(planPath: string, operation: () => Promise<T>): P
   } finally {
     // Release the lock
     resolve!();
-    // Clean up if this was the last operation
-    if (planLocks.get(planPath) === newLock) {
-      planLocks.delete(planPath);
+
+    // Decrement ref count and clean up when no more operations are pending
+    const refCount = (planLockRefCounts.get(planPath) ?? 1) - 1;
+    if (refCount <= 0) {
+      planLockRefCounts.delete(planPath);
+      // Clean up if this was the last operation
+      if (planLocks.get(planPath) === newLock) {
+        planLocks.delete(planPath);
+      }
+    } else {
+      planLockRefCounts.set(planPath, refCount);
     }
   }
 }

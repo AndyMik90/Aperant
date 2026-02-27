@@ -95,6 +95,41 @@
     0% { transform: translateX(-100%); }
     100% { transform: translateX(400%); }
   }
+
+  @keyframes pulse-dot {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.5); opacity: 0.5; }
+  }
+
+  @keyframes pulse-icon {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.8; }
+  }
+
+  @keyframes pulse-opacity {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  @keyframes pulse-warning {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 0.6; }
+  }
+
+  @keyframes heartbeat {
+    0%, 100% { transform: scale(1); opacity: 0.7; }
+    50% { transform: scale(1.05); opacity: 1; }
+  }
+
+  @keyframes fade-slide-up {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes subtask-dot-glow {
+    0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--info) 40%, transparent); }
+    50% { box-shadow: 0 0 0 4px transparent; }
+  }
 }
 
 /* Animation utility classes (outside @theme for Tailwind v4 compatibility) */
@@ -104,6 +139,46 @@
 
 .animate-indeterminate {
   animation: indeterminate 1.5s ease-in-out infinite;
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 1s ease-in-out infinite;
+}
+
+.animate-pulse-icon {
+  animation: pulse-icon 1.5s ease-in-out infinite;
+}
+
+.animate-pulse-opacity {
+  animation: pulse-opacity 1.5s ease-in-out infinite;
+}
+
+.animate-pulse-warning {
+  animation: pulse-warning 2s ease-in-out infinite;
+}
+
+.animate-heartbeat {
+  animation: heartbeat 2s ease-in-out infinite;
+}
+
+.animate-fade-slide-up {
+  animation: fade-slide-up 0.2s ease-out forwards;
+}
+
+.animate-subtask-glow {
+  animation: subtask-dot-glow 1s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse-dot,
+  .animate-pulse-icon,
+  .animate-pulse-opacity,
+  .animate-pulse-warning,
+  .animate-heartbeat,
+  .animate-indeterminate,
+  .animate-subtask-glow {
+    animation: none;
+  }
 }
 
 /* CSS variables for light mode (secondary consideration per design system) */

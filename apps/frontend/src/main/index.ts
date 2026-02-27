@@ -637,8 +637,9 @@ app.on('before-quit', (event) => {
   // Perform async cleanup, then allow quit to proceed
   (async () => {
     try {
-      // Kill all running agent processes
+      // Stop agent cleanup intervals and kill all running processes
       if (agentManager) {
+        agentManager.destroy();
         await agentManager.killAll();
       }
 
