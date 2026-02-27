@@ -219,6 +219,43 @@ function getOllamaInstallCommand(): string {
 // Deduplication cache to prevent rapid-fire subprocess spawning (e.g., from React re-render loops)
 const ollamaDetectorCache = new Map<string, { promise: Promise<{ success: boolean; data?: unknown; error?: string }>; timestamp: number }>();
 const OLLAMA_CACHE_TTL_MS = 2000; // Cache results for 2 seconds
+const OLLAMA_CACHE_MAX_SIZE = 50; // Maximum cache entries
+
+/**
+ * Evict oldest entry from ollamaDetectorCache when at capacity.
+ * Priority: 1) Remove oldest expired entry, 2) Remove oldest entry by timestamp
+ */
+function evictOldestCacheEntry(): void {
+  if (ollamaDetectorCache.size === 0) return;
+
+  const now = Date.now();
+  let oldestExpiredKey: string | null = null;
+  let oldestExpiredTime = Number.POSITIVE_INFINITY;
+  let oldestKey: string | null = null;
+  let oldestTime = Number.POSITIVE_INFINITY;
+
+  // Find oldest expired entry and oldest entry overall
+  for (const [key, entry] of ollamaDetectorCache.entries()) {
+    const age = now - entry.timestamp;
+    const isExpired = age >= OLLAMA_CACHE_TTL_MS;
+
+    if (isExpired && entry.timestamp < oldestExpiredTime) {
+      oldestExpiredKey = key;
+      oldestExpiredTime = entry.timestamp;
+    }
+
+    if (entry.timestamp < oldestTime) {
+      oldestKey = key;
+      oldestTime = entry.timestamp;
+    }
+  }
+
+  // Evict oldest expired entry first, otherwise evict oldest entry
+  const keyToEvict = oldestExpiredKey || oldestKey;
+  if (keyToEvict) {
+    ollamaDetectorCache.delete(keyToEvict);
+  }
+}
 
 async function executeOllamaDetector(
   command: string,
@@ -232,6 +269,11 @@ async function executeOllamaDetector(
       console.log('[OllamaDetector] Returning cached result for:', command);
     }
     return cached.promise;
+  }
+
+  // Evict oldest entry if cache is at capacity
+  if (ollamaDetectorCache.size >= OLLAMA_CACHE_MAX_SIZE) {
+    evictOldestCacheEntry();
   }
 
   const promise = executeOllamaDetectorImpl(command, baseUrl);
