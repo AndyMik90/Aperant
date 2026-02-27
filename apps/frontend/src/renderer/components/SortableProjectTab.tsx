@@ -92,9 +92,12 @@ export function SortableProjectTab({
               {...listeners}
               className={cn(
                 'hidden sm:block',
-                'opacity-0 group-hover:opacity-60 transition-opacity',
                 'cursor-grab active:cursor-grabbing',
-                'w-1 h-4 bg-muted-foreground rounded-full flex-shrink-0'
+                'w-1 h-4 rounded-full flex-shrink-0',
+                isActive
+                  ? 'bg-green-500 opacity-100'
+                  : 'bg-muted-foreground opacity-0 group-hover:opacity-60',
+                'transition-opacity'
               )}
             />
             <span className="truncate font-medium">

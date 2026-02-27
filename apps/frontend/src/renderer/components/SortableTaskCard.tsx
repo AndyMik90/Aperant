@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { TaskCard } from './TaskCard';
@@ -7,32 +7,34 @@ import type { Task, TaskStatus } from '../../shared/types';
 
 interface SortableTaskCardProps {
   task: Task;
-  onClick: () => void;
-  onStatusChange?: (newStatus: TaskStatus) => unknown;
-  // Optional selection props for multi-selection in Human Review column
+  onTaskClick: (task: Task) => void;
+  onStatusChange?: (taskId: string, newStatus: TaskStatus) => unknown;
   isSelectable?: boolean;
-  isSelected?: boolean;
-  onToggleSelect?: () => void;
+  selectedTaskIds?: Set<string>;
+  onToggleSelect?: (taskId: string) => void;
 }
 
-// Custom comparator - only re-render when task or onClick actually changed
+// Custom comparator - only re-render when task data or stable handler refs change,
+// plus fine-grained check for this specific task's selection state
 function sortableTaskCardPropsAreEqual(
   prevProps: SortableTaskCardProps,
   nextProps: SortableTaskCardProps
 ): boolean {
-  // TaskCard has its own memo, so we just need to check reference equality
-  // for the task object and onClick handler
-  return (
-    prevProps.task === nextProps.task &&
-    prevProps.onClick === nextProps.onClick &&
-    prevProps.onStatusChange === nextProps.onStatusChange &&
-    prevProps.isSelectable === nextProps.isSelectable &&
-    prevProps.isSelected === nextProps.isSelected &&
-    prevProps.onToggleSelect === nextProps.onToggleSelect
-  );
+  if (prevProps.task !== nextProps.task) return false;
+  if (prevProps.onTaskClick !== nextProps.onTaskClick) return false;
+  if (prevProps.onStatusChange !== nextProps.onStatusChange) return false;
+  if (prevProps.isSelectable !== nextProps.isSelectable) return false;
+  if (prevProps.onToggleSelect !== nextProps.onToggleSelect) return false;
+  // Only check this task's selection state, not the whole Set reference
+  if (prevProps.isSelectable) {
+    const prevSel = prevProps.selectedTaskIds?.has(prevProps.task.id) ?? false;
+    const nextSel = nextProps.selectedTaskIds?.has(nextProps.task.id) ?? false;
+    if (prevSel !== nextSel) return false;
+  }
+  return true;
 }
 
-export const SortableTaskCard = memo(function SortableTaskCard({ task, onClick, onStatusChange, isSelectable, isSelected, onToggleSelect }: SortableTaskCardProps) {
+export const SortableTaskCard = memo(function SortableTaskCard({ task, onTaskClick, onStatusChange, isSelectable, selectedTaskIds, onToggleSelect }: SortableTaskCardProps) {
   const {
     attributes,
     listeners,
@@ -53,10 +55,21 @@ export const SortableTaskCard = memo(function SortableTaskCard({ task, onClick, 
     zIndex: isDragging ? 50 : undefined
   };
 
-  // Memoize onClick to prevent unnecessary TaskCard re-renders
-  const handleClick = useCallback(() => {
-    onClick();
-  }, [onClick]);
+  // Create per-card handlers from stable parent refs — these only change
+  // when onTaskClick/onStatusChange/onToggleSelect refs or task identity changes
+  const handleClick = useCallback(() => onTaskClick(task), [onTaskClick, task]);
+
+  const handleStatusChange = useMemo(
+    () => onStatusChange ? (newStatus: TaskStatus) => onStatusChange(task.id, newStatus) : undefined,
+    [onStatusChange, task.id]
+  );
+
+  const handleToggleSelect = useCallback(
+    () => onToggleSelect?.(task.id),
+    [onToggleSelect, task.id]
+  );
+
+  const isSelected = isSelectable ? selectedTaskIds?.has(task.id) : undefined;
 
   return (
     <div
@@ -73,10 +86,10 @@ export const SortableTaskCard = memo(function SortableTaskCard({ task, onClick, 
       <TaskCard
         task={task}
         onClick={handleClick}
-        onStatusChange={onStatusChange}
+        onStatusChange={handleStatusChange}
         isSelectable={isSelectable}
         isSelected={isSelected}
-        onToggleSelect={onToggleSelect}
+        onToggleSelect={handleToggleSelect}
       />
     </div>
   );
