@@ -766,6 +766,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     });
   }, []);
 
+  // Memoize selectAllTasks to ensure stable identity across renders
+  // Empty deps array is correct: only uses filteredTasksRef (ref) and setSelectedTaskIds (stable state setter)
   const selectAllTasks = useCallback((columnStatus?: typeof TASK_STATUS_COLUMNS[number]) => {
     if (columnStatus) {
       // Select all in specific column — compute from ref to avoid dependency on tasksByStatus
