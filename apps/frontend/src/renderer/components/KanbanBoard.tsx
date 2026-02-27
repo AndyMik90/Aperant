@@ -47,6 +47,25 @@ import {
 } from './ui/alert-dialog';
 import type { Task, TaskStatus, TaskOrderState } from '../../shared/types';
 
+/**
+ * KanbanBoard Performance Optimization (Spec 001)
+ *
+ * This component has been optimized to minimize re-renders through stable handler functions
+ * and React memoization. All handlers passed to columnHandlers are wrapped in useCallback
+ * with stable dependencies (or refs for non-reactive values) to prevent unnecessary
+ * DroppableColumn re-renders.
+ *
+ * PERFORMANCE VERIFICATION:
+ * To verify the optimization is working correctly, use React DevTools Profiler:
+ * - See: .auto-claude/specs/001-fix-kanbanboard-rendering-cascade-from-broken-memo/PROFILER_VERIFICATION_GUIDE.md
+ * - Expected: Task status changes only re-render affected components (2-3 components, not 100+)
+ * - Expected: Column interactions only re-render that specific column
+ *
+ * CRITICAL: Handler functions (selectAllTasks, handleToggleColumnCollapsed, handleResizeStart,
+ * handleToggleColumnLocked) MUST remain stable. If adding new handlers, wrap them in useCallback
+ * with stable dependencies and update columnHandlers useMemo dependencies accordingly.
+ */
+
 // Type guard for valid drop column targets - preserves literal type from TASK_STATUS_COLUMNS
 const VALID_DROP_COLUMNS = new Set<string>(TASK_STATUS_COLUMNS);
 function isValidDropColumn(id: string): id is typeof TASK_STATUS_COLUMNS[number] {
@@ -766,6 +785,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     });
   }, []);
 
+  // Memoize selectAllTasks to ensure stable identity across renders
+  // Empty deps array is correct: only uses filteredTasksRef (ref) and setSelectedTaskIds (stable state setter)
   const selectAllTasks = useCallback((columnStatus?: typeof TASK_STATUS_COLUMNS[number]) => {
     if (columnStatus) {
       // Select all in specific column — compute from ref to avoid dependency on tasksByStatus
@@ -849,6 +870,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   // Ref for projectId to use in stable callbacks without adding it as a dependency
   const projectIdRef = useRef(projectId);
   projectIdRef.current = projectId;
+
+  // Ref for columnPreferences to use in stable callbacks without adding it as a dependency
+  const columnPreferencesRef = useRef(columnPreferences);
+  columnPreferencesRef.current = columnPreferences;
 
   const handleArchiveAll = useCallback(async () => {
     // Get projectId from the first task (all tasks should have the same projectId)
@@ -1152,19 +1177,19 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   }, [projectId, loadKanbanPreferences]);
 
-  // Create a callback to toggle collapsed state and save to storage
+  // Memoize handleToggleColumnCollapsed to ensure stable identity across renders
+  // Uses projectIdRef to capture current projectId without adding it as a dependency
   const handleToggleColumnCollapsed = useCallback((status: typeof TASK_STATUS_COLUMNS[number]) => {
-    // Capture projectId at function start to avoid stale closure in setTimeout
-    const currentProjectId = projectId;
     toggleColumnCollapsed(status);
     // Save preferences after toggling
+    const currentProjectId = projectIdRef.current;
     if (currentProjectId) {
       // Use setTimeout to ensure state is updated before saving
       setTimeout(() => {
         saveKanbanPreferences(currentProjectId);
       }, 0);
     }
-  }, [toggleColumnCollapsed, saveKanbanPreferences, projectId]);
+  }, [toggleColumnCollapsed, saveKanbanPreferences]);
 
   // Create a callback to expand all collapsed columns and save to storage
   const handleExpandAll = useCallback(() => {
@@ -1186,27 +1211,27 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
   // Create a callback to toggle locked state and save to storage
   const handleToggleColumnLocked = useCallback((status: typeof TASK_STATUS_COLUMNS[number]) => {
-    // Capture projectId at function start to avoid stale closure in setTimeout
-    const currentProjectId = projectId;
     toggleColumnLocked(status);
     // Save preferences after toggling
+    const currentProjectId = projectIdRef.current;
     if (currentProjectId) {
       // Use setTimeout to ensure state is updated before saving
       setTimeout(() => {
         saveKanbanPreferences(currentProjectId);
       }, 0);
     }
-  }, [toggleColumnLocked, saveKanbanPreferences, projectId]);
+  }, [toggleColumnLocked, saveKanbanPreferences]);
 
   // Resize handlers for column width adjustment
+  // Uses refs for columnPreferences and projectId to maintain stable identity across renders
   const handleResizeStart = useCallback((status: typeof TASK_STATUS_COLUMNS[number], startX: number) => {
-    const currentWidth = columnPreferences?.[status]?.width ?? DEFAULT_COLUMN_WIDTH;
+    const currentWidth = columnPreferencesRef.current?.[status]?.width ?? DEFAULT_COLUMN_WIDTH;
     resizeStartX.current = startX;
     resizeStartWidth.current = currentWidth;
     // Capture projectId at resize start to ensure we save to the correct project
-    resizeProjectIdRef.current = projectId ?? null;
+    resizeProjectIdRef.current = projectIdRef.current ?? null;
     setResizingColumn(status);
-  }, [columnPreferences, projectId]);
+  }, []);
 
   const handleResizeMove = useCallback((clientX: number) => {
     if (!resizingColumn) return;
@@ -1229,6 +1254,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
   // Pre-compute stable per-column handler objects so the .map() in JSX passes
   // referentially-stable props to each DroppableColumn, enabling memo to skip re-renders.
+  // All dependencies are stable:
+  // - selectAllTasks, handleToggleColumnCollapsed, handleResizeStart, handleToggleColumnLocked: useCallback with stable deps
+  // - setShowQueueSettings: React state setter (guaranteed stable)
   const columnHandlers = useMemo(() => {
     const handlers: Record<string, {
       onSelectAll: () => void;
@@ -1252,7 +1280,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       setShowQueueSettings(true);
     };
     return handlers;
-  }, [selectAllTasks, handleToggleColumnCollapsed, handleResizeStart, handleToggleColumnLocked]);
+  }, [selectAllTasks, handleToggleColumnCollapsed, handleResizeStart, handleToggleColumnLocked, setShowQueueSettings]);
 
   // Document-level event listeners for resize dragging
   useEffect(() => {
