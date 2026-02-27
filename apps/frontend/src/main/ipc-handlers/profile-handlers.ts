@@ -196,8 +196,6 @@ export function registerProfileHandlers(): void {
       try {
         // Validate inputs (null/empty checks)
         if (!baseUrl || baseUrl.trim() === '') {
-          clearTimeout(timeoutId);
-          activeTestConnections.delete(requestId);
           return {
             success: false,
             error: 'Base URL is required'
@@ -205,8 +203,6 @@ export function registerProfileHandlers(): void {
         }
 
         if (!apiKey || apiKey.trim() === '') {
-          clearTimeout(timeoutId);
-          activeTestConnections.delete(requestId);
           return {
             success: false,
             error: 'API key is required'
@@ -216,16 +212,8 @@ export function registerProfileHandlers(): void {
         // Call testConnection from service layer with abort signal
         const result = await testConnection(baseUrl, apiKey, controller.signal);
 
-        // Clear timeout on success
-        clearTimeout(timeoutId);
-        activeTestConnections.delete(requestId);
-
         return { success: true, data: result };
       } catch (error) {
-        // Clear timeout on error
-        clearTimeout(timeoutId);
-        activeTestConnections.delete(requestId);
-
         // Handle abort errors (timeout or explicit cancellation)
         if (error instanceof Error && error.name === 'AbortError') {
           return {
@@ -238,6 +226,10 @@ export function registerProfileHandlers(): void {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to test connection'
         };
+      } finally {
+        // Always cleanup: clear timeout and remove from active connections
+        clearTimeout(timeoutId);
+        activeTestConnections.delete(requestId);
       }
     }
   );
