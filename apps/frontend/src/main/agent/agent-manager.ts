@@ -18,6 +18,11 @@ import { resetStuckSubtasks } from '../ipc-handlers/task/plan-file-utils';
 import { AUTO_BUILD_PATHS, getSpecsDir, sanitizeThinkingLevel } from '../../shared/constants';
 import { projectStore } from '../project-store';
 
+/** How often to run the stale task context cleanup (5 minutes) */
+const CONTEXT_CLEANUP_INTERVAL_MS = 5 * 60 * 1000;
+/** Maximum age of an inactive task context before it is considered stale (1 hour) */
+const CONTEXT_STALENESS_THRESHOLD_MS = 60 * 60 * 1000;
+
 /**
  * Main AgentManager - orchestrates agent process lifecycle
  * This is a slim facade that delegates to focused modules
@@ -101,20 +106,19 @@ export class AgentManager extends EventEmitter {
       }, 1000); // Delay to allow restart logic to run first
     });
 
-    // Periodic cleanup of stale task contexts (every 5 minutes)
-    // Removes entries older than 1 hour with no activity to prevent memory leaks
+    // Periodic cleanup of stale task contexts
+    // Removes entries older than CONTEXT_STALENESS_THRESHOLD_MS with no activity to prevent memory leaks
     this.contextCleanupInterval = setInterval(() => {
       this.cleanupStaleTaskContexts();
-    }, 5 * 60 * 1000); // 5 minutes
+    }, CONTEXT_CLEANUP_INTERVAL_MS);
   }
 
   /**
-   * Clean up task contexts that have been inactive for more than 1 hour
-   * Prevents memory leaks from abandoned or failed tasks that weren't cleaned up
+   * Clean up task contexts that have been inactive for longer than CONTEXT_STALENESS_THRESHOLD_MS.
+   * Prevents memory leaks from abandoned or failed tasks that weren't cleaned up.
    */
   private cleanupStaleTaskContexts(): void {
     const now = Date.now();
-    const oneHourMs = 60 * 60 * 1000; // 1 hour in milliseconds
     let cleanedCount = 0;
 
     for (const [taskId, context] of this.taskExecutionContext.entries()) {
@@ -123,8 +127,8 @@ export class AgentManager extends EventEmitter {
         continue;
       }
 
-      // Remove entries older than 1 hour
-      if (now - context.lastActivity > oneHourMs) {
+      // Remove entries older than the staleness threshold
+      if (now - context.lastActivity > CONTEXT_STALENESS_THRESHOLD_MS) {
         this.taskExecutionContext.delete(taskId);
         // Also unregister from OperationRegistry
         getOperationRegistry().unregisterOperation(taskId);
