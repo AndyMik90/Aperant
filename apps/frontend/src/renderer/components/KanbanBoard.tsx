@@ -852,6 +852,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const projectIdRef = useRef(projectId);
   projectIdRef.current = projectId;
 
+  // Ref for columnPreferences to use in stable callbacks without adding it as a dependency
+  const columnPreferencesRef = useRef(columnPreferences);
+  columnPreferencesRef.current = columnPreferences;
+
   const handleArchiveAll = useCallback(async () => {
     // Get projectId from the first task (all tasks should have the same projectId)
     const pid = tasksRef.current[0]?.projectId;
@@ -1201,14 +1205,15 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   }, [toggleColumnLocked, saveKanbanPreferences, projectId]);
 
   // Resize handlers for column width adjustment
+  // Uses refs for columnPreferences and projectId to maintain stable identity across renders
   const handleResizeStart = useCallback((status: typeof TASK_STATUS_COLUMNS[number], startX: number) => {
-    const currentWidth = columnPreferences?.[status]?.width ?? DEFAULT_COLUMN_WIDTH;
+    const currentWidth = columnPreferencesRef.current?.[status]?.width ?? DEFAULT_COLUMN_WIDTH;
     resizeStartX.current = startX;
     resizeStartWidth.current = currentWidth;
     // Capture projectId at resize start to ensure we save to the correct project
-    resizeProjectIdRef.current = projectId ?? null;
+    resizeProjectIdRef.current = projectIdRef.current ?? null;
     setResizingColumn(status);
-  }, [columnPreferences, projectId]);
+  }, []);
 
   const handleResizeMove = useCallback((clientX: number) => {
     if (!resizingColumn) return;
