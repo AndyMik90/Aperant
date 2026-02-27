@@ -156,10 +156,12 @@ function droppableColumnPropsAreEqual(
   nextProps: DroppableColumnProps
 ): boolean {
   // Only compare data props that affect visual output.
-  // Handler refs are skipped — they are derived from stable useCallbacks/useMemo
+  // Most handler refs are skipped — they are derived from stable useCallbacks/useMemo
   // and their identity doesn't change rendering output, only interaction behavior.
+  // Exception: onTaskClick comes from the parent and may not be memoized.
   if (prevProps.status !== nextProps.status) return false;
   if (prevProps.isOver !== nextProps.isOver) return false;
+  if (prevProps.onTaskClick !== nextProps.onTaskClick) return false;
   if (prevProps.maxParallelTasks !== nextProps.maxParallelTasks) return false;
   if (prevProps.archivedCount !== nextProps.archivedCount) return false;
   if (prevProps.showArchived !== nextProps.showArchived) return false;
@@ -863,17 +865,21 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   // Refs for tasks/filteredTasks to avoid stale closures in callbacks that don't need to
   // re-render when the tasks array changes (e.g., handleArchiveAll, handleStatusChange)
   const tasksRef = useRef(tasks);
-  tasksRef.current = tasks;
   const filteredTasksRef = useRef(filteredTasks);
-  filteredTasksRef.current = filteredTasks;
 
   // Ref for projectId to use in stable callbacks without adding it as a dependency
   const projectIdRef = useRef(projectId);
-  projectIdRef.current = projectId;
+
+  // Sync refs after commit to avoid mutating during render
+  useEffect(() => {
+    tasksRef.current = tasks;
+    filteredTasksRef.current = filteredTasks;
+    projectIdRef.current = projectId;
+    columnPreferencesRef.current = columnPreferences;
+  });
 
   // Ref for columnPreferences to use in stable callbacks without adding it as a dependency
   const columnPreferencesRef = useRef(columnPreferences);
-  columnPreferencesRef.current = columnPreferences;
 
   const handleArchiveAll = useCallback(async () => {
     // Get projectId from the first task (all tasks should have the same projectId)
@@ -1280,7 +1286,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       setShowQueueSettings(true);
     };
     return handlers;
-  }, [selectAllTasks, handleToggleColumnCollapsed, handleResizeStart, handleToggleColumnLocked, setShowQueueSettings]);
+  }, [selectAllTasks, handleToggleColumnCollapsed, handleResizeStart, handleToggleColumnLocked]);
 
   // Document-level event listeners for resize dragging
   useEffect(() => {

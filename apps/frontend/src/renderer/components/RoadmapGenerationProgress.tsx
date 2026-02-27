@@ -415,7 +415,7 @@ export function RoadmapGenerationProgress({
               // Determinate progress bar
               <div
                 className={cn('h-full rounded-full', config.color)}
-                style={{ width: `${progress}%`, transition: 'width 0.5s ease-out' }}
+                style={{ width: `${Math.min(100, Math.max(0, Number.isFinite(progress) ? progress : 0))}%`, transition: 'width 0.5s ease-out' }}
               />
             ) : (
               // Indeterminate progress bar when progress is 0
@@ -430,7 +430,7 @@ export function RoadmapGenerationProgress({
 
       {/* Error display - shows whenever error is present, regardless of phase */}
       {error && (
-        <div className="p-3 bg-destructive/10 rounded-md animate-fade-slide-up">
+        <div role="alert" aria-live="assertive" aria-atomic="true" className="p-3 bg-destructive/10 rounded-md animate-fade-slide-up">
           <div className="flex items-start gap-2">
             <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
             <p className="text-sm text-destructive">{error}</p>

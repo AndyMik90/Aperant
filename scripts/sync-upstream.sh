@@ -20,6 +20,12 @@ git fetch "$UPSTREAM_REMOTE"
 # Check current branch
 CURRENT_BRANCH=$(git branch --show-current)
 
+# Ensure local branch exists before comparing
+if ! git show-ref --verify --quiet "refs/heads/${LOCAL_BRANCH}"; then
+    echo "Local branch '$LOCAL_BRANCH' does not exist. Creating from upstream..."
+    git checkout -b "$LOCAL_BRANCH" "${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}"
+fi
+
 # Check for new commits
 BEHIND=$(git rev-list --count "${LOCAL_BRANCH}..${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}")
 

@@ -26,6 +26,8 @@ export function TaskFileExplorerDrawer({ isOpen, onClose, projectPath }: TaskFil
         isOpen ? 'w-72 opacity-100' : 'w-0 opacity-0'
       )}
       style={{ minWidth: 0 }}
+      aria-hidden={!isOpen}
+      {...(!isOpen && { inert: true } as React.HTMLAttributes<HTMLDivElement>)}
     >
       <div
         className={cn(

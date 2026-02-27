@@ -114,7 +114,7 @@ export function PreviewPanel({
 }: PreviewPanelProps) {
   const [viewMode, setViewMode] = useState<'markdown' | 'preview'>('markdown');
 
-  // Custom components for ReactMarkdown to handle local image paths
+  // Custom components for markdown rendering to handle local image paths
   const markdownComponents: Components = useMemo(() => ({
     img: ({ src, alt }) => {
       return <LocalImage src={src || ''} alt={alt || ''} projectPath={projectPath} />;

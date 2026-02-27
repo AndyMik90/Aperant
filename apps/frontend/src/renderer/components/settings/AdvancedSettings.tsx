@@ -28,7 +28,7 @@ import type {
 /**
  * Release notes renderer that handles both HTML and markdown input.
  * GitHub release notes come as HTML, so we detect and handle both formats.
- * Uses ReactMarkdown with rehype-sanitize to prevent XSS attacks.
+ * Uses LazyMarkdownHtml for lazy-loaded rendering with sanitization.
  */
 /** Safe link component that opens external URLs in the default browser */
 const safeMarkdownComponents: Components = {
