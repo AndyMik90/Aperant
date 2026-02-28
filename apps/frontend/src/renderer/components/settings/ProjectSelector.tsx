@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { FolderOpen, Plus, Trash2 } from 'lucide-react';
+import { FolderOpen, Plus, Trash2, Users } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -10,6 +10,7 @@ import {
 import { Separator } from '../ui/separator';
 import { useProjectStore, removeProject } from '../../stores/project-store';
 import { AddProjectModal } from '../AddProjectModal';
+import { AddCustomerModal } from '../AddCustomerModal';
 import type { Project } from '../../../shared/types';
 
 interface ProjectSelectorProps {
@@ -25,11 +26,15 @@ export function ProjectSelector({
 }: ProjectSelectorProps) {
   const projects = useProjectStore((state) => state.projects);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
   const [open, setOpen] = useState(false);
 
   const handleValueChange = (value: string) => {
     if (value === '__add_new__') {
       setShowAddModal(true);
+      setOpen(false);
+    } else if (value === '__add_customer__') {
+      setShowAddCustomerModal(true);
       setOpen(false);
     } else {
       onProjectChange(value || null);
@@ -93,6 +98,12 @@ export function ProjectSelector({
               <span>Add Project...</span>
             </div>
           </SelectItem>
+          <SelectItem value="__add_customer__">
+            <div className="flex items-center gap-2">
+              <Users className="h-4 w-4 shrink-0" />
+              <span>Add Customer...</span>
+            </div>
+          </SelectItem>
         </SelectContent>
       </Select>
 
@@ -114,6 +125,15 @@ export function ProjectSelector({
         onProjectAdded={(project, needsInit) => {
           onProjectChange(project.id);
           onProjectAdded?.(project, needsInit);
+        }}
+      />
+
+      <AddCustomerModal
+        open={showAddCustomerModal}
+        onOpenChange={setShowAddCustomerModal}
+        onCustomerAdded={(project) => {
+          onProjectChange(project.id);
+          onProjectAdded?.(project, false);
         }}
       />
     </>

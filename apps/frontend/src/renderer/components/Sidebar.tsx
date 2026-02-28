@@ -22,11 +22,20 @@ import {
   Heart,
   Wrench,
   PanelLeft,
-  PanelLeftClose
+  PanelLeftClose,
+  FolderOpen,
+  Users
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
 import { Separator } from './ui/separator';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from './ui/select';
 import {
   Tooltip,
   TooltipContent,
@@ -45,7 +54,7 @@ import { cn } from '../lib/utils';
 import {
   useProjectStore,
   removeProject,
-  initializeProject
+  initializeProject,
 } from '../stores/project-store';
 import { useSettingsStore, saveSettings } from '../stores/settings-store';
 import {
@@ -54,6 +63,7 @@ import {
   clearProjectEnvConfig
 } from '../stores/project-env-store';
 import { AddProjectModal } from './AddProjectModal';
+import { AddCustomerModal } from './AddCustomerModal';
 import { GitSetupModal } from './GitSetupModal';
 import { RateLimitIndicator } from './RateLimitIndicator';
 import { ClaudeCodeStatusBadge } from './ClaudeCodeStatusBadge';
@@ -67,6 +77,7 @@ interface SidebarProps {
   onNewTaskClick: () => void;
   activeView?: SidebarView;
   onViewChange?: (view: SidebarView) => void;
+  onCustomerAdded?: (project: Project) => void;
 }
 
 interface NavItem {
@@ -105,14 +116,17 @@ export function Sidebar({
   onSettingsClick,
   onNewTaskClick,
   activeView = 'kanban',
-  onViewChange
+  onViewChange,
+  onCustomerAdded
 }: SidebarProps) {
   const { t } = useTranslation(['navigation', 'dialogs', 'common']);
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
+  const selectProject = useProjectStore((state) => state.selectProject);
   const settings = useSettingsStore((state) => state.settings);
 
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
+  const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
   const [showInitDialog, setShowInitDialog] = useState(false);
   const [showGitSetupModal, setShowGitSetupModal] = useState(false);
   const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
@@ -135,20 +149,11 @@ export function Sidebar({
   // Track the last loaded project ID to avoid redundant loads
   const lastLoadedProjectIdRef = useRef<string | null>(null);
 
-  // Compute visible nav items based on GitHub/GitLab enabled state from store
+  // Compute visible nav items — GitHub/GitLab always shown so users can configure credentials
   const visibleNavItems = useMemo(() => {
-    const items = [...baseNavItems];
-
-    if (githubEnabled) {
-      items.push(...githubNavItems);
-    }
-
-    if (gitlabEnabled) {
-      items.push(...gitlabNavItems);
-    }
-
+    const items = [...baseNavItems, ...githubNavItems, ...gitlabNavItems];
     return items;
-  }, [githubEnabled, gitlabEnabled]);
+  }, []);
 
   // Load envConfig when project changes to ensure store is populated
   useEffect(() => {
@@ -212,10 +217,15 @@ export function Sidebar({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedProjectId, onViewChange, visibleNavItems]);
 
-  // Check git status when project changes
+  // Check git status when project changes (skip for customer-type projects)
   useEffect(() => {
     const checkGit = async () => {
       if (selectedProject) {
+        // Customer folders don't require git
+        if (selectedProject.type === 'customer') {
+          setGitStatus(null);
+          return;
+        }
         try {
           const result = await window.electronAPI.checkGitStatus(selectedProject.path);
           if (result.success && result.data) {
@@ -399,6 +409,63 @@ export function Sidebar({
                   {t('sections.project')}
                 </h3>
               )}
+
+              {/* Project Selector Dropdown */}
+              {!isCollapsed ? (
+                <div className="mb-3 px-1">
+                  <Select
+                    value={selectedProjectId ?? ''}
+                    onValueChange={(value) => {
+                      if (value === '__add_project__') {
+                        setShowAddProjectModal(true);
+                      } else if (value === '__add_customer__') {
+                        setShowAddCustomerModal(true);
+                      } else {
+                        selectProject(value);
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder={t('navigation:projectSelector.placeholder')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {projects.map((project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          <span className="truncate">{project.name}</span>
+                        </SelectItem>
+                      ))}
+                      {projects.length > 0 && <Separator className="my-1" />}
+                      <SelectItem value="__add_project__">
+                        <span className="flex items-center gap-2 text-primary">
+                          <Plus className="h-3 w-3" />
+                          {t('navigation:projectSelector.addProject')}
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="__add_customer__">
+                        <span className="flex items-center gap-2 text-primary">
+                          <Users className="h-3 w-3" />
+                          {t('navigation:projectSelector.addCustomer')}
+                        </span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      onClick={() => setShowAddProjectModal(true)}
+                      className="flex w-full items-center justify-center rounded-lg px-2 py-2 mb-2 text-sm transition-all duration-200 hover:bg-accent hover:text-accent-foreground"
+                    >
+                      <FolderOpen className="h-4 w-4 shrink-0" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    {selectedProject?.name ?? t('navigation:projectSelector.placeholder')}
+                  </TooltipContent>
+                </Tooltip>
+              )}
+
               <nav className="space-y-1">
                 {visibleNavItems.map(renderNavItem)}
               </nav>
@@ -567,6 +634,15 @@ export function Sidebar({
         open={showAddProjectModal}
         onOpenChange={setShowAddProjectModal}
         onProjectAdded={handleProjectAdded}
+      />
+
+      {/* Add Customer Modal */}
+      <AddCustomerModal
+        open={showAddCustomerModal}
+        onOpenChange={setShowAddCustomerModal}
+        onCustomerAdded={(project) => {
+          onCustomerAdded?.(project);
+        }}
       />
 
       {/* Git Setup Modal */}

@@ -381,6 +381,9 @@ export function App() {
     // (project update with autoBuildPath may not have propagated yet)
     if (initSuccess) return;
 
+    // Customer folders handle initialization automatically — skip the dialog
+    if (selectedProject?.type === 'customer') return;
+
     if (selectedProject && !selectedProject.autoBuildPath && skippedInitProjectId !== selectedProject.id) {
       // Project exists but isn't initialized - show init dialog
       setPendingProject(selectedProject);
@@ -835,6 +838,10 @@ export function App() {
           onNewTaskClick={() => setIsNewTaskDialogOpen(true)}
           activeView={activeView}
           onViewChange={setActiveView}
+          onCustomerAdded={(project) => {
+            setGitHubSetupProject(project);
+            setShowGitHubSetup(true);
+          }}
         />
 
         {/* Main content */}

@@ -10,6 +10,7 @@ export interface Project {
   settings: ProjectSettings;
   createdAt: Date;
   updatedAt: Date;
+  type?: 'project' | 'customer';
 }
 
 export interface ProjectSettings {
