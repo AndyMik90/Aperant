@@ -4,6 +4,7 @@ import { IPC_CHANNELS } from '../../shared/constants';
 import type { IPCResult, TerminalCreateOptions, ClaudeProfile, ClaudeProfileSettings, ClaudeUsageSnapshot, AllProfilesUsage } from '../../shared/types';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { getUsageMonitor } from '../claude-profile/usage-monitor';
+import type { AgentManager } from '../agent';
 import { TerminalManager } from '../terminal-manager';
 import { projectStore } from '../project-store';
 import { terminalNameGenerator } from '../terminal-name-generator';
@@ -736,7 +737,7 @@ export function registerTerminalHandlers(
  * Initialize usage monitor event forwarding to renderer process
  * Call this after mainWindow is created
  */
-export function initializeUsageMonitorForwarding(mainWindow: BrowserWindow): void {
+export function initializeUsageMonitorForwarding(mainWindow: BrowserWindow, agentManager?: AgentManager | null): void {
   const monitor = getUsageMonitor();
 
   // Forward usage updates to renderer
@@ -752,5 +753,17 @@ export function initializeUsageMonitorForwarding(mainWindow: BrowserWindow): voi
   // Forward proactive swap notifications to renderer
   monitor.on('show-swap-notification', (notification: unknown) => {
     mainWindow.webContents.send(IPC_CHANNELS.PROACTIVE_SWAP_NOTIFICATION, notification);
+  });
+
+  // Budget exhausted: no account to switch to — stop all running agents
+  monitor.on('budget-exhausted', (payload: unknown) => {
+    console.warn('[UsageMonitor] Budget exhausted, stopping all running agents:', payload);
+    agentManager?.killAll().catch((err: unknown) => {
+      console.error('[UsageMonitor] Failed to kill agents after budget exhaustion:', err);
+    });
+    mainWindow.webContents.send(IPC_CHANNELS.PROACTIVE_SWAP_NOTIFICATION, {
+      type: 'budget_exhausted',
+      ...(payload as object)
+    });
   });
 }

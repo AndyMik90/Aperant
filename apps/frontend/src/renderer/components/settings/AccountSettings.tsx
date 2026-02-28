@@ -1269,6 +1269,68 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
           </TabsContent>
         </Tabs>
 
+        {/* Usage Limits Section - Always visible, independent of account count */}
+        <div className="space-y-4 pt-6 border-t border-border">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <h4 className="text-sm font-semibold text-foreground">{t('accounts.usageLimits.title')}</h4>
+          </div>
+
+          <div className="rounded-lg bg-muted/30 border border-border p-4 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {t('accounts.usageLimits.description')}
+            </p>
+
+            {/* Budget cap */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="budget-cap" className="text-sm font-medium">{t('accounts.autoSwitching.budgetCap')}</Label>
+                <span className="text-sm font-mono">
+                  {autoSwitchSettings?.budgetCapPercent !== undefined
+                    ? `${autoSwitchSettings.budgetCapPercent}%`
+                    : t('accounts.autoSwitching.budgetCapOff')}
+                </span>
+              </div>
+              <input
+                id="budget-cap"
+                type="range"
+                min="0"
+                max="100"
+                step="5"
+                value={autoSwitchSettings?.budgetCapPercent ?? 100}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value, 10);
+                  handleUpdateAutoSwitch({ budgetCapPercent: val >= 100 ? undefined : val });
+                }}
+                disabled={isLoadingAutoSwitch}
+                className="w-full"
+                aria-describedby="budget-cap-description"
+              />
+              <p id="budget-cap-description" className="text-xs text-muted-foreground">
+                {t('accounts.autoSwitching.budgetCapDescription')}
+              </p>
+            </div>
+
+            {/* No extra usage */}
+            <div className="flex items-center justify-between">
+              <div>
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <Clock className="h-3.5 w-3.5" />
+                  {t('accounts.autoSwitching.noExtraUsage')}
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {t('accounts.autoSwitching.noExtraUsageDescription')}
+                </p>
+              </div>
+              <Switch
+                checked={autoSwitchSettings?.noExtraUsage ?? false}
+                onCheckedChange={(value) => handleUpdateAutoSwitch({ noExtraUsage: value })}
+                disabled={isLoadingAutoSwitch}
+              />
+            </div>
+          </div>
+        </div>
+
         {/* Auto-Switch Settings Section - Persistent below tabs */}
         {totalAccounts > 1 && (
           <div className="space-y-4 pt-6 border-t border-border">
@@ -1365,6 +1427,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                             {t('accounts.autoSwitching.weeklyThresholdDescription')}
                           </p>
                         </div>
+
                       </>
                     )}
                   </div>

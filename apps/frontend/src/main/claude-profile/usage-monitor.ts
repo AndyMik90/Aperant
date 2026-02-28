@@ -927,32 +927,55 @@ export class UsageMonitor extends EventEmitter {
         const profileManager = getClaudeProfileManager();
         const settings = profileManager.getAutoSwitchSettings();
 
-        if (!settings.enabled || !settings.proactiveSwapEnabled) {
-          this.debugLog('[UsageMonitor:TRACE] Proactive swap disabled, skipping threshold check');
+        // Budget policy (budgetCapPercent / noExtraUsage) runs independently of the
+        // auto-switch master toggle — a single-account user can still enforce a hard stop.
+        const hasBudgetPolicy = settings.budgetCapPercent !== undefined || settings.noExtraUsage;
+        const isProactiveEnabled = settings.enabled && settings.proactiveSwapEnabled;
+
+        if (!hasBudgetPolicy && !isProactiveEnabled) {
+          this.debugLog('[UsageMonitor:TRACE] Proactive swap and budget policy both disabled, skipping threshold check');
           return;
         }
 
         const thresholds = this.checkThresholdsExceeded(usage, settings);
 
         if (thresholds.anyExceeded) {
+          const limitLabel = thresholds.sessionExceeded ? 'session' : 'weekly';
+          const limitPercent = thresholds.sessionExceeded ? usage.sessionPercent : usage.weeklyPercent;
+          const capLabel = settings.noExtraUsage
+            ? 'noExtraUsage (100%)'
+            : settings.budgetCapPercent !== undefined
+              ? `budgetCap (${settings.budgetCapPercent}%)`
+              : `threshold (${thresholds.sessionExceeded ? (settings.sessionThreshold ?? 95) : (settings.weeklyThreshold ?? 99)}%)`;
+          console.warn(
+            `[UsageMonitor] Budget limit reached: ${limitLabel} usage at ${limitPercent.toFixed(1)}% exceeds ${capLabel} for profile "${profileId}". ${hasBudgetPolicy ? 'Will stop agents if no alternative account.' : 'Will attempt account switch.'}`
+          );
+
           this.debugLog('[UsageMonitor:TRACE] Threshold exceeded', {
             sessionPercent: usage.sessionPercent,
             weekPercent: usage.weeklyPercent,
             activeProfile: profileId,
-            hasCredential: !!credential
+            hasCredential: !!credential,
+            hasBudgetPolicy,
+            isProactiveEnabled
           });
 
           this.debugLog('[UsageMonitor] Threshold exceeded:', {
             sessionPercent: usage.sessionPercent,
             sessionThreshold: settings.sessionThreshold ?? 95,
             weeklyPercent: usage.weeklyPercent,
-            weeklyThreshold: settings.weeklyThreshold ?? 99
+            weeklyThreshold: settings.weeklyThreshold ?? 99,
+            budgetCapPercent: settings.budgetCapPercent,
+            noExtraUsage: settings.noExtraUsage
           });
 
-          // Attempt proactive swap
+          // Attempt proactive swap; pass stopIfExhausted=true when a budget policy is active
+          // so that running agents are killed if no alternative account is available.
           await this.performProactiveSwap(
             profileId,
-            thresholds.sessionExceeded ? 'session' : 'weekly'
+            thresholds.sessionExceeded ? 'session' : 'weekly',
+            [],
+            hasBudgetPolicy
           );
         } else {
           this.debugLog('[UsageMonitor:TRACE] Usage OK', {
@@ -1081,10 +1104,24 @@ export class UsageMonitor extends EventEmitter {
    */
   private checkThresholdsExceeded(
     usage: ClaudeUsageSnapshot,
-    settings: { sessionThreshold?: number; weeklyThreshold?: number }
+    settings: { sessionThreshold?: number; weeklyThreshold?: number; budgetCapPercent?: number; noExtraUsage?: boolean }
   ): { sessionExceeded: boolean; weeklyExceeded: boolean; anyExceeded: boolean } {
-    const sessionExceeded = usage.sessionPercent >= (settings.sessionThreshold ?? 95);
-    const weeklyExceeded = usage.weeklyPercent >= (settings.weeklyThreshold ?? 99);
+    const baseSession = settings.sessionThreshold ?? 95;
+    const baseWeekly = settings.weeklyThreshold ?? 99;
+
+    // Budget cap acts as a ceiling on both thresholds
+    const effectiveSession = settings.budgetCapPercent !== undefined
+      ? Math.min(baseSession, settings.budgetCapPercent)
+      : baseSession;
+    const effectiveWeekly = settings.budgetCapPercent !== undefined
+      ? Math.min(baseWeekly, settings.budgetCapPercent)
+      : baseWeekly;
+
+    // noExtraUsage: also flag when hitting 100%
+    const sessionExceeded = usage.sessionPercent >= effectiveSession ||
+      (!!settings.noExtraUsage && usage.sessionPercent >= 100);
+    const weeklyExceeded = usage.weeklyPercent >= effectiveWeekly ||
+      (!!settings.noExtraUsage && usage.weeklyPercent >= 100);
 
     return {
       sessionExceeded,
@@ -1867,7 +1904,8 @@ export class UsageMonitor extends EventEmitter {
   private async performProactiveSwap(
     currentProfileId: string,
     limitType: 'session' | 'weekly',
-    additionalExclusions: string[] = []
+    additionalExclusions: string[] = [],
+    stopIfExhausted: boolean = false
   ): Promise<void> {
     const profileManager = getClaudeProfileManager();
     const excludeIds = new Set([currentProfileId, ...additionalExclusions]);
@@ -1924,11 +1962,20 @@ export class UsageMonitor extends EventEmitter {
 
     if (unifiedAccounts.length === 0) {
       this.debugLog('[UsageMonitor] No alternative profile for proactive swap (excluded:', Array.from(excludeIds));
-      this.emit('proactive-swap-failed', {
-        reason: additionalExclusions.length > 0 ? 'all_alternatives_failed_auth' : 'no_alternative',
-        currentProfile: currentProfileId,
-        excludedProfiles: Array.from(excludeIds)
-      });
+      if (stopIfExhausted) {
+        // Budget policy: no account to switch to — emit budget-exhausted so running agents are stopped.
+        this.emit('budget-exhausted', {
+          reason: 'budget_cap_no_alternative',
+          currentProfile: currentProfileId,
+          limitType
+        });
+      } else {
+        this.emit('proactive-swap-failed', {
+          reason: additionalExclusions.length > 0 ? 'all_alternatives_failed_auth' : 'no_alternative',
+          currentProfile: currentProfileId,
+          excludedProfiles: Array.from(excludeIds)
+        });
+      }
       return;
     }
 

@@ -234,6 +234,23 @@ export interface ClaudeAutoSwitchSettings {
 
   /** Whether to automatically switch on authentication failure (vs. prompting user) */
   autoSwitchOnAuthFailure: boolean;
+
+  /**
+   * Unified budget cap (0-100). When set, acts as a ceiling on BOTH session and weekly
+   * thresholds — no account will be used beyond this % of either limit.
+   * Provides a single slider to limit overall plan consumption instead of tuning two
+   * thresholds separately. When undefined, the individual thresholds are used as-is.
+   */
+  budgetCapPercent?: number;
+
+  /**
+   * When true, treats usage at 100% as unavailable — prevents Anthropic's "extra usage"
+   * (pay-per-use overage beyond plan limits) from being consumed.
+   * The account is considered unavailable as soon as either session or weekly usage
+   * reaches 100%, so it will be switched away from before any overage charges occur.
+   * Default: false
+   */
+  noExtraUsage: boolean;
 }
 
 export interface ClaudeAuthResult {

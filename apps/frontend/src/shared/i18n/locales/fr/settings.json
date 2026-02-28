@@ -572,6 +572,10 @@
         "deleting": "Suppression..."
       }
     },
+    "usageLimits": {
+      "title": "Limites d'utilisation",
+      "description": "Limitez la consommation de votre forfait. Fonctionne avec n'importe quel nombre de comptes — arrête les agents en cours si la limite est atteinte et qu'aucun compte alternatif n'est disponible."
+    },
     "autoSwitching": {
       "title": "Basculement automatique de compte",
       "description": "Basculez automatiquement entre les comptes pour éviter les interruptions. Configurez la surveillance proactive pour basculer avant d'atteindre les limites.",
@@ -583,6 +587,11 @@
       "sessionThresholdDescription": "Basculer lorsque l'utilisation de session atteint ce niveau (recommandé: 95%)",
       "weeklyThreshold": "Seuil d'utilisation hebdomadaire",
       "weeklyThresholdDescription": "Basculer lorsque l'utilisation hebdomadaire atteint ce niveau (recommandé: 99%)",
+      "budgetCap": "Plafond budgétaire",
+      "budgetCapOff": "Désactivé",
+      "budgetCapDescription": "Plafond unique pour l'utilisation de session et hebdomadaire — remplace les seuils individuels s'il est plus strict. Glisser à 100% pour désactiver.",
+      "noExtraUsage": "Bloquer l'utilisation supplémentaire",
+      "noExtraUsageDescription": "Arrêter ce compte à 100% pour éviter les frais de dépassement payants d'Anthropic (utilisation supplémentaire).",
       "reactiveRecovery": "Récupération réactive",
       "reactiveDescription": "Auto-basculement en cas de limite de taux inattendue",
       "autoSwitchOnAuthFailure": "Changement auto en cas d'échec d'auth",

@@ -572,6 +572,10 @@
         "deleting": "Deleting..."
       }
     },
+    "usageLimits": {
+      "title": "Usage Limits",
+      "description": "Cap how much of your plan is consumed. Works with any number of accounts — stops running agents when the limit is reached and no alternative account is available."
+    },
     "autoSwitching": {
       "title": "Automatic Account Switching",
       "description": "Automatically switch between accounts to avoid interruptions. Configure proactive monitoring to switch before hitting limits.",
@@ -583,6 +587,11 @@
       "sessionThresholdDescription": "Switch when session usage reaches this level (recommended: 95%)",
       "weeklyThreshold": "Weekly usage threshold",
       "weeklyThresholdDescription": "Switch when weekly usage reaches this level (recommended: 99%)",
+      "budgetCap": "Budget cap",
+      "budgetCapOff": "Off",
+      "budgetCapDescription": "Single cap for both session and weekly usage — overrides individual thresholds when stricter. Drag to 100% to disable.",
+      "noExtraUsage": "Block extra usage",
+      "noExtraUsageDescription": "Stop this account at 100% to prevent Anthropic's pay-per-use overage charges (extra usage).",
       "reactiveRecovery": "Reactive Recovery",
       "reactiveDescription": "Auto-swap when unexpected rate limit is hit",
       "autoSwitchOnAuthFailure": "Auto-switch on auth failure",

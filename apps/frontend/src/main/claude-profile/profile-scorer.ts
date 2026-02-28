@@ -60,22 +60,40 @@ function checkProfileAvailability(
 
   // Check usage thresholds
   if (profile.usage) {
+    // noExtraUsage: hard stop — account unavailable as soon as either limit hits 100%
+    if (settings.noExtraUsage) {
+      if (profile.usage.weeklyUsagePercent >= 100) {
+        return { available: false, reason: 'no-extra-usage policy: weekly usage at 100% plan limit' };
+      }
+      if (profile.usage.sessionUsagePercent >= 100) {
+        return { available: false, reason: 'no-extra-usage policy: session usage at 100% plan limit' };
+      }
+    }
+
+    // Effective thresholds: budget cap (if set) acts as a ceiling on both thresholds
+    const effectiveWeeklyThreshold = settings.budgetCapPercent !== undefined
+      ? Math.min(settings.weeklyThreshold, settings.budgetCapPercent)
+      : settings.weeklyThreshold;
+    const effectiveSessionThreshold = settings.budgetCapPercent !== undefined
+      ? Math.min(settings.sessionThreshold, settings.budgetCapPercent)
+      : settings.sessionThreshold;
+
     // Weekly threshold check (more important - longer reset time)
     // Using >= to reject profiles AT or ABOVE threshold (e.g., 95% is rejected when threshold is 95%)
     // This is intentional: we want to switch proactively BEFORE hitting hard limits
-    if (profile.usage.weeklyUsagePercent >= settings.weeklyThreshold) {
+    if (profile.usage.weeklyUsagePercent >= effectiveWeeklyThreshold) {
       return {
         available: false,
-        reason: `weekly usage ${profile.usage.weeklyUsagePercent}% >= threshold ${settings.weeklyThreshold}%`
+        reason: `weekly usage ${profile.usage.weeklyUsagePercent}% >= threshold ${effectiveWeeklyThreshold}%`
       };
     }
 
     // Session threshold check
     // Using >= to reject profiles AT or ABOVE threshold (same rationale as weekly)
-    if (profile.usage.sessionUsagePercent >= settings.sessionThreshold) {
+    if (profile.usage.sessionUsagePercent >= effectiveSessionThreshold) {
       return {
         available: false,
-        reason: `session usage ${profile.usage.sessionUsagePercent}% >= threshold ${settings.sessionThreshold}%`
+        reason: `session usage ${profile.usage.sessionUsagePercent}% >= threshold ${effectiveSessionThreshold}%`
       };
     }
   }
@@ -117,9 +135,16 @@ function calculateFallbackScore(
 
   // Usage penalties (prefer lower usage)
   if (profile.usage) {
+    const effectiveWeeklyThreshold = settings.budgetCapPercent !== undefined
+      ? Math.min(settings.weeklyThreshold, settings.budgetCapPercent)
+      : settings.weeklyThreshold;
+    const effectiveSessionThreshold = settings.budgetCapPercent !== undefined
+      ? Math.min(settings.sessionThreshold, settings.budgetCapPercent)
+      : settings.sessionThreshold;
+
     // Penalize based on how far over threshold
-    const weeklyOverage = Math.max(0, profile.usage.weeklyUsagePercent - settings.weeklyThreshold);
-    const sessionOverage = Math.max(0, profile.usage.sessionUsagePercent - settings.sessionThreshold);
+    const weeklyOverage = Math.max(0, profile.usage.weeklyUsagePercent - effectiveWeeklyThreshold);
+    const sessionOverage = Math.max(0, profile.usage.sessionUsagePercent - effectiveSessionThreshold);
 
     score -= weeklyOverage * 2; // Weekly overage is worse
     score -= sessionOverage;
@@ -206,13 +231,34 @@ function scoreUnifiedAccount(
     }
     unavailableReason = `rate limited (${account.rateLimitType || 'unknown'})`;
   } else {
-    // Check usage thresholds (matching checkProfileAvailability behavior)
-    if (account.weeklyPercent !== undefined && account.weeklyPercent >= settings.weeklyThreshold) {
-      isOverThreshold = true;
-      unavailableReason = `weekly usage ${account.weeklyPercent}% >= threshold ${settings.weeklyThreshold}%`;
-    } else if (account.sessionPercent !== undefined && account.sessionPercent >= settings.sessionThreshold) {
-      isOverThreshold = true;
-      unavailableReason = `session usage ${account.sessionPercent}% >= threshold ${settings.sessionThreshold}%`;
+    // noExtraUsage: hard stop at 100%
+    if (settings.noExtraUsage) {
+      if (account.weeklyPercent !== undefined && account.weeklyPercent >= 100) {
+        isOverThreshold = true;
+        unavailableReason = 'no-extra-usage policy: weekly usage at 100% plan limit';
+      } else if (account.sessionPercent !== undefined && account.sessionPercent >= 100) {
+        isOverThreshold = true;
+        unavailableReason = 'no-extra-usage policy: session usage at 100% plan limit';
+      }
+    }
+
+    if (!isOverThreshold) {
+      // Effective thresholds: budget cap acts as a ceiling on both thresholds
+      const effectiveWeeklyThreshold = settings.budgetCapPercent !== undefined
+        ? Math.min(settings.weeklyThreshold, settings.budgetCapPercent)
+        : settings.weeklyThreshold;
+      const effectiveSessionThreshold = settings.budgetCapPercent !== undefined
+        ? Math.min(settings.sessionThreshold, settings.budgetCapPercent)
+        : settings.sessionThreshold;
+
+      // Check usage thresholds (matching checkProfileAvailability behavior)
+      if (account.weeklyPercent !== undefined && account.weeklyPercent >= effectiveWeeklyThreshold) {
+        isOverThreshold = true;
+        unavailableReason = `weekly usage ${account.weeklyPercent}% >= threshold ${effectiveWeeklyThreshold}%`;
+      } else if (account.sessionPercent !== undefined && account.sessionPercent >= effectiveSessionThreshold) {
+        isOverThreshold = true;
+        unavailableReason = `session usage ${account.sessionPercent}% >= threshold ${effectiveSessionThreshold}%`;
+      }
     }
 
     // Apply proportional penalties for high usage (even if not over threshold)
@@ -483,24 +529,33 @@ export function shouldProactivelySwitch(
 
   const usage = profile.usage;
 
+  // Effective thresholds: budget cap acts as a ceiling; noExtraUsage caps at 100%
+  const effectiveWeeklyThreshold = settings.budgetCapPercent !== undefined
+    ? Math.min(settings.weeklyThreshold, settings.budgetCapPercent)
+    : settings.weeklyThreshold;
+  const effectiveSessionThreshold = settings.budgetCapPercent !== undefined
+    ? Math.min(settings.sessionThreshold, settings.budgetCapPercent)
+    : settings.sessionThreshold;
   // Check if we're approaching limits
-  if (usage.weeklyUsagePercent >= settings.weeklyThreshold) {
+  if (usage.weeklyUsagePercent >= effectiveWeeklyThreshold ||
+      (settings.noExtraUsage && usage.weeklyUsagePercent >= 100)) {
     const bestProfile = getBestAvailableProfile(allProfiles, settings, profile.id, priorityOrder);
     if (bestProfile) {
       return {
         shouldSwitch: true,
-        reason: `Weekly usage at ${usage.weeklyUsagePercent}% (threshold: ${settings.weeklyThreshold}%)`,
+        reason: `Weekly usage at ${usage.weeklyUsagePercent}% (threshold: ${effectiveWeeklyThreshold}%)`,
         suggestedProfile: bestProfile
       };
     }
   }
 
-  if (usage.sessionUsagePercent >= settings.sessionThreshold) {
+  if (usage.sessionUsagePercent >= effectiveSessionThreshold ||
+      (settings.noExtraUsage && usage.sessionUsagePercent >= 100)) {
     const bestProfile = getBestAvailableProfile(allProfiles, settings, profile.id, priorityOrder);
     if (bestProfile) {
       return {
         shouldSwitch: true,
-        reason: `Session usage at ${usage.sessionUsagePercent}% (threshold: ${settings.sessionThreshold}%)`,
+        reason: `Session usage at ${usage.sessionUsagePercent}% (threshold: ${effectiveSessionThreshold}%)`,
         suggestedProfile: bestProfile
       };
     }

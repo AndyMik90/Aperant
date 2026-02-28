@@ -506,7 +506,7 @@ app.whenReady().then(() => {
       // Only start monitoring if window is still available (app not quitting)
       if (mainWindow) {
         // Setup event forwarding from usage monitor to renderer
-        initializeUsageMonitorForwarding(mainWindow);
+        initializeUsageMonitorForwarding(mainWindow, agentManager);
 
         // Start the usage monitor (uses unified OperationRegistry for proactive restart)
         const usageMonitor = getUsageMonitor();
@@ -561,7 +561,7 @@ app.whenReady().then(() => {
       console.warn('[main] Failed to initialize profile manager:', error);
       // Fallback: try starting usage monitor anyway (might use defaults)
       if (mainWindow) {
-        initializeUsageMonitorForwarding(mainWindow);
+        initializeUsageMonitorForwarding(mainWindow, agentManager);
         const usageMonitor = getUsageMonitor();
         usageMonitor.start();
       }
