@@ -10,7 +10,7 @@ import {
 } from './ui/dialog';
 import { Button } from './ui/button';
 import { cn } from '../lib/utils';
-import { useProjectStore, initializeProject } from '../stores/project-store';
+import { useProjectStore } from '../stores/project-store';
 import type { Project } from '../../shared/types';
 
 interface AddCustomerModalProps {
@@ -53,12 +53,15 @@ export function AddCustomerModal({ open, onOpenChange, onCustomerAdded }: AddCus
     store.selectProject(project.id);
     store.openProjectTab(project.id);
 
-    // Auto-initialize .auto-claude/ so the customer has an .env for GitHub token
+    // Create .auto-claude/ folder so the customer has an .env for GitHub token.
+    // We use createProjectFolder instead of initializeProject because the full
+    // initializer requires git (which customer folders don't have).
     if (!project.autoBuildPath) {
       try {
-        await initializeProject(project.id);
+        await window.electronAPI.createProjectFolder(path, '.auto-claude', false);
+        store.updateProject(project.id, { autoBuildPath: '.auto-claude' });
       } catch {
-        // Non-fatal — user can init later
+        // Non-fatal — user can configure later
       }
     }
     onCustomerAdded?.(project);
