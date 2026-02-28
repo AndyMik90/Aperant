@@ -1131,6 +1131,52 @@ export class UsageMonitor extends EventEmitter {
   }
 
   /**
+   * Check if the active profile's cached usage already exceeds the configured budget
+   * limits (budgetCapPercent / noExtraUsage).  Uses only cached data — no API call.
+   *
+   * Intended as a pre-flight check before spawning a new agent so we refuse
+   * to start work that would immediately be killed by the periodic monitor.
+   *
+   * @param profileId - The profile to check
+   * @returns `{ exceeded: true, reason }` when over budget, otherwise `{ exceeded: false }`
+   */
+  isBudgetExceeded(profileId: string): { exceeded: boolean; reason?: string } {
+    const profileManager = getClaudeProfileManager();
+    const settings = profileManager.getAutoSwitchSettings();
+
+    const hasBudgetPolicy = settings.budgetCapPercent !== undefined || settings.noExtraUsage;
+    if (!hasBudgetPolicy) {
+      return { exceeded: false };
+    }
+
+    const cached = this.allProfilesUsageCache.get(profileId);
+    if (!cached) {
+      // No cached data yet — can't block the agent; let the periodic monitor handle it.
+      return { exceeded: false };
+    }
+
+    const { sessionPercent, weeklyPercent } = cached.usage;
+    const thresholds = this.checkThresholdsExceeded(
+      { sessionPercent, weeklyPercent } as ClaudeUsageSnapshot,
+      settings
+    );
+    if (!thresholds.anyExceeded) {
+      return { exceeded: false };
+    }
+
+    const limitLabel = thresholds.sessionExceeded ? 'session' : 'weekly';
+    const limitPercent = thresholds.sessionExceeded ? sessionPercent : weeklyPercent;
+    const capLabel = settings.noExtraUsage
+      ? 'noExtraUsage (100%)'
+      : `budgetCap (${settings.budgetCapPercent}%)`;
+
+    return {
+      exceeded: true,
+      reason: `${limitLabel} usage at ${limitPercent.toFixed(1)}% already exceeds ${capLabel}`
+    };
+  }
+
+  /**
    * Handle auth failure by attempting token refresh, then marking profile as failed
    * and attempting proactive swap if refresh fails.
    *

@@ -6,6 +6,7 @@ import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
 import { AgentQueueManager } from './agent-queue';
 import { getClaudeProfileManager, initializeClaudeProfileManager } from '../claude-profile-manager';
+import { UsageMonitor } from '../claude-profile/usage-monitor';
 import type { ClaudeProfileManager } from '../claude-profile-manager';
 import { getOperationRegistry } from '../claude-profile/operation-registry';
 import {
@@ -243,6 +244,20 @@ export class AgentManager extends EventEmitter {
     if (!profileManager.hasValidAuth()) {
       this.emit('error', taskId, 'Claude authentication required. Please authenticate in Settings > Claude Profiles before starting tasks.');
       return;
+    }
+
+    // Pre-flight budget check: Refuse to start if cached usage already exceeds configured budget cap.
+    // This prevents agents from waking up and doing work that the periodic monitor would immediately kill.
+    try {
+      const activeProfile = profileManager.getActiveProfile();
+      const budgetCheck = UsageMonitor.getInstance().isBudgetExceeded(activeProfile.id);
+      if (budgetCheck.exceeded) {
+        console.warn(`[AgentManager] Refusing to start task "${taskId}": budget limit already exceeded — ${budgetCheck.reason}`);
+        this.emit('error', taskId, `Budget limit reached: ${budgetCheck.reason}. Adjust the budget cap in Settings > Accounts to continue.`);
+        return;
+      }
+    } catch {
+      // getActiveProfile can throw if no profiles exist; auth check above already handles that case.
     }
 
     // Ensure Python environment is ready before spawning process (prevents exit code 127 race condition)
