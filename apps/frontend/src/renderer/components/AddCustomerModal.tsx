@@ -64,7 +64,10 @@ export function AddCustomerModal({ open, onOpenChange, onCustomerAdded }: AddCus
         // Non-fatal — user can configure later
       }
     }
-    onCustomerAdded?.(project);
+
+    // Read updated project from store (has autoBuildPath set)
+    const updatedProject = store.projects.find(p => p.id === project.id) || project;
+    onCustomerAdded?.(updatedProject);
     onOpenChange(false);
   };
 
