@@ -554,10 +554,22 @@ class FrameworkAnalyzer(BaseAnalyzer):
         sln_files = list(self.path.glob("*.sln"))
 
         if sln_files:
-            solution = self._map_dotnet_solution(sln_files[0])
-            if solution and (solution["entry_points"] or solution["libraries"]):
-                self.analysis["dotnet_solution"] = solution
-                self._apply_dotnet_solution_framework(solution)
+            best_solution = None
+            best_size = -1
+            for sln_path in sorted(sln_files):
+                candidate = self._map_dotnet_solution(sln_path)
+                if candidate:
+                    size = len(candidate.get("entry_points", [])) + len(
+                        candidate.get("libraries", [])
+                    )
+                    if size > best_size:
+                        best_solution = candidate
+                        best_size = size
+            if best_solution and (
+                best_solution["entry_points"] or best_solution["libraries"]
+            ):
+                self.analysis["dotnet_solution"] = best_solution
+                self._apply_dotnet_solution_framework(best_solution)
                 return
 
         # ---- Single .csproj detection ----
@@ -738,7 +750,6 @@ class FrameworkAnalyzer(BaseAnalyzer):
                 "path": project_dir,
             }
 
-            role = "library"
             is_entry_point = False
 
             if is_test:
@@ -759,6 +770,7 @@ class FrameworkAnalyzer(BaseAnalyzer):
                 role = "worker"
                 is_entry_point = True
                 entry["type"] = "worker"
+                entry["framework"] = ".NET Worker"
                 entry_points.append(entry)
             elif info.get("output_type", "").lower() == "exe":
                 role = "tool"
@@ -875,7 +887,10 @@ class FrameworkAnalyzer(BaseAnalyzer):
                         PureWindowsPath(r).stem for r in proj_refs
                     ]
 
-            except ET.ParseError:
+            except Exception:
+                # Broad catch: malformed .csproj files can raise ET.ParseError,
+                # TypeError (None content), ValueError (encoding issues), or other
+                # unexpected exceptions. Fall back to regex extraction.
                 refs = re.findall(r'<PackageReference\s+Include="([^"]+)"', content)
                 info["packages"].update(r.lower() for r in refs)
                 proj_refs = re.findall(
@@ -908,7 +923,7 @@ class FrameworkAnalyzer(BaseAnalyzer):
             self.analysis["type"] = "backend"
         elif has_worker:
             ep = next(ep for ep in entry_points if ep["type"] == "worker")
-            self.analysis["framework"] = ep.get("framework", "Azure Functions")
+            self.analysis["framework"] = ep.get("framework", ".NET Worker")
             self.analysis["type"] = "worker"
         else:
             self.analysis["framework"] = ".NET"

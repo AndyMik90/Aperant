@@ -463,6 +463,8 @@ class RouteDetector(BaseAnalyzer):
         # Ensure leading slash
         if path and not path.startswith("/"):
             path = "/" + path
+        # Collapse duplicate slashes (e.g., //api/users -> /api/users)
+        path = re.sub(r"//+", "/", path)
         return path
 
     def _detect_aspnet_controller_routes(
@@ -509,8 +511,10 @@ class RouteDetector(BaseAnalyzer):
         class_authorize = bool(re.search(r"\[Authorize", pre_class_section))
 
         # Find all [Http*] attributed methods
+        # Captures: [HttpGet], [HttpGet("route")], [HttpGet("route", Name = "...")]
+        # Also handles unquoted route templates like [HttpGet({id})]
         http_method_pattern = re.compile(
-            r'\[(Http(?:Get|Post|Put|Delete|Patch))(?:\(["\']([^"\']*)["\'](?:,[^]]*?)?\))?\]',
+            r'\[(Http(?:Get|Post|Put|Delete|Patch))(?:\(\s*["\']([^"\']*)["\'][^)]*\))?\]',
             re.MULTILINE,
         )
 
@@ -694,8 +698,19 @@ class RouteDetector(BaseAnalyzer):
     def _extract_angular_routes(
         self, file_path: Path, content: str, prefix: str
     ) -> list[dict]:
-        """Extract route definitions from Angular route configuration."""
+        """Extract route definitions from Angular route configuration.
+
+        To avoid double-counting nested child routes, this method tracks which
+        character ranges have been consumed as children blocks. The top-level
+        finditer only processes route objects whose opening brace falls outside
+        any already-consumed children range.
+        """
         routes = []
+
+        # Ranges (start, end) of children blocks that have been extracted and
+        # will be recursed into separately. Any `{ path: ...` whose opening
+        # brace falls inside one of these ranges is skipped at this level.
+        consumed_ranges: list[tuple[int, int]] = []
 
         # Find route objects by locating `{ path: '...'` and then tracking brace depth
         # to find the matching closing brace. This handles nested objects like
@@ -703,6 +718,11 @@ class RouteDetector(BaseAnalyzer):
         path_pattern = re.compile(r"\{\s*path\s*:\s*['\"]([^'\"]*)['\"]")
 
         for match in path_pattern.finditer(content):
+            # Skip this match if its opening brace falls inside a children
+            # block that was already extracted for a parent route.
+            if any(start <= match.start() < end for start, end in consumed_ranges):
+                continue
+
             path_segment = match.group(1)
 
             # Find the matching closing brace by counting brace depth
@@ -734,19 +754,56 @@ class RouteDetector(BaseAnalyzer):
             if full_path and not full_path.startswith("/"):
                 full_path = "/" + full_path
 
+            # Extract and isolate the children block (if any) BEFORE checking
+            # has_target so that child route objects are not re-matched at this level.
+            children_content = None
+            children_match = re.search(r"children\s*:\s*\[", route_body)
+            if children_match:
+                # Compute absolute position in content
+                abs_bracket_start = brace_start + children_match.end()
+                # Find the matching closing bracket
+                bracket_depth = 1
+                bracket_pos = abs_bracket_start
+                while bracket_pos < len(content) and bracket_depth > 0:
+                    if content[bracket_pos] == "[":
+                        bracket_depth += 1
+                    elif content[bracket_pos] == "]":
+                        bracket_depth -= 1
+                    bracket_pos += 1
+                children_content = content[abs_bracket_start : bracket_pos - 1]
+                # Mark this range as consumed so nested `{ path: ...` matches
+                # inside it are skipped by the outer finditer loop.
+                consumed_ranges.append((abs_bracket_start, bracket_pos))
+
             # Determine if route has a component/loadChildren/loadComponent
+            # Use the route body with children stripped to avoid false positives
+            # from child route component declarations.
+            body_for_check = route_body
+            if children_match:
+                # Remove the children block from the body for target detection
+                children_rel_start = children_match.start()
+                children_rel_end = (
+                    children_match.end()
+                    - children_match.start()
+                    + (len(children_content) if children_content else 0)
+                    + 1
+                )  # +1 for closing ]
+                body_for_check = (
+                    route_body[:children_rel_start]
+                    + route_body[children_rel_start + children_rel_end :]
+                )
+
             has_target = bool(
                 re.search(
                     r"(?:component|loadChildren|loadComponent)\s*:",
-                    route_body,
+                    body_for_check,
                 )
             )
 
             # Check for canActivate (auth guard)
             requires_auth = "canActivate" in route_body
 
-            # Check for children in the route object
-            has_children = "children" in route_body
+            has_children = children_content is not None
 
             if has_target and not has_children:
                 routes.append(
@@ -759,28 +816,23 @@ class RouteDetector(BaseAnalyzer):
                     }
                 )
 
-            # If there are children, try to extract nested routes
-            if has_children:
-                # Find the children array content within this route object
-                children_match = re.search(r"children\s*:\s*\[", route_body)
-                if children_match:
-                    # Compute absolute position in content
-                    abs_bracket_start = brace_start + children_match.end()
-                    # Find the matching closing bracket
-                    bracket_depth = 1
-                    bracket_pos = abs_bracket_start
-                    while bracket_pos < len(content) and bracket_depth > 0:
-                        if content[bracket_pos] == "[":
-                            bracket_depth += 1
-                        elif content[bracket_pos] == "]":
-                            bracket_depth -= 1
-                        bracket_pos += 1
-                    children_content = content[abs_bracket_start : bracket_pos - 1]
-
-                    # Recursively extract child routes
-                    child_routes = self._extract_angular_routes(
-                        file_path, children_content, prefix=full_path
+            # If there are children, recurse ONLY into the extracted children block
+            if has_children and children_content:
+                # Parent route with children may also have its own component
+                if has_target:
+                    routes.append(
+                        {
+                            "path": full_path,
+                            "methods": ["GET"],
+                            "file": str(file_path.relative_to(self.path)),
+                            "framework": "Angular",
+                            "requires_auth": requires_auth,
+                        }
                     )
-                    routes.extend(child_routes)
+
+                child_routes = self._extract_angular_routes(
+                    file_path, children_content, prefix=full_path
+                )
+                routes.extend(child_routes)
 
         return routes

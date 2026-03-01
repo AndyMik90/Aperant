@@ -66,7 +66,10 @@ class ProjectAnalyzer:
         # This is Clean Architecture / DDD — one solution = one service, NOT a monorepo.
         # The framework_analyzer handles mapping the internal structure (Api, Worker,
         # libraries) into a single aggregated service via analysis["dotnet_solution"].
-        if any(self.project_dir.glob("*.sln")):
+        # Only skip monorepo detection when there's exactly ONE .sln; multiple .sln
+        # files may indicate a multi-solution monorepo.
+        sln_files = list(self.project_dir.glob("*.sln"))
+        if len(sln_files) == 1:
             src_dir = self.project_dir / "src"
             if src_dir.exists() and src_dir.is_dir():
                 return  # Single .NET solution, not a monorepo

@@ -332,11 +332,12 @@ class PortDetector(BaseAnalyzer):
             api_paths = []
             worker_paths = []
             for ep in solution.get("entry_points", []):
-                path = f"{ep['path']}/Properties/launchSettings.json"
+                upper = f"{ep['path']}/Properties/launchSettings.json"
+                lower = f"{ep['path']}/properties/launchSettings.json"
                 if ep.get("type") == "api":
-                    api_paths.append(path)
+                    api_paths.extend([upper, lower])
                 else:
-                    worker_paths.append(path)
+                    worker_paths.extend([upper, lower])
             launch_paths = api_paths + worker_paths + launch_paths
 
         for launch_path in launch_paths:

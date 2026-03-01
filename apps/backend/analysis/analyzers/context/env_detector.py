@@ -305,6 +305,7 @@ class EnvironmentDetector(BaseAnalyzer):
         if solution:
             for ep in solution.get("entry_points", []):
                 launch_paths.append(f"{ep['path']}/Properties/launchSettings.json")
+                launch_paths.append(f"{ep['path']}/properties/launchSettings.json")
 
         for launch_path in launch_paths:
             data = self._read_json(launch_path)
@@ -338,8 +339,8 @@ class EnvironmentDetector(BaseAnalyzer):
                         "sensitive": is_sensitive,
                     }
 
-                # Only use the first profile with env vars
-                return
+                # Only use the first profile per launchSettings file
+                break
 
     @staticmethod
     def _is_sensitive_key(key: str) -> bool:
