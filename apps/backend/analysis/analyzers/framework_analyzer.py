@@ -3,7 +3,7 @@ Framework Analyzer Module
 =========================
 
 Detects programming languages, frameworks, and related technologies across different ecosystems.
-Supports Python, Node.js/TypeScript, Go, Rust, and Ruby frameworks.
+Supports Python, Node.js/TypeScript, Go, Rust, Ruby, C#/.NET, and documentation tools.
 """
 
 from __future__ import annotations
@@ -91,6 +91,32 @@ class FrameworkAnalyzer(BaseAnalyzer):
             content = self._read_file("Gemfile")
             self._detect_ruby_framework(content)
 
+        # C#/.NET detection
+        elif any(self.path.glob("*.csproj")) or any(self.path.glob("*.sln")):
+            self.analysis["language"] = "C#"
+            self.analysis["package_manager"] = "NuGet"
+            self._detect_dotnet_framework()
+
+        # Documentation tool detection (standalone, no language-specific manifest)
+        elif self._exists("mkdocs.yml") or self._exists("mkdocs.yaml"):
+            self.analysis["language"] = "Python"
+            self.analysis["framework"] = "MkDocs"
+            self.analysis["type"] = "documentation"
+            self.analysis["package_manager"] = "pip"
+            self._detect_mkdocs_details()
+        elif self._exists("book.toml"):
+            self.analysis["language"] = "Rust"
+            self.analysis["framework"] = "mdBook"
+            self.analysis["type"] = "documentation"
+            self.analysis["package_manager"] = "cargo"
+        elif self._exists("conf.py"):
+            content = self._read_file("conf.py")
+            if "sphinx" in content.lower() or "extensions" in content:
+                self.analysis["language"] = "Python"
+                self.analysis["framework"] = "Sphinx"
+                self.analysis["type"] = "documentation"
+                self.analysis["package_manager"] = "pip"
+
     def _detect_python_framework(self, content: str) -> None:
         """Detect Python framework."""
         from .port_detector import PortDetector
@@ -140,6 +166,49 @@ class FrameworkAnalyzer(BaseAnalyzer):
 
         deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
         deps_lower = {k.lower(): k for k in deps.keys()}
+
+        # Documentation frameworks (check before generic frontend)
+        doc_frameworks = {
+            "@docusaurus/core": {"name": "Docusaurus", "type": "documentation", "port": 3000},
+            "vitepress": {"name": "VitePress", "type": "documentation", "port": 5173},
+            "vuepress": {"name": "VuePress", "type": "documentation", "port": 8080},
+            "@vuepress/core": {"name": "VuePress", "type": "documentation", "port": 8080},
+            "nextra": {"name": "Nextra", "type": "documentation", "port": 3000},
+            "storybook": {"name": "Storybook", "type": "documentation", "port": 6006},
+            "@storybook/react": {"name": "Storybook", "type": "documentation", "port": 6006},
+            "@storybook/angular": {"name": "Storybook", "type": "documentation", "port": 6006},
+            "@storybook/vue3": {"name": "Storybook", "type": "documentation", "port": 6006},
+        }
+
+        for key, info in doc_frameworks.items():
+            if key in deps_lower:
+                self.analysis["framework"] = info["name"]
+                self.analysis["type"] = info["type"]
+                detected_port = port_detector.detect_port_from_sources(info["port"])
+                self.analysis["default_port"] = detected_port
+                return  # Documentation framework found, skip other detection
+
+        # Microfrontend detection (adds metadata, then falls through to frontend detection)
+        mfe_indicators = {
+            "@module-federation/enhanced": "Module Federation",
+            "@module-federation/runtime": "Module Federation",
+            "@angular-architects/module-federation": "Module Federation",
+            "@angular-architects/native-federation": "Native Federation",
+            "single-spa": "single-spa",
+            "qiankun": "Qiankun",
+        }
+        for key, mfe_name in mfe_indicators.items():
+            if key in deps_lower:
+                self.analysis["microfrontend"] = mfe_name
+                break
+        # Also check webpack config for ModuleFederationPlugin
+        if not self.analysis.get("microfrontend"):
+            for config_file in ["webpack.config.js", "webpack.config.ts"]:
+                if self._exists(config_file):
+                    wpc = self._read_file(config_file)
+                    if "ModuleFederationPlugin" in wpc or "moduleFederation" in wpc:
+                        self.analysis["microfrontend"] = "Module Federation"
+                        break
 
         # Frontend frameworks
         frontend_frameworks = {
@@ -416,3 +485,132 @@ class FrameworkAnalyzer(BaseAnalyzer):
         elif self._exists("bun.lockb") or self._exists("bun.lock"):
             return "bun"
         return "npm"
+
+    def _detect_dotnet_framework(self) -> None:
+        """Detect .NET framework from .csproj files."""
+        import re
+        import xml.etree.ElementTree as ET
+
+        from .port_detector import PortDetector
+
+        # Find .csproj files
+        csproj_files = list(self.path.glob("*.csproj"))
+        if not csproj_files:
+            # Check one level deep for .sln with sub-projects
+            csproj_files = list(self.path.glob("**/*.csproj"))[:5]
+
+        if not csproj_files:
+            return
+
+        all_packages: set[str] = set()
+        sdk_type = ""
+
+        for csproj in csproj_files[:3]:  # Limit for performance
+            try:
+                content = csproj.read_text(encoding="utf-8", errors="ignore")
+
+                # Detect SDK type from <Project Sdk="...">
+                sdk_match = re.search(r'Sdk="([^"]+)"', content)
+                if sdk_match:
+                    sdk_type = sdk_match.group(1)
+
+                # Parse PackageReference elements
+                try:
+                    tree = ET.fromstring(content)
+                    for pkg_ref in tree.iter("PackageReference"):
+                        include = pkg_ref.get("Include", "")
+                        if include:
+                            all_packages.add(include.lower())
+                except ET.ParseError:
+                    # Fallback: regex-based extraction
+                    refs = re.findall(r'<PackageReference\s+Include="([^"]+)"', content)
+                    all_packages.update(r.lower() for r in refs)
+            except Exception:
+                continue
+
+        packages_lower = all_packages
+        port_detector = PortDetector(self.path, self.analysis)
+
+        # ASP.NET Core Web API
+        if sdk_type == "Microsoft.NET.Sdk.Web" or any(
+            p.startswith("microsoft.aspnetcore") for p in packages_lower
+        ):
+            # Check for Blazor
+            if any("blazor" in p for p in packages_lower) or sdk_type == "Microsoft.NET.Sdk.BlazorWebAssembly":
+                self.analysis["framework"] = "Blazor"
+                self.analysis["type"] = "frontend"
+                self.analysis["default_port"] = port_detector.detect_port_from_sources(5000)
+            else:
+                self.analysis["framework"] = "ASP.NET Core"
+                self.analysis["type"] = "backend"
+                self.analysis["default_port"] = port_detector.detect_port_from_sources(5000)
+
+            # Detect API patterns (minimal API or controllers)
+            if any("microsoft.aspnetcore.openapi" in p for p in packages_lower) or \
+               any("swashbuckle" in p for p in packages_lower):
+                self.analysis["api_docs"] = "Swagger/OpenAPI"
+
+        # WPF
+        elif sdk_type == "Microsoft.NET.Sdk.WindowsDesktop" or any(
+            "wpf" in p for p in packages_lower
+        ):
+            self.analysis["framework"] = "WPF"
+            self.analysis["type"] = "desktop"
+
+        # MAUI
+        elif any("microsoft.maui" in p for p in packages_lower) or sdk_type == "Microsoft.NET.Sdk.Maui":
+            self.analysis["framework"] = "MAUI"
+            self.analysis["type"] = "mobile"
+
+        # Worker Service
+        elif sdk_type == "Microsoft.NET.Sdk.Worker" or any(
+            "microsoft.extensions.hosting" in p for p in packages_lower
+        ):
+            self.analysis["framework"] = ".NET Worker"
+            self.analysis["type"] = "worker"
+
+        # gRPC
+        elif any("grpc" in p for p in packages_lower):
+            self.analysis["framework"] = "gRPC .NET"
+            self.analysis["type"] = "backend"
+            self.analysis["default_port"] = port_detector.detect_port_from_sources(5000)
+
+        # Generic .NET (library or console)
+        else:
+            self.analysis["framework"] = ".NET"
+            if not self.analysis.get("type"):
+                self.analysis["type"] = "backend"
+
+        # ORM detection
+        if any("entityframeworkcore" in p or "entityframework" in p for p in packages_lower):
+            self.analysis["orm"] = "Entity Framework"
+        elif any("dapper" in p for p in packages_lower):
+            self.analysis["orm"] = "Dapper"
+        elif any("npgsql" in p for p in packages_lower):
+            self.analysis["orm"] = "Npgsql"
+
+        # Task queue / messaging
+        if any("masstransit" in p for p in packages_lower):
+            self.analysis["task_queue"] = "MassTransit"
+        elif any("hangfire" in p for p in packages_lower):
+            self.analysis["task_queue"] = "Hangfire"
+        elif any("rabbitmq" in p for p in packages_lower):
+            self.analysis["task_queue"] = "RabbitMQ"
+
+        # Testing
+        if any("xunit" in p for p in packages_lower):
+            self.analysis["testing"] = "xUnit"
+        elif any("nunit" in p for p in packages_lower):
+            self.analysis["testing"] = "NUnit"
+        elif any("mstest" in p for p in packages_lower):
+            self.analysis["testing"] = "MSTest"
+
+    def _detect_mkdocs_details(self) -> None:
+        """Detect MkDocs configuration details."""
+        config_file = "mkdocs.yml" if self._exists("mkdocs.yml") else "mkdocs.yaml"
+        content = self._read_file(config_file)
+        content_lower = content.lower()
+
+        if "material" in content_lower:
+            self.analysis["framework"] = "MkDocs Material"
+        self.analysis["default_port"] = 8000

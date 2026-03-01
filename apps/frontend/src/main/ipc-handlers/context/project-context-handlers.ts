@@ -1,11 +1,12 @@
 import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
 import path from 'path';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { spawn } from 'child_process';
 import { IPC_CHANNELS, getSpecsDir, AUTO_BUILD_PATHS } from '../../../shared/constants';
 import type {
   IPCResult,
+  Project,
   ProjectContextData,
   ProjectIndex,
   MemoryEpisode
@@ -37,6 +38,113 @@ function loadProjectIndex(projectPath: string): ProjectIndex | null {
   } catch {
     return null;
   }
+}
+
+/**
+ * Run analyzer.py on a single project to generate its project_index.json.
+ * Reuses the same spawn logic as the CONTEXT_REFRESH_INDEX handler.
+ */
+async function refreshChildIndex(
+  childProject: Project,
+  autoBuildSource: string
+): Promise<ProjectIndex | null> {
+  const analyzerPath = path.join(autoBuildSource, 'analyzer.py');
+  const indexOutputPath = path.join(childProject.path, AUTO_BUILD_PATHS.PROJECT_INDEX);
+
+  const pythonCmd = getConfiguredPythonPath();
+  const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonCmd);
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+      let stdout = '';
+      let stderr = '';
+
+      const proc = spawn(pythonCommand, [
+        ...pythonBaseArgs,
+        analyzerPath,
+        '--project-dir', childProject.path,
+        '--output', indexOutputPath
+      ], {
+        cwd: childProject.path,
+        env: {
+          ...getAugmentedEnv(),
+          PYTHONIOENCODING: 'utf-8',
+          PYTHONUTF8: '1'
+        }
+      });
+
+      proc.stdout?.on('data', (data) => {
+        stdout += data.toString('utf-8');
+      });
+
+      proc.stderr?.on('data', (data) => {
+        stderr += data.toString('utf-8');
+      });
+
+      proc.on('close', (code: number) => {
+        if (code === 0) {
+          console.log(`[project-context] Child analyzer (${childProject.name}) stdout:`, stdout);
+          resolve();
+        } else {
+          console.error(`[project-context] Child analyzer (${childProject.name}) failed with code`, code);
+          console.error(`[project-context] Child analyzer (${childProject.name}) stderr:`, stderr);
+          reject(new Error(`Analyzer exited with code ${code}: ${stderr || stdout}`));
+        }
+      });
+
+      proc.on('error', (err) => {
+        console.error(`[project-context] Child analyzer (${childProject.name}) spawn error:`, err);
+        reject(err);
+      });
+    });
+
+    return loadProjectIndex(childProject.path);
+  } catch (error) {
+    console.error(`[project-context] Failed to index child ${childProject.name}:`, error);
+    return null;
+  }
+}
+
+/**
+ * Aggregate project indexes from child repos into a single customer-level index.
+ * Services are prefixed with the repo name to avoid key collisions.
+ */
+function aggregateChildIndexes(
+  customerPath: string,
+  childIndexes: Record<string, ProjectIndex>
+): ProjectIndex {
+  const mergedServices: Record<string, ProjectIndex['services'][string]> = {};
+  const mergedInfrastructure: ProjectIndex['infrastructure'] = {};
+  const mergedConventions: ProjectIndex['conventions'] = {};
+
+  for (const [repoName, index] of Object.entries(childIndexes)) {
+    // Merge services with repo-name prefix to avoid collisions
+    if (index.services) {
+      for (const [serviceName, serviceInfo] of Object.entries(index.services)) {
+        const key = `${repoName}/${serviceName}`;
+        mergedServices[key] = serviceInfo;
+      }
+    }
+
+    // Merge infrastructure (last-write-wins for overlapping keys)
+    if (index.infrastructure) {
+      Object.assign(mergedInfrastructure, index.infrastructure);
+    }
+
+    // Merge conventions (last-write-wins for overlapping keys)
+    if (index.conventions) {
+      Object.assign(mergedConventions, index.conventions);
+    }
+  }
+
+  return {
+    project_root: customerPath,
+    project_type: 'customer',
+    services: mergedServices,
+    infrastructure: mergedInfrastructure,
+    conventions: mergedConventions,
+    child_repos: childIndexes
+  };
 }
 
 /**
@@ -81,8 +189,16 @@ async function loadRecentMemories(
  * Register project context handlers
  */
 export function registerProjectContextHandlers(
-  _getMainWindow: () => BrowserWindow | null
+  getMainWindow: () => BrowserWindow | null
 ): void {
+  /** Send progress event to renderer */
+  function sendIndexProgress(message: string, current?: number, total?: number) {
+    const win = getMainWindow();
+    if (win && !win.isDestroyed()) {
+      win.webContents.send(IPC_CHANNELS.CONTEXT_INDEX_PROGRESS, { message, current, total });
+    }
+  }
+
   // Get full project context
   ipcMain.handle(
     IPC_CHANNELS.CONTEXT_GET,
@@ -93,8 +209,30 @@ export function registerProjectContextHandlers(
       }
 
       try {
-        // Load project index
-        const projectIndex = loadProjectIndex(project.path);
+        // Load project index — for customer projects, load the aggregated index
+        let projectIndex: ProjectIndex | null;
+        if (project.type === 'customer') {
+          projectIndex = loadProjectIndex(project.path);
+          // If no aggregated index exists yet, try to build one from existing child indexes
+          if (!projectIndex || projectIndex.project_type !== 'customer') {
+            const allProjects = projectStore.getProjects();
+            const childProjects = allProjects.filter(
+              (p) => p.id !== project.id && p.path.startsWith(project.path + '/')
+            );
+            const childIndexes: Record<string, ProjectIndex> = {};
+            for (const child of childProjects) {
+              const childIndex = loadProjectIndex(child.path);
+              if (childIndex) {
+                childIndexes[child.name] = childIndex;
+              }
+            }
+            if (Object.keys(childIndexes).length > 0) {
+              projectIndex = aggregateChildIndexes(project.path, childIndexes);
+            }
+          }
+        } else {
+          projectIndex = loadProjectIndex(project.path);
+        }
 
         // Load graphiti state from most recent spec
         const memoryState = loadGraphitiStateFromSpecs(project.path, project.autoBuildPath);
@@ -137,7 +275,7 @@ export function registerProjectContextHandlers(
   // Refresh project index
   ipcMain.handle(
     IPC_CHANNELS.CONTEXT_REFRESH_INDEX,
-    async (_, projectId: string): Promise<IPCResult<ProjectIndex>> => {
+    async (_, projectId: string, force?: boolean): Promise<IPCResult<ProjectIndex>> => {
       const project = projectStore.getProject(projectId);
       if (!project) {
         return { success: false, error: 'Project not found' };
@@ -153,6 +291,79 @@ export function registerProjectContextHandlers(
             error: 'Auto-build source path not configured'
           };
         }
+
+        // Customer projects: aggregate indexes from child repos
+        if (project.type === 'customer') {
+          const allProjects = projectStore.getProjects();
+          const childProjects = allProjects.filter(
+            (p) => p.id !== project.id && p.path.startsWith(project.path + '/')
+          );
+
+          if (childProjects.length === 0) {
+            return {
+              success: false,
+              error: 'No child repositories found for this customer project'
+            };
+          }
+
+          const total = childProjects.length;
+          console.log(`[project-context] Customer project: indexing ${total} child repos (force=${!!force})`);
+          sendIndexProgress(`Discovering ${total} repositories...`, 0, total);
+
+          const childIndexes: Record<string, ProjectIndex> = {};
+          const errors: string[] = [];
+
+          for (let i = 0; i < childProjects.length; i++) {
+            const child = childProjects[i];
+            sendIndexProgress(`Analyzing ${child.name}...`, i + 1, total);
+
+            // Check if child already has an index (skip if force=true)
+            let childIndex = force ? null : loadProjectIndex(child.path);
+
+            // If no index exists (or force), run analyzer on the child repo
+            if (!childIndex) {
+              console.log(`[project-context] Running analyzer for child: ${child.name}`);
+              childIndex = await refreshChildIndex(child, autoBuildSource);
+            }
+
+            if (childIndex) {
+              childIndexes[child.name] = childIndex;
+            } else {
+              errors.push(child.name);
+            }
+          }
+
+          sendIndexProgress('Aggregating results...', total, total);
+
+          if (Object.keys(childIndexes).length === 0) {
+            sendIndexProgress('');
+            return {
+              success: false,
+              error: `Failed to index any child repos. Failed: ${errors.join(', ')}`
+            };
+          }
+
+          // Aggregate all child indexes
+          const aggregatedIndex = aggregateChildIndexes(project.path, childIndexes);
+
+          // Save aggregated index to customer's .auto-claude/project_index.json
+          const indexOutputPath = path.join(project.path, AUTO_BUILD_PATHS.PROJECT_INDEX);
+          const indexDir = path.dirname(indexOutputPath);
+          if (!existsSync(indexDir)) {
+            mkdirSync(indexDir, { recursive: true });
+          }
+          writeFileSync(indexOutputPath, JSON.stringify(aggregatedIndex, null, 2), 'utf-8');
+
+          if (errors.length > 0) {
+            console.warn(`[project-context] Some child repos failed to index: ${errors.join(', ')}`);
+          }
+
+          sendIndexProgress('');
+          return { success: true, data: aggregatedIndex };
+        }
+
+        // Regular project: run analyzer directly
+        sendIndexProgress('Analyzing project structure...');
 
         const analyzerPath = path.join(autoBuildSource, 'analyzer.py');
         const indexOutputPath = path.join(project.path, AUTO_BUILD_PATHS.PROJECT_INDEX);
@@ -209,6 +420,8 @@ export function registerProjectContextHandlers(
           });
         });
 
+        sendIndexProgress('');
+
         // Read the new index
         const projectIndex = loadProjectIndex(project.path);
         if (projectIndex) {
@@ -217,6 +430,7 @@ export function registerProjectContextHandlers(
 
         return { success: false, error: 'Failed to generate project index' };
       } catch (error) {
+        sendIndexProgress('');
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to refresh project index'

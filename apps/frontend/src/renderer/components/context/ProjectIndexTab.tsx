@@ -1,4 +1,4 @@
-import { RefreshCw, AlertCircle, FolderTree } from 'lucide-react';
+import { RefreshCw, AlertCircle, FolderTree, RotateCcw, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -13,19 +13,28 @@ interface ProjectIndexTabProps {
   projectIndex: ProjectIndex | null;
   indexLoading: boolean;
   indexError: string | null;
-  onRefresh: () => void;
+  indexProgress: string | null;
+  indexProgressCurrent: number | null;
+  indexProgressTotal: number | null;
+  onRefresh: (force?: boolean) => void;
 }
 
 export function ProjectIndexTab({
   projectIndex,
   indexLoading,
   indexError,
+  indexProgress,
+  indexProgressCurrent,
+  indexProgressTotal,
   onRefresh
 }: ProjectIndexTabProps) {
+  const isCustomer = projectIndex?.project_type === 'customer';
+  const childRepoCount = projectIndex?.child_repos ? Object.keys(projectIndex.child_repos).length : 0;
+
   return (
     <ScrollArea className="h-full">
       <div className="p-6 space-y-6">
-        {/* Header with refresh */}
+        {/* Header with refresh / re-analyze buttons */}
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-foreground">Project Structure</h2>
@@ -33,20 +42,40 @@ export function ProjectIndexTab({
               AI-discovered knowledge about your codebase
             </p>
           </div>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onRefresh}
-                disabled={indexLoading}
-              >
-                <RefreshCw className={cn('h-4 w-4 mr-2', indexLoading && 'animate-spin')} />
-                Refresh
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Re-analyze project structure</TooltipContent>
-          </Tooltip>
+          <div className="flex items-center gap-2">
+            {/* Re-analyze button (forces re-run of analyzer on all repos) */}
+            {projectIndex && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onRefresh(true)}
+                    disabled={indexLoading}
+                  >
+                    <RotateCcw className={cn('h-4 w-4 mr-2', indexLoading && 'animate-spin')} />
+                    Re-analyze
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Force re-analyze all project structures from scratch</TooltipContent>
+              </Tooltip>
+            )}
+            {/* Refresh button */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onRefresh(false)}
+                  disabled={indexLoading}
+                >
+                  <RefreshCw className={cn('h-4 w-4 mr-2', indexLoading && 'animate-spin')} />
+                  Refresh
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Analyze project structure</TooltipContent>
+            </Tooltip>
+          </div>
         </div>
 
         {/* Error state */}
@@ -60,10 +89,55 @@ export function ProjectIndexTab({
           </div>
         )}
 
-        {/* Loading state */}
+        {/* Loading state with progress */}
         {indexLoading && !projectIndex && (
-          <div className="flex items-center justify-center py-12">
-            <RefreshCw className="h-8 w-8 animate-spin text-muted-foreground" />
+          <div className="flex flex-col items-center justify-center py-12 gap-4">
+            <Loader2 className="h-10 w-10 animate-spin text-primary" />
+            {indexProgress ? (
+              <div className="text-center space-y-2">
+                <p className="text-sm font-medium text-foreground">{indexProgress}</p>
+                {indexProgressTotal && indexProgressCurrent ? (
+                  <div className="w-64 mx-auto">
+                    <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                      <span>Repository {indexProgressCurrent} of {indexProgressTotal}</span>
+                      <span>{Math.round((indexProgressCurrent / indexProgressTotal) * 100)}%</span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary rounded-full transition-all duration-300"
+                        style={{ width: `${(indexProgressCurrent / indexProgressTotal) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Analyzing project structure...</p>
+            )}
+          </div>
+        )}
+
+        {/* Inline progress when refreshing existing data */}
+        {indexLoading && projectIndex && indexProgress && (
+          <div className="flex items-center gap-3 p-4 rounded-lg bg-primary/5 border border-primary/20">
+            <Loader2 className="h-5 w-5 animate-spin text-primary shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground">{indexProgress}</p>
+              {indexProgressTotal && indexProgressCurrent ? (
+                <div className="mt-2">
+                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                    <span>Repository {indexProgressCurrent} of {indexProgressTotal}</span>
+                    <span>{Math.round((indexProgressCurrent / indexProgressTotal) * 100)}%</span>
+                  </div>
+                  <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-primary rounded-full transition-all duration-300"
+                      style={{ width: `${(indexProgressCurrent / indexProgressTotal) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              ) : null}
+            </div>
           </div>
         )}
 
@@ -73,9 +147,9 @@ export function ProjectIndexTab({
             <FolderTree className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium text-foreground">No Project Index Found</h3>
             <p className="text-sm text-muted-foreground mt-2 max-w-sm">
-              Click the Refresh button to analyze your project structure and create an index.
+              Click the button below to analyze your project structure and create an index.
             </p>
-            <Button onClick={onRefresh} className="mt-4">
+            <Button onClick={() => onRefresh(false)} className="mt-4">
               <RefreshCw className="h-4 w-4 mr-2" />
               Analyze Project
             </Button>
@@ -101,12 +175,61 @@ export function ProjectIndexTab({
                       {Object.keys(projectIndex.services).length !== 1 ? 's' : ''}
                     </Badge>
                   )}
+                  {isCustomer && childRepoCount > 0 && (
+                    <Badge variant="secondary">
+                      {childRepoCount} repositor{childRepoCount !== 1 ? 'ies' : 'y'}
+                    </Badge>
+                  )}
                 </div>
                 <p className="text-sm text-muted-foreground font-mono truncate">
                   {projectIndex.project_root}
                 </p>
               </CardContent>
             </Card>
+
+            {/* Child Repos (customer only) */}
+            {isCustomer && projectIndex.child_repos && Object.keys(projectIndex.child_repos).length > 0 && (
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+                  Repositories
+                </h3>
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                  {Object.entries(projectIndex.child_repos).map(([repoName, repoIndex]) => {
+                    const serviceCount = Object.keys(repoIndex.services).length;
+                    const mainService = Object.values(repoIndex.services)[0];
+                    return (
+                      <Card key={repoName} className="border-muted">
+                        <CardContent className="pt-4 pb-3 px-4">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium text-foreground truncate">{repoName}</p>
+                              {mainService && (
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  {mainService.language}
+                                  {mainService.framework ? ` / ${mainService.framework}` : ''}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex gap-1 shrink-0">
+                              {mainService?.type && (
+                                <Badge variant="outline" className="text-[10px] capitalize px-1.5">
+                                  {mainService.type}
+                                </Badge>
+                              )}
+                              {serviceCount > 1 && (
+                                <Badge variant="secondary" className="text-[10px] px-1.5">
+                                  {serviceCount} svc
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Services */}
             {Object.keys(projectIndex.services).length > 0 && (

@@ -68,6 +68,9 @@ SERVICE_INDICATORS = {
     "core",
     "shared",
     "common",
+    "docs",
+    "documentation",
+    "microservices",
 }
 
 # Files that indicate a service root
@@ -83,7 +86,28 @@ SERVICE_ROOT_FILES = {
     "build.gradle",
     "Makefile",
     "Dockerfile",
+    # Documentation tools
+    "mkdocs.yml",
+    "mkdocs.yaml",
+    "docusaurus.config.js",
+    "docusaurus.config.ts",
+    "conf.py",
+    "book.toml",
 }
+
+# Glob patterns that indicate a service root (for files with variable names)
+SERVICE_ROOT_GLOBS = [
+    "*.csproj",
+    "*.fsproj",
+    "*.sln",
+]
+
+
+def has_service_root(dir_path: Path) -> bool:
+    """Check if a directory has service root indicators (exact files or glob patterns)."""
+    if any((dir_path / f).exists() for f in SERVICE_ROOT_FILES):
+        return True
+    return any(next(dir_path.glob(pattern), None) is not None for pattern in SERVICE_ROOT_GLOBS)
 
 
 class BaseAnalyzer:

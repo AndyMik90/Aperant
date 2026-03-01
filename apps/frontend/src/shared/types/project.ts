@@ -44,10 +44,12 @@ export interface NotificationSettings {
 
 export interface ProjectIndex {
   project_root: string;
-  project_type: 'single' | 'monorepo';
+  project_type: 'single' | 'monorepo' | 'customer';
   services: Record<string, ServiceInfo>;
   infrastructure: InfrastructureInfo;
   conventions: ConventionsInfo;
+  /** For customer projects: indexes of each child repo keyed by repo name */
+  child_repos?: Record<string, ProjectIndex>;
 }
 
 export interface ServiceInfo {
@@ -55,7 +57,7 @@ export interface ServiceInfo {
   path: string;
   language?: string;
   framework?: string;
-  type?: 'backend' | 'frontend' | 'worker' | 'scraper' | 'library' | 'proxy' | 'mobile' | 'desktop' | 'unknown';
+  type?: 'backend' | 'frontend' | 'worker' | 'scraper' | 'library' | 'proxy' | 'mobile' | 'desktop' | 'documentation' | 'unknown';
   package_manager?: string;
   default_port?: number;
   entry_point?: string;
