@@ -16,6 +16,7 @@ import { projectStore } from '../../project-store';
 import { getGitHubConfig, githubFetch, normalizeRepoReference } from './utils';
 import { getToolPath } from '../../cli-tool-manager';
 import type { GitHubAPIIssue } from './types';
+import { transformIssue } from './issue-handlers';
 import { parseEnvFile } from '../utils';
 import { debugLog } from '../../../shared/utils/debug-logger';
 
@@ -126,37 +127,6 @@ function getCustomerGitHubConfig(customerId: string): CustomerGitHubConfig | nul
   });
 
   return { token, repos };
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// Transform helper (duplicated from issue-handlers.ts since it is not exported)
-// ────────────────────────────────────────────────────────────────────────────
-
-function transformIssue(issue: GitHubAPIIssue, repoFullName: string): GitHubIssue {
-  return {
-    id: issue.id,
-    number: issue.number,
-    title: issue.title,
-    body: issue.body,
-    state: issue.state,
-    labels: issue.labels,
-    assignees: issue.assignees.map((a) => ({
-      login: a.login,
-      avatarUrl: a.avatar_url,
-    })),
-    author: {
-      login: issue.user.login,
-      avatarUrl: issue.user.avatar_url,
-    },
-    milestone: issue.milestone,
-    createdAt: issue.created_at,
-    updatedAt: issue.updated_at,
-    closedAt: issue.closed_at,
-    commentsCount: issue.comments,
-    url: issue.url,
-    htmlUrl: issue.html_url,
-    repoFullName,
-  };
 }
 
 // ────────────────────────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron';
-import { existsSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
+import path from 'path';
 import { execFileSync } from 'child_process';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type {
@@ -504,12 +505,10 @@ export function registerProjectHandlers(
           return { success: false, error: 'Project not found' };
         }
 
-        const path = require('path');
-        const fs = require('fs');
         const dotAutoClaude = path.join(project.path, '.auto-claude');
 
-        if (!fs.existsSync(dotAutoClaude)) {
-          fs.mkdirSync(dotAutoClaude, { recursive: true });
+        if (!existsSync(dotAutoClaude)) {
+          mkdirSync(dotAutoClaude, { recursive: true });
         }
 
         projectStore.updateAutoBuildPath(projectId, '.auto-claude');

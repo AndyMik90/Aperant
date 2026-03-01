@@ -539,7 +539,7 @@ class FrameworkAnalyzer(BaseAnalyzer):
                     # Fallback: regex-based extraction
                     refs = re.findall(r'<PackageReference\s+Include="([^"]+)"', content)
                     all_packages.update(r.lower() for r in refs)
-            except Exception:
+            except (OSError, UnicodeDecodeError):
                 continue
 
         packages_lower = all_packages

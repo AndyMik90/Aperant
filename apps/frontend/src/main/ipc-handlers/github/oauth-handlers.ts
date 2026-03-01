@@ -5,6 +5,8 @@
 
 import { ipcMain, shell, BrowserWindow } from 'electron';
 import { execSync, execFileSync, execFile, spawn } from 'child_process';
+import { existsSync } from 'fs';
+import path from 'path';
 import { promisify } from 'util';
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type { IPCResult } from '../../../shared/types';
@@ -900,15 +902,12 @@ export function registerCloneGitHubRepo(): void {
     ): Promise<IPCResult<{ path: string; name: string }>> => {
       debugLog('cloneGitHubRepo handler called', { repoFullName, targetDir });
       try {
-        const path = require('path');
-        const fs = require('fs');
-
         // Extract repo name from fullName (owner/repo -> repo)
         const repoName = repoFullName.split('/').pop() || repoFullName;
         const clonePath = path.join(targetDir, repoName);
 
         // Check if directory already exists
-        if (fs.existsSync(clonePath)) {
+        if (existsSync(clonePath)) {
           return {
             success: false,
             error: `Directory already exists: ${clonePath}`
