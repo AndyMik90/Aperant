@@ -777,6 +777,25 @@ export function registerSettingsHandlers(
     }
   );
 
+  /**
+   * Check whether a valid Claude token exists in the OS keychain.
+   * Tries the profile manager first, then falls back to reading the keychain directly.
+   */
+  function hasKeychainClaudeToken(): boolean {
+    try {
+      const profileManager = getClaudeProfileManager();
+      if (profileManager.hasValidAuth()) return true;
+    } catch {
+      // profile manager may not be initialized
+    }
+    try {
+      const creds = getCredentialsFromKeychain();
+      return !!creds.token;
+    } catch {
+      return false;
+    }
+  }
+
   ipcMain.handle(
     IPC_CHANNELS.AUTOBUILD_SOURCE_ENV_CHECK_TOKEN,
     async (): Promise<IPCResult<SourceEnvCheckResult>> => {
@@ -802,25 +821,8 @@ export function registerSettingsHandlers(
               }
             };
           }
-          // Check Keychain credentials — try profile manager first, then direct Keychain
-          let hasKeychainToken = false;
-          try {
-            const profileManager = getClaudeProfileManager();
-            hasKeychainToken = profileManager.hasValidAuth();
-          } catch {
-            // Profile manager may not be initialized yet
-          }
-          // Fallback: check Keychain directly (default config dir)
-          if (!hasKeychainToken) {
-            try {
-              const creds = getCredentialsFromKeychain();
-              hasKeychainToken = !!creds.token;
-            } catch {
-              // Keychain access failed
-            }
-          }
 
-          if (hasKeychainToken) {
+          if (hasKeychainClaudeToken()) {
             return {
               success: true,
               data: {
@@ -850,26 +852,8 @@ export function registerSettingsHandlers(
           hasEnvToken = !!token && token.length > 0;
         }
 
-        // Check Keychain credentials — try profile manager first, then direct Keychain
-        let hasKeychainToken = false;
-        try {
-          const profileManager = getClaudeProfileManager();
-          hasKeychainToken = profileManager.hasValidAuth();
-        } catch {
-          // Profile manager may not be initialized yet
-        }
-        // Fallback: check Keychain directly (default config dir)
-        if (!hasKeychainToken) {
-          try {
-            const creds = getCredentialsFromKeychain();
-            hasKeychainToken = !!creds.token;
-          } catch {
-            // Keychain access failed
-          }
-        }
-
         // Token exists if source .env, global settings, OR Keychain has it
-        const hasToken = hasEnvToken || hasGlobalToken || hasKeychainToken;
+        const hasToken = hasEnvToken || hasGlobalToken || hasKeychainClaudeToken();
 
         return {
           success: true,

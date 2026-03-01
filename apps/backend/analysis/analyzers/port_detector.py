@@ -28,12 +28,13 @@ class PortDetector(BaseAnalyzer):
 
         Checks in order of priority:
         1. Entry point files (app.py, main.py, etc.) for uvicorn.run(), app.run(), etc.
-        2. Environment files (.env, .env.local, .env.development)
-        3. Docker Compose port mappings
-        4. Configuration files (config.py, settings.py, etc.)
-        5. Package.json scripts (for Node.js)
-        6. Makefile/shell scripts
-        7. Falls back to default_port if nothing found
+        2. .NET launchSettings.json (Properties/launchSettings.json)
+        3. Environment files (.env, .env.local, .env.development)
+        4. Docker Compose port mappings
+        5. Configuration files (config.py, settings.py, etc.)
+        6. Package.json scripts (for Node.js)
+        7. Makefile/shell scripts
+        8. Falls back to default_port if nothing found
 
         Args:
             default_port: The framework's conventional default port
@@ -46,28 +47,33 @@ class PortDetector(BaseAnalyzer):
         if port:
             return port
 
-        # 2. Check environment files
+        # 2. Check .NET launchSettings.json (Properties/launchSettings.json)
+        port = self._detect_port_in_launch_settings()
+        if port:
+            return port
+
+        # 3. Check environment files
         port = self._detect_port_in_env_files()
         if port:
             return port
 
-        # 3. Check Docker Compose
+        # 4. Check Docker Compose
         port = self._detect_port_in_docker_compose()
         if port:
             return port
 
-        # 4. Check configuration files
+        # 5. Check configuration files
         port = self._detect_port_in_config_files()
         if port:
             return port
 
-        # 5. Check package.json scripts (for Node.js)
+        # 6. Check package.json scripts (for Node.js)
         if self.analysis.get("language") in ["JavaScript", "TypeScript"]:
             port = self._detect_port_in_package_scripts()
             if port:
                 return port
 
-        # 6. Check Makefile/shell scripts
+        # 7. Check Makefile/shell scripts
         port = self._detect_port_in_scripts()
         if port:
             return port
@@ -306,6 +312,72 @@ class PortDetector(BaseAnalyzer):
                             return port
                     except ValueError:
                         continue
+
+        return None
+
+    def _detect_port_in_launch_settings(self) -> int | None:
+        """Detect port from .NET Properties/launchSettings.json.
+
+        Checks for applicationUrl (Web API) and commandLineArgs --port (Azure Functions).
+        For .NET solutions, scans entry point sub-projects (Api first, then Workers).
+        """
+        launch_paths = [
+            "Properties/launchSettings.json",
+            "properties/launchSettings.json",
+        ]
+
+        # For .NET solutions, prioritize API entry points over workers
+        solution = self.analysis.get("dotnet_solution")
+        if solution:
+            api_paths = []
+            worker_paths = []
+            for ep in solution.get("entry_points", []):
+                path = f"{ep['path']}/Properties/launchSettings.json"
+                if ep.get("type") == "api":
+                    api_paths.append(path)
+                else:
+                    worker_paths.append(path)
+            launch_paths = api_paths + worker_paths + launch_paths
+
+        for launch_path in launch_paths:
+            data = self._read_json(launch_path)
+            if not data:
+                continue
+
+            profiles = data.get("profiles", {})
+
+            # Prefer "http" profile, then first profile with applicationUrl
+            for profile_key in ["http", *profiles.keys()]:
+                profile = profiles.get(profile_key)
+                if not profile:
+                    continue
+
+                # 1. Check applicationUrl (e.g., "http://localhost:5233")
+                app_url = profile.get("applicationUrl", "")
+                if app_url:
+                    # May contain multiple URLs separated by ";"
+                    for url in app_url.split(";"):
+                        url = url.strip()
+                        match = re.search(r":(\d+)/?$", url)
+                        if match:
+                            try:
+                                port = int(match.group(1))
+                                if 1000 <= port <= 65535:
+                                    return port
+                            except ValueError:
+                                continue
+
+                # 2. Check commandLineArgs (e.g., "--port 7173")
+                cmd_args = profile.get("commandLineArgs", "")
+                if cmd_args:
+                    match = re.search(r"--port\s+(\d+)", cmd_args)
+                    if match:
+                        try:
+                            port = int(match.group(1))
+                            if 1000 <= port <= 65535:
+                                return port
+                        except ValueError:
+                            pass
 
         return None
 

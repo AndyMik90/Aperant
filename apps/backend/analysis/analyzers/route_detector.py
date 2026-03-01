@@ -7,6 +7,8 @@ Detects API routes and endpoints across different frameworks:
 - Node.js: Express, Next.js
 - Go: Gin, Echo, Chi, Fiber
 - Rust: Axum, Actix
+- C#/.NET: ASP.NET Core (Controllers, Minimal APIs)
+- TypeScript: Angular
 """
 
 from __future__ import annotations
@@ -21,7 +23,15 @@ class RouteDetector(BaseAnalyzer):
     """Detects API routes across multiple web frameworks."""
 
     # Directories to exclude from route detection
-    EXCLUDED_DIRS = {"node_modules", ".venv", "venv", "__pycache__", ".git"}
+    EXCLUDED_DIRS = {
+        "node_modules",
+        ".venv",
+        "venv",
+        "__pycache__",
+        ".git",
+        "bin",
+        "obj",
+    }
 
     def __init__(self, path: Path):
         super().__init__(path)
@@ -54,6 +64,12 @@ class RouteDetector(BaseAnalyzer):
 
         # Rust Axum/Actix
         routes.extend(self._detect_rust_routes())
+
+        # C#/.NET ASP.NET Core
+        routes.extend(self._detect_aspnet_routes())
+
+        # Angular
+        routes.extend(self._detect_angular_routes())
 
         return routes
 
@@ -414,5 +430,353 @@ class RouteDetector(BaseAnalyzer):
                             "requires_auth": False,
                         }
                     )
+
+        return routes
+
+    def _detect_aspnet_routes(self) -> list[dict]:
+        """Detect ASP.NET Core routes (Controllers and Minimal APIs)."""
+        routes = []
+        cs_files = [
+            f for f in self.path.glob("**/*.cs") if self._should_include_file(f)
+        ]
+
+        for file_path in cs_files:
+            try:
+                content = file_path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+
+            # --- Controller-based routes ---
+            routes.extend(self._detect_aspnet_controller_routes(file_path, content))
+
+            # --- Minimal API routes ---
+            routes.extend(self._detect_aspnet_minimal_api_routes(file_path, content))
+
+        return routes
+
+    def _normalize_aspnet_path(self, path: str) -> str:
+        """Normalize ASP.NET route path: convert {param} and {param:type} to :param format."""
+        # Convert {param:constraint} to :param (e.g., {id:int} -> :id)
+        path = re.sub(r"\{(\w+):[^}]+\}", r":\1", path)
+        # Convert {param} to :param (e.g., {id} -> :id)
+        path = re.sub(r"\{(\w+)\}", r":\1", path)
+        # Ensure leading slash
+        if path and not path.startswith("/"):
+            path = "/" + path
+        return path
+
+    def _detect_aspnet_controller_routes(
+        self, file_path: Path, content: str
+    ) -> list[dict]:
+        """Detect routes from ASP.NET Core controller classes."""
+        routes = []
+
+        # Check if this file contains [ApiController] or inherits from Controller/ControllerBase
+        is_controller = bool(
+            re.search(r"\[ApiController\]|:\s*(?:Controller|ControllerBase)\b", content)
+        )
+        if not is_controller:
+            return routes
+
+        # Extract class name
+        class_match = re.search(r"class\s+(\w+)", content)
+        if not class_match:
+            return routes
+        class_name = class_match.group(1)
+
+        # Derive controller name (strip "Controller" suffix, lowercase)
+        controller_name = class_name
+        if controller_name.endswith("Controller"):
+            controller_name = controller_name[: -len("Controller")]
+        controller_name = controller_name.lower()
+
+        # Find class-level [Route("...")] attribute
+        class_route_prefix = ""
+        # Look for [Route("...")] in the ~500 chars before the class declaration
+        class_decl_pos = class_match.start()
+        pre_class_section = content[max(0, class_decl_pos - 500) : class_decl_pos]
+        # Find the last [Route("...")] before the class (closest to class declaration)
+        route_attr_matches = list(
+            re.finditer(r'\[Route\(["\']([^"\']+)["\']\)\]', pre_class_section)
+        )
+        if route_attr_matches:
+            class_route_prefix = route_attr_matches[-1].group(1)
+
+        # Replace [controller] placeholder with actual controller name
+        class_route_prefix = class_route_prefix.replace("[controller]", controller_name)
+
+        # Detect class-level [Authorize]
+        class_authorize = bool(re.search(r"\[Authorize", pre_class_section))
+
+        # Find all [Http*] attributed methods
+        http_method_pattern = re.compile(
+            r'\[(Http(?:Get|Post|Put|Delete|Patch))(?:\(["\']([^"\']*)["\'](?:,[^]]*?)?\))?\]',
+            re.MULTILINE,
+        )
+
+        for match in http_method_pattern.finditer(content):
+            attr_name = match.group(1)  # e.g., "HttpGet"
+            method_route = match.group(2) or ""  # e.g., "path" or ""
+
+            # Map attribute to HTTP method
+            method_map = {
+                "HttpGet": "GET",
+                "HttpPost": "POST",
+                "HttpPut": "PUT",
+                "HttpDelete": "DELETE",
+                "HttpPatch": "PATCH",
+            }
+            http_method = method_map.get(attr_name, "GET")
+
+            # Build full path from class prefix + method route
+            full_path = class_route_prefix
+            if method_route:
+                if full_path and not full_path.endswith("/"):
+                    full_path += "/"
+                full_path += method_route
+
+            # Replace [action] with method name (find the method after the attribute)
+            method_name_match = re.search(
+                r"(?:public|private|protected|internal)\s+\S+\s+(\w+)\s*\(",
+                content[match.end() : match.end() + 300],
+            )
+            if method_name_match:
+                method_name = method_name_match.group(1).lower()
+                full_path = full_path.replace("[action]", method_name)
+
+            # Normalize path params
+            full_path = self._normalize_aspnet_path(full_path)
+
+            # Check for method-level [Authorize]
+            # Look backwards from [Http*] to the previous method end (}) or class opening
+            # and forward to the method signature opening (
+            attr_before_start = max(0, match.start() - 300)
+            pre_section = content[attr_before_start : match.start()]
+            # Find the last } or { before this attribute to bound the search
+            last_brace = max(pre_section.rfind("}"), pre_section.rfind("{"))
+            if last_brace >= 0:
+                pre_section = pre_section[last_brace + 1 :]
+
+            # Also check attributes between [Http*] and the method signature
+            post_section = content[match.end() : match.end() + 200]
+            # Stop at the method body opening brace
+            brace_pos = post_section.find("{")
+            if brace_pos >= 0:
+                post_section = post_section[:brace_pos]
+
+            method_authorize = bool(
+                re.search(r"\[Authorize", pre_section)
+                or re.search(r"\[Authorize", post_section)
+            )
+
+            requires_auth = class_authorize or method_authorize
+
+            routes.append(
+                {
+                    "path": full_path,
+                    "methods": [http_method],
+                    "file": str(file_path.relative_to(self.path)),
+                    "framework": "ASP.NET Core",
+                    "requires_auth": requires_auth,
+                }
+            )
+
+        return routes
+
+    def _detect_aspnet_minimal_api_routes(
+        self, file_path: Path, content: str
+    ) -> list[dict]:
+        """Detect routes from ASP.NET Core Minimal APIs.
+
+        Supports both direct mapping (app.MapGet) and group-based mapping
+        (var root = app.MapGroup("/prefix"); root.MapGet("/path", ...)).
+        """
+        routes = []
+
+        # Step 1: Detect MapGroup base paths and their auth status
+        # Pattern: var root = app.MapGroup("/api/v1/orders")...RequireAuthorization()
+        group_prefixes: dict[str, tuple[str, bool]] = {}  # var_name -> (prefix, auth)
+        group_pattern = re.compile(
+            r'(?:var|_)\s+(\w+)\s*=\s*\w+\s*\.\s*MapGroup\s*\(\s*["\']([^"\']+)["\']',
+            re.MULTILINE,
+        )
+        for match in group_pattern.finditer(content):
+            var_name = match.group(1)
+            prefix = match.group(2).rstrip("/")
+            # Check if the group chain includes RequireAuthorization
+            stmt_end = content.find(";", match.end())
+            if stmt_end == -1:
+                stmt_end = min(len(content), match.end() + 500)
+            group_stmt = content[match.start() : stmt_end]
+            group_auth = ".RequireAuthorization()" in group_stmt
+            group_prefixes[var_name] = (prefix, group_auth)
+
+        # Step 2: Detect individual route mappings
+        # Match any variable calling .MapGet/Post/Put/Delete/Patch
+        minimal_api_pattern = re.compile(
+            r'(\w+)\s*\.\s*Map(Get|Post|Put|Delete|Patch)\s*\(\s*["\']([^"\']*)["\']',
+            re.MULTILINE,
+        )
+
+        for match in minimal_api_pattern.finditer(content):
+            var_name = match.group(1)
+            http_method = match.group(2).upper()
+            path = match.group(3)
+
+            # Resolve group prefix if the variable references a known group
+            prefix = ""
+            group_auth = False
+            if var_name in group_prefixes:
+                prefix, group_auth = group_prefixes[var_name]
+
+            # Build full path
+            full_path = prefix + (
+                "/" + path.lstrip("/")
+                if path and path != "/"
+                else path
+                if path == "/"
+                else ""
+            )
+            if not full_path:
+                full_path = "/"
+
+            # Normalize path params ({id} -> :id)
+            full_path = self._normalize_aspnet_path(full_path)
+
+            # Check for .RequireAuthorization() in the same statement
+            stmt_end = content.find(";", match.end())
+            if stmt_end == -1:
+                stmt_end = min(len(content), match.end() + 300)
+            route_stmt = content[match.start() : stmt_end]
+
+            requires_auth = group_auth or ".RequireAuthorization()" in route_stmt
+
+            routes.append(
+                {
+                    "path": full_path,
+                    "methods": [http_method],
+                    "file": str(file_path.relative_to(self.path)),
+                    "framework": "ASP.NET Core",
+                    "requires_auth": requires_auth,
+                }
+            )
+
+        return routes
+
+    def _detect_angular_routes(self) -> list[dict]:
+        """Detect Angular routes from route configuration files."""
+        routes = []
+        ts_files = [
+            f
+            for f in self.path.glob("**/*.ts")
+            if self._should_include_file(f)
+            and not any(part in {"dist", "build"} for part in f.parts)
+        ]
+
+        for file_path in ts_files:
+            try:
+                content = file_path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+
+            # Check if this file contains Angular route definitions
+            has_routes = bool(
+                re.search(
+                    r"(?:Routes|Route\[\])\s*=|RouterModule\.for(?:Root|Child)\s*\(",
+                    content,
+                )
+            )
+            if not has_routes:
+                continue
+
+            # Extract route objects from the content
+            routes.extend(self._extract_angular_routes(file_path, content, prefix=""))
+
+        return routes
+
+    def _extract_angular_routes(
+        self, file_path: Path, content: str, prefix: str
+    ) -> list[dict]:
+        """Extract route definitions from Angular route configuration."""
+        routes = []
+
+        # Match route objects: { path: 'something', component/loadChildren/loadComponent: ... }
+        # This regex finds individual route entries with path property
+        route_pattern = re.compile(
+            r"\{\s*path\s*:\s*['\"]([^'\"]*)['\"]"
+            r"(?:\s*,\s*(?:component|loadChildren|loadComponent)\s*:\s*[^,}]+)?"
+            r"([^}]*)\}",
+            re.DOTALL,
+        )
+
+        for match in route_pattern.finditer(content):
+            path_segment = match.group(1)
+            rest_of_route = match.group(2) if match.group(2) else ""
+
+            # Build full path
+            if path_segment:
+                full_path = f"{prefix}/{path_segment}" if prefix else f"/{path_segment}"
+            else:
+                full_path = prefix if prefix else "/"
+
+            # Normalize double slashes
+            full_path = re.sub(r"//+", "/", full_path)
+
+            # Convert Angular path params (:id is already the right format)
+            # Ensure leading slash
+            if full_path and not full_path.startswith("/"):
+                full_path = "/" + full_path
+
+            # Determine if route has a component/loadChildren/loadComponent
+            has_target = bool(
+                re.search(
+                    r"(?:component|loadChildren|loadComponent)\s*:",
+                    match.group(0),
+                )
+            )
+
+            # Check for canActivate (auth guard)
+            requires_auth = (
+                "canActivate" in match.group(0) or "canActivate" in rest_of_route
+            )
+
+            # Check for children in the route object context
+            has_children = "children" in rest_of_route
+
+            if has_target and not has_children:
+                routes.append(
+                    {
+                        "path": full_path,
+                        "methods": ["GET"],  # Frontend routes are GET
+                        "file": str(file_path.relative_to(self.path)),
+                        "framework": "Angular",
+                        "requires_auth": requires_auth,
+                    }
+                )
+
+            # If there are children, try to extract nested routes
+            if has_children:
+                # Find the children array content after this match
+                children_match = re.search(
+                    r"children\s*:\s*\[", content[match.start() :]
+                )
+                if children_match:
+                    bracket_start = match.start() + children_match.end()
+                    # Find the matching closing bracket
+                    depth = 1
+                    pos = bracket_start
+                    while pos < len(content) and depth > 0:
+                        if content[pos] == "[":
+                            depth += 1
+                        elif content[pos] == "]":
+                            depth -= 1
+                        pos += 1
+                    children_content = content[bracket_start : pos - 1]
+
+                    # Recursively extract child routes
+                    child_routes = self._extract_angular_routes(
+                        file_path, children_content, prefix=full_path
+                    )
+                    routes.extend(child_routes)
 
         return routes

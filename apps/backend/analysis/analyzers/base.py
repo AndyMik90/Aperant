@@ -102,13 +102,26 @@ SERVICE_ROOT_GLOBS = [
     "*.sln",
 ]
 
+# Deeper glob patterns for projects that nest manifests in subdirectories (e.g. .NET repos with src/)
+SERVICE_ROOT_DEEP_GLOBS = [
+    "src/**/*.csproj",
+    "src/**/*.fsproj",
+    "src/**/*.cs",  # Fallback: .cs source files without .csproj (incomplete repos)
+]
+
 
 def has_service_root(dir_path: Path) -> bool:
     """Check if a directory has service root indicators (exact files or glob patterns)."""
     if any((dir_path / f).exists() for f in SERVICE_ROOT_FILES):
         return True
-    return any(
+    if any(
         next(dir_path.glob(pattern), None) is not None for pattern in SERVICE_ROOT_GLOBS
+    ):
+        return True
+    # Check deeper patterns for .NET repos that keep .csproj in src/ subdirectories
+    return any(
+        next(dir_path.glob(pattern), None) is not None
+        for pattern in SERVICE_ROOT_DEEP_GLOBS
     )
 
 

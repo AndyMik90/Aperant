@@ -155,6 +155,20 @@ class ServiceAnalyzer(BaseAnalyzer):
 
     def _find_entry_points(self) -> None:
         """Find main entry point files."""
+        # For .NET solutions, entry points are in sub-project directories
+        solution = self.analysis.get("dotnet_solution")
+        if solution:
+            entry_points = []
+            for ep in solution.get("entry_points", []):
+                program_cs = f"{ep['path']}/Program.cs"
+                if self._exists(program_cs):
+                    entry_points.append(program_cs)
+            if entry_points:
+                self.analysis["entry_point"] = entry_points[0]
+                if len(entry_points) > 1:
+                    self.analysis["entry_points"] = entry_points
+                return
+
         entry_patterns = [
             "main.py",
             "app.py",
@@ -183,6 +197,8 @@ class ServiceAnalyzer(BaseAnalyzer):
             "cmd/main.go",
             "src/main.rs",
             "src/lib.rs",
+            # .NET single project
+            "Program.cs",
         ]
 
         for pattern in entry_patterns:

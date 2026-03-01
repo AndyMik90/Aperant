@@ -78,6 +78,11 @@ export function IssueList({
   return (
     <ScrollArea className="flex-1" onViewportRef={setViewportElement}>
       <div className="p-2 space-y-1">
+        {/* In multi-repo mode, issue.number is not unique across repos.
+            issue.id (GitHub's globally unique ID) should be used instead.
+            TODO: Update parent props for repo-aware selection —
+            change selectedIssueNumber and onSelectIssue to use issue.id
+            instead of issue.number throughout the hook chain. */}
         {issues.map((issue) => (
           <IssueListItem
             key={`${issue.repoFullName}-${issue.id}`}

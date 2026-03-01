@@ -7,8 +7,11 @@
  */
 
 import { existsSync, readFileSync } from 'fs';
-import { execFileSync } from 'child_process';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import path from 'path';
+
+const execFileAsync = promisify(execFile);
 
 /** Cross-platform child path check using path.relative */
 function isChildPath(parentPath: string, candidatePath: string): boolean {
@@ -49,7 +52,7 @@ interface CustomerGitHubConfig {
  *
  * Each child repo's GITHUB_REPO is read from its own .env via `getGitHubConfig`.
  */
-function getCustomerGitHubConfig(customerId: string): CustomerGitHubConfig | null {
+async function getCustomerGitHubConfig(customerId: string): Promise<CustomerGitHubConfig | null> {
   const customer = projectStore.getProject(customerId);
   if (!customer) {
     debugLog('[Customer GitHub] Customer project not found:', customerId);
@@ -109,11 +112,12 @@ function getCustomerGitHubConfig(customerId: string): CustomerGitHubConfig | nul
 
     // Fallback: detect from git remote origin (cloned repos have this)
     try {
-      const remoteUrl = execFileSync(getToolPath('git'), ['remote', 'get-url', 'origin'], {
+      const { stdout } = await execFileAsync(getToolPath('git'), ['remote', 'get-url', 'origin'], {
         encoding: 'utf-8',
         cwd: child.path,
-        stdio: 'pipe',
-      }).trim();
+        timeout: 5000,
+      });
+      const remoteUrl = stdout.trim();
 
       const match = remoteUrl.match(/github\.com[/:]([^/]+\/[^/]+?)(?:\.git)?$/);
       if (match) {
@@ -145,7 +149,7 @@ function registerCheckMultiRepoConnection(): void {
     async (_, customerId: string): Promise<IPCResult<MultiRepoGitHubStatus>> => {
       debugLog('[Customer GitHub] checkMultiRepoConnection called', { customerId });
 
-      const config = getCustomerGitHubConfig(customerId);
+      const config = await getCustomerGitHubConfig(customerId);
       if (!config) {
         return {
           success: true,
@@ -183,7 +187,7 @@ function registerGetMultiRepoIssues(): void {
     ): Promise<IPCResult<MultiRepoIssuesResult>> => {
       debugLog('[Customer GitHub] getMultiRepoIssues called', { customerId, state, page });
 
-      const config = getCustomerGitHubConfig(customerId);
+      const config = await getCustomerGitHubConfig(customerId);
       if (!config) {
         return { success: false, error: 'No GitHub configuration found for this customer' };
       }
@@ -271,7 +275,7 @@ function registerGetMultiRepoIssueDetail(): void {
         issueNumber,
       });
 
-      const config = getCustomerGitHubConfig(customerId);
+      const config = await getCustomerGitHubConfig(customerId);
       if (!config) {
         return { success: false, error: 'No GitHub configuration found for this customer' };
       }
@@ -306,7 +310,7 @@ function registerGetMultiRepoPRs(): void {
     async (_, customerId: string): Promise<IPCResult<MultiRepoPRsResult>> => {
       debugLog('[Customer GitHub] getMultiRepoPRs called', { customerId });
 
-      const config = getCustomerGitHubConfig(customerId);
+      const config = await getCustomerGitHubConfig(customerId);
       if (!config) {
         return { success: false, error: 'No GitHub configuration found for this customer' };
       }

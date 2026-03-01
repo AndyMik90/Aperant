@@ -157,11 +157,22 @@ function sanitizeMcpServers(mcpServers: unknown): Record<string, ClaudeCodeMcpSe
       hasFields = true;
     }
 
-    if (hasFields) {
+    // Ensure the server has a usable transport (command-based or HTTP/SSE)
+    const hasCommandTransport =
+      typeof serverConfig.command === 'string' && serverConfig.command.trim().length > 0;
+    const hasHttpTransport =
+      (serverConfig.type === 'http' || serverConfig.type === 'sse') &&
+      typeof serverConfig.url === 'string' &&
+      serverConfig.url.trim().length > 0;
+    const isUsableServer = hasCommandTransport || hasHttpTransport;
+
+    if (hasFields && isUsableServer) {
       sanitized[key] = serverConfig;
       hasValidEntries = true;
-    } else {
+    } else if (!hasFields) {
       debugLog(`${LOG_PREFIX} Skipping mcpServers entry with no valid fields:`, key);
+    } else {
+      debugLog(`${LOG_PREFIX} Skipping unusable mcpServers entry (no command or url transport):`, key);
     }
   }
 

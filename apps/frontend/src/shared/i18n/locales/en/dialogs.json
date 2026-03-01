@@ -261,6 +261,12 @@
     "skipDescription": "Generate roadmap without any competitor insights.",
     "cancel": "Cancel"
   },
+  "envConfig": {
+    "profileNotFound": "Profile not found",
+    "failedToSaveToken": "Failed to save token",
+    "invalidProfileCredentials": "Selected profile does not have valid credentials. Please re-authenticate.",
+    "failedToUseProfile": "Failed to use profile"
+  },
   "versionWarning": {
     "title": "Action Required",
     "subtitle": "Version 2.7.5 Update",

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Github, Download, CheckCircle2, Loader2, Lock, Globe, Search, X, FolderGit2 } from 'lucide-react';
 import {
@@ -36,16 +36,7 @@ export function CustomerReposModal({ open, onOpenChange, customer }: CustomerRep
   const [cloneStatuses, setCloneStatuses] = useState<Record<string, CloneStatus>>({});
   const [cloneErrors, setCloneErrors] = useState<Record<string, string>>({});
 
-  useEffect(() => {
-    if (open) {
-      setSearch('');
-      setCloneStatuses({});
-      setCloneErrors({});
-      loadRepos();
-    }
-  }, [open]);
-
-  const loadRepos = async () => {
+  const loadRepos = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
@@ -60,7 +51,16 @@ export function CustomerReposModal({ open, onOpenChange, customer }: CustomerRep
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [t]);
+
+  useEffect(() => {
+    if (open) {
+      setSearch('');
+      setCloneStatuses({});
+      setCloneErrors({});
+      loadRepos();
+    }
+  }, [open, loadRepos]);
 
   const handleClone = async (repo: RepoItem) => {
     setCloneStatuses(prev => ({ ...prev, [repo.fullName]: 'cloning' }));
@@ -83,9 +83,14 @@ export function CustomerReposModal({ open, onOpenChange, customer }: CustomerRep
       if (addResult.success && addResult.data) {
         const store = useProjectStore.getState();
         store.addProject(addResult.data);
+        setCloneStatuses(prev => ({ ...prev, [repo.fullName]: 'done' }));
+      } else {
+        setCloneStatuses(prev => ({ ...prev, [repo.fullName]: 'error' }));
+        setCloneErrors(prev => ({
+          ...prev,
+          [repo.fullName]: addResult.error || t('customerRepos.cloneFailed')
+        }));
       }
-
-      setCloneStatuses(prev => ({ ...prev, [repo.fullName]: 'done' }));
     } catch (err) {
       setCloneStatuses(prev => ({ ...prev, [repo.fullName]: 'error' }));
       setCloneErrors(prev => ({

@@ -1,7 +1,8 @@
 import { ipcMain } from 'electron';
 import type { BrowserWindow } from 'electron';
 import path from 'path';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { existsSync, readFileSync, mkdirSync } from 'fs';
+import { writeFileAtomicSync } from '../../utils/atomic-file';
 import { spawn } from 'child_process';
 import { IPC_CHANNELS, getSpecsDir, AUTO_BUILD_PATHS } from '../../../shared/constants';
 import type {
@@ -358,7 +359,7 @@ export function registerProjectContextHandlers(
           if (!existsSync(indexDir)) {
             mkdirSync(indexDir, { recursive: true });
           }
-          writeFileSync(indexOutputPath, JSON.stringify(aggregatedIndex, null, 2), 'utf-8');
+          writeFileAtomicSync(indexOutputPath, JSON.stringify(aggregatedIndex, null, 2), 'utf-8');
 
           if (errors.length > 0) {
             debugLog(`[project-context] Some child repos failed to index: ${errors.join(', ')}`);

@@ -91,8 +91,12 @@ class FrameworkAnalyzer(BaseAnalyzer):
             content = self._read_file("Gemfile")
             self._detect_ruby_framework(content)
 
-        # C#/.NET detection
-        elif any(self.path.glob("*.csproj")) or any(self.path.glob("*.sln")):
+        # C#/.NET detection (check root and src/ subdirectories)
+        elif (
+            any(self.path.glob("*.csproj"))
+            or any(self.path.glob("*.sln"))
+            or any(self.path.glob("src/**/*.csproj"))
+        ):
             self.analysis["language"] = "C#"
             self.analysis["package_manager"] = "NuGet"
             self._detect_dotnet_framework()
@@ -116,6 +120,13 @@ class FrameworkAnalyzer(BaseAnalyzer):
                 self.analysis["framework"] = "Sphinx"
                 self.analysis["type"] = "documentation"
                 self.analysis["package_manager"] = "pip"
+
+        # Fallback: detect C# by .cs source files even without .csproj/.sln
+        # (handles repos where project files are missing or not yet committed)
+        elif any(self.path.glob("src/**/*.cs")):
+            self.analysis["language"] = "C#"
+            self.analysis["package_manager"] = "NuGet"
+            self._detect_dotnet_framework()
 
     def _detect_python_framework(self, content: str) -> None:
         """Detect Python framework."""
@@ -509,16 +520,31 @@ class FrameworkAnalyzer(BaseAnalyzer):
         return "npm"
 
     def _detect_dotnet_framework(self) -> None:
-        """Detect .NET framework from .csproj files."""
-        import re
-        import xml.etree.ElementTree as ET
+        """Detect .NET framework from .csproj/.sln files.
+
+        Handles two cases:
+        1. .NET Solution (Clean Architecture): .sln + src/ with sub-projects
+           → Treated as a SINGLE service with aggregated analysis
+        2. Single .csproj project → Standard single-project detection
+        """
 
         from .port_detector import PortDetector
 
-        # Find .csproj files
+        # ---- .NET Solution detection ----
+        # Parse the .sln file directly to discover all projects in the solution.
+        # A solution with 2+ projects is treated as a single service (not a monorepo).
+        sln_files = list(self.path.glob("*.sln"))
+
+        if sln_files:
+            solution = self._map_dotnet_solution(sln_files[0])
+            if solution and (solution["entry_points"] or solution["libraries"]):
+                self.analysis["dotnet_solution"] = solution
+                self._apply_dotnet_solution_framework(solution)
+                return
+
+        # ---- Single .csproj detection ----
         csproj_files = list(self.path.glob("*.csproj"))
         if not csproj_files:
-            # Check one level deep for .sln with sub-projects
             csproj_files = list(self.path.glob("**/*.csproj"))[:5]
 
         if not csproj_files:
@@ -526,55 +552,33 @@ class FrameworkAnalyzer(BaseAnalyzer):
 
         all_packages: set[str] = set()
         sdk_type = ""
+        has_azure_functions_version = False
 
-        for csproj in csproj_files[:3]:  # Limit for performance
-            try:
-                content = csproj.read_text(encoding="utf-8", errors="ignore")
-
-                # Detect SDK type from <Project Sdk="...">
-                sdk_match = re.search(r'Sdk="([^"]+)"', content)
-                if sdk_match:
-                    sdk_type = sdk_match.group(1)
-
-                # Parse PackageReference elements
-                # Use namespace-aware iteration to handle both modern (no namespace)
-                # and legacy .csproj files (with XML namespace)
-                try:
-                    tree = ET.fromstring(content)
-                    # Try without namespace first
-                    found_packages = list(tree.iter("PackageReference"))
-                    if not found_packages:
-                        # Try with namespace (legacy .csproj files)
-                        ns_match = re.search(r"\{([^}]+)\}", tree.tag)
-                        if ns_match:
-                            ns = ns_match.group(1)
-                            found_packages = list(
-                                tree.iter(f"{{{ns}}}PackageReference")
-                            )
-                    for pkg_ref in found_packages:
-                        include = pkg_ref.get("Include", "")
-                        if include:
-                            all_packages.add(include.lower())
-                    # If XML parsed but found nothing, also try regex as safety net
-                    if not found_packages:
-                        refs = re.findall(
-                            r'<PackageReference\s+Include="([^"]+)"', content
-                        )
-                        all_packages.update(r.lower() for r in refs)
-                except ET.ParseError:
-                    # Fallback: regex-based extraction
-                    refs = re.findall(r'<PackageReference\s+Include="([^"]+)"', content)
-                    all_packages.update(r.lower() for r in refs)
-            except (OSError, UnicodeDecodeError):
-                continue
+        for csproj in csproj_files[:3]:
+            info = self._parse_csproj_info(csproj)
+            all_packages.update(info.get("packages", set()))
+            if info.get("sdk"):
+                sdk_type = info["sdk"]
+            if info.get("is_azure_functions"):
+                has_azure_functions_version = True
 
         port_detector = PortDetector(self.path, self.analysis)
 
+        # Azure Functions (check before ASP.NET Core — AF projects may reference AspNetCore)
+        is_azure_functions = has_azure_functions_version or any(
+            "microsoft.azure.functions.worker" in p for p in all_packages
+        )
+        if is_azure_functions:
+            self.analysis["framework"] = "Azure Functions"
+            self.analysis["type"] = "worker"
+            self.analysis["default_port"] = port_detector.detect_port_from_sources(7071)
+            if any("durabletask" in p for p in all_packages):
+                self.analysis["durable_functions"] = True
+
         # ASP.NET Core Web API
-        if sdk_type == "Microsoft.NET.Sdk.Web" or any(
+        elif sdk_type == "Microsoft.NET.Sdk.Web" or any(
             p.startswith("microsoft.aspnetcore") for p in all_packages
         ):
-            # Check for Blazor
             if (
                 any("blazor" in p for p in all_packages)
                 or sdk_type == "Microsoft.NET.Sdk.BlazorWebAssembly"
@@ -591,7 +595,6 @@ class FrameworkAnalyzer(BaseAnalyzer):
                     5000
                 )
 
-            # Detect API patterns (minimal API or controllers)
             if any("microsoft.aspnetcore.openapi" in p for p in all_packages) or any(
                 "swashbuckle" in p for p in all_packages
             ):
@@ -631,6 +634,213 @@ class FrameworkAnalyzer(BaseAnalyzer):
             if not self.analysis.get("type"):
                 self.analysis["type"] = "backend"
 
+        self._apply_dotnet_metadata(all_packages)
+
+    # .sln GUIDs
+    _SLN_FOLDER_GUID = "2150E333-8FDC-42A3-9474-1A3956D46DE8"
+
+    def _map_dotnet_solution(self, sln_path: Path) -> dict | None:
+        """Map a .NET solution by parsing the .sln file.
+
+        The .sln file lists every project with its name, relative path to .csproj,
+        and a type GUID. Solution Folders (virtual grouping) are skipped.
+        Each real project's .csproj is then parsed to classify it as:
+        - API entry point (Microsoft.NET.Sdk.Web)
+        - Worker entry point (Azure Functions / Microsoft.NET.Sdk.Worker)
+        - Test project (path contains 'tests' or 'test')
+        - Library (everything else, classified by name)
+        """
+        import re
+
+        try:
+            sln_content = sln_path.read_text(encoding="utf-8", errors="ignore")
+        except (OSError, UnicodeDecodeError):
+            return None
+
+        # Parse Project entries from .sln
+        # Format: Project("{TYPE_GUID}") = "Name", "path\to\project.csproj", "{PROJ_GUID}"
+        project_pattern = re.compile(
+            r'Project\("\{([^}]+)\}"\)\s*=\s*"([^"]+)"\s*,\s*"([^"]+)"\s*,\s*"\{[^}]+\}"'
+        )
+
+        entry_points: list[dict] = []
+        libraries: list[dict] = []
+        test_projects: list[dict] = []
+        all_packages: set[str] = set()
+
+        for match in project_pattern.finditer(sln_content):
+            type_guid = match.group(1).upper()
+            project_name = match.group(2)
+            project_rel_path = match.group(3).replace(
+                "\\", "/"
+            )  # Normalize to Unix paths
+
+            # Skip Solution Folders (virtual grouping, no actual project)
+            if type_guid == self._SLN_FOLDER_GUID:
+                continue
+
+            # Resolve absolute path to .csproj
+            csproj_path = self.path / project_rel_path
+            if not csproj_path.exists():
+                continue
+
+            # Get the project directory path relative to solution root
+            project_dir = str(csproj_path.parent.relative_to(self.path))
+
+            # Parse .csproj to determine type
+            info = self._parse_csproj_info(csproj_path)
+            packages = info.pop("packages", set())
+            all_packages.update(packages)
+
+            sdk = info.get("sdk", "")
+            is_test = "test" in project_dir.lower()
+
+            entry = {
+                "name": project_name,
+                "path": project_dir,
+            }
+
+            if is_test:
+                test_projects.append(entry)
+            elif sdk == "Microsoft.NET.Sdk.Web":
+                entry["type"] = "api"
+                entry_points.append(entry)
+            elif info.get("is_azure_functions"):
+                entry["type"] = "worker"
+                entry["framework"] = "Azure Functions"
+                entry_points.append(entry)
+            elif sdk == "Microsoft.NET.Sdk.Worker":
+                entry["type"] = "worker"
+                entry_points.append(entry)
+            elif info.get("output_type", "").lower() == "exe":
+                entry["type"] = "tool"
+                entry_points.append(entry)
+            else:
+                # Library — classify by name
+                name_lower = project_name.lower()
+                if "gateway" in name_lower:
+                    entry["role"] = "data_access"
+                elif name_lower == "application":
+                    entry["role"] = "business_logic"
+                elif name_lower == "contracts":
+                    entry["role"] = "contracts"
+                elif "infrastructure" in name_lower:
+                    entry["role"] = "infrastructure"
+                elif name_lower == "client":
+                    entry["role"] = "client"
+                else:
+                    entry["role"] = "library"
+                libraries.append(entry)
+
+        if not entry_points and not libraries:
+            return None
+
+        return {
+            "solution_file": sln_path.name,
+            "entry_points": entry_points,
+            "libraries": libraries,
+            "test_projects": test_projects,
+            "all_packages": sorted(all_packages),
+        }
+
+    def _parse_csproj_info(self, csproj_path: Path) -> dict:
+        """Parse a .csproj file and extract SDK type, packages, and key properties."""
+        import re
+        import xml.etree.ElementTree as ET
+
+        info: dict = {"packages": set()}
+
+        try:
+            content = csproj_path.read_text(encoding="utf-8", errors="ignore")
+
+            sdk_match = re.search(r'Sdk="([^"]+)"', content)
+            if sdk_match:
+                info["sdk"] = sdk_match.group(1)
+
+            output_match = re.search(r"<OutputType>([^<]+)</OutputType>", content)
+            if output_match:
+                info["output_type"] = output_match.group(1)
+
+            if "<AzureFunctionsVersion>" in content:
+                info["is_azure_functions"] = True
+
+            # Parse PackageReference elements
+            try:
+                tree = ET.fromstring(content)
+                found_packages = list(tree.iter("PackageReference"))
+                if not found_packages:
+                    ns_match = re.search(r"\{([^}]+)\}", tree.tag)
+                    if ns_match:
+                        ns = ns_match.group(1)
+                        found_packages = list(tree.iter(f"{{{ns}}}PackageReference"))
+                for pkg_ref in found_packages:
+                    include = pkg_ref.get("Include", "")
+                    if include:
+                        info["packages"].add(include.lower())
+                if not found_packages:
+                    refs = re.findall(r'<PackageReference\s+Include="([^"]+)"', content)
+                    info["packages"].update(r.lower() for r in refs)
+            except ET.ParseError:
+                refs = re.findall(r'<PackageReference\s+Include="([^"]+)"', content)
+                info["packages"].update(r.lower() for r in refs)
+
+            # Check Azure Functions worker packages
+            if any("microsoft.azure.functions.worker" in p for p in info["packages"]):
+                info["is_azure_functions"] = True
+
+        except (OSError, UnicodeDecodeError):
+            pass
+
+        return info
+
+    def _apply_dotnet_solution_framework(self, solution: dict) -> None:
+        """Set framework properties based on .NET solution structure."""
+        from .port_detector import PortDetector
+
+        entry_points = solution["entry_points"]
+        all_packages = set(solution.get("all_packages", []))
+
+        # Determine primary framework from entry points
+        has_api = any(ep.get("type") == "api" for ep in entry_points)
+        has_worker = any(ep.get("type") == "worker" for ep in entry_points)
+
+        if has_api:
+            self.analysis["framework"] = "ASP.NET Core"
+            self.analysis["type"] = "backend"
+        elif has_worker:
+            ep = next(ep for ep in entry_points if ep["type"] == "worker")
+            self.analysis["framework"] = ep.get("framework", "Azure Functions")
+            self.analysis["type"] = "worker"
+        else:
+            self.analysis["framework"] = ".NET"
+            self.analysis["type"] = "library"
+
+        # Record all components (API + Workers)
+        if has_api and has_worker:
+            self.analysis["components"] = [
+                {
+                    "name": ep["name"],
+                    "type": ep["type"],
+                    "path": ep["path"],
+                    "framework": ep.get("framework", self.analysis["framework"]),
+                }
+                for ep in entry_points
+            ]
+
+        # Port detection — try API entry point first
+        port_detector = PortDetector(self.path, self.analysis)
+        self.analysis["default_port"] = port_detector.detect_port_from_sources(5000)
+
+        # API docs
+        if any("microsoft.aspnetcore.openapi" in p for p in all_packages) or any(
+            "swashbuckle" in p for p in all_packages
+        ):
+            self.analysis["api_docs"] = "Swagger/OpenAPI"
+
+        self._apply_dotnet_metadata(all_packages)
+
+    def _apply_dotnet_metadata(self, all_packages: set[str]) -> None:
+        """Apply common .NET metadata (ORM, messaging, testing) from packages."""
         # ORM detection
         if any(
             "entityframeworkcore" in p or "entityframework" in p for p in all_packages
@@ -656,6 +866,10 @@ class FrameworkAnalyzer(BaseAnalyzer):
             self.analysis["testing"] = "NUnit"
         elif any("mstest" in p for p in all_packages):
             self.analysis["testing"] = "MSTest"
+
+        # Durable functions
+        if any("durabletask" in p for p in all_packages):
+            self.analysis["durable_functions"] = True
 
     def _detect_mkdocs_details(self) -> None:
         """Detect MkDocs configuration details."""

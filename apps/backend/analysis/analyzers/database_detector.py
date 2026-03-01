@@ -5,6 +5,7 @@ Database Detector Module
 Detects database models and schemas across different ORMs:
 - Python: SQLAlchemy, Django ORM
 - JavaScript/TypeScript: Prisma, TypeORM, Drizzle, Mongoose
+- C#/.NET: Entity Framework Core
 """
 
 from __future__ import annotations
@@ -42,6 +43,9 @@ class DatabaseDetector(BaseAnalyzer):
 
         # Mongoose models
         models.update(self._detect_mongoose_models())
+
+        # C#/.NET Entity Framework Core
+        models.update(self._detect_ef_core_models())
 
         return models
 
@@ -311,6 +315,228 @@ class DatabaseDetector(BaseAnalyzer):
                     "fields": {},
                     "file": str(file_path.relative_to(self.path)),
                     "orm": "Mongoose",
+                }
+
+        return models
+
+    def _detect_ef_core_models(self) -> dict:
+        """Detect Entity Framework Core models."""
+        models = {}
+
+        # Directories to exclude from scanning
+        excluded_dirs = {"bin", "obj", "node_modules", ".git", "TestResults"}
+
+        cs_files = [
+            f
+            for f in self.path.glob("**/*.cs")
+            if not any(part in excluded_dirs for part in f.parts)
+        ]
+
+        # Step 1: Find DbContext files and extract DbSet<T> declarations
+        dbset_map = {}  # Maps entity type name -> DbSet property name (used as table name)
+        dbcontext_pattern = re.compile(
+            r"class\s+\w+\s*:\s*(?:Identity)?DbContext(?:<[^>]+>)?"
+        )
+        dbset_pattern = re.compile(r"DbSet<(\w+)>\s+(\w+)")
+
+        for file_path in cs_files:
+            try:
+                content = file_path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+
+            if not dbcontext_pattern.search(content):
+                continue
+
+            for dbset_match in dbset_pattern.finditer(content):
+                entity_type = dbset_match.group(1)
+                property_name = dbset_match.group(2)
+                dbset_map[entity_type] = property_name
+
+        # Step 2: Collect entity names from IEntityTypeConfiguration<T>
+        config_pattern = re.compile(r"IEntityTypeConfiguration<(\w+)>")
+        configured_entities = set()
+
+        for file_path in cs_files:
+            try:
+                content = file_path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+
+            for config_match in config_pattern.finditer(content):
+                configured_entities.add(config_match.group(1))
+
+        # Build the full set of known entity names
+        known_entities = set(dbset_map.keys()) | configured_entities
+
+        # Step 3: Scan .cs files for entity classes and extract properties
+        table_attr_pattern = re.compile(r'\[Table\(["\'](\w+)["\']\)\]')
+        class_pattern = re.compile(r"class\s+(\w+)")
+        property_pattern = re.compile(
+            r"public\s+(virtual\s+)?"
+            r"([\w<>,?\[\]\s]+?)\s+"
+            r"(\w+)\s*\{\s*get;\s*set;\s*\}"
+        )
+        key_attr_pattern = re.compile(r"\[Key\]")
+        required_attr_pattern = re.compile(r"\[Required\]")
+        maxlength_attr_pattern = re.compile(r"\[(?:MaxLength|StringLength)\((\d+)\)\]")
+        column_attr_pattern = re.compile(r'\[Column\(["\'](\w+)["\']\)\]')
+
+        # Navigation type prefixes to skip
+        navigation_prefixes = (
+            "ICollection<",
+            "IList<",
+            "IEnumerable<",
+            "List<",
+            "Collection<",
+            "HashSet<",
+        )
+
+        # Known C# value/primitive types
+        csharp_types = {
+            "int",
+            "long",
+            "string",
+            "bool",
+            "DateTime",
+            "DateTimeOffset",
+            "Guid",
+            "decimal",
+            "double",
+            "float",
+            "byte[]",
+            "short",
+            "byte",
+        }
+
+        for file_path in cs_files:
+            try:
+                content = file_path.read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+
+            lines = content.split("\n")
+
+            # Check for [Table] attribute at file level to find entity classes
+            file_table_attrs = {}
+            for i, line in enumerate(lines):
+                table_match = table_attr_pattern.search(line)
+                if table_match:
+                    # The [Table] attribute applies to the next class definition
+                    for j in range(i + 1, min(i + 5, len(lines))):
+                        class_match = class_pattern.search(lines[j])
+                        if class_match:
+                            file_table_attrs[class_match.group(1)] = table_match.group(
+                                1
+                            )
+                            break
+
+            # Find all classes in this file
+            class_matches = list(class_pattern.finditer(content))
+            for idx, class_match in enumerate(class_matches):
+                class_name = class_match.group(1)
+
+                # Only process classes that are known entities or have [Table] attr
+                is_known_entity = class_name in known_entities
+                has_table_attr = class_name in file_table_attrs
+                if not is_known_entity and not has_table_attr:
+                    continue
+
+                # Determine the region of this class body
+                class_start = class_match.end()
+                if idx + 1 < len(class_matches):
+                    class_end = class_matches[idx + 1].start()
+                else:
+                    class_end = len(content)
+
+                # Limit scanning to a reasonable size
+                class_body = content[class_start : min(class_start + 5000, class_end)]
+                class_lines = class_body.split("\n")
+
+                # Extract properties
+                fields = {}
+                for line_idx, line in enumerate(class_lines):
+                    prop_match = property_pattern.search(line)
+                    if not prop_match:
+                        continue
+
+                    is_virtual = prop_match.group(1) is not None
+                    raw_type = prop_match.group(2).strip()
+                    prop_name = prop_match.group(3)
+
+                    # Skip virtual navigation properties
+                    if is_virtual:
+                        continue
+
+                    # Skip collection/navigation types
+                    if any(
+                        raw_type.startswith(prefix) for prefix in navigation_prefixes
+                    ):
+                        continue
+
+                    # Determine if nullable (type ends with ?)
+                    is_nullable = raw_type.endswith("?")
+                    clean_type = raw_type.rstrip("?")
+
+                    # Only include properties with recognized types or common patterns
+                    if clean_type not in csharp_types and not clean_type[0].isupper():
+                        continue
+
+                    # Look at preceding lines for attributes
+                    is_primary_key = False
+                    is_required = False
+                    max_length = None
+                    column_name = None
+
+                    # Check up to 4 lines above for attributes
+                    attr_start = max(0, line_idx - 4)
+                    attr_lines = "\n".join(class_lines[attr_start:line_idx])
+
+                    if key_attr_pattern.search(attr_lines):
+                        is_primary_key = True
+                    if required_attr_pattern.search(attr_lines):
+                        is_required = True
+                    maxlen_match = maxlength_attr_pattern.search(attr_lines)
+                    if maxlen_match:
+                        max_length = int(maxlen_match.group(1))
+                    col_match = column_attr_pattern.search(attr_lines)
+                    if col_match:
+                        column_name = col_match.group(1)
+
+                    # Convention: property named "Id" or "<ClassName>Id" is primary key
+                    if prop_name == "Id" or prop_name == f"{class_name}Id":
+                        is_primary_key = True
+
+                    field_info = {
+                        "type": clean_type,
+                        "primary_key": is_primary_key,
+                        "unique": is_primary_key,
+                        "nullable": is_nullable and not is_required,
+                    }
+                    if max_length is not None:
+                        field_info["max_length"] = max_length
+                    if column_name is not None:
+                        field_info["column"] = column_name
+
+                    fields[prop_name] = field_info
+
+                if not fields:
+                    continue
+
+                # Determine table name
+                if has_table_attr:
+                    table_name = file_table_attrs[class_name]
+                elif class_name in dbset_map:
+                    table_name = dbset_map[class_name]
+                else:
+                    # Simple pluralization: append 's'
+                    table_name = class_name + "s"
+
+                models[class_name] = {
+                    "table": table_name,
+                    "fields": fields,
+                    "file": str(file_path.relative_to(self.path)),
+                    "orm": "Entity Framework",
                 }
 
         return models

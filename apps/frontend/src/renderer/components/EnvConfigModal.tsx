@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronRight
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useSettingsStore } from '../stores/settings-store';
 import {
   Dialog,
@@ -50,6 +51,7 @@ export function EnvConfigModal({
   description = 'A Claude Code OAuth token is required to use AI features like Ideation and Roadmap generation.',
   projectId
 }: EnvConfigModalProps) {
+  const { t } = useTranslation('dialogs');
   const [token, setToken] = useState('');
   const [showToken, setShowToken] = useState(false);
   const [showManualEntry, setShowManualEntry] = useState(false);
@@ -156,7 +158,7 @@ export function EnvConfigModal({
     try {
       const profile = claudeProfiles.find(p => p.id === selectedProfileId);
       if (!profile) {
-        setError('Profile not found');
+        setError(t('envConfig.profileNotFound'));
         setIsSaving(false);
         return;
       }
@@ -175,7 +177,7 @@ export function EnvConfigModal({
             onOpenChange(false);
           }, 1500);
         } else {
-          setError(result.error || 'Failed to save token');
+          setError(result.error || t('envConfig.failedToSaveToken'));
         }
       } else if (profile.configDir || profile.isDefault) {
         // Profile uses Keychain-based auth (modern path)
@@ -188,10 +190,10 @@ export function EnvConfigModal({
           onOpenChange(false);
         }, 1500);
       } else {
-        setError('Selected profile does not have valid credentials. Please re-authenticate.');
+        setError(t('envConfig.invalidProfileCredentials'));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to use profile');
+      setError(err instanceof Error ? err.message : t('envConfig.failedToUseProfile'));
     } finally {
       setIsSaving(false);
     }

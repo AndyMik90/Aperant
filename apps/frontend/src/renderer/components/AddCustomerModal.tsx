@@ -60,8 +60,9 @@ export function AddCustomerModal({ open, onOpenChange, onCustomerAdded }: AddCus
         if (initResult.success) {
           store.updateProject(project.id, { autoBuildPath: '.auto-claude' });
         }
-      } catch {
+      } catch (e) {
         // Non-fatal — user can configure later
+        console.debug('[AddCustomerModal] Failed to initialize customer project:', e);
       }
     }
 
@@ -124,8 +125,9 @@ export function AddCustomerModal({ open, onOpenChange, onCustomerAdded }: AddCus
     }
   };
 
+  const sep = window.navigator.platform.startsWith('Win') ? '\\' : '/';
   const folderPreview = customerName.trim() && location
-    ? `${location}/${customerName.trim()}`
+    ? `${location}${sep}${customerName.trim()}`
     : null;
 
   return (

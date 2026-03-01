@@ -13,7 +13,6 @@ import path from 'path';
 import { IPC_CHANNELS } from '../../shared/constants/ipc';
 import type { IPCResult } from '../../shared/types';
 import type { GlobalMcpInfo, GlobalMcpServerEntry } from '../../shared/types/integrations';
-import type { ClaudeCodeMcpServerConfig } from '../claude-code-settings/types';
 import { readUserGlobalSettings } from '../claude-code-settings/reader';
 import { debugLog } from '../../shared/utils/debug-logger';
 
@@ -155,26 +154,39 @@ function resolvePluginServers(pluginKey: string, claudeDir: string): GlobalMcpSe
 
 /**
  * Convert inline mcpServers config entries to GlobalMcpServerEntry array.
+ * Performs runtime type validation since the input may come from untrusted JSON.
  *
- * @param mcpServers - MCP server configurations keyed by server ID
+ * @param mcpServers - MCP server configurations keyed by server ID (runtime-validated)
  * @param source - Where this config was sourced from ('settings' for settings.json, 'claude-json' for ~/.claude.json)
  */
 function resolveInlineServers(
-  mcpServers: Record<string, ClaudeCodeMcpServerConfig>,
+  mcpServers: Record<string, unknown>,
   source: 'settings' | 'claude-json' = 'settings'
 ): GlobalMcpServerEntry[] {
   const entries: GlobalMcpServerEntry[] = [];
 
-  for (const [serverId, config] of Object.entries(mcpServers)) {
+  for (const [serverId, rawConfig] of Object.entries(mcpServers)) {
+    if (typeof rawConfig !== 'object' || rawConfig === null || Array.isArray(rawConfig)) {
+      debugLog(`${LOG_PREFIX} Skipping invalid mcpServers entry (not an object):`, serverId);
+      continue;
+    }
+
+    const config = rawConfig as Record<string, unknown>;
     const entry: GlobalMcpServerEntry = {
       serverId,
       serverName: toServerName(serverId),
       config: {
-        ...(config.type ? { type: config.type } : {}),
-        ...(config.command ? { command: config.command } : {}),
-        ...(config.args ? { args: config.args } : {}),
-        ...(config.url ? { url: config.url } : {}),
-        ...(config.headers ? { headers: config.headers } : {}),
+        ...(typeof config.type === 'string' && (config.type === 'http' || config.type === 'sse')
+          ? { type: config.type as 'http' | 'sse' }
+          : {}),
+        ...(typeof config.command === 'string' ? { command: config.command } : {}),
+        ...(Array.isArray(config.args)
+          ? { args: config.args.filter((a: unknown): a is string => typeof a === 'string') }
+          : {}),
+        ...(typeof config.url === 'string' ? { url: config.url } : {}),
+        ...(typeof config.headers === 'object' && config.headers !== null && !Array.isArray(config.headers)
+          ? { headers: config.headers as Record<string, string> }
+          : {}),
       },
       source,
     };
@@ -205,10 +217,14 @@ function getClaudeHomeDir(): string {
  * @returns Array of GlobalMcpServerEntry with source 'claude-json', or empty array on failure.
  */
 function readClaudeJsonMcpServers(): GlobalMcpServerEntry[] {
-  const claudeJsonPath = path.join(homedir(), '.claude.json');
+  const claudeConfigDir = process.env.CLAUDE_CONFIG_DIR;
+  const candidates = claudeConfigDir
+    ? [path.join(claudeConfigDir, '.claude.json'), path.join(homedir(), '.claude.json')]
+    : [path.join(homedir(), '.claude.json')];
 
-  if (!existsSync(claudeJsonPath)) {
-    debugLog(`${LOG_PREFIX} ~/.claude.json not found:`, claudeJsonPath);
+  const claudeJsonPath = candidates.find(existsSync);
+  if (!claudeJsonPath) {
+    debugLog(`${LOG_PREFIX} .claude.json not found in expected locations`);
     return [];
   }
 
@@ -228,7 +244,7 @@ function readClaudeJsonMcpServers(): GlobalMcpServerEntry[] {
     }
 
     const entries = resolveInlineServers(
-      mcpServers as Record<string, ClaudeCodeMcpServerConfig>,
+      mcpServers as Record<string, unknown>,
       'claude-json'
     );
 

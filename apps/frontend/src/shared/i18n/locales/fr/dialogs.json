@@ -261,6 +261,12 @@
     "skipDescription": "Générer la feuille de route sans informations concurrentielles.",
     "cancel": "Annuler"
   },
+  "envConfig": {
+    "profileNotFound": "Profil introuvable",
+    "failedToSaveToken": "Echec de la sauvegarde du jeton",
+    "invalidProfileCredentials": "Le profil selectionne n'a pas d'identifiants valides. Veuillez vous re-authentifier.",
+    "failedToUseProfile": "Echec de l'utilisation du profil"
+  },
   "versionWarning": {
     "title": "Action requise",
     "subtitle": "Mise à jour version 2.7.5",

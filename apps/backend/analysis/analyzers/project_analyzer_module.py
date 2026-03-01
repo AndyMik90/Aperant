@@ -62,7 +62,16 @@ class ProjectAnalyzer:
             self.index["project_type"] = "monorepo"
             return
 
-        # Check for multiple service directories
+        # .NET solution structure: .sln at root with src/ containing sub-projects
+        # This is Clean Architecture / DDD — one solution = one service, NOT a monorepo.
+        # The framework_analyzer handles mapping the internal structure (Api, Worker,
+        # libraries) into a single aggregated service via analysis["dotnet_solution"].
+        if any(self.project_dir.glob("*.sln")):
+            src_dir = self.project_dir / "src"
+            if src_dir.exists() and src_dir.is_dir():
+                return  # Single .NET solution, not a monorepo
+
+        # Check for multiple service directories at root level
         service_dirs_found = 0
         for item in self.project_dir.iterdir():
             if not item.is_dir():
@@ -89,6 +98,7 @@ class ProjectAnalyzer:
                 self.project_dir / "packages",
                 self.project_dir / "apps",
                 self.project_dir / "services",
+                self.project_dir / "src",  # .NET Clean Architecture / DDD
             ]
 
             for location in service_locations:
@@ -118,10 +128,16 @@ class ProjectAnalyzer:
                             services[item.name] = service_info
         else:
             # Single project - analyze root
-            analyzer = ServiceAnalyzer(self.project_dir, "main")
+            # For .NET solutions, use the .sln name as service name
+            sln_files = list(self.project_dir.glob("*.sln"))
+            if sln_files:
+                service_name = sln_files[0].stem  # e.g. "Smart.Management.Sales"
+            else:
+                service_name = self.project_dir.name
+            analyzer = ServiceAnalyzer(self.project_dir, service_name)
             service_info = analyzer.analyze()
             if service_info.get("language"):
-                services["main"] = service_info
+                services[service_name] = service_info
 
         self.index["services"] = services
 

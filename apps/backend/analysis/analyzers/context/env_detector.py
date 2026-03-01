@@ -6,7 +6,9 @@ Detects and analyzes environment variables from multiple sources:
 - .env files and variants
 - .env.example files
 - docker-compose.yml
+- .NET: appsettings.json, appsettings.{Environment}.json
 - Source code (os.getenv, process.env)
+- C#: IConfiguration, Environment.GetEnvironmentVariable
 """
 
 from __future__ import annotations
@@ -41,6 +43,12 @@ class EnvironmentDetector(BaseAnalyzer):
         self._parse_env_example(env_vars, required_vars)
         self._parse_docker_compose(env_vars)
         self._parse_code_references(env_vars, optional_vars)
+
+        # .NET appsettings.json
+        self._parse_appsettings(env_vars)
+
+        # .NET launchSettings.json (Properties/launchSettings.json)
+        self._parse_launch_settings(env_vars)
 
         # Mark required vs optional
         for key in env_vars:
@@ -175,6 +183,9 @@ class EnvironmentDetector(BaseAnalyzer):
             "index.ts",
             "config.js",
             "config.ts",
+            "Program.cs",
+            "Startup.cs",
+            "appsettings.json",
         ]
 
         for entry_file in entry_files:
@@ -194,7 +205,14 @@ class EnvironmentDetector(BaseAnalyzer):
                 r"process\.env\.([A-Z_][A-Z0-9_]*)",
             ]
 
-            for pattern in python_patterns + js_patterns:
+            # C#: IConfiguration / Environment.GetEnvironmentVariable
+            csharp_patterns = [
+                r'GetEnvironmentVariable\(["\']([A-Z_][A-Z0-9_]*)["\']',
+                r'configuration\[["\']([A-Za-z_:][A-Za-z0-9_:]*)["\']',
+                r'Configuration\[["\']([A-Za-z_:][A-Za-z0-9_:]*)["\']',
+            ]
+
+            for pattern in python_patterns + js_patterns + csharp_patterns:
                 matches = re.findall(pattern, content)
                 for var_name in matches:
                     if var_name not in env_vars:
@@ -206,6 +224,123 @@ class EnvironmentDetector(BaseAnalyzer):
                             "sensitive": self._is_sensitive_key(var_name),
                             "required": False,
                         }
+
+    def _parse_appsettings(self, env_vars: dict[str, Any]) -> None:
+        """Parse .NET appsettings.json configuration files.
+
+        For .NET solutions, scans entry point sub-project directories.
+        """
+        base_files = [
+            "appsettings.json",
+            "appsettings.Development.json",
+            "appsettings.Production.json",
+            "appsettings.Staging.json",
+        ]
+
+        # Build list of directories to scan
+        scan_dirs = [""]  # Root directory
+        solution = self.analysis.get("dotnet_solution")
+        if solution:
+            for ep in solution.get("entry_points", []):
+                scan_dirs.append(ep["path"])
+
+        for scan_dir in scan_dirs:
+            for base_file in base_files:
+                settings_file = f"{scan_dir}/{base_file}" if scan_dir else base_file
+                content = self._read_json(settings_file)
+                if not content:
+                    continue
+
+                source = settings_file if scan_dir else base_file
+                self._flatten_appsettings(content, "", source, env_vars)
+
+    def _flatten_appsettings(
+        self, obj: dict, prefix: str, source: str, env_vars: dict[str, Any]
+    ) -> None:
+        """Recursively flatten appsettings JSON into colon-separated keys."""
+        # Skip certain top-level keys that are just noise
+        skip_sections = {"$schema", "iisSettings", "profiles"}
+
+        for key, value in obj.items():
+            if key in skip_sections:
+                continue
+
+            full_key = f"{prefix}:{key}" if prefix else key
+
+            if isinstance(value, dict):
+                self._flatten_appsettings(value, full_key, source, env_vars)
+            elif isinstance(value, list):
+                # Skip arrays (usually complex config)
+                continue
+            else:
+                # Leaf value
+                str_value = str(value) if value is not None else ""
+                is_sensitive = self._is_sensitive_key(full_key)
+                var_type = self._infer_env_var_type(str_value)
+
+                # Connection strings are URLs
+                if "connectionstring" in full_key.lower():
+                    var_type = "url"
+                    is_sensitive = True
+
+                if full_key not in env_vars:
+                    env_vars[full_key] = {
+                        "value": "<REDACTED>" if is_sensitive else str_value,
+                        "source": source,
+                        "type": var_type,
+                        "sensitive": is_sensitive,
+                    }
+
+    def _parse_launch_settings(self, env_vars: dict[str, Any]) -> None:
+        """Parse .NET Properties/launchSettings.json for environment variables.
+
+        For .NET solutions, scans entry point sub-project directories.
+        """
+        launch_paths = [
+            "Properties/launchSettings.json",
+            "properties/launchSettings.json",
+        ]
+
+        # For .NET solutions, also scan entry point directories
+        solution = self.analysis.get("dotnet_solution")
+        if solution:
+            for ep in solution.get("entry_points", []):
+                launch_paths.append(f"{ep['path']}/Properties/launchSettings.json")
+
+        for launch_path in launch_paths:
+            data = self._read_json(launch_path)
+            if not data:
+                continue
+
+            profiles = data.get("profiles", {})
+
+            # Prefer "http" profile, then first available
+            for profile_key in ["http", *profiles.keys()]:
+                profile = profiles.get(profile_key)
+                if not profile:
+                    continue
+
+                env_variables = profile.get("environmentVariables", {})
+                if not env_variables:
+                    continue
+
+                for key, value in env_variables.items():
+                    if key in env_vars:
+                        continue
+
+                    str_value = str(value) if value is not None else ""
+                    is_sensitive = self._is_sensitive_key(key)
+                    var_type = self._infer_env_var_type(str_value)
+
+                    env_vars[key] = {
+                        "value": "<REDACTED>" if is_sensitive else str_value,
+                        "source": f"launchSettings:{profile_key}",
+                        "type": var_type,
+                        "sensitive": is_sensitive,
+                    }
+
+                # Only use the first profile with env vars
+                return
 
     @staticmethod
     def _is_sensitive_key(key: str) -> bool:
