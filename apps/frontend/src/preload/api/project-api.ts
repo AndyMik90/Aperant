@@ -46,7 +46,8 @@ export interface ProjectAPI {
 
   // Context Operations
   getProjectContext: (projectId: string) => Promise<IPCResult<unknown>>;
-  refreshProjectIndex: (projectId: string) => Promise<IPCResult<unknown>>;
+  refreshProjectIndex: (projectId: string, force?: boolean) => Promise<IPCResult<unknown>>;
+  onIndexProgress: (callback: (data: { message: string; current?: number; total?: number }) => void) => () => void;
   getMemoryStatus: (projectId: string) => Promise<IPCResult<unknown>>;
   searchMemories: (projectId: string, query: string) => Promise<IPCResult<unknown>>;
   getRecentMemories: (projectId: string, limit?: number) => Promise<IPCResult<unknown>>;
@@ -194,8 +195,14 @@ export const createProjectAPI = (): ProjectAPI => ({
   getProjectContext: (projectId: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.CONTEXT_GET, projectId),
 
-  refreshProjectIndex: (projectId: string) =>
-    ipcRenderer.invoke(IPC_CHANNELS.CONTEXT_REFRESH_INDEX, projectId),
+  refreshProjectIndex: (projectId: string, force?: boolean) =>
+    ipcRenderer.invoke(IPC_CHANNELS.CONTEXT_REFRESH_INDEX, projectId, force),
+
+  onIndexProgress: (callback: (data: { message: string; current?: number; total?: number }) => void) => {
+    const handler = (_event: unknown, data: { message: string; current?: number; total?: number }) => callback(data);
+    ipcRenderer.on(IPC_CHANNELS.CONTEXT_INDEX_PROGRESS, handler);
+    return () => { ipcRenderer.removeListener(IPC_CHANNELS.CONTEXT_INDEX_PROGRESS, handler); };
+  },
 
   getMemoryStatus: (projectId: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.CONTEXT_MEMORY_STATUS, projectId),

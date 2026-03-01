@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { FolderTree, Brain } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { useContextStore } from '../../stores/context-store';
-import { useProjectContext, useRefreshIndex, useMemorySearch } from './hooks';
+import { useProjectContext, useRefreshIndex, useMemorySearch, useIndexProgress } from './hooks';
 import { ProjectIndexTab } from './ProjectIndexTab';
 import { MemoriesTab } from './MemoriesTab';
 import type { ContextProps } from './types';
@@ -12,6 +12,9 @@ export function Context({ projectId }: ContextProps) {
     projectIndex,
     indexLoading,
     indexError,
+    indexProgress,
+    indexProgressCurrent,
+    indexProgressTotal,
     memoryStatus,
     memoryState,
     recentMemories,
@@ -26,6 +29,7 @@ export function Context({ projectId }: ContextProps) {
   useProjectContext(projectId);
   const handleRefreshIndex = useRefreshIndex(projectId);
   const handleSearch = useMemorySearch(projectId);
+  useIndexProgress();
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -49,6 +53,9 @@ export function Context({ projectId }: ContextProps) {
             projectIndex={projectIndex}
             indexLoading={indexLoading}
             indexError={indexError}
+            indexProgress={indexProgress}
+            indexProgressCurrent={indexProgressCurrent}
+            indexProgressTotal={indexProgressTotal}
             onRefresh={handleRefreshIndex}
           />
         </TabsContent>

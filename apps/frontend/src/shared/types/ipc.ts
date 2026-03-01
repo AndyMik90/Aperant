@@ -455,7 +455,8 @@ export interface ElectronAPI {
 
   // Context operations
   getProjectContext: (projectId: string) => Promise<IPCResult<ProjectContextData>>;
-  refreshProjectIndex: (projectId: string) => Promise<IPCResult<ProjectIndex>>;
+  refreshProjectIndex: (projectId: string, force?: boolean) => Promise<IPCResult<ProjectIndex>>;
+  onIndexProgress: (callback: (data: { message: string; current?: number; total?: number }) => void) => () => void;
   getMemoryStatus: (projectId: string) => Promise<IPCResult<GraphitiMemoryStatus>>;
   searchMemories: (projectId: string, query: string) => Promise<IPCResult<ContextSearchResult[]>>;
   getRecentMemories: (projectId: string, limit?: number) => Promise<IPCResult<MemoryEpisode[]>>;

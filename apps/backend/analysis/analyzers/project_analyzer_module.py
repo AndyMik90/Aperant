@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .base import SERVICE_INDICATORS, SERVICE_ROOT_FILES, SKIP_DIRS
+from .base import SERVICE_INDICATORS, SERVICE_ROOT_FILES, SKIP_DIRS, has_service_root
 from .service_analyzer import ServiceAnalyzer
 
 
@@ -71,7 +71,7 @@ class ProjectAnalyzer:
                 continue
 
             # Check if this directory has service root files
-            if any((item / f).exists() for f in SERVICE_ROOT_FILES):
+            if has_service_root(item):
                 service_dirs_found += 1
 
         # If we have 2+ directories with service root files, it's likely a monorepo
@@ -104,7 +104,7 @@ class ProjectAnalyzer:
                         continue
 
                     # Check if this looks like a service
-                    has_root_file = any((item / f).exists() for f in SERVICE_ROOT_FILES)
+                    has_root_file = has_service_root(item)
                     is_service_name = item.name.lower() in SERVICE_INDICATORS
 
                     if has_root_file or (
