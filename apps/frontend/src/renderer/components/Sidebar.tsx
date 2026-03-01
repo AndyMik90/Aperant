@@ -170,24 +170,24 @@ export function Sidebar({
   // Track the last loaded project ID to avoid redundant loads
   const lastLoadedProjectIdRef = useRef<string | null>(null);
 
-  // When the selected project is a child repo of a customer (selected via dropdown),
-  // hide GitHub/GitLab nav items — they should not be influenced by the dropdown
-  const isCustomerChildRepo = !!(customerContext && selectedProject && selectedProject.type !== 'customer');
+  // For Customer projects: always show GitHub nav if the customer has a token configured,
+  // since multi-repo issues will pull from all child repos regardless of the customer's own env.
+  const isCustomerProject = selectedProject?.type === 'customer';
 
   // Compute visible nav items — show GitHub OR GitLab based on what's configured
   const visibleNavItems = useMemo(() => {
     const items = [...baseNavItems];
-    // Don't show GitHub/GitLab items for child repos selected via customer dropdown
-    if (isCustomerChildRepo) return items;
-    if (githubEnabled && !gitlabEnabled) {
+    // Customer projects always show GitHub nav (multi-repo aggregation)
+    const effectiveGithubEnabled = githubEnabled || isCustomerProject;
+    if (effectiveGithubEnabled && !gitlabEnabled) {
       items.push(...githubNavItems);
-    } else if (gitlabEnabled && !githubEnabled) {
+    } else if (gitlabEnabled && !effectiveGithubEnabled) {
       items.push(...gitlabNavItems);
-    } else if (githubEnabled && gitlabEnabled) {
+    } else if (effectiveGithubEnabled && gitlabEnabled) {
       items.push(...githubNavItems, ...gitlabNavItems);
     }
     return items;
-  }, [githubEnabled, gitlabEnabled, isCustomerChildRepo]);
+  }, [githubEnabled, gitlabEnabled, isCustomerProject]);
 
   // Load envConfig when project changes to ensure store is populated
   useEffect(() => {
