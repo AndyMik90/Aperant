@@ -446,7 +446,22 @@
     "failedLabel": "Échoué",
     "starting": "Démarrage..."
   },
+  "memory": {
+    "whatWorked": "Ce qui a fonctionné",
+    "whatFailed": "Ce qui a échoué",
+    "approach": "Approche",
+    "recommendations": "Recommandations",
+    "patterns": "Modèles",
+    "gotchas": "Pièges",
+    "changedFiles": "Fichiers modifiés",
+    "fileInsights": "Informations sur les fichiers",
+    "subtasksCompleted": "Sous-tâches terminées",
+    "expand": "Développer",
+    "collapse": "Réduire",
+    "searchPlaceholder": "Rechercher des modèles, informations, pièges..."
+  },
   "insights": {
+    "placeholder": "Posez une question sur votre codebase...",
     "suggestedTask": "Tâche suggérée",
     "creating": "Création...",
     "taskCreated": "Tâche créée",
@@ -492,6 +507,7 @@
     }
   },
   "ideation": {
+    "noIdeasToDisplay": "Aucune idée à afficher",
     "converting": "Conversion...",
     "convertToTask": "Convertir en tâche Auto-Build",
     "dismissIdea": "Ignorer l'idée",
@@ -712,6 +728,8 @@
     }
   },
   "auth": {
+    "claudeAuthRequired": "Authentification Claude requise",
+    "claudeAuthRequiredDescription": "Un token OAuth Claude Code est requis pour générer des idées de fonctionnalités.",
     "failure": {
       "title": "Authentification requise",
       "profileLabel": "Profil",

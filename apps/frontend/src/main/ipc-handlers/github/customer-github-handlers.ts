@@ -1,0 +1,312 @@
+/**
+ * Multi-repo GitHub Issues handlers for Customer projects.
+ *
+ * A Customer project aggregates issues from multiple child repositories.
+ * The GitHub token comes from the customer's own .env while each child
+ * repository supplies its own GITHUB_REPO value.
+ */
+
+import { existsSync, readFileSync } from 'fs';
+import path from 'path';
+import { ipcMain } from 'electron';
+import { IPC_CHANNELS } from '../../../shared/constants';
+import type { IPCResult, GitHubIssue, MultiRepoGitHubStatus, MultiRepoIssuesResult } from '../../../shared/types';
+import { projectStore } from '../../project-store';
+import { getGitHubConfig, githubFetch, normalizeRepoReference } from './utils';
+import type { GitHubAPIIssue } from './types';
+import { parseEnvFile } from '../utils';
+import { debugLog } from '../../../shared/utils/debug-logger';
+
+// ────────────────────────────────────────────────────────────────────────────
+// Shared helper
+// ────────────────────────────────────────────────────────────────────────────
+
+interface CustomerRepo {
+  projectId: string;
+  repoFullName: string;
+}
+
+interface CustomerGitHubConfig {
+  token: string;
+  repos: CustomerRepo[];
+}
+
+/**
+ * Resolve the GitHub token and child-repo list for a Customer project.
+ *
+ * Token resolution order:
+ *   1. GITHUB_TOKEN from the customer's .env
+ *   2. Fallback to `getGitHubConfig(customer)?.token` (which also tries `gh` CLI)
+ *
+ * Each child repo's GITHUB_REPO is read from its own .env via `getGitHubConfig`.
+ */
+function getCustomerGitHubConfig(customerId: string): CustomerGitHubConfig | null {
+  const customer = projectStore.getProject(customerId);
+  if (!customer) {
+    debugLog('[Customer GitHub] Customer project not found:', customerId);
+    return null;
+  }
+
+  if (customer.type !== 'customer') {
+    debugLog('[Customer GitHub] Project is not a customer:', customerId);
+    return null;
+  }
+
+  // 1. Resolve token from customer's .env
+  let token: string | undefined;
+
+  if (customer.autoBuildPath) {
+    const envPath = path.join(customer.path, customer.autoBuildPath, '.env');
+    if (existsSync(envPath)) {
+      try {
+        const content = readFileSync(envPath, 'utf-8');
+        const vars = parseEnvFile(content);
+        token = vars['GITHUB_TOKEN'];
+      } catch {
+        // ignore read errors, fall through to fallback
+      }
+    }
+  }
+
+  // Fallback: try getGitHubConfig which also checks gh CLI
+  if (!token) {
+    const fallbackConfig = getGitHubConfig(customer);
+    token = fallbackConfig?.token;
+  }
+
+  if (!token) {
+    debugLog('[Customer GitHub] No GitHub token found for customer:', customerId);
+    return null;
+  }
+
+  // 2. Discover child repos
+  const allProjects = projectStore.getProjects();
+  const childProjects = allProjects.filter(
+    (p) => p.id !== customer.id && p.path.startsWith(customer.path + '/')
+  );
+
+  const repos: CustomerRepo[] = [];
+
+  for (const child of childProjects) {
+    const childConfig = getGitHubConfig(child);
+    if (childConfig?.repo) {
+      const normalized = normalizeRepoReference(childConfig.repo);
+      if (normalized) {
+        repos.push({ projectId: child.id, repoFullName: normalized });
+      }
+    }
+  }
+
+  debugLog('[Customer GitHub] Resolved config:', {
+    customerId,
+    hasToken: !!token,
+    repoCount: repos.length,
+  });
+
+  return { token, repos };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Transform helper (duplicated from issue-handlers.ts since it is not exported)
+// ────────────────────────────────────────────────────────────────────────────
+
+function transformIssue(issue: GitHubAPIIssue, repoFullName: string): GitHubIssue {
+  return {
+    id: issue.id,
+    number: issue.number,
+    title: issue.title,
+    body: issue.body,
+    state: issue.state,
+    labels: issue.labels,
+    assignees: issue.assignees.map((a) => ({
+      login: a.login,
+      avatarUrl: a.avatar_url,
+    })),
+    author: {
+      login: issue.user.login,
+      avatarUrl: issue.user.avatar_url,
+    },
+    milestone: issue.milestone,
+    createdAt: issue.created_at,
+    updatedAt: issue.updated_at,
+    closedAt: issue.closed_at,
+    commentsCount: issue.comments,
+    url: issue.url,
+    htmlUrl: issue.html_url,
+    repoFullName,
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Handler 1: Check multi-repo connection
+// ────────────────────────────────────────────────────────────────────────────
+
+function registerCheckMultiRepoConnection(): void {
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_CHECK_MULTI_REPO_CONNECTION,
+    async (_, customerId: string): Promise<IPCResult<MultiRepoGitHubStatus>> => {
+      debugLog('[Customer GitHub] checkMultiRepoConnection called', { customerId });
+
+      const config = getCustomerGitHubConfig(customerId);
+      if (!config) {
+        return {
+          success: true,
+          data: {
+            connected: false,
+            repos: [],
+            error: 'No GitHub token configured for this customer',
+          },
+        };
+      }
+
+      return {
+        success: true,
+        data: {
+          connected: true,
+          repos: config.repos,
+        },
+      };
+    }
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Handler 2: Get issues across all child repos
+// ────────────────────────────────────────────────────────────────────────────
+
+function registerGetMultiRepoIssues(): void {
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_GET_MULTI_REPO_ISSUES,
+    async (
+      _,
+      customerId: string,
+      state: 'open' | 'closed' | 'all' = 'open',
+      page: number = 1
+    ): Promise<IPCResult<MultiRepoIssuesResult>> => {
+      debugLog('[Customer GitHub] getMultiRepoIssues called', { customerId, state, page });
+
+      const config = getCustomerGitHubConfig(customerId);
+      if (!config) {
+        return { success: false, error: 'No GitHub configuration found for this customer' };
+      }
+
+      if (config.repos.length === 0) {
+        return {
+          success: true,
+          data: { issues: [], repos: [], hasMore: false },
+        };
+      }
+
+      try {
+        const allRepoNames = config.repos.map((r) => r.repoFullName);
+
+        // Fetch issues from all repos in parallel
+        const settledResults = await Promise.allSettled(
+          config.repos.map(async (repo) => {
+            const endpoint = `/repos/${repo.repoFullName}/issues?state=${state}&per_page=50&sort=updated&page=${page}`;
+            const data = await githubFetch(config.token, endpoint);
+            return { repoFullName: repo.repoFullName, data };
+          })
+        );
+
+        const allIssues: GitHubIssue[] = [];
+
+        for (const result of settledResults) {
+          if (result.status === 'fulfilled') {
+            const { repoFullName, data } = result.value;
+            if (Array.isArray(data)) {
+              const issuesOnly = (data as GitHubAPIIssue[]).filter(
+                (item) => !item.pull_request
+              );
+              const transformed = issuesOnly.map((issue) =>
+                transformIssue(issue, repoFullName)
+              );
+              allIssues.push(...transformed);
+            }
+          } else {
+            debugLog('[Customer GitHub] Failed to fetch from repo:', result.reason);
+          }
+        }
+
+        // Sort by updatedAt descending
+        allIssues.sort(
+          (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        );
+
+        debugLog('[Customer GitHub] Returning', allIssues.length, 'issues from', allRepoNames.length, 'repos');
+
+        return {
+          success: true,
+          data: {
+            issues: allIssues,
+            repos: allRepoNames,
+            hasMore: false,
+          },
+        };
+      } catch (error) {
+        debugLog('[Customer GitHub] Error fetching multi-repo issues:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to fetch multi-repo issues',
+        };
+      }
+    }
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Handler 3: Get single issue detail from a specific repo
+// ────────────────────────────────────────────────────────────────────────────
+
+function registerGetMultiRepoIssueDetail(): void {
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_GET_MULTI_REPO_ISSUE_DETAIL,
+    async (
+      _,
+      customerId: string,
+      repoFullName: string,
+      issueNumber: number
+    ): Promise<IPCResult<GitHubIssue>> => {
+      debugLog('[Customer GitHub] getMultiRepoIssueDetail called', {
+        customerId,
+        repoFullName,
+        issueNumber,
+      });
+
+      const config = getCustomerGitHubConfig(customerId);
+      if (!config) {
+        return { success: false, error: 'No GitHub configuration found for this customer' };
+      }
+
+      try {
+        const issue = (await githubFetch(
+          config.token,
+          `/repos/${repoFullName}/issues/${issueNumber}`
+        )) as GitHubAPIIssue;
+
+        const result = transformIssue(issue, repoFullName);
+
+        return { success: true, data: result };
+      } catch (error) {
+        debugLog('[Customer GitHub] Error fetching issue detail:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to fetch issue detail',
+        };
+      }
+    }
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Public registration
+// ────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Register all Customer multi-repo GitHub IPC handlers
+ */
+export function registerCustomerGitHubHandlers(): void {
+  registerCheckMultiRepoConnection();
+  registerGetMultiRepoIssues();
+  registerGetMultiRepoIssueDetail();
+}

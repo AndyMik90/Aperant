@@ -184,7 +184,12 @@
     "fineTuneDescription": "Adjust from 75% to 200% in 5% increments",
     "default": "Default",
     "comfortable": "Comfortable",
-    "large": "Large"
+    "large": "Large",
+    "resetToDefault": "Reset to default (100%)",
+    "decreaseScale": "Decrease scale by {{step}}%",
+    "increaseScale": "Increase scale by {{step}}%",
+    "applyChanges": "Apply scale changes",
+    "apply": "Apply"
   },
   "logOrder": {
     "label": "Log Order",
@@ -255,7 +260,9 @@
     "dark": "Dark",
     "system": "System",
     "colorTheme": "Color Theme",
-    "colorThemeDescription": "Choose your preferred color palette"
+    "colorThemeDescription": "Choose your preferred color palette",
+    "backgroundColorTitle": "Background color",
+    "accentColorTitle": "Accent color"
   },
   "devtools": {
     "title": "Developer Tools",
@@ -342,7 +349,7 @@
   "projectSections": {
     "general": {
       "title": "General",
-      "description": "Auto-Build and agent config",
+      "description": "Configure Auto-Build, agent model, and notifications for {{name}}",
       "useClaudeMd": "Use CLAUDE.md",
       "useClaudeMdDescription": "Include CLAUDE.md instructions in agent context"
     },
@@ -901,5 +908,70 @@
       "label": "PR Template Filler",
       "description": "AI-fills GitHub PR templates from code changes"
     }
+  },
+  "projectSelector": {
+    "placeholder": "Select a project...",
+    "noProjects": "No projects yet",
+    "addProject": "Add Project...",
+    "addCustomer": "Add Customer..."
+  },
+  "linear": {
+    "enableSync": "Enable Linear Sync",
+    "enableSyncDescription": "Create and update Linear issues automatically",
+    "apiKey": "API Key",
+    "apiKeyDescription": "Get your API key from",
+    "linearSettings": "Linear Settings",
+    "connectionStatus": "Connection Status",
+    "checking": "Checking...",
+    "connected": "Connected to {{team}}",
+    "connectedNoTeam": "Connected",
+    "notConnected": "Not connected",
+    "tasksAvailable": "{{count}}+ tasks available to import",
+    "importTitle": "Import Existing Tasks",
+    "importDescription": "Select which Linear issues to import into AutoBuild as tasks.",
+    "importButton": "Import Tasks from Linear",
+    "realtimeSync": "Real-time Sync",
+    "realtimeSyncDescription": "Automatically import new tasks created in Linear",
+    "realtimeSyncWarning": "When enabled, new Linear issues will be automatically imported into AutoBuild. Make sure to configure your team/project filters below to control which issues are imported.",
+    "teamId": "Team ID (Optional)",
+    "projectId": "Project ID (Optional)"
+  },
+  "github": {
+    "enableIssues": "Enable GitHub Issues",
+    "enableIssuesDescription": "Sync issues from GitHub and create tasks automatically",
+    "connectedViaCLI": "Connected via GitHub CLI",
+    "authenticatedAs": "Authenticated as {{username}}",
+    "useDifferentToken": "Use Different Token",
+    "authentication": "GitHub Authentication",
+    "useManualToken": "Use Manual Token",
+    "personalAccessToken": "Personal Access Token",
+    "useOAuthInstead": "Use OAuth Instead",
+    "tokenInstructions": "Create a token with",
+    "tokenScopeFrom": "scope from",
+    "githubSettings": "GitHub Settings",
+    "clonedRepositories": "Cloned Repositories",
+    "cloneRepositories": "Clone Repositories",
+    "cloned": "Cloned",
+    "cloning": "Cloning",
+    "clone": "Clone",
+    "refresh": "Refresh",
+    "loadRepos": "Load Repos",
+    "searchRepos": "Search repositories...",
+    "repository": "Repository",
+    "repositoryFormat": "Format: owner/repo (e.g., facebook/react)",
+    "selectRepository": "Select a repository...",
+    "enterManually": "Enter Manually",
+    "loadingRepositories": "Loading repositories...",
+    "noMatchingRepositories": "No matching repositories",
+    "noRepositoriesFound": "No repositories found",
+    "selected": "Selected",
+    "connectionStatus": "Connection Status",
+    "checking": "Checking...",
+    "connectedTo": "Connected to {{repo}}",
+    "notConnected": "Not connected",
+    "issuesAvailable": "Issues Available",
+    "issuesAvailableDescription": "Access GitHub Issues from the sidebar to view, investigate, and create tasks from issues.",
+    "autoSyncOnLoad": "Auto-Sync on Load",
+    "autoSyncDescription": "Automatically fetch issues when the project loads"
   }
 }

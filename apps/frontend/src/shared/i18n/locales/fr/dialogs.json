@@ -158,6 +158,23 @@
     "failedToOpen": "Échec de l'ouverture du dossier client",
     "failedToCreate": "Échec de la création du dossier client"
   },
+  "customerRepos": {
+    "title": "Cloner des dépôts",
+    "description": "Sélectionnez les dépôts à cloner dans le dossier de {{name}}",
+    "searchPlaceholder": "Rechercher des dépôts...",
+    "loading": "Chargement des dépôts...",
+    "failedToLoad": "Échec du chargement des dépôts",
+    "noResults": "Aucun dépôt ne correspond à votre recherche",
+    "noRepos": "Aucun dépôt trouvé",
+    "clone": "Cloner",
+    "cloning": "Clonage...",
+    "cloned": "Cloné",
+    "cloneFailed": "Échec du clonage du dépôt",
+    "retry": "Réessayer",
+    "clonedCount": "{{count}} dépôt cloné",
+    "clonedCount_other": "{{count}} dépôts clonés",
+    "done": "Terminé"
+  },
   "customModel": {
     "title": "Configuration du modèle personnalisé",
     "description": "Configurez le modèle et le niveau de réflexion pour cette session de chat.",

@@ -122,6 +122,24 @@ export interface GitHubSyncStatus {
   error?: string;
 }
 
+/**
+ * Multi-repo GitHub connection status for Customer projects
+ */
+export interface MultiRepoGitHubStatus {
+  connected: boolean;
+  repos: { projectId: string; repoFullName: string }[];
+  error?: string;
+}
+
+/**
+ * Result type for multi-repo issue fetching
+ */
+export interface MultiRepoIssuesResult {
+  issues: GitHubIssue[];
+  repos: string[];
+  hasMore: boolean;
+}
+
 export interface GitHubImportResult {
   success: boolean;
   imported: number;

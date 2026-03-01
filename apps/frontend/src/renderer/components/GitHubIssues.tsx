@@ -7,6 +7,7 @@ import {
   useIssueFiltering,
   useAutoFix,
 } from "./github-issues/hooks";
+import { useMultiRepoGitHubIssues } from "./github-issues/hooks/useMultiRepoGitHubIssues";
 import { useAnalyzePreview } from "./github-issues/hooks/useAnalyzePreview";
 import {
   NotConnectedState,
@@ -17,6 +18,7 @@ import {
   InvestigationDialog,
   BatchReviewWizard,
 } from "./github-issues/components";
+import { RepoFilterDropdown } from "./github-issues/components/RepoFilterDropdown";
 import { GitHubSetupModal } from "./GitHubSetupModal";
 import type { GitHubIssue } from "../../shared/types";
 import type { GitHubIssuesProps } from "./github-issues/types";
@@ -27,6 +29,15 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
   const tasks = useTaskStore((state) => state.tasks);
 
+  const isCustomer = selectedProject?.type === 'customer';
+
+  // Single-repo hook (active when NOT a customer)
+  const singleRepo = useGitHubIssues(isCustomer ? undefined : selectedProject?.id);
+
+  // Multi-repo hook (active when IS a customer)
+  const multiRepo = useMultiRepoGitHubIssues(isCustomer ? selectedProject?.id : undefined);
+
+  // Select the active hook's data
   const {
     syncStatus,
     isLoading,
@@ -44,14 +55,14 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     handleLoadMore,
     handleSearchStart,
     handleSearchClear,
-  } = useGitHubIssues(selectedProject?.id);
+  } = isCustomer ? multiRepo : singleRepo;
 
   const {
     investigationStatus,
     lastInvestigationResult,
     startInvestigation,
     resetInvestigationStatus,
-  } = useGitHubInvestigation(selectedProject?.id);
+  } = useGitHubInvestigation(isCustomer ? undefined : selectedProject?.id);
 
   const { searchQuery, setSearchQuery, filteredIssues, isSearchActive } = useIssueFiltering(
     getFilteredIssues(),
@@ -68,9 +79,9 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     batchProgress,
     toggleAutoFix,
     checkForNewIssues,
-  } = useAutoFix(selectedProject?.id);
+  } = useAutoFix(isCustomer ? undefined : selectedProject?.id);
 
-  // Analyze & Group Issues (proactive workflow)
+  // Analyze & Group Issues (proactive workflow) - disabled for customer multi-repo
   const {
     isWizardOpen,
     isAnalyzing,
@@ -82,7 +93,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     closeWizard,
     startAnalysis,
     approveBatches,
-  } = useAnalyzePreview({ projectId: selectedProject?.id || "" });
+  } = useAnalyzePreview({ projectId: isCustomer ? "" : (selectedProject?.id || "") });
 
   const [showInvestigateDialog, setShowInvestigateDialog] = useState(false);
   const [selectedIssueForInvestigation, setSelectedIssueForInvestigation] =
@@ -135,6 +146,15 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     resetInvestigationStatus();
   }, [resetInvestigationStatus]);
 
+  // Derive header repo name
+  const headerRepoName = isCustomer
+    ? (multiRepo.repos.length > 0
+      ? (multiRepo.selectedRepo === 'all'
+        ? `${multiRepo.repos.length} repos`
+        : multiRepo.selectedRepo)
+      : '')
+    : (singleRepo.syncStatus?.repoFullName ?? "");
+
   // Not connected state
   if (!syncStatus?.connected) {
     return <NotConnectedState error={syncStatus?.error || null} onOpenSettings={onOpenSettings} />;
@@ -144,7 +164,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     <div className="flex-1 flex flex-col h-full">
       {/* Header */}
       <IssueListHeader
-        repoFullName={syncStatus.repoFullName ?? ""}
+        repoFullName={headerRepoName}
         openIssuesCount={getOpenIssuesCount()}
         isLoading={isLoading}
         searchQuery={searchQuery}
@@ -152,13 +172,24 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         onSearchChange={setSearchQuery}
         onFilterChange={handleFilterChange}
         onRefresh={handleRefreshWithAutoFix}
-        autoFixEnabled={autoFixConfig?.enabled}
-        autoFixRunning={isBatchRunning}
-        autoFixProcessing={batchProgress?.totalIssues}
-        onAutoFixToggle={toggleAutoFix}
-        onAnalyzeAndGroup={openWizard}
-        isAnalyzing={isAnalyzing}
+        autoFixEnabled={isCustomer ? undefined : autoFixConfig?.enabled}
+        autoFixRunning={isCustomer ? undefined : isBatchRunning}
+        autoFixProcessing={isCustomer ? undefined : batchProgress?.totalIssues}
+        onAutoFixToggle={isCustomer ? undefined : toggleAutoFix}
+        onAnalyzeAndGroup={isCustomer ? undefined : openWizard}
+        isAnalyzing={isCustomer ? undefined : isAnalyzing}
       />
+
+      {/* Repo filter dropdown for multi-repo mode */}
+      {isCustomer && multiRepo.repos.length > 1 && (
+        <div className="shrink-0 px-4 pb-3 border-b border-border">
+          <RepoFilterDropdown
+            repos={multiRepo.repos}
+            selectedRepo={multiRepo.selectedRepo}
+            onRepoChange={multiRepo.setSelectedRepo}
+          />
+        </div>
+      )}
 
       {/* Content */}
       <div className="flex-1 flex min-h-0">
@@ -176,6 +207,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
             onLoadMore={!isSearchActive ? handleLoadMore : undefined}
             onRetry={handleRefresh}
             onOpenSettings={onOpenSettings}
+            showRepoBadge={isCustomer}
           />
         </div>
 
@@ -193,8 +225,8 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
               linkedTaskId={issueToTaskMap.get(selectedIssue.number)}
               onViewTask={onNavigateToTask}
               projectId={selectedProject?.id}
-              autoFixConfig={autoFixConfig}
-              autoFixQueueItem={getAutoFixQueueItem(selectedIssue.number)}
+              autoFixConfig={isCustomer ? null : autoFixConfig}
+              autoFixQueueItem={isCustomer ? null : getAutoFixQueueItem(selectedIssue.number)}
             />
           ) : (
             <EmptyState message="Select an issue to view details" />
@@ -213,22 +245,24 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         projectId={selectedProject?.id}
       />
 
-      {/* Batch Review Wizard (Proactive workflow) */}
-      <BatchReviewWizard
-        isOpen={isWizardOpen}
-        onClose={closeWizard}
-        projectId={selectedProject?.id || ""}
-        onStartAnalysis={startAnalysis}
-        onApproveBatches={approveBatches}
-        analysisProgress={analysisProgress}
-        analysisResult={analysisResult}
-        analysisError={analysisError}
-        isAnalyzing={isAnalyzing}
-        isApproving={isApproving}
-      />
+      {/* Batch Review Wizard (Proactive workflow) - not available in multi-repo mode */}
+      {!isCustomer && (
+        <BatchReviewWizard
+          isOpen={isWizardOpen}
+          onClose={closeWizard}
+          projectId={selectedProject?.id || ""}
+          onStartAnalysis={startAnalysis}
+          onApproveBatches={approveBatches}
+          analysisProgress={analysisProgress}
+          analysisResult={analysisResult}
+          analysisError={analysisError}
+          isAnalyzing={isAnalyzing}
+          isApproving={isApproving}
+        />
+      )}
 
       {/* GitHub Setup Modal - shown when GitHub module is not configured */}
-      {selectedProject && (
+      {selectedProject && !isCustomer && (
         <GitHubSetupModal
           open={showGitHubSetup}
           onOpenChange={setShowGitHubSetup}

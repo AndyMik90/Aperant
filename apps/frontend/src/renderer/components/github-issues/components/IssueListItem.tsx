@@ -7,7 +7,7 @@ import {
 } from '../../../../shared/constants';
 import type { IssueListItemProps } from '../types';
 
-export function IssueListItem({ issue, isSelected, onClick, onInvestigate }: IssueListItemProps) {
+export function IssueListItem({ issue, isSelected, onClick, onInvestigate, showRepoBadge }: IssueListItemProps) {
   return (
     <div
       className={`group p-3 rounded-lg cursor-pointer transition-colors ${
@@ -27,6 +27,11 @@ export function IssueListItem({ issue, isSelected, onClick, onInvestigate }: Iss
               {GITHUB_ISSUE_STATE_LABELS[issue.state]}
             </Badge>
             <span className="text-xs text-muted-foreground">#{issue.number}</span>
+            {showRepoBadge && issue.repoFullName && (
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal text-muted-foreground">
+                {issue.repoFullName}
+              </Badge>
+            )}
           </div>
           <h4 className="text-sm font-medium text-foreground truncate">
             {issue.title}

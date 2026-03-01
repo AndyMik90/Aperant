@@ -130,7 +130,15 @@ export function GitHubSetupModal({
           }
 
           // Determine starting step based on existing auth
-          if (hasGitHubAuth && hasClaudeAuth) {
+          if (hasGitHubAuth && project.type === 'customer') {
+            // Customer with existing GitHub auth — just complete with token
+            onComplete({
+              githubToken: ghTokenResult.data!.token,
+              githubRepo: '',
+              mainBranch: '',
+              githubAuthMethod: 'oauth'
+            });
+          } else if (hasGitHubAuth && hasClaudeAuth) {
             // Both authenticated, go directly to repo detection
             setGithubToken(ghTokenResult.data!.token);
             // detectRepository will be called and set the step
@@ -244,6 +252,17 @@ export function GitHubSetupModal({
   // Handle GitHub OAuth success
   const handleGitHubAuthSuccess = async (token: string) => {
     setGithubToken(token);
+
+    // For customers, we only need the GitHub token — skip repo/branch/claude steps
+    if (project.type === 'customer') {
+      onComplete({
+        githubToken: token,
+        githubRepo: '',
+        mainBranch: '',
+        githubAuthMethod: 'oauth'
+      });
+      return;
+    }
 
     // Check if Claude is already authenticated before showing auth step
     try {

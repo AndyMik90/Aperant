@@ -23,8 +23,7 @@ import {
   Wrench,
   PanelLeft,
   PanelLeftClose,
-  FolderOpen,
-  Users
+  FolderOpen
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
@@ -135,6 +134,28 @@ export function Sidebar({
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
 
+  // Determine customer context: the parent customer for the selected project
+  // - If selected is a customer → that customer
+  // - If selected is a child of a customer → the parent customer
+  // - Otherwise → null (regular project, no repo dropdown)
+  const customerContext = useMemo(() => {
+    if (!selectedProject) return null;
+    if (selectedProject.type === 'customer') return selectedProject;
+    // Check if selected project is inside a customer's folder
+    const parentCustomer = projects.find(
+      p => p.type === 'customer' && selectedProject.path.startsWith(p.path + '/')
+    );
+    return parentCustomer ?? null;
+  }, [selectedProject, projects]);
+
+  // Child repos belonging to the current customer context
+  const customerChildRepos = useMemo(() => {
+    if (!customerContext) return [];
+    return projects.filter(
+      p => p.id !== customerContext.id && p.path.startsWith(customerContext.path + '/')
+    );
+  }, [customerContext, projects]);
+
   // Sidebar collapsed state from settings
   const isCollapsed = settings.sidebarCollapsed ?? false;
 
@@ -149,11 +170,24 @@ export function Sidebar({
   // Track the last loaded project ID to avoid redundant loads
   const lastLoadedProjectIdRef = useRef<string | null>(null);
 
-  // Compute visible nav items — GitHub/GitLab always shown so users can configure credentials
+  // When the selected project is a child repo of a customer (selected via dropdown),
+  // hide GitHub/GitLab nav items — they should not be influenced by the dropdown
+  const isCustomerChildRepo = !!(customerContext && selectedProject && selectedProject.type !== 'customer');
+
+  // Compute visible nav items — show GitHub OR GitLab based on what's configured
   const visibleNavItems = useMemo(() => {
-    const items = [...baseNavItems, ...githubNavItems, ...gitlabNavItems];
+    const items = [...baseNavItems];
+    // Don't show GitHub/GitLab items for child repos selected via customer dropdown
+    if (isCustomerChildRepo) return items;
+    if (githubEnabled && !gitlabEnabled) {
+      items.push(...githubNavItems);
+    } else if (gitlabEnabled && !githubEnabled) {
+      items.push(...gitlabNavItems);
+    } else if (githubEnabled && gitlabEnabled) {
+      items.push(...githubNavItems, ...gitlabNavItems);
+    }
     return items;
-  }, []);
+  }, [githubEnabled, gitlabEnabled, isCustomerChildRepo]);
 
   // Load envConfig when project changes to ensure store is populated
   useEffect(() => {
@@ -217,6 +251,9 @@ export function Sidebar({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedProjectId, onViewChange, visibleNavItems]);
 
+  // Track which project IDs had git modal dismissed to avoid re-showing
+  const gitModalDismissedRef = useRef<Set<string>>(new Set());
+
   // Check git status when project changes (skip for customer-type projects)
   useEffect(() => {
     const checkGit = async () => {
@@ -231,7 +268,8 @@ export function Sidebar({
           if (result.success && result.data) {
             setGitStatus(result.data);
             // Show git setup modal if project is not a git repo or has no commits
-            if (!result.data.isGitRepo || !result.data.hasCommits) {
+            // but only if user hasn't already dismissed it for this project
+            if ((!result.data.isGitRepo || !result.data.hasCommits) && !gitModalDismissedRef.current.has(selectedProject.id)) {
               setShowGitSetupModal(true);
             }
           }
@@ -243,7 +281,7 @@ export function Sidebar({
       }
     };
     checkGit();
-  }, [selectedProject]);
+  }, [selectedProjectId]);
 
   const handleProjectAdded = (project: Project, needsInit: boolean) => {
     if (needsInit) {
@@ -410,60 +448,27 @@ export function Sidebar({
                 </h3>
               )}
 
-              {/* Project Selector Dropdown */}
-              {!isCollapsed ? (
+              {/* Repo Selector Dropdown — only visible in customer context */}
+              {customerContext && customerChildRepos.length > 0 && !isCollapsed && (
                 <div className="mb-3 px-1">
                   <Select
-                    value={selectedProjectId ?? ''}
+                    value={selectedProject?.type === 'customer' ? '' : (selectedProjectId ?? '')}
                     onValueChange={(value) => {
-                      if (value === '__add_project__') {
-                        setShowAddProjectModal(true);
-                      } else if (value === '__add_customer__') {
-                        setShowAddCustomerModal(true);
-                      } else {
-                        selectProject(value);
-                      }
+                      selectProject(value);
                     }}
                   >
                     <SelectTrigger className="h-9 text-xs">
-                      <SelectValue placeholder={t('navigation:projectSelector.placeholder')} />
+                      <SelectValue placeholder={t('navigation:projectSelector.selectRepo')} />
                     </SelectTrigger>
                     <SelectContent>
-                      {projects.map((project) => (
-                        <SelectItem key={project.id} value={project.id}>
-                          <span className="truncate">{project.name}</span>
+                      {customerChildRepos.map((child) => (
+                        <SelectItem key={child.id} value={child.id}>
+                          <span className="truncate">{child.name}</span>
                         </SelectItem>
                       ))}
-                      {projects.length > 0 && <Separator className="my-1" />}
-                      <SelectItem value="__add_project__">
-                        <span className="flex items-center gap-2 text-primary">
-                          <Plus className="h-3 w-3" />
-                          {t('navigation:projectSelector.addProject')}
-                        </span>
-                      </SelectItem>
-                      <SelectItem value="__add_customer__">
-                        <span className="flex items-center gap-2 text-primary">
-                          <Users className="h-3 w-3" />
-                          {t('navigation:projectSelector.addCustomer')}
-                        </span>
-                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-              ) : (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      onClick={() => setShowAddProjectModal(true)}
-                      className="flex w-full items-center justify-center rounded-lg px-2 py-2 mb-2 text-sm transition-all duration-200 hover:bg-accent hover:text-accent-foreground"
-                    >
-                      <FolderOpen className="h-4 w-4 shrink-0" />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">
-                    {selectedProject?.name ?? t('navigation:projectSelector.placeholder')}
-                  </TooltipContent>
-                </Tooltip>
               )}
 
               <nav className="space-y-1">
@@ -648,7 +653,13 @@ export function Sidebar({
       {/* Git Setup Modal */}
       <GitSetupModal
         open={showGitSetupModal}
-        onOpenChange={setShowGitSetupModal}
+        onOpenChange={(open) => {
+          setShowGitSetupModal(open);
+          // When user closes the modal, remember not to show it again for this project
+          if (!open && selectedProjectId) {
+            gitModalDismissedRef.current.add(selectedProjectId);
+          }
+        }}
         project={selectedProject || null}
         gitStatus={gitStatus}
         onGitInitialized={handleGitInitialized}

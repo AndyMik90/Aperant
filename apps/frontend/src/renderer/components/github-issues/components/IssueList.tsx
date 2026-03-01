@@ -18,7 +18,8 @@ export function IssueList({
   onInvestigate,
   onLoadMore,
   onRetry,
-  onOpenSettings
+  onOpenSettings,
+  showRepoBadge
 }: IssueListProps) {
   const { t } = useTranslation('common');
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
@@ -79,11 +80,12 @@ export function IssueList({
       <div className="p-2 space-y-1">
         {issues.map((issue) => (
           <IssueListItem
-            key={issue.id}
+            key={`${issue.repoFullName}-${issue.id}`}
             issue={issue}
             isSelected={selectedIssueNumber === issue.number}
             onClick={() => onSelectIssue(issue.number)}
             onInvestigate={() => onInvestigate(issue)}
+            showRepoBadge={showRepoBadge}
           />
         ))}
 

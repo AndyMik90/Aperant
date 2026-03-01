@@ -114,6 +114,21 @@ export const integrationMock = {
     }
   }),
 
+  checkMultiRepoConnection: async () => ({
+    success: true,
+    data: { connected: false, repos: [] }
+  }),
+
+  getMultiRepoIssues: async () => ({
+    success: true,
+    data: { issues: [], repos: [], hasMore: false }
+  }),
+
+  getMultiRepoIssueDetail: async () => ({
+    success: false as const,
+    error: 'Not available in browser mock'
+  }),
+
   investigateGitHubIssue: () => {
     console.warn('[Browser Mock] investigateGitHubIssue called');
   },
@@ -179,6 +194,11 @@ export const integrationMock = {
         { fullName: 'user/private-repo', description: 'A private repository', isPrivate: true }
       ]
     }
+  }),
+
+  cloneGitHubRepo: async () => ({
+    success: true,
+    data: { path: '/Users/demo/customers/mock-repo', name: 'mock-repo' }
   }),
 
   detectGitHubRepo: async () => ({

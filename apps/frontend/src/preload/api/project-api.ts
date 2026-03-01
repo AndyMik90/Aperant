@@ -25,7 +25,7 @@ export interface TabState {
 
 export interface ProjectAPI {
   // Project Management
-  addProject: (projectPath: string) => Promise<IPCResult<Project>>;
+  addProject: (projectPath: string, type?: 'project' | 'customer') => Promise<IPCResult<Project>>;
   removeProject: (projectId: string) => Promise<IPCResult>;
   getProjects: () => Promise<IPCResult<Project[]>>;
   updateProjectSettings: (
@@ -152,8 +152,8 @@ export interface ProjectAPI {
 
 export const createProjectAPI = (): ProjectAPI => ({
   // Project Management
-  addProject: (projectPath: string): Promise<IPCResult<Project>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_ADD, projectPath),
+  addProject: (projectPath: string, type?: 'project' | 'customer'): Promise<IPCResult<Project>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_ADD, projectPath, type),
 
   removeProject: (projectId: string): Promise<IPCResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_REMOVE, projectId),

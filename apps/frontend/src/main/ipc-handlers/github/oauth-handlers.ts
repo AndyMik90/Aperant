@@ -888,6 +888,62 @@ export function registerListGitHubOrgs(): void {
 }
 
 /**
+ * Clone a GitHub repository into a target directory
+ */
+export function registerCloneGitHubRepo(): void {
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_CLONE_REPO,
+    async (
+      _event: Electron.IpcMainInvokeEvent,
+      repoFullName: string,
+      targetDir: string
+    ): Promise<IPCResult<{ path: string; name: string }>> => {
+      debugLog('cloneGitHubRepo handler called', { repoFullName, targetDir });
+      try {
+        const path = require('path');
+        const fs = require('fs');
+
+        // Extract repo name from fullName (owner/repo -> repo)
+        const repoName = repoFullName.split('/').pop() || repoFullName;
+        const clonePath = path.join(targetDir, repoName);
+
+        // Check if directory already exists
+        if (fs.existsSync(clonePath)) {
+          return {
+            success: false,
+            error: `Directory already exists: ${clonePath}`
+          };
+        }
+
+        // Clone using gh CLI (uses authenticated session)
+        debugLog(`Running: gh repo clone ${repoFullName} ${clonePath}`);
+        execSync(
+          `gh repo clone ${repoFullName} "${clonePath}"`,
+          {
+            encoding: 'utf-8',
+            stdio: 'pipe',
+            env: getAugmentedEnv(),
+            timeout: 120000 // 2 minute timeout for large repos
+          }
+        );
+
+        debugLog('Clone successful:', clonePath);
+        return {
+          success: true,
+          data: { path: clonePath, name: repoName }
+        };
+      } catch (error) {
+        debugLog('Failed to clone repo:', error instanceof Error ? error.message : error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to clone repository'
+        };
+      }
+    }
+  );
+}
+
+/**
  * Register all GitHub OAuth handlers
  */
 export function registerGithubOAuthHandlers(): void {
@@ -903,5 +959,6 @@ export function registerGithubOAuthHandlers(): void {
   registerCreateGitHubRepo();
   registerAddGitRemote();
   registerListGitHubOrgs();
+  registerCloneGitHubRepo();
   debugLog('GitHub OAuth handlers registered');
 }

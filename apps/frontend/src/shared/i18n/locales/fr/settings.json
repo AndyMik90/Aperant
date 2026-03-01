@@ -184,7 +184,12 @@
     "fineTuneDescription": "Ajustez de 75% à 200% par incréments de 5%",
     "default": "Par défaut",
     "comfortable": "Confortable",
-    "large": "Grand"
+    "large": "Grand",
+    "resetToDefault": "Réinitialiser par défaut (100%)",
+    "decreaseScale": "Diminuer l'échelle de {{step}}%",
+    "increaseScale": "Augmenter l'échelle de {{step}}%",
+    "applyChanges": "Appliquer les changements d'échelle",
+    "apply": "Appliquer"
   },
   "logOrder": {
     "label": "Ordre des journaux",
@@ -255,7 +260,9 @@
     "dark": "Sombre",
     "system": "Système",
     "colorTheme": "Thème de couleur",
-    "colorThemeDescription": "Choisissez votre palette de couleurs préférée"
+    "colorThemeDescription": "Choisissez votre palette de couleurs préférée",
+    "backgroundColorTitle": "Couleur d'arrière-plan",
+    "accentColorTitle": "Couleur d'accentuation"
   },
   "devtools": {
     "title": "Outils de développement",
@@ -342,7 +349,7 @@
   "projectSections": {
     "general": {
       "title": "Général",
-      "description": "Auto-Build et configuration de l'agent",
+      "description": "Configurer Auto-Build, modèle d'agent et notifications pour {{name}}",
       "useClaudeMd": "Utiliser CLAUDE.md",
       "useClaudeMdDescription": "Inclure les instructions CLAUDE.md dans le contexte de l'agent"
     },
@@ -901,5 +908,70 @@
       "label": "Remplisseur de modèle PR",
       "description": "Remplit intelligemment les modèles de PR GitHub à partir des changements de code"
     }
+  },
+  "projectSelector": {
+    "placeholder": "Sélectionner un projet...",
+    "noProjects": "Aucun projet",
+    "addProject": "Ajouter un projet...",
+    "addCustomer": "Ajouter un client..."
+  },
+  "linear": {
+    "enableSync": "Activer la synchronisation Linear",
+    "enableSyncDescription": "Cr\u00e9er et mettre \u00e0 jour les issues Linear automatiquement",
+    "apiKey": "Cl\u00e9 API",
+    "apiKeyDescription": "Obtenez votre cl\u00e9 API depuis",
+    "linearSettings": "Param\u00e8tres Linear",
+    "connectionStatus": "\u00c9tat de la connexion",
+    "checking": "V\u00e9rification...",
+    "connected": "Connect\u00e9 \u00e0 {{team}}",
+    "connectedNoTeam": "Connect\u00e9",
+    "notConnected": "Non connect\u00e9",
+    "tasksAvailable": "{{count}}+ t\u00e2ches disponibles \u00e0 importer",
+    "importTitle": "Importer les t\u00e2ches existantes",
+    "importDescription": "S\u00e9lectionnez les issues Linear \u00e0 importer dans AutoBuild.",
+    "importButton": "Importer depuis Linear",
+    "realtimeSync": "Synchronisation en temps r\u00e9el",
+    "realtimeSyncDescription": "Importer automatiquement les nouvelles t\u00e2ches cr\u00e9\u00e9es dans Linear",
+    "realtimeSyncWarning": "Lorsqu'activ\u00e9, les nouvelles issues Linear seront automatiquement import\u00e9es dans AutoBuild. Assurez-vous de configurer les filtres \u00e9quipe/projet ci-dessous.",
+    "teamId": "ID d'\u00e9quipe (Optionnel)",
+    "projectId": "ID de projet (Optionnel)"
+  },
+  "github": {
+    "enableIssues": "Activer les issues GitHub",
+    "enableIssuesDescription": "Synchroniser les issues depuis GitHub et cr\u00e9er des t\u00e2ches automatiquement",
+    "connectedViaCLI": "Connect\u00e9 via GitHub CLI",
+    "authenticatedAs": "Authentifi\u00e9 en tant que {{username}}",
+    "useDifferentToken": "Utiliser un autre token",
+    "authentication": "Authentification GitHub",
+    "useManualToken": "Utiliser un token manuel",
+    "personalAccessToken": "Token d'acc\u00e8s personnel",
+    "useOAuthInstead": "Utiliser OAuth \u00e0 la place",
+    "tokenInstructions": "Cr\u00e9ez un token avec",
+    "tokenScopeFrom": "scope depuis",
+    "githubSettings": "Param\u00e8tres GitHub",
+    "clonedRepositories": "D\u00e9p\u00f4ts clon\u00e9s",
+    "cloneRepositories": "Cloner des d\u00e9p\u00f4ts",
+    "cloned": "Clon\u00e9",
+    "cloning": "Clonage",
+    "clone": "Cloner",
+    "refresh": "Actualiser",
+    "loadRepos": "Charger les d\u00e9p\u00f4ts",
+    "searchRepos": "Rechercher des d\u00e9p\u00f4ts...",
+    "repository": "D\u00e9p\u00f4t",
+    "repositoryFormat": "Format : owner/repo (ex. : facebook/react)",
+    "selectRepository": "S\u00e9lectionner un d\u00e9p\u00f4t...",
+    "enterManually": "Saisir manuellement",
+    "loadingRepositories": "Chargement des d\u00e9p\u00f4ts...",
+    "noMatchingRepositories": "Aucun d\u00e9p\u00f4t correspondant",
+    "noRepositoriesFound": "Aucun d\u00e9p\u00f4t trouv\u00e9",
+    "selected": "S\u00e9lectionn\u00e9",
+    "connectionStatus": "\u00c9tat de la connexion",
+    "checking": "V\u00e9rification...",
+    "connectedTo": "Connect\u00e9 \u00e0 {{repo}}",
+    "notConnected": "Non connect\u00e9",
+    "issuesAvailable": "Issues disponibles",
+    "issuesAvailableDescription": "Acc\u00e9dez aux issues GitHub depuis la barre lat\u00e9rale pour les consulter, les analyser et cr\u00e9er des t\u00e2ches.",
+    "autoSyncOnLoad": "Synchronisation automatique",
+    "autoSyncDescription": "Synchroniser automatiquement les issues au chargement du projet"
   }
 }

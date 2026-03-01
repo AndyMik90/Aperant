@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { Zap, Loader2 } from 'lucide-react';
 import { Progress } from '../ui/progress';
 import { cn, calculateProgress } from '../../lib/utils';
@@ -13,6 +14,7 @@ interface TaskProgressProps {
 }
 
 export function TaskProgress({ task, isRunning, hasActiveExecution, executionPhase, isStuck }: TaskProgressProps) {
+  const { t } = useTranslation('tasks');
   const progress = calculateProgress(task.subtasks);
 
   return (
@@ -40,7 +42,7 @@ export function TaskProgress({ task, isRunning, hasActiveExecution, executionPha
             )}
             {task.executionProgress?.currentSubtask && (
               <p className="text-xs mt-0.5 opacity-70">
-                Subtask: {task.executionProgress.currentSubtask}
+                {t('progress.currentSubtask', { subtask: task.executionProgress.currentSubtask })}
               </p>
             )}
           </div>
@@ -50,15 +52,15 @@ export function TaskProgress({ task, isRunning, hasActiveExecution, executionPha
       {/* Progress Bar */}
       <div className="section-divider mb-3">
         <Zap className="h-3 w-3" />
-        Progress
+        {t('progress.title')}
       </div>
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs text-muted-foreground">
           {hasActiveExecution && task.executionProgress?.message
             ? task.executionProgress.message
             : task.subtasks.length > 0
-              ? `${task.subtasks.filter(c => c.status === 'completed').length}/${task.subtasks.length} subtasks completed`
-              : 'No subtasks yet'}
+              ? t('progress.subtasksCompleted', { completed: task.subtasks.filter(c => c.status === 'completed').length, total: task.subtasks.length })
+              : t('progress.noSubtasksYet')}
         </span>
         <span className={cn(
           'text-sm font-semibold tabular-nums',
@@ -92,7 +94,7 @@ export function TaskProgress({ task, isRunning, hasActiveExecution, executionPha
               executionPhase === 'planning' ? 'bg-amber-500' : 'bg-amber-500/30'
             )}
             style={{ width: '20%' }}
-            title="Planning (0-20%)"
+            title={t('progress.phasePlanning')}
           />
           <div
             className={cn(
@@ -100,7 +102,7 @@ export function TaskProgress({ task, isRunning, hasActiveExecution, executionPha
               executionPhase === 'coding' ? 'bg-info' : 'bg-info/30'
             )}
             style={{ width: '60%' }}
-            title="Coding (20-80%)"
+            title={t('progress.phaseCoding')}
           />
           <div
             className={cn(
@@ -108,12 +110,12 @@ export function TaskProgress({ task, isRunning, hasActiveExecution, executionPha
               (executionPhase === 'qa_review' || executionPhase === 'qa_fixing') ? 'bg-purple-500' : 'bg-purple-500/30'
             )}
             style={{ width: '15%' }}
-            title="AI Review (80-95%)"
+            title={t('progress.phaseAIReview')}
           />
           <div
             className="transition-all duration-300 bg-success/30"
             style={{ width: '5%' }}
-            title="Complete (95-100%)"
+            title={t('progress.phaseComplete')}
           />
         </div>
       )}

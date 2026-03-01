@@ -25,6 +25,7 @@ import { registerGithubOAuthHandlers } from './oauth-handlers';
 import { registerAutoFixHandlers } from './autofix-handlers';
 import { registerPRHandlers } from './pr-handlers';
 import { registerTriageHandlers } from './triage-handlers';
+import { registerCustomerGitHubHandlers } from './customer-github-handlers';
 
 /**
  * Register all GitHub-related IPC handlers
@@ -42,6 +43,7 @@ export function registerGithubHandlers(
   registerAutoFixHandlers(agentManager, getMainWindow);
   registerPRHandlers(getMainWindow);
   registerTriageHandlers(getMainWindow);
+  registerCustomerGitHubHandlers();
 }
 
 // Re-export utilities for potential external use

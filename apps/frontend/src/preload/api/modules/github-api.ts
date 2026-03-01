@@ -10,7 +10,9 @@ import type {
   VersionSuggestion,
   PaginatedIssuesResult,
   PRStatusUpdate,
-  PollingMetadata
+  PollingMetadata,
+  MultiRepoGitHubStatus,
+  MultiRepoIssuesResult
 } from '../../../shared/types';
 import { createIpcListener, invokeIpc, sendIpc, IpcListenerCleanup } from './ipc-utils';
 
@@ -166,6 +168,20 @@ export interface GitHubAPI {
   getGitHubIssue: (projectId: string, issueNumber: number) => Promise<IPCResult<GitHubIssue>>;
   getIssueComments: (projectId: string, issueNumber: number) => Promise<IPCResult<any[]>>;
   checkGitHubConnection: (projectId: string) => Promise<IPCResult<GitHubSyncStatus>>;
+
+  // Customer multi-repo operations
+  checkMultiRepoConnection: (customerId: string) => Promise<IPCResult<MultiRepoGitHubStatus>>;
+  getMultiRepoIssues: (
+    customerId: string,
+    state?: 'open' | 'closed' | 'all',
+    page?: number
+  ) => Promise<IPCResult<MultiRepoIssuesResult>>;
+  getMultiRepoIssueDetail: (
+    customerId: string,
+    repoFullName: string,
+    issueNumber: number
+  ) => Promise<IPCResult<GitHubIssue>>;
+
   investigateGitHubIssue: (projectId: string, issueNumber: number, selectedCommentIds?: number[]) => void;
   importGitHubIssues: (projectId: string, issueNumbers: number[]) => Promise<IPCResult<GitHubImportResult>>;
   createGitHubRelease: (
@@ -185,6 +201,7 @@ export interface GitHubAPI {
   getGitHubToken: () => Promise<IPCResult<{ token: string }>>;
   getGitHubUser: () => Promise<IPCResult<{ username: string; name?: string }>>;
   listGitHubUserRepos: () => Promise<IPCResult<{ repos: Array<{ fullName: string; description: string | null; isPrivate: boolean }> }>>;
+  cloneGitHubRepo: (repoFullName: string, targetDir: string) => Promise<IPCResult<{ path: string; name: string }>>;
 
   // OAuth event listener - receives device code immediately when extracted
   onGitHubAuthDeviceCode: (
@@ -554,6 +571,24 @@ export const createGitHubAPI = (): GitHubAPI => ({
   checkGitHubConnection: (projectId: string): Promise<IPCResult<GitHubSyncStatus>> =>
     invokeIpc(IPC_CHANNELS.GITHUB_CHECK_CONNECTION, projectId),
 
+  // Customer multi-repo operations
+  checkMultiRepoConnection: (customerId: string): Promise<IPCResult<MultiRepoGitHubStatus>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_CHECK_MULTI_REPO_CONNECTION, customerId),
+
+  getMultiRepoIssues: (
+    customerId: string,
+    state?: 'open' | 'closed' | 'all',
+    page?: number
+  ): Promise<IPCResult<MultiRepoIssuesResult>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_GET_MULTI_REPO_ISSUES, customerId, state, page),
+
+  getMultiRepoIssueDetail: (
+    customerId: string,
+    repoFullName: string,
+    issueNumber: number
+  ): Promise<IPCResult<GitHubIssue>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_GET_MULTI_REPO_ISSUE_DETAIL, customerId, repoFullName, issueNumber),
+
   investigateGitHubIssue: (projectId: string, issueNumber: number, selectedCommentIds?: number[]): void =>
     sendIpc(IPC_CHANNELS.GITHUB_INVESTIGATE_ISSUE, projectId, issueNumber, selectedCommentIds),
 
@@ -589,6 +624,9 @@ export const createGitHubAPI = (): GitHubAPI => ({
 
   listGitHubUserRepos: (): Promise<IPCResult<{ repos: Array<{ fullName: string; description: string | null; isPrivate: boolean }> }>> =>
     invokeIpc(IPC_CHANNELS.GITHUB_LIST_USER_REPOS),
+
+  cloneGitHubRepo: (repoFullName: string, targetDir: string): Promise<IPCResult<{ path: string; name: string }>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_CLONE_REPO, repoFullName, targetDir),
 
   // OAuth event listener - receives device code immediately when extracted (during auth process)
   onGitHubAuthDeviceCode: (

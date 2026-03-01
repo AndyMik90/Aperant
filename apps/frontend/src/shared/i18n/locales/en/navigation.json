@@ -18,6 +18,17 @@
     "worktrees": "Worktrees",
     "agentTools": "MCP Overview"
   },
+  "projectSelector": {
+    "placeholder": "Select a project",
+    "selectRepo": "Select a repository",
+    "addProject": "Add Project",
+    "addCustomer": "Add Customer"
+  },
+  "multiRepo": {
+    "allRepos": "All Repos",
+    "filterByRepo": "Filter by repository",
+    "repoCount": "{{count}} repos"
+  },
   "actions": {
     "settings": "Settings",
     "help": "Help & Feedback",

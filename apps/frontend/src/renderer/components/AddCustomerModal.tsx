@@ -40,13 +40,12 @@ export function AddCustomerModal({ open, onOpenChange, onCustomerAdded }: AddCus
   }, [open]);
 
   const registerAndInitCustomer = async (path: string) => {
-    // Call IPC directly so we can set type: 'customer' BEFORE selectProject
-    // (addProject auto-selects, which triggers Sidebar git check before type is set)
-    const result = await window.electronAPI.addProject(path);
+    // Pass type: 'customer' through IPC so it's persisted to disk (projects.json)
+    const result = await window.electronAPI.addProject(path, 'customer');
     if (!result.success || !result.data) return;
 
     const store = useProjectStore.getState();
-    const project = { ...result.data, type: 'customer' as const };
+    const project = result.data;
 
     // Add with type already set, then select — Sidebar will see type: 'customer' and skip git check
     store.addProject(project);

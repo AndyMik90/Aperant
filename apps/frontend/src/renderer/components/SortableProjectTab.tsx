@@ -87,14 +87,16 @@ export function SortableProjectTab({
             )}
             onClick={onSelect}
           >
-            {/* Drag handle - visible on hover, hidden on mobile */}
+            {/* Drag handle - visible on hover, fluorescent green when active */}
             <div
               {...listeners}
               className={cn(
                 'hidden sm:block',
-                'opacity-0 group-hover:opacity-60 transition-opacity',
                 'cursor-grab active:cursor-grabbing',
-                'w-1 h-4 bg-muted-foreground rounded-full flex-shrink-0'
+                'w-1 h-4 rounded-full flex-shrink-0 transition-all',
+                isActive
+                  ? 'opacity-100 bg-emerald-400'
+                  : 'opacity-0 group-hover:opacity-60 bg-muted-foreground'
               )}
             />
             <span className="truncate font-medium">

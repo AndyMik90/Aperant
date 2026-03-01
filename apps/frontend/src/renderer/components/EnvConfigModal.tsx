@@ -64,6 +64,7 @@ export function EnvConfigModal({
     id: string;
     name: string;
     oauthToken?: string;
+    configDir?: string;
     email?: string;
     isDefault: boolean;
   }>>([]);
@@ -153,33 +154,44 @@ export function EnvConfigModal({
     setError(null);
 
     try {
-      // Get the selected profile's token
       const profile = claudeProfiles.find(p => p.id === selectedProfileId);
-      if (!profile?.oauthToken) {
-        setError('Selected profile does not have a valid token');
+      if (!profile) {
+        setError('Profile not found');
         setIsSaving(false);
         return;
       }
 
-      // Save the token to auto-claude .env
-      const result = await window.electronAPI.updateSourceEnv({
-        claudeOAuthToken: profile.oauthToken
-      });
+      // Try to use profile's oauthToken if available (legacy path)
+      if (profile.oauthToken) {
+        const result = await window.electronAPI.updateSourceEnv({
+          claudeOAuthToken: profile.oauthToken
+        });
 
-      if (result.success) {
+        if (result.success) {
+          setSuccess(true);
+          setHasExistingToken(true);
+          setTimeout(() => {
+            onConfigured?.();
+            onOpenChange(false);
+          }, 1500);
+        } else {
+          setError(result.error || 'Failed to save token');
+        }
+      } else if (profile.configDir || profile.isDefault) {
+        // Profile uses Keychain-based auth (modern path)
+        // The profile is authenticated via OS Keychain, no need to copy token to .env
+        // The main process will resolve credentials from the active profile's Keychain
         setSuccess(true);
         setHasExistingToken(true);
-
-        // Notify parent
         setTimeout(() => {
           onConfigured?.();
           onOpenChange(false);
         }, 1500);
       } else {
-        setError(result.error || 'Failed to save token');
+        setError('Selected profile does not have valid credentials. Please re-authenticate.');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : 'Failed to use profile');
     } finally {
       setIsSaving(false);
     }

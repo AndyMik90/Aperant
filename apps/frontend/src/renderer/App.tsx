@@ -55,6 +55,7 @@ import { OnboardingWizard } from './components/onboarding';
 import { AppUpdateNotification } from './components/AppUpdateNotification';
 import { ProactiveSwapListener } from './components/ProactiveSwapListener';
 import { GitHubSetupModal } from './components/GitHubSetupModal';
+import { CustomerReposModal } from './components/CustomerReposModal';
 import { useProjectStore, loadProjects, addProject, initializeProject, removeProject } from './stores/project-store';
 import { useTaskStore, loadTasks } from './stores/task-store';
 import { useSettingsStore, loadSettings, loadProfiles, saveSettings } from './stores/settings-store';
@@ -158,6 +159,10 @@ export function App() {
   // GitHub setup state (shown after Auto Claude init)
   const [showGitHubSetup, setShowGitHubSetup] = useState(false);
   const [gitHubSetupProject, setGitHubSetupProject] = useState<Project | null>(null);
+
+  // Customer repos modal state (shown after customer GitHub auth)
+  const [showCustomerRepos, setShowCustomerRepos] = useState(false);
+  const [customerReposProject, setCustomerReposProject] = useState<Project | null>(null);
 
   // Remove project confirmation state
   const [showRemoveProjectDialog, setShowRemoveProjectDialog] = useState(false);
@@ -778,23 +783,37 @@ export function App() {
       // - Claude token: for Claude AI access (run.py, roadmap, etc.)
       // The user needs to separately authenticate with Claude using 'claude setup-token'
 
-      // Update project env config with GitHub settings
-      await window.electronAPI.updateProjectEnv(gitHubSetupProject.id, {
-        githubEnabled: true,
-        githubToken: settings.githubToken, // GitHub token for repo access
-        githubRepo: settings.githubRepo,
-        githubAuthMethod: settings.githubAuthMethod // Track how user authenticated
-      });
+      if (gitHubSetupProject.type === 'customer') {
+        // Customer flow: only save the GitHub token (no repo/branch needed)
+        await window.electronAPI.updateProjectEnv(gitHubSetupProject.id, {
+          githubEnabled: true,
+          githubToken: settings.githubToken,
+          githubAuthMethod: settings.githubAuthMethod
+        });
+      } else {
+        // Regular project flow: save token + repo + branch
+        await window.electronAPI.updateProjectEnv(gitHubSetupProject.id, {
+          githubEnabled: true,
+          githubToken: settings.githubToken,
+          githubRepo: settings.githubRepo,
+          githubAuthMethod: settings.githubAuthMethod
+        });
 
-      // Update project settings with mainBranch
-      await window.electronAPI.updateProjectSettings(gitHubSetupProject.id, {
-        mainBranch: settings.mainBranch
-      });
+        await window.electronAPI.updateProjectSettings(gitHubSetupProject.id, {
+          mainBranch: settings.mainBranch
+        });
+      }
 
       // Refresh projects to get updated data
       await loadProjects();
     } catch (error) {
       console.error('Failed to save GitHub settings:', error);
+    }
+
+    // For customers, open the repos modal to clone repositories
+    if (gitHubSetupProject.type === 'customer') {
+      setCustomerReposProject(gitHubSetupProject);
+      setShowCustomerRepos(true);
     }
 
     setShowGitHubSetup(false);
@@ -1108,6 +1127,18 @@ export function App() {
             project={gitHubSetupProject}
             onComplete={handleGitHubSetupComplete}
             onSkip={handleGitHubSetupSkip}
+          />
+        )}
+
+        {/* Customer Repos Modal - clone GitHub repos into customer folder */}
+        {customerReposProject && (
+          <CustomerReposModal
+            open={showCustomerRepos}
+            onOpenChange={(open) => {
+              setShowCustomerRepos(open);
+              if (!open) setCustomerReposProject(null);
+            }}
+            customer={customerReposProject}
           />
         )}
 

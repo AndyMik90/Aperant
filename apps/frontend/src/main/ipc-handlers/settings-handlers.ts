@@ -22,6 +22,8 @@ import { setUpdateChannel, setUpdateChannelWithDowngradeCheck } from '../app-upd
 import { getSettingsPath, readSettingsFile } from '../settings-utils';
 import { configureTools, getToolPath, getToolInfo, isPathFromWrongPlatform, preWarmToolCache } from '../cli-tool-manager';
 import { parseEnvFile } from './utils';
+import { getClaudeProfileManager } from '../claude-profile-manager';
+import { getCredentialsFromKeychain } from '../claude-profile/credential-utils';
 
 const settingsPath = getSettingsPath();
 
@@ -800,6 +802,34 @@ export function registerSettingsHandlers(
               }
             };
           }
+          // Check Keychain credentials — try profile manager first, then direct Keychain
+          let hasKeychainToken = false;
+          try {
+            const profileManager = getClaudeProfileManager();
+            hasKeychainToken = profileManager.hasValidAuth();
+          } catch {
+            // Profile manager may not be initialized yet
+          }
+          // Fallback: check Keychain directly (default config dir)
+          if (!hasKeychainToken) {
+            try {
+              const creds = getCredentialsFromKeychain();
+              hasKeychainToken = !!creds.token;
+            } catch {
+              // Keychain access failed
+            }
+          }
+
+          if (hasKeychainToken) {
+            return {
+              success: true,
+              data: {
+                hasToken: true,
+                sourcePath: isProduction ? app.getPath('userData') : undefined
+              }
+            };
+          }
+
           return {
             success: true,
             data: {
@@ -820,8 +850,26 @@ export function registerSettingsHandlers(
           hasEnvToken = !!token && token.length > 0;
         }
 
-        // Token exists if either source .env has it OR global settings has it
-        const hasToken = hasEnvToken || hasGlobalToken;
+        // Check Keychain credentials — try profile manager first, then direct Keychain
+        let hasKeychainToken = false;
+        try {
+          const profileManager = getClaudeProfileManager();
+          hasKeychainToken = profileManager.hasValidAuth();
+        } catch {
+          // Profile manager may not be initialized yet
+        }
+        // Fallback: check Keychain directly (default config dir)
+        if (!hasKeychainToken) {
+          try {
+            const creds = getCredentialsFromKeychain();
+            hasKeychainToken = !!creds.token;
+          } catch {
+            // Keychain access failed
+          }
+        }
+
+        // Token exists if source .env, global settings, OR Keychain has it
+        const hasToken = hasEnvToken || hasGlobalToken || hasKeychainToken;
 
         return {
           success: true,

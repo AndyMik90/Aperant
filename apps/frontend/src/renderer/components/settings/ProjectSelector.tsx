@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { FolderOpen, Plus, Trash2, Users } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
   Select,
   SelectContent,
@@ -24,10 +25,23 @@ export function ProjectSelector({
   onProjectChange,
   onProjectAdded
 }: ProjectSelectorProps) {
-  const projects = useProjectStore((state) => state.projects);
+  const { t } = useTranslation('settings');
+  const allProjects = useProjectStore((state) => state.projects);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
   const [open, setOpen] = useState(false);
+
+  // Only show top-level projects: customers + regular projects (not cloned repos inside customer folders)
+  const projects = useMemo(() => {
+    const customerPaths = allProjects
+      .filter(p => p.type === 'customer')
+      .map(c => c.path);
+    return allProjects.filter(p => {
+      if (p.type === 'customer') return true;
+      // Exclude projects whose path is inside a customer folder
+      return !customerPaths.some(cp => p.path.startsWith(cp + '/'));
+    });
+  }, [allProjects]);
 
   const handleValueChange = (value: string) => {
     if (value === '__add_new__') {
@@ -62,13 +76,13 @@ export function ProjectSelector({
         <SelectTrigger className="w-full [&_span]:truncate">
           <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
             <FolderOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <SelectValue placeholder="Select a project..." className="truncate min-w-0 flex-1" />
+            <SelectValue placeholder={t('projectSelector.placeholder')} className="truncate min-w-0 flex-1" />
           </div>
         </SelectTrigger>
         <SelectContent className="min-w-(--radix-select-trigger-width) max-w-(--radix-select-trigger-width)">
           {projects.length === 0 ? (
             <div className="px-2 py-4 text-center text-sm text-muted-foreground">
-              <p>No projects yet</p>
+              <p>{t('projectSelector.noProjects')}</p>
             </div>
           ) : (
             projects.map((project) => (
@@ -95,13 +109,13 @@ export function ProjectSelector({
           <SelectItem value="__add_new__">
             <div className="flex items-center gap-2">
               <Plus className="h-4 w-4 shrink-0" />
-              <span>Add Project...</span>
+              <span>{t('projectSelector.addProject')}</span>
             </div>
           </SelectItem>
           <SelectItem value="__add_customer__">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 shrink-0" />
-              <span>Add Customer...</span>
+              <span>{t('projectSelector.addCustomer')}</span>
             </div>
           </SelectItem>
         </SelectContent>

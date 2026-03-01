@@ -55,6 +55,7 @@ export interface IssueListItemProps {
   isSelected: boolean;
   onClick: () => void;
   onInvestigate: () => void;
+  showRepoBadge?: boolean;
 }
 
 export interface IssueDetailProps {
@@ -121,6 +122,8 @@ export interface IssueListProps {
   onRetry?: () => void;
   /** Callback for settings button in error display */
   onOpenSettings?: () => void;
+  /** Show repo badge on each issue (for multi-repo mode) */
+  showRepoBadge?: boolean;
 }
 
 export interface EmptyStateProps {

@@ -346,6 +346,16 @@
     "deletePermanently": "Delete Permanently",
     "deleting": "Deleting..."
   },
+  "progress": {
+    "title": "Progress",
+    "currentSubtask": "Subtask: {{subtask}}",
+    "subtasksCompleted": "{{completed}}/{{total}} subtasks completed",
+    "noSubtasksYet": "No subtasks yet",
+    "phasePlanning": "Planning (0-20%)",
+    "phaseCoding": "Coding (20-80%)",
+    "phaseAIReview": "AI Review (80-95%)",
+    "phaseComplete": "Complete (95-100%)"
+  },
   "referenceImages": {
     "title": "Reference Images (optional)",
     "description": "Add visual references like screenshots or designs to help the AI understand your requirements."

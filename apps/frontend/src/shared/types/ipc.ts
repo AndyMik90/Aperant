@@ -179,7 +179,7 @@ export interface TabState {
 
 export interface ElectronAPI {
   // Project operations
-  addProject: (projectPath: string) => Promise<IPCResult<Project>>;
+  addProject: (projectPath: string, type?: 'project' | 'customer') => Promise<IPCResult<Project>>;
   removeProject: (projectId: string) => Promise<IPCResult>;
   getProjects: () => Promise<IPCResult<Project[]>>;
   updateProjectSettings: (projectId: string, settings: Partial<ProjectSettings>) => Promise<IPCResult>;
@@ -519,6 +519,7 @@ export interface ElectronAPI {
   getGitHubToken: () => Promise<IPCResult<{ token: string }>>;
   getGitHubUser: () => Promise<IPCResult<{ username: string; name?: string }>>;
   listGitHubUserRepos: () => Promise<IPCResult<{ repos: Array<{ fullName: string; description: string | null; isPrivate: boolean }> }>>;
+  cloneGitHubRepo: (repoFullName: string, targetDir: string) => Promise<IPCResult<{ path: string; name: string }>>;
   detectGitHubRepo: (projectPath: string) => Promise<IPCResult<string>>;
   getGitHubBranches: (repo: string, token: string) => Promise<IPCResult<string[]>>;
   createGitHubRepo: (

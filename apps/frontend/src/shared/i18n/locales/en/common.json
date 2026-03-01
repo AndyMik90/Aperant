@@ -446,7 +446,22 @@
     "failedLabel": "Failed",
     "starting": "Starting..."
   },
+  "memory": {
+    "whatWorked": "What Worked",
+    "whatFailed": "What Failed",
+    "approach": "Approach",
+    "recommendations": "Recommendations",
+    "patterns": "Patterns",
+    "gotchas": "Gotchas",
+    "changedFiles": "Changed Files",
+    "fileInsights": "File Insights",
+    "subtasksCompleted": "Subtasks Completed",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "searchPlaceholder": "Search for patterns, insights, gotchas..."
+  },
   "insights": {
+    "placeholder": "Ask about your codebase...",
     "suggestedTask": "Suggested Task",
     "creating": "Creating...",
     "taskCreated": "Task Created",
@@ -492,6 +507,7 @@
     }
   },
   "ideation": {
+    "noIdeasToDisplay": "No ideas to display",
     "converting": "Converting...",
     "convertToTask": "Convert to Auto-Build Task",
     "dismissIdea": "Dismiss Idea",
@@ -712,6 +728,8 @@
     }
   },
   "auth": {
+    "claudeAuthRequired": "Claude Authentication Required",
+    "claudeAuthRequiredDescription": "A Claude Code OAuth token is required to generate AI-powered feature ideas.",
     "failure": {
       "title": "Authentication Required",
       "profileLabel": "Profile",

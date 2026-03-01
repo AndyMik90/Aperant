@@ -299,14 +299,14 @@ export function registerProjectHandlers(
 
   ipcMain.handle(
     IPC_CHANNELS.PROJECT_ADD,
-    async (_, projectPath: string): Promise<IPCResult<Project>> => {
+    async (_, projectPath: string, type?: 'project' | 'customer'): Promise<IPCResult<Project>> => {
       try {
         // Validate path exists
         if (!existsSync(projectPath)) {
           return { success: false, error: 'Directory does not exist' };
         }
 
-        const project = projectStore.addProject(projectPath);
+        const project = projectStore.addProject(projectPath, undefined, type);
         return { success: true, data: project };
       } catch (error) {
         return {
@@ -513,6 +513,8 @@ export function registerProjectHandlers(
         }
 
         projectStore.updateAutoBuildPath(projectId, '.auto-claude');
+        // Ensure customer type is persisted (safety net for projects created before type persistence)
+        projectStore.updateProjectType(projectId, 'customer');
         return { success: true, data: { success: true } };
       } catch (error) {
         return {

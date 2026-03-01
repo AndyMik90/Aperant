@@ -147,7 +147,7 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
                     'hover:bg-accent text-muted-foreground hover:text-foreground',
                     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
                   )}
-                  title="Reset to default (100%)"
+                  title={t('scale.resetToDefault')}
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
                 </button>
@@ -170,7 +170,7 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent'
               )}
-              title={`Decrease scale by ${UI_SCALE_STEP}%`}
+              title={t('scale.decreaseScale', { step: UI_SCALE_STEP })}
             >
               <ZoomOut className="h-4 w-4" />
             </button>
@@ -214,7 +214,7 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent'
               )}
-              title={`Increase scale by ${UI_SCALE_STEP}%`}
+              title={t('scale.increaseScale', { step: UI_SCALE_STEP })}
             >
               <ZoomIn className="h-4 w-4" />
             </button>
@@ -228,10 +228,10 @@ export function DisplaySettings({ settings, onSettingsChange }: DisplaySettingsP
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                 'disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary'
               )}
-              title="Apply scale changes"
+              title={t('scale.applyChanges')}
             >
               <Check className="h-4 w-4" />
-              <span className="text-sm font-medium">Apply</span>
+              <span className="text-sm font-medium">{t('scale.apply')}</span>
             </button>
           </div>
 

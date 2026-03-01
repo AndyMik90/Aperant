@@ -158,6 +158,23 @@
     "failedToOpen": "Failed to open customer folder",
     "failedToCreate": "Failed to create customer folder"
   },
+  "customerRepos": {
+    "title": "Clone Repositories",
+    "description": "Select repositories to clone into {{name}}'s folder",
+    "searchPlaceholder": "Search repositories...",
+    "loading": "Loading repositories...",
+    "failedToLoad": "Failed to load repositories",
+    "noResults": "No repositories match your search",
+    "noRepos": "No repositories found",
+    "clone": "Clone",
+    "cloning": "Cloning...",
+    "cloned": "Cloned",
+    "cloneFailed": "Failed to clone repository",
+    "retry": "Retry",
+    "clonedCount": "{{count}} repository cloned",
+    "clonedCount_other": "{{count}} repositories cloned",
+    "done": "Done"
+  },
   "customModel": {
     "title": "Custom Model Configuration",
     "description": "Configure the model and thinking level for this chat session.",

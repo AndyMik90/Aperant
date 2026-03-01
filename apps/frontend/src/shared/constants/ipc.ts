@@ -251,6 +251,11 @@ export const IPC_CHANNELS = {
   GITHUB_IMPORT_ISSUES: 'github:importIssues',
   GITHUB_CREATE_RELEASE: 'github:createRelease',
 
+  // Customer multi-repo GitHub operations
+  GITHUB_CHECK_MULTI_REPO_CONNECTION: 'github:checkMultiRepoConnection',
+  GITHUB_GET_MULTI_REPO_ISSUES: 'github:getMultiRepoIssues',
+  GITHUB_GET_MULTI_REPO_ISSUE_DETAIL: 'github:getMultiRepoIssueDetail',
+
   // GitHub OAuth (gh CLI authentication)
   GITHUB_CHECK_CLI: 'github:checkCli',
   GITHUB_CHECK_AUTH: 'github:checkAuth',
@@ -263,6 +268,7 @@ export const IPC_CHANNELS = {
   GITHUB_CREATE_REPO: 'github:createRepo',
   GITHUB_ADD_REMOTE: 'github:addRemote',
   GITHUB_LIST_ORGS: 'github:listOrgs',
+  GITHUB_CLONE_REPO: 'github:cloneRepo',
 
   // GitHub OAuth events (main -> renderer) - for streaming device code during auth
   GITHUB_AUTH_DEVICE_CODE: 'github:authDeviceCode',

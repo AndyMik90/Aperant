@@ -68,12 +68,49 @@ export class ProjectStore {
           createdAt: new Date(p.createdAt),
           updatedAt: new Date(p.updatedAt)
         }));
+        // Migration: auto-detect customer projects created before type persistence
+        if (this.migrateCustomerTypes(data.projects)) {
+          writeFileAtomicSync(this.storePath, JSON.stringify(data, null, 2));
+        }
         return data;
       } catch {
         return { projects: [], settings: {} };
       }
     }
     return { projects: [], settings: {} };
+  }
+
+  /**
+   * Migration: detect customer projects that were created before type persistence.
+   * A customer project is identified by having child projects nested inside its path
+   * and no .git directory (customer folders are plain directories, not git repos).
+   * Returns true if any projects were migrated.
+   */
+  private migrateCustomerTypes(projects: Project[]): boolean {
+    let changed = false;
+    const allPaths = projects.map(p => p.path);
+
+    for (const project of projects) {
+      if (project.type) continue; // Already has type, skip
+
+      // Check if this project has children (other projects nested inside its path)
+      const hasChildren = allPaths.some(otherPath =>
+        otherPath !== project.path && otherPath.startsWith(project.path + '/')
+      );
+
+      if (hasChildren) {
+        // A project with children and no git is a customer folder
+        const gitPath = path.join(project.path, '.git');
+        if (!existsSync(gitPath)) {
+          project.type = 'customer';
+          project.updatedAt = new Date();
+          changed = true;
+          console.warn(`[ProjectStore] Migration: Marked "${project.name}" as customer (has child projects, no git)`);
+        }
+      }
+    }
+
+    return changed;
   }
 
   /**
@@ -86,7 +123,7 @@ export class ProjectStore {
   /**
    * Add a new project
    */
-  addProject(projectPath: string, name?: string): Project {
+  addProject(projectPath: string, name?: string, type?: 'project' | 'customer'): Project {
     // CRITICAL: Normalize to absolute path for dev mode compatibility
     // This prevents path resolution issues after app restart
     const absolutePath = ensureAbsolutePath(projectPath);
@@ -118,7 +155,8 @@ export class ProjectStore {
       autoBuildPath,
       settings: { ...DEFAULT_PROJECT_SETTINGS },
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      ...(type && { type })
     };
 
     this.data.projects.push(project);
@@ -134,6 +172,19 @@ export class ProjectStore {
     const project = this.data.projects.find((p) => p.id === projectId);
     if (project) {
       project.autoBuildPath = autoBuildPath;
+      project.updatedAt = new Date();
+      this.save();
+    }
+    return project;
+  }
+
+  /**
+   * Update project type (e.g., 'customer')
+   */
+  updateProjectType(projectId: string, type: 'project' | 'customer'): Project | undefined {
+    const project = this.data.projects.find((p) => p.id === projectId);
+    if (project) {
+      project.type = type;
       project.updatedAt = new Date();
       this.save();
     }

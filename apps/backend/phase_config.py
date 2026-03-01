@@ -20,7 +20,8 @@ MODEL_ID_MAP: dict[str, str] = {
     "opus": "claude-opus-4-6",
     "opus-1m": "claude-opus-4-6",
     "opus-4.5": "claude-opus-4-5-20251101",
-    "sonnet": "claude-sonnet-4-5-20250929",
+    "sonnet": "claude-sonnet-4-6",
+    "sonnet-4.5": "claude-sonnet-4-5-20250929",
     "haiku": "claude-haiku-4-5-20251001",
 }
 

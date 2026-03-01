@@ -564,7 +564,7 @@ export function Insights({ projectId }: InsightsProps) {
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
-              placeholder="Ask about your codebase..."
+              placeholder={t('insights.placeholder')}
               className={cn(
                 'min-h-[80px] resize-none',
                 isDragOver && 'border-primary ring-2 ring-primary/20'

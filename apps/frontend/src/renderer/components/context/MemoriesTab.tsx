@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   RefreshCw,
   Database,
@@ -77,6 +78,7 @@ export function MemoriesTab({
   searchLoading,
   onSearch
 }: MemoriesTabProps) {
+  const { t } = useTranslation('common');
   const [localSearchQuery, setLocalSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState<FilterCategory>('all');
 
@@ -199,7 +201,7 @@ export function MemoriesTab({
           </h3>
           <div className="flex gap-2">
             <Input
-              placeholder="Search for patterns, insights, gotchas..."
+              placeholder={t('memory.searchPlaceholder')}
               value={localSearchQuery}
               onChange={(e) => setLocalSearchQuery(e.target.value)}
               onKeyDown={handleSearchKeyDown}

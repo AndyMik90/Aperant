@@ -78,8 +78,8 @@ export function SectionRouter({
     case 'general':
       return (
         <SettingsSection
-          title="General"
-          description={`Configure Auto-Build, agent model, and notifications for ${project.name}`}
+          title={t('projectSections.general.title')}
+          description={t('projectSections.general.description', { name: project.name })}
         >
           <GeneralSettings
             project={project}
@@ -136,6 +136,9 @@ export function SectionRouter({
               gitHubConnectionStatus={gitHubConnectionStatus}
               isCheckingGitHub={isCheckingGitHub}
               projectPath={project.path}
+              projectType={project.type}
+              projectName={project.name}
+              projectId={project.id}
               settings={settings}
               setSettings={setSettings}
             />
