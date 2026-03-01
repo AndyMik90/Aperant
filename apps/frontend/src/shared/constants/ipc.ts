@@ -577,6 +577,9 @@ export const IPC_CHANNELS = {
   MCP_CHECK_HEALTH: 'mcp:checkHealth',           // Quick connectivity check
   MCP_TEST_CONNECTION: 'mcp:testConnection',     // Full MCP protocol test
 
+  // Claude Code global MCP configuration
+  CLAUDE_MCP_GET_GLOBAL: 'claude-mcp:getGlobalMcps',
+
   // Sentry error reporting
   SENTRY_STATE_CHANGED: 'sentry:state-changed',  // Notify main process when setting changes
   GET_SENTRY_DSN: 'sentry:get-dsn',              // Get DSN from main process (env var)

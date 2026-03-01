@@ -32,7 +32,8 @@ import {
   Terminal,
   Loader2,
   RefreshCw,
-  Lock
+  Lock,
+  ExternalLink
 } from 'lucide-react';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { ScrollArea } from './ui/scroll-area';
@@ -47,7 +48,8 @@ import {
 } from './ui/dialog';
 import { useSettingsStore } from '../stores/settings-store';
 import { useProjectStore } from '../stores/project-store';
-import type { ProjectEnvConfig, AgentMcpOverride, CustomMcpServer, McpHealthCheckResult, } from '../../shared/types';
+import type { ProjectEnvConfig, AgentMcpOverride, CustomMcpServer, McpHealthCheckResult } from '../../shared/types';
+import type { GlobalMcpInfo, GlobalMcpServerEntry } from '../../shared/types/integrations';
 import { CustomMcpDialog } from './CustomMcpDialog';
 import { useTranslation } from 'react-i18next';
 import {
@@ -662,6 +664,10 @@ export function AgentTools() {
   const [serverHealthStatus, setServerHealthStatus] = useState<Record<string, McpHealthCheckResult>>({});
   const [testingServers, setTestingServers] = useState<Set<string>>(new Set());
 
+  // Global Claude Code MCP state
+  const [globalMcps, setGlobalMcps] = useState<GlobalMcpInfo | null>(null);
+  const [isLoadingGlobalMcps, setIsLoadingGlobalMcps] = useState(false);
+
   // Load project env config when project changes
   useEffect(() => {
     if (selectedProjectId && selectedProject?.autoBuildPath) {
@@ -684,6 +690,31 @@ export function AgentTools() {
       setEnvConfig(null);
     }
   }, [selectedProjectId, selectedProject?.autoBuildPath]);
+
+  // Load global Claude Code MCPs on mount
+  const loadGlobalMcps = useCallback(async () => {
+    setIsLoadingGlobalMcps(true);
+    try {
+      const result = await window.electronAPI.getGlobalMcps();
+      if (result.success && result.data) {
+        setGlobalMcps(result.data);
+      }
+    } catch {
+      // Non-critical — global MCPs are informational only
+    } finally {
+      setIsLoadingGlobalMcps(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadGlobalMcps();
+  }, [loadGlobalMcps]);
+
+  // Combine all global MCP servers for display
+  const allGlobalServers = useMemo((): GlobalMcpServerEntry[] => {
+    if (!globalMcps) return [];
+    return [...globalMcps.pluginServers, ...globalMcps.inlineServers];
+  }, [globalMcps]);
 
   // Update MCP server toggle
   const updateMcpServer = useCallback(async (
@@ -1311,6 +1342,87 @@ export function AgentTools() {
                     </p>
                   )}
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Claude Code Global MCPs Section */}
+          {allGlobalServers.length > 0 && (
+            <div className="rounded-lg border border-border bg-card p-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <ExternalLink className="h-4 w-4 text-muted-foreground" />
+                  <h2 className="text-sm font-medium text-foreground">
+                    {t('settings:mcp.globalMcps.title')}
+                  </h2>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/10 text-blue-500">
+                    {t('settings:mcp.globalMcps.badge')}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground italic">
+                    {t('settings:mcp.globalMcps.readOnly')}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={loadGlobalMcps}
+                    disabled={isLoadingGlobalMcps}
+                    title={t('settings:mcp.globalMcps.refreshTooltip')}
+                  >
+                    {isLoadingGlobalMcps ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3 w-3" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mb-3">
+                {t('settings:mcp.globalMcps.description')}
+              </p>
+              <div className="space-y-2">
+                {allGlobalServers.map((server) => {
+                  const serverType = server.config.command
+                    ? t('settings:mcp.globalMcps.serverType.command')
+                    : server.config.type === 'sse'
+                      ? t('settings:mcp.globalMcps.serverType.sse')
+                      : server.config.type === 'http'
+                        ? t('settings:mcp.globalMcps.serverType.http')
+                        : t('settings:mcp.globalMcps.serverType.http');
+                  const ServerIcon = server.config.command ? Terminal : Globe;
+                  const detail = server.config.command
+                    ? `${server.config.command} ${server.config.args?.join(' ') || ''}`
+                    : server.config.url || '';
+
+                  return (
+                    <div
+                      key={`${server.source}-${server.serverId}`}
+                      className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <ServerIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium">{server.serverName}</span>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-secondary text-secondary-foreground">
+                              {serverType}
+                            </span>
+                            <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-blue-500/10 text-blue-500">
+                              {server.source === 'plugin'
+                                ? t('settings:mcp.globalMcps.source.plugin')
+                                : t('settings:mcp.globalMcps.source.settings')}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate" title={detail}>
+                            {detail}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

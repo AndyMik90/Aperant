@@ -120,6 +120,7 @@ import type {
   LinearIssue,
   LinearImportResult,
   LinearSyncStatus,
+  GlobalMcpInfo,
   GitHubRepository,
   GitHubIssue,
   GitHubSyncStatus,
@@ -925,6 +926,9 @@ export interface ElectronAPI {
   // MCP Server health check operations
   checkMcpHealth: (server: CustomMcpServer) => Promise<IPCResult<McpHealthCheckResult>>;
   testMcpConnection: (server: CustomMcpServer) => Promise<IPCResult<McpTestConnectionResult>>;
+
+  // Claude Code global MCP configuration
+  getGlobalMcps: () => Promise<IPCResult<GlobalMcpInfo>>;
 
   // Screenshot capture operations
   getSources: () => Promise<IPCResult<ScreenshotSource[]> & { devMode?: boolean }>;

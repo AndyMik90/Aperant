@@ -766,6 +766,23 @@
       "createAnthropicKey": "Créer une clé API Anthropic",
       "openai": "Ceci ressemble à une API OpenAI. Vous aurez besoin d'une clé API.",
       "createOpenaiKey": "Créer une clé API OpenAI"
+    },
+    "globalMcps": {
+      "title": "MCPs Claude Code (Global)",
+      "description": "Serveurs MCP configurés dans les paramètres Claude Code (~/.claude/settings.json)",
+      "noGlobalMcps": "Aucun serveur MCP global configuré dans Claude Code",
+      "source": {
+        "plugin": "Plugin",
+        "settings": "Paramètres"
+      },
+      "badge": "Global",
+      "serverType": {
+        "command": "Commande",
+        "http": "HTTP",
+        "sse": "SSE"
+      },
+      "refreshTooltip": "Actualiser la liste des MCP globaux",
+      "readOnly": "Lecture seule — configurez dans les paramètres Claude Code CLI"
     }
   },
   "terminalFonts": {

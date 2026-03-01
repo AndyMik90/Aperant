@@ -360,6 +360,10 @@ const browserMockAPI: ElectronAPI = {
       message: 'Connection test not available in browser mode'
     }
   }),
+  getGlobalMcps: async () => ({
+    success: true,
+    data: { pluginServers: [], inlineServers: [] }
+  }),
 
   // Screenshot capture operations
   getSources: async () => ({

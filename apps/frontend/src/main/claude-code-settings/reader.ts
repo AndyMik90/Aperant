@@ -16,7 +16,7 @@ import { existsSync, readFileSync } from 'fs';
 import { homedir } from 'os';
 import path from 'path';
 import { isWindows, isMacOS } from '../platform';
-import type { ClaudeCodeSettings, ClaudeCodeSettingsHierarchy } from './types';
+import type { ClaudeCodeSettings, ClaudeCodeSettingsHierarchy, ClaudeCodeMcpServerConfig } from './types';
 import { mergeClaudeCodeSettings } from './merger';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 
@@ -92,6 +92,107 @@ function sanitizePermissions(permissions: unknown): ClaudeCodeSettings['permissi
 }
 
 /**
+ * Validate and sanitize the mcpServers field to ensure it's a Record<string, ClaudeCodeMcpServerConfig>.
+ * Returns undefined if the field is invalid or empty after sanitization.
+ */
+function sanitizeMcpServers(mcpServers: unknown): Record<string, ClaudeCodeMcpServerConfig> | undefined {
+  if (!isPlainObject(mcpServers)) {
+    return undefined;
+  }
+
+  const sanitized: Record<string, ClaudeCodeMcpServerConfig> = {};
+  let hasValidEntries = false;
+
+  for (const [key, value] of Object.entries(mcpServers)) {
+    if (!isPlainObject(value)) {
+      debugLog(`${LOG_PREFIX} Skipping invalid mcpServers entry (not an object):`, key);
+      continue;
+    }
+
+    const serverConfig: ClaudeCodeMcpServerConfig = {};
+    let hasFields = false;
+
+    // Validate optional string fields
+    if ('type' in value && typeof value.type === 'string' && (value.type === 'http' || value.type === 'sse')) {
+      serverConfig.type = value.type;
+      hasFields = true;
+    }
+    if ('command' in value && typeof value.command === 'string') {
+      serverConfig.command = value.command;
+      hasFields = true;
+    }
+    if ('url' in value && typeof value.url === 'string') {
+      serverConfig.url = value.url;
+      hasFields = true;
+    }
+
+    // Validate args (string array)
+    if ('args' in value && Array.isArray(value.args)) {
+      const validArgs = (value.args as unknown[]).filter((a): a is string => typeof a === 'string');
+      if (validArgs.length > 0) {
+        serverConfig.args = validArgs;
+        hasFields = true;
+      }
+    }
+
+    // Validate headers (Record<string, string>)
+    if ('headers' in value && isPlainObject(value.headers)) {
+      const headers: Record<string, string> = {};
+      let hasHeaders = false;
+      for (const [hk, hv] of Object.entries(value.headers)) {
+        if (typeof hv === 'string') {
+          headers[hk] = hv;
+          hasHeaders = true;
+        }
+      }
+      if (hasHeaders) {
+        serverConfig.headers = headers;
+        hasFields = true;
+      }
+    }
+
+    // Validate oauth (opaque object, just check it's an object)
+    if ('oauth' in value && isPlainObject(value.oauth)) {
+      serverConfig.oauth = value.oauth as Record<string, unknown>;
+      hasFields = true;
+    }
+
+    if (hasFields) {
+      sanitized[key] = serverConfig;
+      hasValidEntries = true;
+    } else {
+      debugLog(`${LOG_PREFIX} Skipping mcpServers entry with no valid fields:`, key);
+    }
+  }
+
+  return hasValidEntries ? sanitized : undefined;
+}
+
+/**
+ * Validate and sanitize the enabledPlugins field to ensure it's a Record<string, boolean>.
+ * Returns undefined if the field is invalid or empty after sanitization.
+ */
+function sanitizeEnabledPlugins(enabledPlugins: unknown): Record<string, boolean> | undefined {
+  if (!isPlainObject(enabledPlugins)) {
+    return undefined;
+  }
+
+  const sanitized: Record<string, boolean> = {};
+  let hasValidEntries = false;
+
+  for (const [key, value] of Object.entries(enabledPlugins)) {
+    if (typeof value === 'boolean') {
+      sanitized[key] = value;
+      hasValidEntries = true;
+    } else {
+      debugLog(`${LOG_PREFIX} Skipping invalid enabledPlugins entry:`, { key, value: typeof value });
+    }
+  }
+
+  return hasValidEntries ? sanitized : undefined;
+}
+
+/**
  * Validate and sanitize a parsed JSON object to ensure it has the expected structure for ClaudeCodeSettings.
  * Invalid fields are removed, valid fields are kept.
  * Returns undefined if the entire object is invalid or empty after sanitization.
@@ -144,6 +245,28 @@ function isValidSettings(obj: unknown): obj is ClaudeCodeSettings {
       hasValidFields = true;
     } else {
       debugError(`${LOG_PREFIX} Invalid or empty permissions field, skipping`);
+    }
+  }
+
+  // Validate and sanitize mcpServers field
+  if ('mcpServers' in obj) {
+    const sanitizedMcpServers = sanitizeMcpServers(obj.mcpServers);
+    if (sanitizedMcpServers) {
+      sanitized.mcpServers = sanitizedMcpServers;
+      hasValidFields = true;
+    } else {
+      debugLog(`${LOG_PREFIX} Invalid or empty mcpServers field, skipping`);
+    }
+  }
+
+  // Validate and sanitize enabledPlugins field
+  if ('enabledPlugins' in obj) {
+    const sanitizedEnabledPlugins = sanitizeEnabledPlugins(obj.enabledPlugins);
+    if (sanitizedEnabledPlugins) {
+      sanitized.enabledPlugins = sanitizedEnabledPlugins;
+      hasValidFields = true;
+    } else {
+      debugLog(`${LOG_PREFIX} Invalid or empty enabledPlugins field, skipping`);
     }
   }
 

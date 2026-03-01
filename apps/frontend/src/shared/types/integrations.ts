@@ -519,3 +519,40 @@ export interface RoadmapProviderConfig {
  * Canny-specific status values
  */
 export type CannyStatus = 'open' | 'under review' | 'planned' | 'in progress' | 'complete' | 'closed';
+
+// ============================================
+// Claude Code Global MCP Types
+// ============================================
+
+/**
+ * A single MCP server entry resolved from Claude Code's global settings.
+ * Can originate from either an enabled plugin (marketplace) or an inline mcpServers definition.
+ */
+export interface GlobalMcpServerEntry {
+  /** Plugin key (only for plugin-sourced servers), e.g. "context7@claude-plugins-official" */
+  pluginKey?: string;
+  /** Server identifier from the MCP config, e.g. "context7" */
+  serverId: string;
+  /** Human-readable name derived from serverId */
+  serverName: string;
+  /** MCP server configuration */
+  config: {
+    type?: 'http' | 'sse';
+    command?: string;
+    args?: string[];
+    url?: string;
+    headers?: Record<string, string>;
+  };
+  /** Where this server config was sourced from */
+  source: 'plugin' | 'settings';
+}
+
+/**
+ * Combined result of all global MCP servers from Claude Code settings.
+ */
+export interface GlobalMcpInfo {
+  /** MCP servers resolved from enabledPlugins (via plugin cache .mcp.json files) */
+  pluginServers: GlobalMcpServerEntry[];
+  /** MCP servers defined inline in the mcpServers field of settings.json */
+  inlineServers: GlobalMcpServerEntry[];
+}

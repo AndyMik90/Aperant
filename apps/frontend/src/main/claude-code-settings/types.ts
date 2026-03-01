@@ -23,6 +23,25 @@ export interface ClaudeCodePermissions {
 }
 
 /**
+ * MCP server config as defined in Claude Code settings.
+ * Supports both stdio (command-based) and HTTP/SSE server types.
+ */
+export interface ClaudeCodeMcpServerConfig {
+  /** Server type - command (stdio) or http/sse */
+  type?: 'http' | 'sse';
+  /** Command to run (for stdio servers) */
+  command?: string;
+  /** Command arguments */
+  args?: string[];
+  /** URL for HTTP/SSE servers */
+  url?: string;
+  /** HTTP headers */
+  headers?: Record<string, string>;
+  /** OAuth config (for some servers like Slack) */
+  oauth?: Record<string, unknown>;
+}
+
+/**
  * A single level of Claude Code settings, as read from one settings file.
  * All fields are optional since any given file may only set a subset.
  */
@@ -34,6 +53,10 @@ export interface ClaudeCodeSettings {
   alwaysThinkingEnabled?: boolean;
   /** Environment variables to inject into agent processes */
   env?: Record<string, string>;
+  /** MCP server configurations (inline) */
+  mcpServers?: Record<string, ClaudeCodeMcpServerConfig>;
+  /** Enabled plugins from marketplace (key: "pluginId@marketplace", value: enabled) */
+  enabledPlugins?: Record<string, boolean>;
 }
 
 /**
