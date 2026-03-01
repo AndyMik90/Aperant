@@ -28,6 +28,7 @@ export function AddCustomerModal({ open, onOpenChange, onCustomerAdded }: AddCus
   const [customerName, setCustomerName] = useState('');
   const [location, setLocation] = useState('');
   const [isCreating, setIsCreating] = useState(false);
+  const [isPicking, setIsPicking] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -36,6 +37,7 @@ export function AddCustomerModal({ open, onOpenChange, onCustomerAdded }: AddCus
       setCustomerName('');
       setLocation('');
       setIsCreating(false);
+      setIsPicking(false);
     }
   }, [open]);
 
@@ -73,6 +75,7 @@ export function AddCustomerModal({ open, onOpenChange, onCustomerAdded }: AddCus
   };
 
   const handleOpenExisting = async () => {
+    setIsPicking(true);
     try {
       const path = await window.electronAPI.selectDirectory();
       if (path) {
@@ -80,10 +83,13 @@ export function AddCustomerModal({ open, onOpenChange, onCustomerAdded }: AddCus
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : t('addCustomer.failedToOpen'));
+    } finally {
+      setIsPicking(false);
     }
   };
 
   const handleBrowseLocation = async () => {
+    setIsPicking(true);
     try {
       const path = await window.electronAPI.selectDirectory();
       if (path) {
@@ -91,6 +97,8 @@ export function AddCustomerModal({ open, onOpenChange, onCustomerAdded }: AddCus
       }
     } catch {
       // User cancelled
+    } finally {
+      setIsPicking(false);
     }
   };
 
@@ -148,10 +156,12 @@ export function AddCustomerModal({ open, onOpenChange, onCustomerAdded }: AddCus
             <button
               type="button"
               onClick={() => setStep('create')}
+              disabled={isPicking}
               className={cn(
                 'w-full flex items-center gap-4 p-4 rounded-xl border border-border',
                 'bg-card hover:bg-accent hover:border-accent transition-all duration-200',
-                'text-left group'
+                'text-left group',
+                isPicking && 'opacity-50 pointer-events-none'
               )}
               aria-label={t('addCustomer.createNewAriaLabel')}
             >
@@ -171,10 +181,12 @@ export function AddCustomerModal({ open, onOpenChange, onCustomerAdded }: AddCus
             <button
               type="button"
               onClick={handleOpenExisting}
+              disabled={isPicking}
               className={cn(
                 'w-full flex items-center gap-4 p-4 rounded-xl border border-border',
                 'bg-card hover:bg-accent hover:border-accent transition-all duration-200',
-                'text-left group'
+                'text-left group',
+                isPicking && 'opacity-50 pointer-events-none'
               )}
               aria-label={t('addCustomer.openExistingAriaLabel')}
             >
@@ -228,7 +240,7 @@ export function AddCustomerModal({ open, onOpenChange, onCustomerAdded }: AddCus
                 )}>
                   {location || t('addCustomer.locationPlaceholder')}
                 </div>
-                <Button variant="outline" size="sm" onClick={handleBrowseLocation}>
+                <Button variant="outline" size="sm" onClick={handleBrowseLocation} disabled={isPicking}>
                   {t('addCustomer.browse')}
                 </Button>
               </div>

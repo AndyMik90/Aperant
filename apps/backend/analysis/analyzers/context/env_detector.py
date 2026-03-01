@@ -185,7 +185,6 @@ class EnvironmentDetector(BaseAnalyzer):
             "config.ts",
             "Program.cs",
             "Startup.cs",
-            "appsettings.json",
         ]
 
         for entry_file in entry_files:

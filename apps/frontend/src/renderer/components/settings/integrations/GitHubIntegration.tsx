@@ -89,7 +89,10 @@ export function GitHubIntegration({
   const allProjects = useProjectStore((state) => state.projects);
   const customerChildProjects = useMemo(() => {
     if (projectType !== 'customer' || !projectPath) return [];
-    return allProjects.filter(p => p.id !== projectId && p.path.startsWith(projectPath + '/'));
+    // Normalize path separators for cross-platform comparison (Windows uses backslashes)
+    const normalize = (p: string) => p.replace(/\\/g, '/');
+    const normalizedCustomerPath = normalize(projectPath);
+    return allProjects.filter(p => p.id !== projectId && normalize(p.path).startsWith(normalizedCustomerPath + '/'));
   }, [projectType, projectPath, projectId, allProjects]);
 
   debugLog('Render - authMode:', authMode);
@@ -167,11 +170,11 @@ export function GitHubIntegration({
         }
       } else {
         debugLog('fetchBranches: Failed -', result.error || 'No data returned');
-        setBranchesError(result.error || 'Failed to load branches');
+        setBranchesError(result.error || t('github.failedToLoadBranches'));
       }
     } catch (err) {
       debugLog('fetchBranches: Exception:', err);
-      setBranchesError(err instanceof Error ? err.message : 'Failed to load branches');
+      setBranchesError(err instanceof Error ? err.message : t('github.failedToLoadBranches'));
     } finally {
       setIsLoadingBranches(false);
     }
@@ -190,11 +193,11 @@ export function GitHubIntegration({
         setRepos(result.data.repos);
         debugLog('Loaded repos:', result.data.repos.length);
       } else {
-        setReposError(result.error || 'Failed to load repositories');
+        setReposError(result.error || t('github.failedToLoadRepositories'));
       }
     } catch (err) {
       debugLog('Error fetching repos:', err);
-      setReposError(err instanceof Error ? err.message : 'Failed to load repositories');
+      setReposError(err instanceof Error ? err.message : t('github.failedToLoadRepositories'));
     } finally {
       setIsLoadingRepos(false);
     }
@@ -252,10 +255,10 @@ export function GitHubIntegration({
       if (result.success && result.data) {
         setCustomerRepos(result.data.repos);
       } else {
-        setCustomerReposError(result.error || 'Failed to load repositories');
+        setCustomerReposError(result.error || t('github.failedToLoadRepositories'));
       }
     } catch (err) {
-      setCustomerReposError(err instanceof Error ? err.message : 'Failed to load repositories');
+      setCustomerReposError(err instanceof Error ? err.message : t('github.failedToLoadRepositories'));
     } finally {
       setIsLoadingCustomerRepos(false);
     }
@@ -275,23 +278,25 @@ export function GitHubIntegration({
       const result = await window.electronAPI.cloneGitHubRepo(repo.fullName, projectPath);
       if (!result.success || !result.data) {
         setCloneStatuses(prev => ({ ...prev, [repo.fullName]: 'error' }));
-        setCloneErrors(prev => ({ ...prev, [repo.fullName]: result.error || 'Clone failed' }));
+        setCloneErrors(prev => ({ ...prev, [repo.fullName]: result.error || t('github.cloneFailed') }));
         return;
       }
 
-      // Register cloned repo as a project
+      // Register cloned repo as a project — only mark as done if registration succeeds
       const addResult = await window.electronAPI.addProject(result.data.path);
-      if (addResult.success && addResult.data) {
+      if (addResult?.success && addResult?.data) {
         const store = useProjectStore.getState();
         store.addProject(addResult.data);
+        setCloneStatuses(prev => ({ ...prev, [repo.fullName]: 'done' }));
+      } else {
+        setCloneStatuses(prev => ({ ...prev, [repo.fullName]: 'error' }));
+        setCloneErrors(prev => ({ ...prev, [repo.fullName]: addResult?.error || t('github.failedToRegisterProject') }));
       }
-
-      setCloneStatuses(prev => ({ ...prev, [repo.fullName]: 'done' }));
     } catch (err) {
       setCloneStatuses(prev => ({ ...prev, [repo.fullName]: 'error' }));
       setCloneErrors(prev => ({
         ...prev,
-        [repo.fullName]: err instanceof Error ? err.message : 'Clone failed'
+        [repo.fullName]: err instanceof Error ? err.message : t('github.cloneFailed')
       }));
     }
   };

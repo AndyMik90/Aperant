@@ -94,9 +94,12 @@ export class ProjectStore {
       if (project.type) continue; // Already has type, skip
 
       // Check if this project has children (other projects nested inside its path)
-      const hasChildren = allPaths.some(otherPath =>
-        otherPath !== project.path && otherPath.startsWith(project.path + '/')
-      );
+      // Use path.relative() for cross-platform compatibility (avoids hardcoded '/' separator)
+      const hasChildren = allPaths.some(otherPath => {
+        if (otherPath === project.path) return false;
+        const rel = path.relative(project.path, otherPath);
+        return rel.length > 0 && !rel.startsWith('..') && !path.isAbsolute(rel);
+      });
 
       if (hasChildren) {
         // A project with children and no git is a customer folder

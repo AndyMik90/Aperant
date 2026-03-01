@@ -510,6 +510,10 @@ export function registerProjectHandlers(
           return { success: false, error: 'Project not found' };
         }
 
+        if (project.type !== 'customer') {
+          return { success: false, error: 'Project is not a customer project' };
+        }
+
         const dotAutoClaude = path.join(project.path, '.auto-claude');
 
         if (!existsSync(dotAutoClaude)) {

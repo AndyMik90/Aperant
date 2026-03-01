@@ -31,6 +31,20 @@ function isChildPath(parentPath: string, candidatePath: string): boolean {
 }
 
 /**
+ * Generate a unique key for a child project index entry.
+ * Uses path.basename(child.path) and appends a numeric suffix (-2, -3, ...) if the key already exists.
+ */
+function uniqueChildKey(childPath: string, existingKeys: Record<string, unknown>): string {
+  const base = path.basename(childPath);
+  if (!(base in existingKeys)) return base;
+  let suffix = 2;
+  while (`${base}-${suffix}` in existingKeys) {
+    suffix++;
+  }
+  return `${base}-${suffix}`;
+}
+
+/**
  * Load project index from file
  */
 function loadProjectIndex(projectPath: string): ProjectIndex | null {
@@ -66,6 +80,8 @@ async function refreshChildIndex(
       let stdout = '';
       let stderr = '';
 
+      const ANALYZER_TIMEOUT_MS = 120_000; // 2 minutes
+
       const proc = spawn(pythonCommand, [
         ...pythonBaseArgs,
         analyzerPath,
@@ -80,6 +96,12 @@ async function refreshChildIndex(
         }
       });
 
+      const timeout = setTimeout(() => {
+        debugLog(`[project-context] Child analyzer (${childProject.name}) timed out after ${ANALYZER_TIMEOUT_MS}ms, killing process`);
+        proc.kill('SIGTERM');
+        reject(new Error(`Analyzer timed out after ${ANALYZER_TIMEOUT_MS / 1000}s`));
+      }, ANALYZER_TIMEOUT_MS);
+
       proc.stdout?.on('data', (data) => {
         stdout += data.toString('utf-8');
       });
@@ -89,6 +111,7 @@ async function refreshChildIndex(
       });
 
       proc.on('close', (code: number) => {
+        clearTimeout(timeout);
         if (code === 0) {
           debugLog(`[project-context] Child analyzer (${childProject.name}) stdout:`, stdout);
           resolve();
@@ -100,6 +123,7 @@ async function refreshChildIndex(
       });
 
       proc.on('error', (err) => {
+        clearTimeout(timeout);
         debugLog(`[project-context] Child analyzer (${childProject.name}) spawn error:`, err);
         reject(err);
       });
@@ -230,7 +254,8 @@ export function registerProjectContextHandlers(
             for (const child of childProjects) {
               const childIndex = loadProjectIndex(child.path);
               if (childIndex) {
-                childIndexes[child.name] = childIndex;
+                const key = uniqueChildKey(child.path, childIndexes);
+                childIndexes[key] = childIndex;
               }
             }
             if (Object.keys(childIndexes).length > 0) {
@@ -334,7 +359,8 @@ export function registerProjectContextHandlers(
             }
 
             if (childIndex) {
-              childIndexes[child.name] = childIndex;
+              const key = uniqueChildKey(child.path, childIndexes);
+              childIndexes[key] = childIndex;
             } else {
               errors.push(child.name);
             }
@@ -386,6 +412,7 @@ export function registerProjectContextHandlers(
         await new Promise<void>((resolve, reject) => {
           let stdout = '';
           let stderr = '';
+          const ANALYZER_TIMEOUT_MS = 120_000; // 2 minutes
 
           const proc = spawn(pythonCommand, [
             ...pythonBaseArgs,
@@ -401,6 +428,12 @@ export function registerProjectContextHandlers(
             }
           });
 
+          const timeout = setTimeout(() => {
+            debugLog(`[project-context] Analyzer timed out after ${ANALYZER_TIMEOUT_MS}ms, killing process`);
+            proc.kill('SIGTERM');
+            reject(new Error(`Analyzer timed out after ${ANALYZER_TIMEOUT_MS / 1000}s`));
+          }, ANALYZER_TIMEOUT_MS);
+
           proc.stdout?.on('data', (data) => {
             stdout += data.toString('utf-8');
           });
@@ -410,6 +443,7 @@ export function registerProjectContextHandlers(
           });
 
           proc.on('close', (code: number) => {
+            clearTimeout(timeout);
             if (code === 0) {
               debugLog('[project-context] Analyzer stdout:', stdout);
               resolve();
@@ -422,6 +456,7 @@ export function registerProjectContextHandlers(
           });
 
           proc.on('error', (err) => {
+            clearTimeout(timeout);
             debugLog('[project-context] Analyzer spawn error:', err);
             reject(err);
           });

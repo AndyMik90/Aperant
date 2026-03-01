@@ -177,6 +177,8 @@ class FrameworkAnalyzer(BaseAnalyzer):
 
         deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
         deps_lower = {k.lower(): k for k in deps.keys()}
+        main_deps = pkg.get("dependencies", {})
+        main_deps_lower = {k.lower(): k for k in main_deps.keys()}
 
         # Documentation frameworks (check before generic frontend)
         doc_frameworks = {
@@ -193,6 +195,13 @@ class FrameworkAnalyzer(BaseAnalyzer):
                 "port": 8080,
             },
             "nextra": {"name": "Nextra", "type": "documentation", "port": 3000},
+        }
+
+        # Storybook packages are typically devDependencies and should only be treated
+        # as the primary framework when present in dependencies (not devDependencies).
+        # Apps with Storybook in devDependencies alongside React/Angular/Vue should be
+        # classified as frontend, not documentation.
+        storybook_packages = {
             "storybook": {"name": "Storybook", "type": "documentation", "port": 6006},
             "@storybook/react": {
                 "name": "Storybook",
@@ -220,6 +229,15 @@ class FrameworkAnalyzer(BaseAnalyzer):
                 detected_port = port_detector.detect_port_from_sources(info["port"])
                 self.analysis["default_port"] = detected_port
                 return  # Documentation framework found, skip other detection
+
+        # Only classify Storybook as primary framework if it's in main dependencies
+        for key, info in storybook_packages.items():
+            if key in main_deps_lower:
+                self.analysis["framework"] = info["name"]
+                self.analysis["type"] = info["type"]
+                detected_port = port_detector.detect_port_from_sources(info["port"])
+                self.analysis["default_port"] = detected_port
+                return  # Storybook is the primary framework
 
         # Microfrontend detection (adds metadata, then falls through to frontend detection)
         mfe_indicators = {
@@ -432,7 +450,7 @@ class FrameworkAnalyzer(BaseAnalyzer):
                             module = line.replace("import ", "").split()[0]
                             imports.add(module)
                 except Exception:
-                    continue
+                    continue  # Silently skip unparseable Swift files
 
             # Detect UI framework
             if "SwiftUI" in imports:
@@ -505,7 +523,7 @@ class FrameworkAnalyzer(BaseAnalyzer):
                         if name and name not in dependencies:
                             dependencies.append(name)
                 except Exception:
-                    continue
+                    continue  # Silently skip unparseable .pbxproj files
 
         return dependencies
 
@@ -551,16 +569,33 @@ class FrameworkAnalyzer(BaseAnalyzer):
             return
 
         all_packages: set[str] = set()
-        sdk_type = ""
+        sdk_types: list[str] = []
         has_azure_functions_version = False
 
         for csproj in csproj_files[:3]:
             info = self._parse_csproj_info(csproj)
             all_packages.update(info.get("packages", set()))
             if info.get("sdk"):
-                sdk_type = info["sdk"]
+                sdk_types.append(info["sdk"])
             if info.get("is_azure_functions"):
                 has_azure_functions_version = True
+
+        # Pick the most specific SDK type: prefer specialized SDKs over the generic one.
+        # E.g., Microsoft.NET.Sdk.Web is more specific than Microsoft.NET.Sdk.
+        sdk_type = ""
+        sdk_priority = [
+            "Microsoft.NET.Sdk.BlazorWebAssembly",
+            "Microsoft.NET.Sdk.Web",
+            "Microsoft.NET.Sdk.Worker",
+            "Microsoft.NET.Sdk.WindowsDesktop",
+            "Microsoft.NET.Sdk.Maui",
+        ]
+        for preferred in sdk_priority:
+            if preferred in sdk_types:
+                sdk_type = preferred
+                break
+        if not sdk_type and sdk_types:
+            sdk_type = sdk_types[0]
 
         port_detector = PortDetector(self.path, self.analysis)
 
@@ -667,6 +702,8 @@ class FrameworkAnalyzer(BaseAnalyzer):
         libraries: list[dict] = []
         test_projects: list[dict] = []
         all_packages: set[str] = set()
+        projects: dict[str, dict] = {}
+        dependency_graph: dict[str, list[str]] = {}
 
         for match in project_pattern.finditer(sln_content):
             type_guid = match.group(1).upper()
@@ -690,6 +727,7 @@ class FrameworkAnalyzer(BaseAnalyzer):
             # Parse .csproj to determine type
             info = self._parse_csproj_info(csproj_path)
             packages = info.pop("packages", set())
+            project_references = info.get("project_references", [])
             all_packages.update(packages)
 
             sdk = info.get("sdk", "")
@@ -700,37 +738,64 @@ class FrameworkAnalyzer(BaseAnalyzer):
                 "path": project_dir,
             }
 
+            role = "library"
+            is_entry_point = False
+
             if is_test:
+                role = "test"
                 test_projects.append(entry)
             elif sdk == "Microsoft.NET.Sdk.Web":
+                role = "api"
+                is_entry_point = True
                 entry["type"] = "api"
                 entry_points.append(entry)
             elif info.get("is_azure_functions"):
+                role = "worker"
+                is_entry_point = True
                 entry["type"] = "worker"
                 entry["framework"] = "Azure Functions"
                 entry_points.append(entry)
             elif sdk == "Microsoft.NET.Sdk.Worker":
+                role = "worker"
+                is_entry_point = True
                 entry["type"] = "worker"
                 entry_points.append(entry)
             elif info.get("output_type", "").lower() == "exe":
+                role = "tool"
+                is_entry_point = True
                 entry["type"] = "tool"
                 entry_points.append(entry)
             else:
                 # Library — classify by name
                 name_lower = project_name.lower()
                 if "gateway" in name_lower:
-                    entry["role"] = "data_access"
+                    role = "data_access"
                 elif name_lower == "application":
-                    entry["role"] = "business_logic"
+                    role = "business_logic"
                 elif name_lower == "contracts":
-                    entry["role"] = "contracts"
+                    role = "contracts"
                 elif "infrastructure" in name_lower:
-                    entry["role"] = "infrastructure"
+                    role = "infrastructure"
                 elif name_lower == "client":
-                    entry["role"] = "client"
+                    role = "client"
                 else:
-                    entry["role"] = "library"
+                    role = "library"
+                entry["role"] = role
                 libraries.append(entry)
+
+            # Per-project detail record
+            projects[project_name] = {
+                "path": project_dir,
+                "sdk": sdk or None,
+                "target_framework": info.get("target_framework"),
+                "output_type": info.get("output_type"),
+                "role": role,
+                "is_entry_point": is_entry_point,
+                "container_support": info.get("container_support", False),
+                "packages": sorted(packages),
+                "project_references": project_references,
+            }
+            dependency_graph[project_name] = project_references
 
         if not entry_points and not libraries:
             return None
@@ -741,14 +806,17 @@ class FrameworkAnalyzer(BaseAnalyzer):
             "libraries": libraries,
             "test_projects": test_projects,
             "all_packages": sorted(all_packages),
+            "projects": projects,
+            "dependency_graph": dependency_graph,
         }
 
     def _parse_csproj_info(self, csproj_path: Path) -> dict:
-        """Parse a .csproj file and extract SDK type, packages, and key properties."""
+        """Parse a .csproj file and extract SDK type, packages, project references, and key properties."""
         import re
         import xml.etree.ElementTree as ET
+        from pathlib import PureWindowsPath
 
-        info: dict = {"packages": set()}
+        info: dict = {"packages": set(), "project_references": []}
 
         try:
             content = csproj_path.read_text(encoding="utf-8", errors="ignore")
@@ -761,18 +829,28 @@ class FrameworkAnalyzer(BaseAnalyzer):
             if output_match:
                 info["output_type"] = output_match.group(1)
 
+            tf_match = re.search(r"<TargetFramework>([^<]+)</TargetFramework>", content)
+            if tf_match:
+                info["target_framework"] = tf_match.group(1)
+
             if "<AzureFunctionsVersion>" in content:
                 info["is_azure_functions"] = True
 
-            # Parse PackageReference elements
+            if "<EnableSdkContainerSupport>" in content:
+                info["container_support"] = True
+
+            # Parse XML tree once for both PackageReference and ProjectReference
             try:
                 tree = ET.fromstring(content)
+                ns = ""
+                ns_match = re.search(r"\{([^}]+)\}", tree.tag)
+                if ns_match:
+                    ns = ns_match.group(1)
+
+                # PackageReference
                 found_packages = list(tree.iter("PackageReference"))
-                if not found_packages:
-                    ns_match = re.search(r"\{([^}]+)\}", tree.tag)
-                    if ns_match:
-                        ns = ns_match.group(1)
-                        found_packages = list(tree.iter(f"{{{ns}}}PackageReference"))
+                if not found_packages and ns:
+                    found_packages = list(tree.iter(f"{{{ns}}}PackageReference"))
                 for pkg_ref in found_packages:
                     include = pkg_ref.get("Include", "")
                     if include:
@@ -780,16 +858,37 @@ class FrameworkAnalyzer(BaseAnalyzer):
                 if not found_packages:
                     refs = re.findall(r'<PackageReference\s+Include="([^"]+)"', content)
                     info["packages"].update(r.lower() for r in refs)
+
+                # ProjectReference
+                found_proj_refs = list(tree.iter("ProjectReference"))
+                if not found_proj_refs and ns:
+                    found_proj_refs = list(tree.iter(f"{{{ns}}}ProjectReference"))
+                for proj_ref in found_proj_refs:
+                    include = proj_ref.get("Include", "")
+                    if include:
+                        info["project_references"].append(PureWindowsPath(include).stem)
+                if not found_proj_refs:
+                    proj_refs = re.findall(
+                        r'<ProjectReference\s+Include="([^"]+)"', content
+                    )
+                    info["project_references"] = [
+                        PureWindowsPath(r).stem for r in proj_refs
+                    ]
+
             except ET.ParseError:
                 refs = re.findall(r'<PackageReference\s+Include="([^"]+)"', content)
                 info["packages"].update(r.lower() for r in refs)
+                proj_refs = re.findall(
+                    r'<ProjectReference\s+Include="([^"]+)"', content
+                )
+                info["project_references"] = [Path(r).stem for r in proj_refs]
 
             # Check Azure Functions worker packages
             if any("microsoft.azure.functions.worker" in p for p in info["packages"]):
                 info["is_azure_functions"] = True
 
         except (OSError, UnicodeDecodeError):
-            pass
+            pass  # Expected for .csproj files that can't be read or decoded
 
         return info
 
@@ -873,10 +972,13 @@ class FrameworkAnalyzer(BaseAnalyzer):
 
     def _detect_mkdocs_details(self) -> None:
         """Detect MkDocs configuration details."""
+        from .port_detector import PortDetector
+
         config_file = "mkdocs.yml" if self._exists("mkdocs.yml") else "mkdocs.yaml"
         content = self._read_file(config_file)
         content_lower = content.lower()
 
         if "material" in content_lower:
             self.analysis["framework"] = "MkDocs Material"
-        self.analysis["default_port"] = 8000
+        port_detector = PortDetector(self.path, self.analysis)
+        self.analysis["default_port"] = port_detector.detect_port_from_sources(8000)

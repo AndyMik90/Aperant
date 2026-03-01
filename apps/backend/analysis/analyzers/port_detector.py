@@ -377,7 +377,7 @@ class PortDetector(BaseAnalyzer):
                             if 1000 <= port <= 65535:
                                 return port
                         except ValueError:
-                            pass
+                            pass  # Expected for non-numeric port values in args
 
         return None
 

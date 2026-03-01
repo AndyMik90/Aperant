@@ -6,6 +6,7 @@
  * repository supplies its own GITHUB_REPO value.
  */
 
+import { ipcMain } from 'electron';
 import { existsSync, readFileSync } from 'fs';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
@@ -18,7 +19,6 @@ function isChildPath(parentPath: string, candidatePath: string): boolean {
   const rel = path.relative(parentPath, candidatePath);
   return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
 }
-import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type { IPCResult, GitHubIssue, MultiRepoGitHubStatus, MultiRepoIssuesResult, MultiRepoPRsResult } from '../../../shared/types';
 import { projectStore } from '../../project-store';
@@ -212,11 +212,16 @@ function registerGetMultiRepoIssues(): void {
         );
 
         const allIssues: GitHubIssue[] = [];
+        const perPage = 50;
+        let anyRepoHasMore = false;
 
         for (const result of settledResults) {
           if (result.status === 'fulfilled') {
             const { repoFullName, data } = result.value;
             if (Array.isArray(data)) {
+              if (data.length === perPage) {
+                anyRepoHasMore = true;
+              }
               const issuesOnly = (data as GitHubAPIIssue[]).filter(
                 (item) => !item.pull_request
               );
@@ -242,7 +247,7 @@ function registerGetMultiRepoIssues(): void {
           data: {
             issues: allIssues,
             repos: allRepoNames,
-            hasMore: false,
+            hasMore: anyRepoHasMore,
           },
         };
       } catch (error) {
@@ -278,6 +283,12 @@ function registerGetMultiRepoIssueDetail(): void {
       const config = await getCustomerGitHubConfig(customerId);
       if (!config) {
         return { success: false, error: 'No GitHub configuration found for this customer' };
+      }
+
+      // Validate that the requested repo belongs to this customer's configured repos
+      const isValidRepo = config.repos.some(r => r.repoFullName === repoFullName);
+      if (!isValidRepo) {
+        return { success: false, error: `Repository ${repoFullName} is not configured for this customer` };
       }
 
       try {
@@ -340,6 +351,7 @@ function registerGetMultiRepoPRs(): void {
           if (result.status === 'fulfilled') {
             const { repoFullName, data } = result.value;
             if (Array.isArray(data)) {
+              // TODO: Add a typed interface (e.g. GitHubAPIPullRequest) for the GitHub PR API response shape
               // biome-ignore lint/suspicious/noExplicitAny: GitHub REST API response shape
               const transformed = (data as any[]).map((pr) => ({
                 number: pr.number,

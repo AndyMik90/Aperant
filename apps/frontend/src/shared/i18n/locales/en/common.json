@@ -142,7 +142,9 @@
     "justNow": "Just now",
     "minutesAgo": "{{count}}m ago",
     "hoursAgo": "{{count}}h ago",
-    "daysAgo": "{{count}}d ago"
+    "daysAgo": "{{count}}d ago",
+    "yesterday": "yesterday",
+    "weeksAgo": "{{count}}w ago"
   },
   "errors": {
     "generic": "An error occurred",
@@ -431,6 +433,13 @@
       "agentActivity": "Agent Activity",
       "showMore": "Show {{count}} more",
       "hideMore": "Hide {{count}} more"
+    },
+    "reposCount": "{{count}} repos",
+    "multiRepo": {
+      "failedToCheckConnection": "Failed to check multi-repo connection",
+      "failedToLoadPRs": "Failed to load PRs",
+      "failedToRefreshPRs": "Failed to refresh PRs",
+      "unknownError": "Unknown error"
     }
   },
   "downloads": {
@@ -522,7 +531,14 @@
   "issues": {
     "loadingMore": "Loading more...",
     "scrollForMore": "Scroll for more",
-    "allLoaded": "All issues loaded"
+    "allLoaded": "All issues loaded",
+    "reposCount": "{{count}} repos",
+    "multiRepo": {
+      "failedToCheckConnection": "Failed to check multi-repo connection",
+      "failedToLoadIssues": "Failed to load issues",
+      "failedToRefreshIssues": "Failed to refresh issues",
+      "unknownError": "Unknown error"
+    }
   },
   "usage": {
     "dataUnavailable": "Usage data unavailable",

@@ -806,14 +806,14 @@ export function App() {
 
       // Refresh projects to get updated data
       await loadProjects();
+
+      // For customers, open the repos modal to clone repositories
+      if (gitHubSetupProject.type === 'customer') {
+        setCustomerReposProject(gitHubSetupProject);
+        setShowCustomerRepos(true);
+      }
     } catch (error) {
       console.error('Failed to save GitHub settings:', error);
-    }
-
-    // For customers, open the repos modal to clone repositories
-    if (gitHubSetupProject.type === 'customer') {
-      setCustomerReposProject(gitHubSetupProject);
-      setShowCustomerRepos(true);
     }
 
     setShowGitHubSetup(false);

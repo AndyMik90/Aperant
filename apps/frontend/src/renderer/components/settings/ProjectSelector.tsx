@@ -33,13 +33,16 @@ export function ProjectSelector({
 
   // Only show top-level projects: customers + regular projects (not cloned repos inside customer folders)
   const projects = useMemo(() => {
+    // Normalize path separators for cross-platform comparison (Windows uses backslashes)
+    const normalize = (p: string) => p.replace(/\\/g, '/');
     const customerPaths = allProjects
       .filter(p => p.type === 'customer')
-      .map(c => c.path);
+      .map(c => normalize(c.path));
     return allProjects.filter(p => {
       if (p.type === 'customer') return true;
       // Exclude projects whose path is inside a customer folder
-      return !customerPaths.some(cp => p.path.startsWith(cp + '/'));
+      const normalizedPath = normalize(p.path);
+      return !customerPaths.some(cp => normalizedPath.startsWith(cp + '/'));
     });
   }, [allProjects]);
 

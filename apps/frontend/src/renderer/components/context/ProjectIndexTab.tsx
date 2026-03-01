@@ -98,7 +98,7 @@ export function ProjectIndexTab({
             {indexProgress ? (
               <div className="text-center space-y-2">
                 <p className="text-sm font-medium text-foreground">{indexProgress}</p>
-                {indexProgressTotal && indexProgressCurrent ? (
+                {indexProgressTotal != null && indexProgressCurrent != null ? (
                   <div className="w-64 mx-auto">
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
                       <span>{t('projectIndex.repoProgress', { current: indexProgressCurrent, total: indexProgressTotal })}</span>
@@ -125,7 +125,7 @@ export function ProjectIndexTab({
             <Loader2 className="h-5 w-5 animate-spin text-primary shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-foreground">{indexProgress}</p>
-              {indexProgressTotal && indexProgressCurrent ? (
+              {indexProgressTotal != null && indexProgressCurrent != null ? (
                 <div className="mt-2">
                   <div className="flex justify-between text-xs text-muted-foreground mb-1">
                     <span>{t('projectIndex.repoProgress', { current: indexProgressCurrent, total: indexProgressTotal })}</span>

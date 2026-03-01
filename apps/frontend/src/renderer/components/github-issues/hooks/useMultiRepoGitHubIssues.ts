@@ -1,6 +1,31 @@
-import { useEffect, useCallback, useMemo, useState, useRef } from 'react';
-import type { GitHubIssue, MultiRepoGitHubStatus } from '../../../../shared/types';
+import { useEffect, useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { GitHubIssue, MultiRepoGitHubStatus } from '@shared/types';
 import type { FilterState } from '../types';
+
+/**
+ * Creates a composite issue ID from repo name and issue number.
+ * Format: `repoFullName#number` (e.g., `org/repo#123`)
+ * Falls back to `#number` when repoFullName is empty (single-repo compat).
+ */
+export function makeIssueId(repoFullName: string | undefined, number: number): string {
+  return `${repoFullName || ''}#${number}`;
+}
+
+/**
+ * Parses a composite issue ID back into its parts.
+ * Handles both `repoFullName#number` and `#number` formats.
+ */
+export function parseIssueId(id: string): { repo: string; number: number } {
+  const hashIndex = id.lastIndexOf('#');
+  if (hashIndex === -1) {
+    return { repo: '', number: Number.parseInt(id, 10) };
+  }
+  return {
+    repo: id.slice(0, hashIndex),
+    number: Number.parseInt(id.slice(hashIndex + 1), 10),
+  };
+}
 
 interface MultiRepoState {
   issues: GitHubIssue[];
@@ -9,11 +34,12 @@ interface MultiRepoState {
   isLoading: boolean;
   error: string | null;
   syncStatus: MultiRepoGitHubStatus | null;
-  selectedIssueNumber: number | null;
+  selectedIssueId: string | null;
   filterState: FilterState;
 }
 
 export function useMultiRepoGitHubIssues(customerId: string | undefined) {
+  const { t } = useTranslation('common');
   const [state, setState] = useState<MultiRepoState>({
     issues: [],
     repos: [],
@@ -21,17 +47,13 @@ export function useMultiRepoGitHubIssues(customerId: string | undefined) {
     isLoading: false,
     error: null,
     syncStatus: null,
-    selectedIssueNumber: null,
+    selectedIssueId: null,
     filterState: 'open',
   });
-
-  const hasCheckedRef = useRef(false);
 
   // Check multi-repo connection on mount/customerId change
   useEffect(() => {
     if (!customerId) return;
-
-    hasCheckedRef.current = false;
 
     const checkConnection = async () => {
       try {
@@ -43,24 +65,23 @@ export function useMultiRepoGitHubIssues(customerId: string | undefined) {
             syncStatus: data,
             repos: data.repos.map(r => r.repoFullName),
           }));
-          hasCheckedRef.current = true;
         } else {
           setState(prev => ({
             ...prev,
             syncStatus: { connected: false, repos: [], error: result.error },
-            error: result.error || 'Failed to check multi-repo connection',
+            error: result.error || t('issues.multiRepo.failedToCheckConnection'),
           }));
         }
       } catch (error) {
         setState(prev => ({
           ...prev,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: error instanceof Error ? error.message : t('issues.multiRepo.unknownError'),
         }));
       }
     };
 
     checkConnection();
-  }, [customerId]);
+  }, [customerId, t]);
 
   // Load issues when connected or filter changes
   useEffect(() => {
@@ -86,32 +107,32 @@ export function useMultiRepoGitHubIssues(customerId: string | undefined) {
         } else {
           setState(prev => ({
             ...prev,
-            error: result.error || 'Failed to load issues',
+            error: result.error || t('issues.multiRepo.failedToLoadIssues'),
             isLoading: false,
           }));
         }
       } catch (error) {
         setState(prev => ({
           ...prev,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: error instanceof Error ? error.message : t('issues.multiRepo.unknownError'),
           isLoading: false,
         }));
       }
     };
 
     loadIssues();
-  }, [customerId, state.syncStatus?.connected, state.filterState]);
+  }, [customerId, state.syncStatus?.connected, state.filterState, t]);
 
-  const selectIssue = useCallback((issueNumber: number | null) => {
-    setState(prev => ({ ...prev, selectedIssueNumber: issueNumber }));
+  const selectIssue = useCallback((issueId: string | null) => {
+    setState(prev => ({ ...prev, selectedIssueId: issueId }));
   }, []);
 
   const setSelectedRepo = useCallback((repo: string) => {
-    setState(prev => ({ ...prev, selectedRepo: repo, selectedIssueNumber: null }));
+    setState(prev => ({ ...prev, selectedRepo: repo, selectedIssueId: null }));
   }, []);
 
   const handleFilterChange = useCallback((filterState: FilterState) => {
-    setState(prev => ({ ...prev, filterState, selectedIssueNumber: null }));
+    setState(prev => ({ ...prev, filterState, selectedIssueId: null }));
   }, []);
 
   const handleRefresh = useCallback(() => {
@@ -147,38 +168,33 @@ export function useMultiRepoGitHubIssues(customerId: string | undefined) {
         } else {
           setState(prev => ({
             ...prev,
-            error: result.error || 'Failed to refresh issues',
+            error: result.error || t('issues.multiRepo.failedToRefreshIssues'),
             isLoading: false,
           }));
         }
       } catch (error) {
         setState(prev => ({
           ...prev,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: error instanceof Error ? error.message : t('issues.multiRepo.unknownError'),
           isLoading: false,
         }));
       }
     };
 
     refresh();
-  }, [customerId, state.filterState]);
+  }, [customerId, state.filterState, t]);
 
   // Get filtered issues based on selected repo
+  // Note: state filtering is already done by the API via the `state` parameter
   const getFilteredIssues = useCallback((): GitHubIssue[] => {
-    const { issues, selectedRepo, filterState } = state;
-    let filtered = issues;
-
-    // Filter by state
-    if (filterState !== 'all') {
-      filtered = filtered.filter(issue => issue.state === filterState);
-    }
+    const { issues, selectedRepo } = state;
 
     // Filter by repo
     if (selectedRepo !== 'all') {
-      filtered = filtered.filter(issue => issue.repoFullName === selectedRepo);
+      return issues.filter(issue => issue.repoFullName === selectedRepo);
     }
 
-    return filtered;
+    return issues;
   }, [state]);
 
   const getOpenIssuesCount = useCallback((): number => {
@@ -191,10 +207,12 @@ export function useMultiRepoGitHubIssues(customerId: string | undefined) {
   }, [state]);
 
   const selectedIssue = useMemo(() => {
-    return state.issues.find(i => i.number === state.selectedIssueNumber &&
-      (state.selectedRepo === 'all' || i.repoFullName === state.selectedRepo)
+    if (!state.selectedIssueId) return null;
+    const { repo, number } = parseIssueId(state.selectedIssueId);
+    return state.issues.find(i =>
+      i.number === number && (repo === '' || i.repoFullName === repo)
     ) || null;
-  }, [state.issues, state.selectedIssueNumber, state.selectedRepo]);
+  }, [state.issues, state.selectedIssueId]);
 
   return {
     issues: state.issues,
@@ -202,7 +220,7 @@ export function useMultiRepoGitHubIssues(customerId: string | undefined) {
     isLoading: state.isLoading,
     isLoadingMore: false,
     error: state.error,
-    selectedIssueNumber: state.selectedIssueNumber,
+    selectedIssueId: state.selectedIssueId,
     selectedIssue,
     filterState: state.filterState,
     hasMore: false,

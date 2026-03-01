@@ -1414,9 +1414,7 @@ export function AgentTools() {
                     ? t('settings:mcp.globalMcps.serverType.command')
                     : server.config.type === 'sse'
                       ? t('settings:mcp.globalMcps.serverType.sse')
-                      : server.config.type === 'http'
-                        ? t('settings:mcp.globalMcps.serverType.http')
-                        : t('settings:mcp.globalMcps.serverType.http');
+                      : t('settings:mcp.globalMcps.serverType.http');
                   const ServerIcon = server.config.command ? Terminal : Globe;
                   const detail = server.config.command
                     ? `${server.config.command} ${server.config.args?.join(' ') || ''}`
@@ -1510,6 +1508,7 @@ export function AgentTools() {
                           });
                         }}
                         className="flex items-center gap-2 w-full text-left py-1.5 px-2 rounded hover:bg-muted/50 transition-colors"
+                        aria-expanded={isExpanded}
                       >
                         {isExpanded ? (
                           <ChevronDown className="h-3 w-3 text-muted-foreground" />

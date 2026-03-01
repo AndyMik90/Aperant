@@ -478,6 +478,9 @@ class DatabaseDetector(BaseAnalyzer):
                     is_nullable = raw_type.endswith("?")
                     clean_type = raw_type.rstrip("?")
 
+                    if not clean_type:
+                        continue
+
                     # Only include properties with recognized types or common patterns
                     if clean_type not in csharp_types and not clean_type[0].isupper():
                         continue

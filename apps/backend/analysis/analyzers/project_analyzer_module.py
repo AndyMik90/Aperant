@@ -114,10 +114,10 @@ class ProjectAnalyzer:
                         continue
 
                     # Check if this looks like a service
-                    has_root_file = has_service_root(item)
+                    has_service_marker = has_service_root(item)
                     is_service_name = item.name.lower() in SERVICE_INDICATORS
 
-                    if has_root_file or (
+                    if has_service_marker or (
                         location == self.project_dir and is_service_name
                     ):
                         analyzer = ServiceAnalyzer(item, item.name)

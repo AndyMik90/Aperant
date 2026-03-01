@@ -142,7 +142,9 @@
     "justNow": "À l'instant",
     "minutesAgo": "Il y a {{count}} min",
     "hoursAgo": "Il y a {{count}}h",
-    "daysAgo": "Il y a {{count}}j"
+    "daysAgo": "Il y a {{count}}j",
+    "yesterday": "hier",
+    "weeksAgo": "Il y a {{count}} sem"
   },
   "errors": {
     "generic": "Une erreur s'est produite",
@@ -431,6 +433,13 @@
       "agentActivity": "Activité des agents",
       "showMore": "Afficher {{count}} de plus",
       "hideMore": "Masquer {{count}}"
+    },
+    "reposCount": "{{count}} dépôts",
+    "multiRepo": {
+      "failedToCheckConnection": "Échec de la vérification de la connexion multi-dépôts",
+      "failedToLoadPRs": "Échec du chargement des PRs",
+      "failedToRefreshPRs": "Échec de l'actualisation des PRs",
+      "unknownError": "Erreur inconnue"
     }
   },
   "downloads": {
@@ -522,7 +531,14 @@
   "issues": {
     "loadingMore": "Chargement...",
     "scrollForMore": "Défiler pour plus",
-    "allLoaded": "Toutes les issues chargées"
+    "allLoaded": "Toutes les issues chargées",
+    "reposCount": "{{count}} dépôts",
+    "multiRepo": {
+      "failedToCheckConnection": "Échec de la vérification de la connexion multi-dépôts",
+      "failedToLoadIssues": "Échec du chargement des issues",
+      "failedToRefreshIssues": "Échec de l'actualisation des issues",
+      "unknownError": "Erreur inconnue"
+    }
   },
   "usage": {
     "dataUnavailable": "Données d'utilisation non disponibles",

@@ -263,9 +263,9 @@
   },
   "envConfig": {
     "profileNotFound": "Profil introuvable",
-    "failedToSaveToken": "Echec de la sauvegarde du jeton",
-    "invalidProfileCredentials": "Le profil selectionne n'a pas d'identifiants valides. Veuillez vous re-authentifier.",
-    "failedToUseProfile": "Echec de l'utilisation du profil"
+    "failedToSaveToken": "Échec de la sauvegarde du jeton",
+    "invalidProfileCredentials": "Le profil sélectionné n'a pas d'identifiants valides. Veuillez vous ré-authentifier.",
+    "failedToUseProfile": "Échec de l'utilisation du profil"
   },
   "versionWarning": {
     "title": "Action requise",

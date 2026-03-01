@@ -266,7 +266,7 @@ function isValidSettings(obj: unknown): obj is ClaudeCodeSettings {
       sanitized.mcpServers = sanitizedMcpServers;
       hasValidFields = true;
     } else {
-      debugLog(`${LOG_PREFIX} Invalid or empty mcpServers field, skipping`);
+      debugError(`${LOG_PREFIX} Invalid or empty mcpServers field, skipping`);
     }
   }
 
@@ -277,7 +277,7 @@ function isValidSettings(obj: unknown): obj is ClaudeCodeSettings {
       sanitized.enabledPlugins = sanitizedEnabledPlugins;
       hasValidFields = true;
     } else {
-      debugLog(`${LOG_PREFIX} Invalid or empty enabledPlugins field, skipping`);
+      debugError(`${LOG_PREFIX} Invalid or empty enabledPlugins field, skipping`);
     }
   }
 

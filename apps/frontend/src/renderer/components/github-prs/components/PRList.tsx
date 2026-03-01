@@ -185,7 +185,7 @@ interface PRListProps {
   isLoadingMore?: boolean;
 }
 
-function formatDate(dateString: string): string {
+function formatRelativeDate(dateString: string, t: (key: string, options?: Record<string, unknown>) => string): string {
   const date = new Date(dateString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -195,13 +195,13 @@ function formatDate(dateString: string): string {
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     if (diffHours === 0) {
       const diffMins = Math.floor(diffMs / (1000 * 60));
-      return `${diffMins}m ago`;
+      return t('time.minutesAgo', { count: diffMins });
     }
-    return `${diffHours}h ago`;
+    return t('time.hoursAgo', { count: diffHours });
   }
-  if (diffDays === 1) return 'yesterday';
-  if (diffDays < 7) return `${diffDays}d ago`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  if (diffDays === 1) return t('time.yesterday');
+  if (diffDays < 7) return t('time.daysAgo', { count: diffDays });
+  if (diffDays < 30) return t('time.weeksAgo', { count: Math.floor(diffDays / 7) });
   return date.toLocaleDateString();
 }
 
@@ -307,7 +307,7 @@ export function PRList({
                     </span>
                     <span className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
-                      {formatDate(pr.updatedAt)}
+                      {formatRelativeDate(pr.updatedAt, t)}
                     </span>
                     <span className="flex items-center gap-1">
                       <FileDiff className="h-3 w-3" />

@@ -5,11 +5,12 @@ import { IssueListItem } from './IssueListItem';
 import { EmptyState } from './EmptyStates';
 import { GitHubErrorDisplay } from './GitHubErrorDisplay';
 import type { IssueListProps } from '../types';
+import { makeIssueId } from '../hooks/useMultiRepoGitHubIssues';
 import { useTranslation } from 'react-i18next';
 
 export function IssueList({
   issues,
-  selectedIssueNumber,
+  selectedIssueId,
   isLoading,
   isLoadingMore,
   hasMore,
@@ -78,21 +79,26 @@ export function IssueList({
   return (
     <ScrollArea className="flex-1" onViewportRef={setViewportElement}>
       <div className="p-2 space-y-1">
-        {/* In multi-repo mode, issue.number is not unique across repos.
-            issue.id (GitHub's globally unique ID) should be used instead.
-            TODO: Update parent props for repo-aware selection —
-            change selectedIssueNumber and onSelectIssue to use issue.id
-            instead of issue.number throughout the hook chain. */}
-        {issues.map((issue) => (
-          <IssueListItem
-            key={`${issue.repoFullName}-${issue.id}`}
-            issue={issue}
-            isSelected={selectedIssueNumber === issue.number}
-            onClick={() => onSelectIssue(issue.number)}
-            onInvestigate={() => onInvestigate(issue)}
-            showRepoBadge={showRepoBadge}
-          />
-        ))}
+        {issues.map((issue) => {
+          // Build the composite key for this issue to compare with the selected ID.
+          // In single-repo mode selectedIssueId is a number, so compare against issue.number.
+          // In multi-repo mode selectedIssueId is a composite string `repo#number`.
+          const issueCompositeId = showRepoBadge
+            ? makeIssueId(issue.repoFullName, issue.number)
+            : issue.number;
+          const isSelected = selectedIssueId === issueCompositeId;
+
+          return (
+            <IssueListItem
+              key={`${issue.repoFullName}-${issue.id}`}
+              issue={issue}
+              isSelected={isSelected}
+              onClick={() => onSelectIssue(issueCompositeId)}
+              onInvestigate={() => onInvestigate(issue)}
+              showRepoBadge={showRepoBadge}
+            />
+          );
+        })}
 
         {/* Load more trigger / Loading indicator */}
         {/* Inline error for load-more failures (visible even when onLoadMore is undefined during search) */}

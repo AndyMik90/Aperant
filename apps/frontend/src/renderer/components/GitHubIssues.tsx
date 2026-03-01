@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useProjectStore } from "../stores/project-store";
 import { useTaskStore } from "../stores/task-store";
 import {
@@ -24,6 +25,7 @@ import type { GitHubIssue } from "../../shared/types";
 import type { GitHubIssuesProps } from "./github-issues/types";
 
 export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesProps) {
+  const { t } = useTranslation("common");
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
@@ -37,17 +39,19 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
   // Multi-repo hook (active when IS a customer)
   const multiRepo = useMultiRepoGitHubIssues(isCustomer ? selectedProject?.id : undefined);
 
-  // Select the active hook's data
+  // Select the active hook's data.
+  // Multi-repo uses composite string IDs (selectedIssueId: `repo#number`),
+  // while single-repo uses plain numbers (selectedIssueNumber).
+  // We unify them under selectedIssueId (string | number | null) for IssueList.
+  const activeHook = isCustomer ? multiRepo : singleRepo;
   const {
     syncStatus,
     isLoading,
     isLoadingMore,
     error,
-    selectedIssueNumber,
     selectedIssue,
     filterState,
     hasMore,
-    selectIssue,
     getFilteredIssues,
     getOpenIssuesCount,
     handleRefresh,
@@ -55,7 +59,22 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     handleLoadMore,
     handleSearchStart,
     handleSearchClear,
-  } = isCustomer ? multiRepo : singleRepo;
+  } = activeHook;
+
+  // Unified selection ID: composite string in multi-repo, plain number in single-repo
+  const selectedIssueId: string | number | null = isCustomer
+    ? multiRepo.selectedIssueId
+    : singleRepo.selectedIssueNumber;
+
+  // Unified selection callback: multi-repo expects string, single-repo expects number.
+  // Wrapped in a single function to avoid TypeScript union narrowing issues.
+  const selectIssue = useCallback((id: string | number | null) => {
+    if (isCustomer) {
+      multiRepo.selectIssue(typeof id === 'string' ? id : null);
+    } else {
+      singleRepo.selectIssue(typeof id === 'number' ? id : null);
+    }
+  }, [isCustomer, multiRepo.selectIssue, singleRepo.selectIssue]);
 
   // Resolve child project ID from selected issue's repoFullName (for multi-repo)
   const resolvedChildProjectId = useMemo(() => {
@@ -159,7 +178,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
   const headerRepoName = isCustomer
     ? (multiRepo.repos.length > 0
       ? (multiRepo.selectedRepo === 'all'
-        ? `${multiRepo.repos.length} repos`
+        ? t('issues.reposCount', { count: multiRepo.repos.length })
         : multiRepo.selectedRepo)
       : '')
     : (singleRepo.syncStatus?.repoFullName ?? "");
@@ -206,7 +225,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         <div className="w-1/2 border-r border-border flex flex-col">
           <IssueList
             issues={filteredIssues}
-            selectedIssueNumber={selectedIssueNumber}
+            selectedIssueId={selectedIssueId}
             isLoading={isLoading}
             isLoadingMore={isLoadingMore}
             hasMore={hasMore && !isSearchActive}

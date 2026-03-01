@@ -110,12 +110,22 @@ export interface IssueListHeaderProps {
 
 export interface IssueListProps {
   issues: GitHubIssue[];
-  selectedIssueNumber: number | null;
+  /**
+   * Selected issue identifier.
+   * - Single-repo mode: issue number (number)
+   * - Multi-repo mode: composite key `repoFullName#number` (string)
+   */
+  selectedIssueId: string | number | null;
   isLoading: boolean;
   isLoadingMore?: boolean;
   hasMore?: boolean;
   error: string | null;
-  onSelectIssue: (issueNumber: number) => void;
+  /**
+   * Called when an issue is selected.
+   * - Single-repo mode: receives the issue number (number)
+   * - Multi-repo mode: receives a composite key `repoFullName#number` (string)
+   */
+  onSelectIssue: (issueId: string | number) => void;
   onInvestigate: (issue: GitHubIssue) => void;
   onLoadMore?: () => void;
   /** Callback for retry button in error display */

@@ -6,7 +6,7 @@
  */
 
 import { ipcMain } from 'electron';
-import { existsSync, readdirSync, statSync } from 'fs';
+import { existsSync, readdirSync } from 'fs';
 import { homedir } from 'os';
 import path from 'path';
 import { IPC_CHANNELS } from '../../shared/constants/ipc';
@@ -66,16 +66,11 @@ export function registerClaudeAgentsHandlers(): void {
       const categories: ClaudeAgentCategory[] = [];
       let totalAgents = 0;
 
-      const entries = readdirSync(agentsDir);
+      const entries = readdirSync(agentsDir, { withFileTypes: true });
 
       for (const entry of entries) {
-        const entryPath = path.join(agentsDir, entry);
-        try {
-          const stat = statSync(entryPath);
-          if (!stat.isDirectory()) continue;
-        } catch {
-          continue;
-        }
+        if (!entry.isDirectory()) continue;
+        const entryPath = path.join(agentsDir, entry.name);
 
         const agents: ClaudeCustomAgent[] = [];
 
@@ -90,8 +85,8 @@ export function registerClaudeAgentsHandlers(): void {
             agents.push({
               agentId,
               agentName: toAgentName(file),
-              categoryDir: entry,
-              categoryName: toCategoryName(entry),
+              categoryDir: entry.name,
+              categoryName: toCategoryName(entry.name),
               filePath,
             });
           }
@@ -105,8 +100,8 @@ export function registerClaudeAgentsHandlers(): void {
           agents.sort((a, b) => a.agentName.localeCompare(b.agentName));
 
           categories.push({
-            categoryDir: entry,
-            categoryName: toCategoryName(entry),
+            categoryDir: entry.name,
+            categoryName: toCategoryName(entry.name),
             agents,
           });
           totalAgents += agents.length;

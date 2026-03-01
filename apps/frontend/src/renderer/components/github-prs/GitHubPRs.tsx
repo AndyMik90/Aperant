@@ -3,7 +3,7 @@ import { GitPullRequest, RefreshCw, ExternalLink, Settings, User, Clock, FileDif
 import { useTranslation } from "react-i18next";
 import { useProjectStore } from "../../stores/project-store";
 import { useGitHubPRs, usePRFiltering } from "./hooks";
-import { useMultiRepoGitHubPRs } from "./hooks/useMultiRepoGitHubPRs";
+import { useMultiRepoGitHubPRs, makePRId, parsePRId } from "./hooks/useMultiRepoGitHubPRs";
 import { PRList, PRDetail, PRFilterBar } from "./components";
 import { RepoFilterDropdown } from "../github-issues/components/RepoFilterDropdown";
 import { Button } from "../ui/button";
@@ -25,7 +25,7 @@ function NotConnectedState({
 }: {
   error: string | null;
   onOpenSettings?: () => void;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, unknown>) => string;
 }) {
   return (
     <div className="flex-1 flex items-center justify-center p-8">
@@ -55,7 +55,7 @@ function EmptyState({ message }: { message: string }) {
   );
 }
 
-function formatDate(dateString: string): string {
+function formatRelativeDate(dateString: string, t: (key: string, options?: Record<string, unknown>) => string): string {
   const date = new Date(dateString);
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
@@ -64,13 +64,13 @@ function formatDate(dateString: string): string {
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     if (diffHours === 0) {
       const diffMins = Math.floor(diffMs / (1000 * 60));
-      return `${diffMins}m ago`;
+      return t('time.minutesAgo', { count: diffMins });
     }
-    return `${diffHours}h ago`;
+    return t('time.hoursAgo', { count: diffHours });
   }
-  if (diffDays === 1) return 'yesterday';
-  if (diffDays < 7) return `${diffDays}d ago`;
-  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  if (diffDays === 1) return t('time.yesterday');
+  if (diffDays < 7) return t('time.daysAgo', { count: diffDays });
+  if (diffDays < 30) return t('time.weeksAgo', { count: Math.floor(diffDays / 7) });
   return date.toLocaleDateString();
 }
 
@@ -99,7 +99,7 @@ function MultiRepoPRDetail({ pr }: { pr: MultiRepoPRData }) {
           </span>
           <span className="flex items-center gap-1">
             <Clock className="h-3.5 w-3.5" />
-            {formatDate(pr.updatedAt)}
+            {formatRelativeDate(pr.updatedAt, t)}
           </span>
           <span className="flex items-center gap-1">
             <FileDiff className="h-3.5 w-3.5" />
@@ -146,6 +146,7 @@ function MultiRepoPRListItem({
   isSelected: boolean;
   onClick: () => void;
 }) {
+  const { t } = useTranslation("common");
   return (
     <button
       type="button"
@@ -175,7 +176,7 @@ function MultiRepoPRListItem({
             </span>
             <span className="flex items-center gap-1">
               <Clock className="h-3 w-3" />
-              {formatDate(pr.updatedAt)}
+              {formatRelativeDate(pr.updatedAt, t)}
             </span>
             {(pr.additions > 0 || pr.deletions > 0) && (
               <span className="flex items-center gap-1">
@@ -200,17 +201,17 @@ function MultiRepoPRView({
 }: {
   multiRepo: ReturnType<typeof useMultiRepoGitHubPRs>;
   onOpenSettings?: () => void;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, unknown>) => string;
   fullPRDetail?: React.ReactNode;
 }) {
-  const { prs, isLoading, error, selectedPRNumber, selectedPR, isConnected, selectPR, refresh, repos, selectedRepo, setSelectedRepo } = multiRepo;
+  const { prs, isLoading, error, selectedPRId, selectedPR, isConnected, selectPR, refresh, repos, selectedRepo, setSelectedRepo } = multiRepo;
 
   if (!isConnected) {
     return <NotConnectedState error={error} onOpenSettings={onOpenSettings} t={t} />;
   }
 
   const headerRepoName = repos.length > 0
-    ? (selectedRepo === 'all' ? `${repos.length} repos` : selectedRepo)
+    ? (selectedRepo === 'all' ? t('prReview.reposCount', { count: repos.length }) : selectedRepo)
     : '';
 
   return (
@@ -272,14 +273,17 @@ function MultiRepoPRView({
           ) : (
             <ScrollArea className="flex-1">
               <div className="divide-y divide-border">
-                {prs.map((pr) => (
-                  <MultiRepoPRListItem
-                    key={`${pr.repoFullName}-${pr.number}`}
-                    pr={pr}
-                    isSelected={selectedPRNumber === pr.number}
-                    onClick={() => selectPR(pr.number)}
-                  />
-                ))}
+                {prs.map((pr) => {
+                  const prCompositeId = makePRId(pr.repoFullName, pr.number);
+                  return (
+                    <MultiRepoPRListItem
+                      key={`${pr.repoFullName}-${pr.number}`}
+                      pr={pr}
+                      isSelected={selectedPRId === prCompositeId}
+                      onClick={() => selectPR(prCompositeId)}
+                    />
+                  );
+                })}
               </div>
             </ScrollArea>
           )}
@@ -380,16 +384,23 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
     }
   }, [prs, selectedPRNumber, selectPR, isCustomer]);
 
-  // Sync PR selection from multi-repo to single-repo for customer mode
+  // Sync PR selection from multi-repo to single-repo for customer mode.
+  // The multi-repo hook stores a composite ID (repo#number), but the single-repo
+  // hook needs the plain PR number to load details from that specific repo.
+  const multiRepoSelectedNumber = useMemo(() => {
+    if (!multiRepo.selectedPRId) return null;
+    return parsePRId(multiRepo.selectedPRId).number;
+  }, [multiRepo.selectedPRId]);
+
   useEffect(() => {
-    if (!isCustomer || !resolvedChildProjectId || !multiRepo.selectedPRNumber) return;
+    if (!isCustomer || !resolvedChildProjectId || !multiRepoSelectedNumber) return;
     if (prs.length > 0) {
-      const prExists = prs.some(pr => pr.number === multiRepo.selectedPRNumber);
-      if (prExists && selectedPRNumber !== multiRepo.selectedPRNumber) {
-        selectPR(multiRepo.selectedPRNumber);
+      const prExists = prs.some(pr => pr.number === multiRepoSelectedNumber);
+      if (prExists && selectedPRNumber !== multiRepoSelectedNumber) {
+        selectPR(multiRepoSelectedNumber);
       }
     }
-  }, [isCustomer, resolvedChildProjectId, multiRepo.selectedPRNumber, prs, selectedPRNumber, selectPR]);
+  }, [isCustomer, resolvedChildProjectId, multiRepoSelectedNumber, prs, selectedPRNumber, selectPR]);
 
   const handleRunReview = useCallback(() => {
     if (selectedPRNumber) {

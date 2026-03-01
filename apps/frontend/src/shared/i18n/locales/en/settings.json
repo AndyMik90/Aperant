@@ -995,6 +995,10 @@
     "issuesAvailable": "Issues Available",
     "issuesAvailableDescription": "Access GitHub Issues from the sidebar to view, investigate, and create tasks from issues.",
     "autoSyncOnLoad": "Auto-Sync on Load",
-    "autoSyncDescription": "Automatically fetch issues when the project loads"
+    "autoSyncDescription": "Automatically fetch issues when the project loads",
+    "failedToLoadBranches": "Failed to load branches",
+    "failedToLoadRepositories": "Failed to load repositories",
+    "cloneFailed": "Clone failed",
+    "failedToRegisterProject": "Failed to register cloned project"
   }
 }

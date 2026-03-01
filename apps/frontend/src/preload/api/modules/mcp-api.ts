@@ -6,10 +6,10 @@
  */
 
 import { ipcRenderer } from 'electron';
-import { IPC_CHANNELS } from '../../../shared/constants/ipc';
-import type { IPCResult } from '../../../shared/types/common';
-import type { CustomMcpServer, McpHealthCheckResult, McpTestConnectionResult } from '../../../shared/types/project';
-import type { GlobalMcpInfo, ClaudeAgentsInfo } from '../../../shared/types/integrations';
+import { IPC_CHANNELS } from '@shared/constants/ipc';
+import type { IPCResult } from '@shared/types/common';
+import type { CustomMcpServer, McpHealthCheckResult, McpTestConnectionResult } from '@shared/types/project';
+import type { GlobalMcpInfo, ClaudeAgentsInfo } from '@shared/types/integrations';
 
 export interface McpAPI {
   /** Quick health check for a custom MCP server */

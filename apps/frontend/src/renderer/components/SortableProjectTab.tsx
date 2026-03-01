@@ -95,7 +95,7 @@ export function SortableProjectTab({
                 'cursor-grab active:cursor-grabbing',
                 'w-1 h-4 rounded-full flex-shrink-0 transition-all',
                 isActive
-                  ? 'opacity-100 bg-emerald-400'
+                  ? 'opacity-100 bg-primary'
                   : 'opacity-0 group-hover:opacity-60 bg-muted-foreground'
               )}
             />

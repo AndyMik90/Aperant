@@ -1,5 +1,30 @@
 import { useEffect, useCallback, useMemo, useState, useRef } from 'react';
-import type { MultiRepoGitHubStatus, MultiRepoPRData } from '../../../../shared/types';
+import { useTranslation } from 'react-i18next';
+import type { MultiRepoGitHubStatus, MultiRepoPRData } from '@shared/types';
+
+/**
+ * Creates a composite PR ID from repo name and PR number.
+ * Format: `repoFullName#number` (e.g., `org/repo#123`)
+ * Falls back to `#number` when repoFullName is empty (single-repo compat).
+ */
+export function makePRId(repoFullName: string | undefined, number: number): string {
+  return `${repoFullName || ''}#${number}`;
+}
+
+/**
+ * Parses a composite PR ID back into its parts.
+ * Handles both `repoFullName#number` and `#number` formats.
+ */
+export function parsePRId(id: string): { repo: string; number: number } {
+  const hashIndex = id.lastIndexOf('#');
+  if (hashIndex === -1) {
+    return { repo: '', number: Number.parseInt(id, 10) };
+  }
+  return {
+    repo: id.slice(0, hashIndex),
+    number: Number.parseInt(id.slice(hashIndex + 1), 10),
+  };
+}
 
 interface MultiRepoPRState {
   prs: MultiRepoPRData[];
@@ -8,10 +33,11 @@ interface MultiRepoPRState {
   isLoading: boolean;
   error: string | null;
   syncStatus: MultiRepoGitHubStatus | null;
-  selectedPRNumber: number | null;
+  selectedPRId: string | null;
 }
 
 export function useMultiRepoGitHubPRs(customerId: string | undefined) {
+  const { t } = useTranslation('common');
   const [state, setState] = useState<MultiRepoPRState>({
     prs: [],
     repos: [],
@@ -19,7 +45,7 @@ export function useMultiRepoGitHubPRs(customerId: string | undefined) {
     isLoading: false,
     error: null,
     syncStatus: null,
-    selectedPRNumber: null,
+    selectedPRId: null,
   });
 
   const hasCheckedRef = useRef(false);
@@ -45,19 +71,20 @@ export function useMultiRepoGitHubPRs(customerId: string | undefined) {
           setState(prev => ({
             ...prev,
             syncStatus: { connected: false, repos: [], error: result.error },
-            error: result.error || 'Failed to check multi-repo connection',
+            error: result.error || t('prReview.multiRepo.failedToCheckConnection'),
           }));
         }
       } catch (error) {
         setState(prev => ({
           ...prev,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          syncStatus: { connected: false, repos: [], error: error instanceof Error ? error.message : t('prReview.multiRepo.unknownError') },
+          error: error instanceof Error ? error.message : t('prReview.multiRepo.unknownError'),
         }));
       }
     };
 
     checkConnection();
-  }, [customerId]);
+  }, [customerId, t]);
 
   // Load PRs when connected
   useEffect(() => {
@@ -80,28 +107,28 @@ export function useMultiRepoGitHubPRs(customerId: string | undefined) {
         } else {
           setState(prev => ({
             ...prev,
-            error: result.error || 'Failed to load PRs',
+            error: result.error || t('prReview.multiRepo.failedToLoadPRs'),
             isLoading: false,
           }));
         }
       } catch (error) {
         setState(prev => ({
           ...prev,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: error instanceof Error ? error.message : t('prReview.multiRepo.unknownError'),
           isLoading: false,
         }));
       }
     };
 
     loadPRs();
-  }, [customerId, state.syncStatus?.connected]);
+  }, [customerId, state.syncStatus?.connected, t]);
 
-  const selectPR = useCallback((prNumber: number | null) => {
-    setState(prev => ({ ...prev, selectedPRNumber: prNumber }));
+  const selectPR = useCallback((prId: string | null) => {
+    setState(prev => ({ ...prev, selectedPRId: prId }));
   }, []);
 
   const setSelectedRepo = useCallback((repo: string) => {
-    setState(prev => ({ ...prev, selectedRepo: repo, selectedPRNumber: null }));
+    setState(prev => ({ ...prev, selectedRepo: repo, selectedPRId: null }));
   }, []);
 
   const handleRefresh = useCallback(() => {
@@ -134,21 +161,21 @@ export function useMultiRepoGitHubPRs(customerId: string | undefined) {
         } else {
           setState(prev => ({
             ...prev,
-            error: result.error || 'Failed to refresh PRs',
+            error: result.error || t('prReview.multiRepo.failedToRefreshPRs'),
             isLoading: false,
           }));
         }
       } catch (error) {
         setState(prev => ({
           ...prev,
-          error: error instanceof Error ? error.message : 'Unknown error',
+          error: error instanceof Error ? error.message : t('prReview.multiRepo.unknownError'),
           isLoading: false,
         }));
       }
     };
 
     refresh();
-  }, [customerId]);
+  }, [customerId, t]);
 
   // Get filtered PRs based on selected repo
   const filteredPRs = useMemo((): MultiRepoPRData[] => {
@@ -158,17 +185,19 @@ export function useMultiRepoGitHubPRs(customerId: string | undefined) {
   }, [state]);
 
   const selectedPR = useMemo(() => {
-    return state.prs.find(pr => pr.number === state.selectedPRNumber &&
-      (state.selectedRepo === 'all' || pr.repoFullName === state.selectedRepo)
+    if (!state.selectedPRId) return null;
+    const { repo, number } = parsePRId(state.selectedPRId);
+    return state.prs.find(pr =>
+      pr.number === number && (repo === '' || pr.repoFullName === repo)
     ) || null;
-  }, [state.prs, state.selectedPRNumber, state.selectedRepo]);
+  }, [state.prs, state.selectedPRId]);
 
   return {
     prs: filteredPRs,
     syncStatus: state.syncStatus,
     isLoading: state.isLoading,
     error: state.error,
-    selectedPRNumber: state.selectedPRNumber,
+    selectedPRId: state.selectedPRId,
     selectedPR,
     isConnected: state.syncStatus?.connected ?? false,
     selectPR,

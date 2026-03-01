@@ -629,16 +629,13 @@ class RouteDetector(BaseAnalyzer):
             if var_name in group_prefixes:
                 prefix, group_auth = group_prefixes[var_name]
 
-            # Build full path
-            full_path = prefix + (
-                "/" + path.lstrip("/")
-                if path and path != "/"
-                else path
-                if path == "/"
-                else ""
-            )
-            if not full_path:
-                full_path = "/"
+            # Build full path from group prefix + route path
+            if path and path != "/":
+                full_path = prefix + "/" + path.lstrip("/")
+            elif path == "/":
+                full_path = prefix + "/"
+            else:
+                full_path = prefix if prefix else "/"
 
             # Normalize path params ({id} -> :id)
             full_path = self._normalize_aspnet_path(full_path)
@@ -700,18 +697,28 @@ class RouteDetector(BaseAnalyzer):
         """Extract route definitions from Angular route configuration."""
         routes = []
 
-        # Match route objects: { path: 'something', component/loadChildren/loadComponent: ... }
-        # This regex finds individual route entries with path property
-        route_pattern = re.compile(
-            r"\{\s*path\s*:\s*['\"]([^'\"]*)['\"]"
-            r"(?:\s*,\s*(?:component|loadChildren|loadComponent)\s*:\s*[^,}]+)?"
-            r"([^}]*)\}",
-            re.DOTALL,
-        )
+        # Find route objects by locating `{ path: '...'` and then tracking brace depth
+        # to find the matching closing brace. This handles nested objects like
+        # `data: { title: 'Home' }` that would break a simple [^}]* regex.
+        path_pattern = re.compile(r"\{\s*path\s*:\s*['\"]([^'\"]*)['\"]")
 
-        for match in route_pattern.finditer(content):
+        for match in path_pattern.finditer(content):
             path_segment = match.group(1)
-            rest_of_route = match.group(2) if match.group(2) else ""
+
+            # Find the matching closing brace by counting brace depth
+            brace_start = match.start()
+            depth = 0
+            pos = brace_start
+            while pos < len(content):
+                if content[pos] == "{":
+                    depth += 1
+                elif content[pos] == "}":
+                    depth -= 1
+                    if depth == 0:
+                        break
+                pos += 1
+
+            route_body = content[brace_start : pos + 1]
 
             # Build full path
             if path_segment:
@@ -731,17 +738,15 @@ class RouteDetector(BaseAnalyzer):
             has_target = bool(
                 re.search(
                     r"(?:component|loadChildren|loadComponent)\s*:",
-                    match.group(0),
+                    route_body,
                 )
             )
 
             # Check for canActivate (auth guard)
-            requires_auth = (
-                "canActivate" in match.group(0) or "canActivate" in rest_of_route
-            )
+            requires_auth = "canActivate" in route_body
 
-            # Check for children in the route object context
-            has_children = "children" in rest_of_route
+            # Check for children in the route object
+            has_children = "children" in route_body
 
             if has_target and not has_children:
                 routes.append(
@@ -756,22 +761,21 @@ class RouteDetector(BaseAnalyzer):
 
             # If there are children, try to extract nested routes
             if has_children:
-                # Find the children array content after this match
-                children_match = re.search(
-                    r"children\s*:\s*\[", content[match.start() :]
-                )
+                # Find the children array content within this route object
+                children_match = re.search(r"children\s*:\s*\[", route_body)
                 if children_match:
-                    bracket_start = match.start() + children_match.end()
+                    # Compute absolute position in content
+                    abs_bracket_start = brace_start + children_match.end()
                     # Find the matching closing bracket
-                    depth = 1
-                    pos = bracket_start
-                    while pos < len(content) and depth > 0:
-                        if content[pos] == "[":
-                            depth += 1
-                        elif content[pos] == "]":
-                            depth -= 1
-                        pos += 1
-                    children_content = content[bracket_start : pos - 1]
+                    bracket_depth = 1
+                    bracket_pos = abs_bracket_start
+                    while bracket_pos < len(content) and bracket_depth > 0:
+                        if content[bracket_pos] == "[":
+                            bracket_depth += 1
+                        elif content[bracket_pos] == "]":
+                            bracket_depth -= 1
+                        bracket_pos += 1
+                    children_content = content[abs_bracket_start : bracket_pos - 1]
 
                     # Recursively extract child routes
                     child_routes = self._extract_angular_routes(

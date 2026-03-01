@@ -10,11 +10,11 @@ import { ipcMain } from 'electron';
 import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
 import { homedir } from 'os';
 import path from 'path';
-import { IPC_CHANNELS } from '../../shared/constants/ipc';
-import type { IPCResult } from '../../shared/types';
-import type { GlobalMcpInfo, GlobalMcpServerEntry } from '../../shared/types/integrations';
+import { IPC_CHANNELS } from '@shared/constants/ipc';
+import type { IPCResult } from '@shared/types';
+import type { GlobalMcpInfo, GlobalMcpServerEntry } from '@shared/types/integrations';
 import { readUserGlobalSettings } from '../claude-code-settings/reader';
-import { debugLog } from '../../shared/utils/debug-logger';
+import { debugLog } from '@shared/utils/debug-logger';
 
 const LOG_PREFIX = '[ClaudeMCP]';
 
