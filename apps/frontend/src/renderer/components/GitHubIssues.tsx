@@ -57,12 +57,21 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     handleSearchClear,
   } = isCustomer ? multiRepo : singleRepo;
 
+  // Resolve child project ID from selected issue's repoFullName (for multi-repo)
+  const resolvedChildProjectId = useMemo(() => {
+    if (!isCustomer || !selectedIssue || !multiRepo.syncStatus?.repos) return undefined;
+    const match = multiRepo.syncStatus.repos.find(r => r.repoFullName === selectedIssue.repoFullName);
+    return match?.projectId;
+  }, [isCustomer, selectedIssue, multiRepo.syncStatus?.repos]);
+
+  const effectiveProjectId = isCustomer ? resolvedChildProjectId : selectedProject?.id;
+
   const {
     investigationStatus,
     lastInvestigationResult,
     startInvestigation,
     resetInvestigationStatus,
-  } = useGitHubInvestigation(isCustomer ? undefined : selectedProject?.id);
+  } = useGitHubInvestigation(effectiveProjectId);
 
   const { searchQuery, setSearchQuery, filteredIssues, isSearchActive } = useIssueFiltering(
     getFilteredIssues(),
@@ -79,7 +88,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     batchProgress,
     toggleAutoFix,
     checkForNewIssues,
-  } = useAutoFix(isCustomer ? undefined : selectedProject?.id);
+  } = useAutoFix(effectiveProjectId);
 
   // Analyze & Group Issues (proactive workflow) - disabled for customer multi-repo
   const {
@@ -224,9 +233,9 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
               }
               linkedTaskId={issueToTaskMap.get(selectedIssue.number)}
               onViewTask={onNavigateToTask}
-              projectId={selectedProject?.id}
-              autoFixConfig={isCustomer ? null : autoFixConfig}
-              autoFixQueueItem={isCustomer ? null : getAutoFixQueueItem(selectedIssue.number)}
+              projectId={effectiveProjectId}
+              autoFixConfig={autoFixConfig}
+              autoFixQueueItem={getAutoFixQueueItem(selectedIssue.number)}
             />
           ) : (
             <EmptyState message="Select an issue to view details" />
@@ -242,7 +251,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
         investigationStatus={investigationStatus}
         onStartInvestigation={handleStartInvestigation}
         onClose={handleCloseDialog}
-        projectId={selectedProject?.id}
+        projectId={effectiveProjectId}
       />
 
       {/* Batch Review Wizard (Proactive workflow) - not available in multi-repo mode */}

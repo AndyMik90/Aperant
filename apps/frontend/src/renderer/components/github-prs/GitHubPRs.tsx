@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { GitPullRequest, RefreshCw, ExternalLink, Settings, User, Clock, FileDiff } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useProjectStore } from "../../stores/project-store";
@@ -196,10 +196,12 @@ function MultiRepoPRView({
   multiRepo,
   onOpenSettings,
   t,
+  fullPRDetail,
 }: {
   multiRepo: ReturnType<typeof useMultiRepoGitHubPRs>;
   onOpenSettings?: () => void;
   t: (key: string) => string;
+  fullPRDetail?: React.ReactNode;
 }) {
   const { prs, isLoading, error, selectedPRNumber, selectedPR, isConnected, selectPR, refresh, repos, selectedRepo, setSelectedRepo } = multiRepo;
 
@@ -286,7 +288,7 @@ function MultiRepoPRView({
         {/* PR Detail */}
         <div className="w-1/2 flex flex-col">
           {selectedPR ? (
-            <MultiRepoPRDetail pr={selectedPR} />
+            fullPRDetail || <MultiRepoPRDetail pr={selectedPR} />
           ) : (
             <EmptyState message={t("prReview.selectPRToView")} />
           )}
@@ -307,8 +309,15 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
   // Multi-repo hook (active when IS a customer)
   const multiRepo = useMultiRepoGitHubPRs(isCustomer ? selectedProject?.id : undefined);
 
-  // Single-repo hook (active when NOT a customer)
-  const singleRepo = useGitHubPRs(isCustomer ? undefined : selectedProject?.id, { isActive });
+  // Resolve child project ID from selected PR's repoFullName (for multi-repo)
+  const resolvedChildProjectId = useMemo(() => {
+    if (!isCustomer || !multiRepo.selectedPR || !multiRepo.syncStatus?.repos) return undefined;
+    const match = multiRepo.syncStatus.repos.find(r => r.repoFullName === multiRepo.selectedPR?.repoFullName);
+    return match?.projectId;
+  }, [isCustomer, multiRepo.selectedPR, multiRepo.syncStatus?.repos]);
+
+  // Single-repo hook: activated with resolved child project for customer mode
+  const singleRepo = useGitHubPRs(isCustomer ? resolvedChildProjectId : selectedProject?.id, { isActive });
 
   const {
     prs,
@@ -370,6 +379,17 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
       }
     }
   }, [prs, selectedPRNumber, selectPR, isCustomer]);
+
+  // Sync PR selection from multi-repo to single-repo for customer mode
+  useEffect(() => {
+    if (!isCustomer || !resolvedChildProjectId || !multiRepo.selectedPRNumber) return;
+    if (prs.length > 0) {
+      const prExists = prs.some(pr => pr.number === multiRepo.selectedPRNumber);
+      if (prExists && selectedPRNumber !== multiRepo.selectedPRNumber) {
+        selectPR(multiRepo.selectedPRNumber);
+      }
+    }
+  }, [isCustomer, resolvedChildProjectId, multiRepo.selectedPRNumber, prs, selectedPRNumber, selectPR]);
 
   const handleRunReview = useCallback(() => {
     if (selectedPRNumber) {
@@ -438,11 +458,12 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
   );
 
   const handleGetLogs = useCallback(async () => {
-    if (selectedProjectId && selectedPRNumber) {
-      return await window.electronAPI.github.getPRLogs(selectedProjectId, selectedPRNumber);
+    const effectiveProjectId = isCustomer ? resolvedChildProjectId : selectedProjectId;
+    if (effectiveProjectId && selectedPRNumber) {
+      return await window.electronAPI.github.getPRLogs(effectiveProjectId, selectedPRNumber);
     }
     return null;
-  }, [selectedProjectId, selectedPRNumber]);
+  }, [isCustomer, resolvedChildProjectId, selectedProjectId, selectedPRNumber]);
 
   const handleMarkReviewPosted = useCallback(async (prNumber: number) => {
     await markReviewPosted(prNumber);
@@ -450,7 +471,41 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
 
   // Customer multi-repo view
   if (isCustomer) {
-    return <MultiRepoPRView multiRepo={multiRepo} onOpenSettings={onOpenSettings} t={t} />;
+    return (
+      <MultiRepoPRView
+        multiRepo={multiRepo}
+        onOpenSettings={onOpenSettings}
+        t={t}
+        fullPRDetail={
+          resolvedChildProjectId && selectedPR ? (
+            <PRDetail
+              pr={selectedPR}
+              projectId={resolvedChildProjectId}
+              reviewResult={reviewResult}
+              previousReviewResult={previousReviewResult}
+              reviewProgress={reviewProgress}
+              startedAt={startedAt}
+              isReviewing={isReviewing}
+              isExternalReview={isExternalReview}
+              reviewError={reviewError}
+              initialNewCommitsCheck={storedNewCommitsCheck}
+              isActive={isActive}
+              isLoadingFiles={isLoadingPRDetails}
+              onRunReview={handleRunReview}
+              onRunFollowupReview={handleRunFollowupReview}
+              onCheckNewCommits={handleCheckNewCommits}
+              onCancelReview={handleCancelReview}
+              onPostReview={handlePostReview}
+              onPostComment={handlePostComment}
+              onMergePR={handleMergePR}
+              onAssignPR={handleAssignPR}
+              onGetLogs={handleGetLogs}
+              onMarkReviewPosted={handleMarkReviewPosted}
+            />
+          ) : undefined
+        }
+      />
+    );
   }
 
   // Not connected state
