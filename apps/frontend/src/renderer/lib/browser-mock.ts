@@ -180,6 +180,7 @@ const browserMockAPI: ElectronAPI = {
     checkMultiRepoConnection: async () => ({ success: true, data: { connected: false, repos: [] } }),
     getMultiRepoIssues: async () => ({ success: true, data: { issues: [], repos: [], hasMore: false } }),
     getMultiRepoIssueDetail: async () => ({ success: false, error: 'Not available in browser mode' }),
+    getMultiRepoPRs: async () => ({ success: true, data: { prs: [], repos: [] } }),
     investigateGitHubIssue: () => {},
     importGitHubIssues: async () => ({ success: true, data: { success: true, imported: 0, failed: 0, issues: [] } }),
     createGitHubRelease: async () => ({ success: true, data: { url: '' } }),

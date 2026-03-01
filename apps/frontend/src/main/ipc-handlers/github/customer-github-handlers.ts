@@ -11,7 +11,7 @@ import { execFileSync } from 'child_process';
 import path from 'path';
 import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../../shared/constants';
-import type { IPCResult, GitHubIssue, MultiRepoGitHubStatus, MultiRepoIssuesResult } from '../../../shared/types';
+import type { IPCResult, GitHubIssue, MultiRepoGitHubStatus, MultiRepoIssuesResult, MultiRepoPRsResult } from '../../../shared/types';
 import { projectStore } from '../../project-store';
 import { getGitHubConfig, githubFetch, normalizeRepoReference } from './utils';
 import { getToolPath } from '../../cli-tool-manager';
@@ -321,6 +321,97 @@ function registerGetMultiRepoIssueDetail(): void {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Handler 4: Get PRs across all child repos
+// ────────────────────────────────────────────────────────────────────────────
+
+function registerGetMultiRepoPRs(): void {
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_GET_MULTI_REPO_PRS,
+    async (_, customerId: string): Promise<IPCResult<MultiRepoPRsResult>> => {
+      debugLog('[Customer GitHub] getMultiRepoPRs called', { customerId });
+
+      const config = getCustomerGitHubConfig(customerId);
+      if (!config) {
+        return { success: false, error: 'No GitHub configuration found for this customer' };
+      }
+
+      if (config.repos.length === 0) {
+        return {
+          success: true,
+          data: { prs: [], repos: [] },
+        };
+      }
+
+      try {
+        const allRepoNames = config.repos.map((r) => r.repoFullName);
+
+        // Fetch open PRs from all repos in parallel
+        const settledResults = await Promise.allSettled(
+          config.repos.map(async (repo) => {
+            const endpoint = `/repos/${repo.repoFullName}/pulls?state=open&sort=updated&direction=desc&per_page=50`;
+            const data = await githubFetch(config.token, endpoint);
+            return { repoFullName: repo.repoFullName, data };
+          })
+        );
+
+        const allPRs: MultiRepoPRsResult['prs'] = [];
+
+        for (const result of settledResults) {
+          if (result.status === 'fulfilled') {
+            const { repoFullName, data } = result.value;
+            if (Array.isArray(data)) {
+              // biome-ignore lint/suspicious/noExplicitAny: GitHub REST API response shape
+              const transformed = (data as any[]).map((pr) => ({
+                number: pr.number,
+                title: pr.title,
+                body: pr.body || '',
+                state: pr.state.toLowerCase(),
+                author: { login: pr.user.login },
+                headRefName: pr.head.ref,
+                baseRefName: pr.base.ref,
+                additions: pr.additions ?? 0,
+                deletions: pr.deletions ?? 0,
+                changedFiles: pr.changed_files ?? 0,
+                // biome-ignore lint/suspicious/noExplicitAny: GitHub REST API assignee shape
+                assignees: (pr.assignees || []).map((a: any) => ({ login: a.login })),
+                createdAt: pr.created_at,
+                updatedAt: pr.updated_at,
+                htmlUrl: pr.html_url,
+                repoFullName,
+              }));
+              allPRs.push(...transformed);
+            }
+          } else {
+            debugLog('[Customer GitHub] Failed to fetch PRs from repo:', result.reason);
+          }
+        }
+
+        // Sort by updatedAt descending
+        allPRs.sort(
+          (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+        );
+
+        debugLog('[Customer GitHub] Returning', allPRs.length, 'PRs from', allRepoNames.length, 'repos');
+
+        return {
+          success: true,
+          data: {
+            prs: allPRs,
+            repos: allRepoNames,
+          },
+        };
+      } catch (error) {
+        debugLog('[Customer GitHub] Error fetching multi-repo PRs:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to fetch multi-repo PRs',
+        };
+      }
+    }
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Public registration
 // ────────────────────────────────────────────────────────────────────────────
 
@@ -331,4 +422,5 @@ export function registerCustomerGitHubHandlers(): void {
   registerCheckMultiRepoConnection();
   registerGetMultiRepoIssues();
   registerGetMultiRepoIssueDetail();
+  registerGetMultiRepoPRs();
 }

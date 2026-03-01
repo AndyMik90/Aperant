@@ -140,6 +140,29 @@ export interface MultiRepoIssuesResult {
   hasMore: boolean;
 }
 
+export interface MultiRepoPRData {
+  number: number;
+  title: string;
+  body: string;
+  state: string;
+  author: { login: string };
+  headRefName: string;
+  baseRefName: string;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+  assignees: Array<{ login: string }>;
+  createdAt: string;
+  updatedAt: string;
+  htmlUrl: string;
+  repoFullName: string;
+}
+
+export interface MultiRepoPRsResult {
+  prs: MultiRepoPRData[];
+  repos: string[];
+}
+
 export interface GitHubImportResult {
   success: boolean;
   imported: number;

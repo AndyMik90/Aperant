@@ -12,7 +12,8 @@ import type {
   PRStatusUpdate,
   PollingMetadata,
   MultiRepoGitHubStatus,
-  MultiRepoIssuesResult
+  MultiRepoIssuesResult,
+  MultiRepoPRsResult
 } from '../../../shared/types';
 import { createIpcListener, invokeIpc, sendIpc, IpcListenerCleanup } from './ipc-utils';
 
@@ -181,6 +182,7 @@ export interface GitHubAPI {
     repoFullName: string,
     issueNumber: number
   ) => Promise<IPCResult<GitHubIssue>>;
+  getMultiRepoPRs: (customerId: string) => Promise<IPCResult<MultiRepoPRsResult>>;
 
   investigateGitHubIssue: (projectId: string, issueNumber: number, selectedCommentIds?: number[]) => void;
   importGitHubIssues: (projectId: string, issueNumbers: number[]) => Promise<IPCResult<GitHubImportResult>>;
@@ -588,6 +590,9 @@ export const createGitHubAPI = (): GitHubAPI => ({
     issueNumber: number
   ): Promise<IPCResult<GitHubIssue>> =>
     invokeIpc(IPC_CHANNELS.GITHUB_GET_MULTI_REPO_ISSUE_DETAIL, customerId, repoFullName, issueNumber),
+
+  getMultiRepoPRs: (customerId: string) =>
+    invokeIpc(IPC_CHANNELS.GITHUB_GET_MULTI_REPO_PRS, customerId),
 
   investigateGitHubIssue: (projectId: string, issueNumber: number, selectedCommentIds?: number[]): void =>
     sendIpc(IPC_CHANNELS.GITHUB_INVESTIGATE_ISSUE, projectId, issueNumber, selectedCommentIds),

@@ -129,6 +129,8 @@ export const integrationMock = {
     error: 'Not available in browser mock'
   }),
 
+  getMultiRepoPRs: async () => ({ success: true, data: { prs: [], repos: [] } }),
+
   investigateGitHubIssue: () => {
     console.warn('[Browser Mock] investigateGitHubIssue called');
   },

@@ -255,6 +255,7 @@ export const IPC_CHANNELS = {
   GITHUB_CHECK_MULTI_REPO_CONNECTION: 'github:checkMultiRepoConnection',
   GITHUB_GET_MULTI_REPO_ISSUES: 'github:getMultiRepoIssues',
   GITHUB_GET_MULTI_REPO_ISSUE_DETAIL: 'github:getMultiRepoIssueDetail',
+  GITHUB_GET_MULTI_REPO_PRS: 'github:getMultiRepoPRs',
 
   // GitHub OAuth (gh CLI authentication)
   GITHUB_CHECK_CLI: 'github:checkCli',
