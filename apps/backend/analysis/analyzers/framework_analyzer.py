@@ -169,15 +169,35 @@ class FrameworkAnalyzer(BaseAnalyzer):
 
         # Documentation frameworks (check before generic frontend)
         doc_frameworks = {
-            "@docusaurus/core": {"name": "Docusaurus", "type": "documentation", "port": 3000},
+            "@docusaurus/core": {
+                "name": "Docusaurus",
+                "type": "documentation",
+                "port": 3000,
+            },
             "vitepress": {"name": "VitePress", "type": "documentation", "port": 5173},
             "vuepress": {"name": "VuePress", "type": "documentation", "port": 8080},
-            "@vuepress/core": {"name": "VuePress", "type": "documentation", "port": 8080},
+            "@vuepress/core": {
+                "name": "VuePress",
+                "type": "documentation",
+                "port": 8080,
+            },
             "nextra": {"name": "Nextra", "type": "documentation", "port": 3000},
             "storybook": {"name": "Storybook", "type": "documentation", "port": 6006},
-            "@storybook/react": {"name": "Storybook", "type": "documentation", "port": 6006},
-            "@storybook/angular": {"name": "Storybook", "type": "documentation", "port": 6006},
-            "@storybook/vue3": {"name": "Storybook", "type": "documentation", "port": 6006},
+            "@storybook/react": {
+                "name": "Storybook",
+                "type": "documentation",
+                "port": 6006,
+            },
+            "@storybook/angular": {
+                "name": "Storybook",
+                "type": "documentation",
+                "port": 6006,
+            },
+            "@storybook/vue3": {
+                "name": "Storybook",
+                "type": "documentation",
+                "port": 6006,
+            },
         }
 
         port_detector = PortDetector(self.path, self.analysis)
@@ -525,17 +545,21 @@ class FrameworkAnalyzer(BaseAnalyzer):
                     found_packages = list(tree.iter("PackageReference"))
                     if not found_packages:
                         # Try with namespace (legacy .csproj files)
-                        ns_match = re.search(r'\{([^}]+)\}', tree.tag)
+                        ns_match = re.search(r"\{([^}]+)\}", tree.tag)
                         if ns_match:
                             ns = ns_match.group(1)
-                            found_packages = list(tree.iter(f"{{{ns}}}PackageReference"))
+                            found_packages = list(
+                                tree.iter(f"{{{ns}}}PackageReference")
+                            )
                     for pkg_ref in found_packages:
                         include = pkg_ref.get("Include", "")
                         if include:
                             all_packages.add(include.lower())
                     # If XML parsed but found nothing, also try regex as safety net
                     if not found_packages:
-                        refs = re.findall(r'<PackageReference\s+Include="([^"]+)"', content)
+                        refs = re.findall(
+                            r'<PackageReference\s+Include="([^"]+)"', content
+                        )
                         all_packages.update(r.lower() for r in refs)
                 except ET.ParseError:
                     # Fallback: regex-based extraction
@@ -551,18 +575,26 @@ class FrameworkAnalyzer(BaseAnalyzer):
             p.startswith("microsoft.aspnetcore") for p in all_packages
         ):
             # Check for Blazor
-            if any("blazor" in p for p in all_packages) or sdk_type == "Microsoft.NET.Sdk.BlazorWebAssembly":
+            if (
+                any("blazor" in p for p in all_packages)
+                or sdk_type == "Microsoft.NET.Sdk.BlazorWebAssembly"
+            ):
                 self.analysis["framework"] = "Blazor"
                 self.analysis["type"] = "frontend"
-                self.analysis["default_port"] = port_detector.detect_port_from_sources(5000)
+                self.analysis["default_port"] = port_detector.detect_port_from_sources(
+                    5000
+                )
             else:
                 self.analysis["framework"] = "ASP.NET Core"
                 self.analysis["type"] = "backend"
-                self.analysis["default_port"] = port_detector.detect_port_from_sources(5000)
+                self.analysis["default_port"] = port_detector.detect_port_from_sources(
+                    5000
+                )
 
             # Detect API patterns (minimal API or controllers)
-            if any("microsoft.aspnetcore.openapi" in p for p in all_packages) or \
-               any("swashbuckle" in p for p in all_packages):
+            if any("microsoft.aspnetcore.openapi" in p for p in all_packages) or any(
+                "swashbuckle" in p for p in all_packages
+            ):
                 self.analysis["api_docs"] = "Swagger/OpenAPI"
 
         # WPF
@@ -573,7 +605,10 @@ class FrameworkAnalyzer(BaseAnalyzer):
             self.analysis["type"] = "desktop"
 
         # MAUI
-        elif any("microsoft.maui" in p for p in all_packages) or sdk_type == "Microsoft.NET.Sdk.Maui":
+        elif (
+            any("microsoft.maui" in p for p in all_packages)
+            or sdk_type == "Microsoft.NET.Sdk.Maui"
+        ):
             self.analysis["framework"] = "MAUI"
             self.analysis["type"] = "mobile"
 
@@ -597,7 +632,9 @@ class FrameworkAnalyzer(BaseAnalyzer):
                 self.analysis["type"] = "backend"
 
         # ORM detection
-        if any("entityframeworkcore" in p or "entityframework" in p for p in all_packages):
+        if any(
+            "entityframeworkcore" in p or "entityframework" in p for p in all_packages
+        ):
             self.analysis["orm"] = "Entity Framework"
         elif any("dapper" in p for p in all_packages):
             self.analysis["orm"] = "Dapper"

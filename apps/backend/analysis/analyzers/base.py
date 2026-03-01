@@ -107,7 +107,9 @@ def has_service_root(dir_path: Path) -> bool:
     """Check if a directory has service root indicators (exact files or glob patterns)."""
     if any((dir_path / f).exists() for f in SERVICE_ROOT_FILES):
         return True
-    return any(next(dir_path.glob(pattern), None) is not None for pattern in SERVICE_ROOT_GLOBS)
+    return any(
+        next(dir_path.glob(pattern), None) is not None for pattern in SERVICE_ROOT_GLOBS
+    )
 
 
 class BaseAnalyzer:

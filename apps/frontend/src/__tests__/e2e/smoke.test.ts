@@ -182,7 +182,7 @@ describe('E2E Smoke Tests', () => {
       const addProject = electronAPI['addProject'] as (path: string) => Promise<unknown>;
       const addResult = await addProject(TEST_PROJECT_PATH);
 
-      expect(mockIpcRenderer.invoke).toHaveBeenCalledWith('project:add', TEST_PROJECT_PATH);
+      expect(mockIpcRenderer.invoke).toHaveBeenCalledWith('project:add', TEST_PROJECT_PATH, undefined);
       expect(addResult).toMatchObject({
         success: true,
         data: expect.objectContaining({
