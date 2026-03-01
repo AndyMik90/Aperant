@@ -121,6 +121,7 @@ import type {
   LinearImportResult,
   LinearSyncStatus,
   GlobalMcpInfo,
+  ClaudeAgentsInfo,
   GitHubRepository,
   GitHubIssue,
   GitHubSyncStatus,
@@ -929,6 +930,9 @@ export interface ElectronAPI {
 
   // Claude Code global MCP configuration
   getGlobalMcps: () => Promise<IPCResult<GlobalMcpInfo>>;
+
+  // Claude Code custom agents
+  getClaudeAgents: () => Promise<IPCResult<ClaudeAgentsInfo>>;
 
   // Screenshot capture operations
   getSources: () => Promise<IPCResult<ScreenshotSource[]> & { devMode?: boolean }>;

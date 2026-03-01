@@ -362,7 +362,11 @@ const browserMockAPI: ElectronAPI = {
   }),
   getGlobalMcps: async () => ({
     success: true,
-    data: { pluginServers: [], inlineServers: [] }
+    data: { pluginServers: [], inlineServers: [], claudeJsonServers: [] }
+  }),
+  getClaudeAgents: async () => ({
+    success: true as const,
+    data: { categories: [], totalAgents: 0 },
   }),
 
   // Screenshot capture operations

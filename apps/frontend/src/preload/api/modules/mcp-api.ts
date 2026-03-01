@@ -9,7 +9,7 @@ import { ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '../../../shared/constants/ipc';
 import type { IPCResult } from '../../../shared/types/common';
 import type { CustomMcpServer, McpHealthCheckResult, McpTestConnectionResult } from '../../../shared/types/project';
-import type { GlobalMcpInfo } from '../../../shared/types/integrations';
+import type { GlobalMcpInfo, ClaudeAgentsInfo } from '../../../shared/types/integrations';
 
 export interface McpAPI {
   /** Quick health check for a custom MCP server */
@@ -18,6 +18,8 @@ export interface McpAPI {
   testMcpConnection: (server: CustomMcpServer) => Promise<IPCResult<McpTestConnectionResult>>;
   /** Get all global MCP servers from Claude Code settings (plugins + inline) */
   getGlobalMcps: () => Promise<IPCResult<GlobalMcpInfo>>;
+  /** Get all custom agents from ~/.claude/agents/ */
+  getClaudeAgents: () => Promise<IPCResult<ClaudeAgentsInfo>>;
 }
 
 export function createMcpAPI(): McpAPI {
@@ -30,5 +32,8 @@ export function createMcpAPI(): McpAPI {
 
     getGlobalMcps: () =>
       ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_MCP_GET_GLOBAL),
+
+    getClaudeAgents: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_AGENTS_GET),
   };
 }

@@ -579,6 +579,7 @@ export const IPC_CHANNELS = {
 
   // Claude Code global MCP configuration
   CLAUDE_MCP_GET_GLOBAL: 'claude-mcp:getGlobalMcps',
+  CLAUDE_AGENTS_GET: 'claude-agents:getAgents',
 
   // Sentry error reporting
   SENTRY_STATE_CHANGED: 'sentry:state-changed',  // Notify main process when setting changes

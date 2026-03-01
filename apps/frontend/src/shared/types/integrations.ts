@@ -526,7 +526,8 @@ export type CannyStatus = 'open' | 'under review' | 'planned' | 'in progress' | 
 
 /**
  * A single MCP server entry resolved from Claude Code's global settings.
- * Can originate from either an enabled plugin (marketplace) or an inline mcpServers definition.
+ * Can originate from an enabled plugin (marketplace), an inline mcpServers definition
+ * in settings.json, or the top-level mcpServers in ~/.claude.json.
  */
 export interface GlobalMcpServerEntry {
   /** Plugin key (only for plugin-sourced servers), e.g. "context7@claude-plugins-official" */
@@ -544,7 +545,7 @@ export interface GlobalMcpServerEntry {
     headers?: Record<string, string>;
   };
   /** Where this server config was sourced from */
-  source: 'plugin' | 'settings';
+  source: 'plugin' | 'settings' | 'claude-json';
 }
 
 /**
@@ -555,4 +556,46 @@ export interface GlobalMcpInfo {
   pluginServers: GlobalMcpServerEntry[];
   /** MCP servers defined inline in the mcpServers field of settings.json */
   inlineServers: GlobalMcpServerEntry[];
+  /** MCP servers from ~/.claude.json (main Claude Code config) */
+  claudeJsonServers: GlobalMcpServerEntry[];
+}
+
+// ============================================
+// Claude Code Custom Agent Types
+// ============================================
+
+/**
+ * A custom agent definition from ~/.claude/agents/
+ */
+export interface ClaudeCustomAgent {
+  /** Agent ID derived from filename (e.g. "frontend-developer") */
+  agentId: string;
+  /** Human-readable name (e.g. "Frontend Developer") */
+  agentName: string;
+  /** Category directory name (e.g. "01-core-development") */
+  categoryDir: string;
+  /** Human-readable category name (e.g. "Core Development") */
+  categoryName: string;
+  /** Full file path to the .md file */
+  filePath: string;
+}
+
+/**
+ * A category of custom agents
+ */
+export interface ClaudeAgentCategory {
+  /** Category directory name (e.g. "01-core-development") */
+  categoryDir: string;
+  /** Human-readable name (e.g. "Core Development") */
+  categoryName: string;
+  /** Agents in this category */
+  agents: ClaudeCustomAgent[];
+}
+
+/**
+ * Combined result of all custom agents from ~/.claude/agents/
+ */
+export interface ClaudeAgentsInfo {
+  categories: ClaudeAgentCategory[];
+  totalAgents: number;
 }

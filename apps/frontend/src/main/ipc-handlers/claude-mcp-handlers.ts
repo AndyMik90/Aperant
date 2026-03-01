@@ -155,9 +155,13 @@ function resolvePluginServers(pluginKey: string, claudeDir: string): GlobalMcpSe
 
 /**
  * Convert inline mcpServers config entries to GlobalMcpServerEntry array.
+ *
+ * @param mcpServers - MCP server configurations keyed by server ID
+ * @param source - Where this config was sourced from ('settings' for settings.json, 'claude-json' for ~/.claude.json)
  */
 function resolveInlineServers(
-  mcpServers: Record<string, ClaudeCodeMcpServerConfig>
+  mcpServers: Record<string, ClaudeCodeMcpServerConfig>,
+  source: 'settings' | 'claude-json' = 'settings'
 ): GlobalMcpServerEntry[] {
   const entries: GlobalMcpServerEntry[] = [];
 
@@ -172,7 +176,7 @@ function resolveInlineServers(
         ...(config.url ? { url: config.url } : {}),
         ...(config.headers ? { headers: config.headers } : {}),
       },
-      source: 'settings',
+      source,
     };
 
     entries.push(entry);
@@ -194,6 +198,49 @@ function getClaudeHomeDir(): string {
 }
 
 /**
+ * Read MCP servers from ~/.claude.json (the main Claude Code configuration file).
+ * This file contains a top-level `mcpServers` key with the same structure as
+ * ClaudeCodeMcpServerConfig entries.
+ *
+ * @returns Array of GlobalMcpServerEntry with source 'claude-json', or empty array on failure.
+ */
+function readClaudeJsonMcpServers(): GlobalMcpServerEntry[] {
+  const claudeJsonPath = path.join(homedir(), '.claude.json');
+
+  if (!existsSync(claudeJsonPath)) {
+    debugLog(`${LOG_PREFIX} ~/.claude.json not found:`, claudeJsonPath);
+    return [];
+  }
+
+  try {
+    const content = readFileSync(claudeJsonPath, 'utf-8');
+    const parsed = JSON.parse(content);
+
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      debugLog(`${LOG_PREFIX} Invalid ~/.claude.json structure (expected object)`);
+      return [];
+    }
+
+    const mcpServers = parsed.mcpServers;
+    if (!mcpServers || typeof mcpServers !== 'object' || Array.isArray(mcpServers)) {
+      debugLog(`${LOG_PREFIX} No valid mcpServers found in ~/.claude.json`);
+      return [];
+    }
+
+    const entries = resolveInlineServers(
+      mcpServers as Record<string, ClaudeCodeMcpServerConfig>,
+      'claude-json'
+    );
+
+    debugLog(`${LOG_PREFIX} Resolved ${entries.length} server(s) from ~/.claude.json`);
+    return entries;
+  } catch (error) {
+    debugLog(`${LOG_PREFIX} Failed to read/parse ~/.claude.json:`, claudeJsonPath, error);
+    return [];
+  }
+}
+
+/**
  * Register Claude MCP IPC handlers.
  */
 export function registerClaudeMcpHandlers(): void {
@@ -207,6 +254,7 @@ export function registerClaudeMcpHandlers(): void {
       const result: GlobalMcpInfo = {
         pluginServers: [],
         inlineServers: [],
+        claudeJsonServers: [],
       };
 
       // Resolve enabled plugins
@@ -221,15 +269,19 @@ export function registerClaudeMcpHandlers(): void {
         }
       }
 
-      // Resolve inline mcpServers
+      // Resolve inline mcpServers from settings.json
       if (settings?.mcpServers) {
         result.inlineServers = resolveInlineServers(settings.mcpServers);
       }
 
+      // Read ~/.claude.json mcpServers
+      result.claudeJsonServers = readClaudeJsonMcpServers();
+
       debugLog(
         `${LOG_PREFIX} Resolved global MCPs:`,
         `${result.pluginServers.length} plugin server(s),`,
-        `${result.inlineServers.length} inline server(s)`
+        `${result.inlineServers.length} inline server(s),`,
+        `${result.claudeJsonServers.length} claude.json server(s)`
       );
 
       return { success: true, data: result };

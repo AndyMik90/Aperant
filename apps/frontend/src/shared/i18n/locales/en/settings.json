@@ -769,11 +769,12 @@
     },
     "globalMcps": {
       "title": "Claude Code MCPs (Global)",
-      "description": "MCP servers configured in your Claude Code settings (~/.claude/settings.json)",
+      "description": "MCP servers configured in your Claude Code (~/.claude.json and ~/.claude/settings.json)",
       "noGlobalMcps": "No global MCP servers configured in Claude Code",
       "source": {
         "plugin": "Plugin",
-        "settings": "Settings"
+        "settings": "Settings",
+        "claudeJson": "Claude Config"
       },
       "badge": "Global",
       "serverType": {
@@ -783,6 +784,11 @@
       },
       "refreshTooltip": "Refresh global MCP list",
       "readOnly": "Read-only — configure in Claude Code CLI settings"
+    },
+    "customAgents": {
+      "title": "Custom Agents (Global)",
+      "description": "Custom agent definitions from ~/.claude/agents/",
+      "refreshTooltip": "Refresh agent list"
     }
   },
   "terminalFonts": {
