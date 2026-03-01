@@ -515,12 +515,26 @@ class FrameworkAnalyzer(BaseAnalyzer):
                     sdk_type = sdk_match.group(1)
 
                 # Parse PackageReference elements
+                # Use namespace-aware iteration to handle both modern (no namespace)
+                # and legacy .csproj files (with XML namespace)
                 try:
                     tree = ET.fromstring(content)
-                    for pkg_ref in tree.iter("PackageReference"):
+                    # Try without namespace first
+                    found_packages = list(tree.iter("PackageReference"))
+                    if not found_packages:
+                        # Try with namespace (legacy .csproj files)
+                        ns_match = re.search(r'\{([^}]+)\}', tree.tag)
+                        if ns_match:
+                            ns = ns_match.group(1)
+                            found_packages = list(tree.iter(f"{{{ns}}}PackageReference"))
+                    for pkg_ref in found_packages:
                         include = pkg_ref.get("Include", "")
                         if include:
                             all_packages.add(include.lower())
+                    # If XML parsed but found nothing, also try regex as safety net
+                    if not found_packages:
+                        refs = re.findall(r'<PackageReference\s+Include="([^"]+)"', content)
+                        all_packages.update(r.lower() for r in refs)
                 except ET.ParseError:
                     # Fallback: regex-based extraction
                     refs = re.findall(r'<PackageReference\s+Include="([^"]+)"', content)

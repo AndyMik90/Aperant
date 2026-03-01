@@ -10,7 +10,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from .base import SERVICE_INDICATORS, SERVICE_ROOT_FILES, SKIP_DIRS, has_service_root
+from .base import SERVICE_INDICATORS, SKIP_DIRS, has_service_root
 from .service_analyzer import ServiceAnalyzer
 
 
