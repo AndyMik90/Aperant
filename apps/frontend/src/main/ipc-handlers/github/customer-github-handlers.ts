@@ -7,12 +7,14 @@
  */
 
 import { existsSync, readFileSync } from 'fs';
+import { execFileSync } from 'child_process';
 import path from 'path';
 import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type { IPCResult, GitHubIssue, MultiRepoGitHubStatus, MultiRepoIssuesResult } from '../../../shared/types';
 import { projectStore } from '../../project-store';
 import { getGitHubConfig, githubFetch, normalizeRepoReference } from './utils';
+import { getToolPath } from '../../cli-tool-manager';
 import type { GitHubAPIIssue } from './types';
 import { parseEnvFile } from '../utils';
 import { debugLog } from '../../../shared/utils/debug-logger';
@@ -88,12 +90,32 @@ function getCustomerGitHubConfig(customerId: string): CustomerGitHubConfig | nul
   const repos: CustomerRepo[] = [];
 
   for (const child of childProjects) {
+    // Try .env first (if child has autoBuildPath and GITHUB_REPO configured)
     const childConfig = getGitHubConfig(child);
     if (childConfig?.repo) {
       const normalized = normalizeRepoReference(childConfig.repo);
       if (normalized) {
         repos.push({ projectId: child.id, repoFullName: normalized });
+        continue;
       }
+    }
+
+    // Fallback: detect from git remote origin (cloned repos have this)
+    try {
+      const remoteUrl = execFileSync(getToolPath('git'), ['remote', 'get-url', 'origin'], {
+        encoding: 'utf-8',
+        cwd: child.path,
+        stdio: 'pipe',
+      }).trim();
+
+      const match = remoteUrl.match(/github\.com[/:]([^/]+\/[^/]+?)(?:\.git)?$/);
+      if (match) {
+        const repoFullName = match[1];
+        debugLog('[Customer GitHub] Detected repo from git remote:', repoFullName, 'for', child.path);
+        repos.push({ projectId: child.id, repoFullName });
+      }
+    } catch {
+      debugLog('[Customer GitHub] Could not detect git remote for child:', child.path);
     }
   }
 
