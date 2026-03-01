@@ -22,6 +22,12 @@ import { loadFileBasedMemories } from './memory-data-handlers';
 import { parsePythonCommand } from '../../python-detector';
 import { getConfiguredPythonPath } from '../../python-env-manager';
 import { getAugmentedEnv } from '../../env-utils';
+import { debugLog } from '../../../shared/utils/debug-logger';
+
+function isChildPath(parentPath: string, candidatePath: string): boolean {
+  const rel = path.relative(parentPath, candidatePath);
+  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+}
 
 /**
  * Load project index from file
@@ -83,24 +89,24 @@ async function refreshChildIndex(
 
       proc.on('close', (code: number) => {
         if (code === 0) {
-          console.log(`[project-context] Child analyzer (${childProject.name}) stdout:`, stdout);
+          debugLog(`[project-context] Child analyzer (${childProject.name}) stdout:`, stdout);
           resolve();
         } else {
-          console.error(`[project-context] Child analyzer (${childProject.name}) failed with code`, code);
-          console.error(`[project-context] Child analyzer (${childProject.name}) stderr:`, stderr);
+          debugLog(`[project-context] Child analyzer (${childProject.name}) failed with code`, code);
+          debugLog(`[project-context] Child analyzer (${childProject.name}) stderr:`, stderr);
           reject(new Error(`Analyzer exited with code ${code}: ${stderr || stdout}`));
         }
       });
 
       proc.on('error', (err) => {
-        console.error(`[project-context] Child analyzer (${childProject.name}) spawn error:`, err);
+        debugLog(`[project-context] Child analyzer (${childProject.name}) spawn error:`, err);
         reject(err);
       });
     });
 
     return loadProjectIndex(childProject.path);
   } catch (error) {
-    console.error(`[project-context] Failed to index child ${childProject.name}:`, error);
+    debugLog(`[project-context] Failed to index child ${childProject.name}:`, error);
     return null;
   }
 }
@@ -171,7 +177,7 @@ async function loadRecentMemories(
         recentMemories = graphMemories;
       }
     } catch (error) {
-      console.warn('Failed to load memories from LadybugDB, falling back to file-based:', error);
+      debugLog('Failed to load memories from LadybugDB, falling back to file-based:', error);
     }
   }
 
@@ -217,7 +223,7 @@ export function registerProjectContextHandlers(
           if (!projectIndex || projectIndex.project_type !== 'customer') {
             const allProjects = projectStore.getProjects();
             const childProjects = allProjects.filter(
-              (p) => p.id !== project.id && p.path.startsWith(project.path + '/')
+              (p) => p.id !== project.id && isChildPath(project.path, p.path)
             );
             const childIndexes: Record<string, ProjectIndex> = {};
             for (const child of childProjects) {
@@ -296,7 +302,7 @@ export function registerProjectContextHandlers(
         if (project.type === 'customer') {
           const allProjects = projectStore.getProjects();
           const childProjects = allProjects.filter(
-            (p) => p.id !== project.id && p.path.startsWith(project.path + '/')
+            (p) => p.id !== project.id && isChildPath(project.path, p.path)
           );
 
           if (childProjects.length === 0) {
@@ -307,7 +313,7 @@ export function registerProjectContextHandlers(
           }
 
           const total = childProjects.length;
-          console.log(`[project-context] Customer project: indexing ${total} child repos (force=${!!force})`);
+          debugLog(`[project-context] Customer project: indexing ${total} child repos (force=${!!force})`);
           sendIndexProgress(`Discovering ${total} repositories...`, 0, total);
 
           const childIndexes: Record<string, ProjectIndex> = {};
@@ -322,7 +328,7 @@ export function registerProjectContextHandlers(
 
             // If no index exists (or force), run analyzer on the child repo
             if (!childIndex) {
-              console.log(`[project-context] Running analyzer for child: ${child.name}`);
+              debugLog(`[project-context] Running analyzer for child: ${child.name}`);
               childIndex = await refreshChildIndex(child, autoBuildSource);
             }
 
@@ -355,7 +361,7 @@ export function registerProjectContextHandlers(
           writeFileSync(indexOutputPath, JSON.stringify(aggregatedIndex, null, 2), 'utf-8');
 
           if (errors.length > 0) {
-            console.warn(`[project-context] Some child repos failed to index: ${errors.join(', ')}`);
+            debugLog(`[project-context] Some child repos failed to index: ${errors.join(', ')}`);
           }
 
           sendIndexProgress('');
@@ -371,7 +377,7 @@ export function registerProjectContextHandlers(
         // Get configured Python path (venv if ready, otherwise bundled/system)
         // This ensures we use the venv Python which has dependencies installed
         const pythonCmd = getConfiguredPythonPath();
-        console.log('[project-context] Using Python:', pythonCmd);
+        debugLog('[project-context] Using Python:', pythonCmd);
 
         const [pythonCommand, pythonBaseArgs] = parsePythonCommand(pythonCmd);
 
@@ -404,18 +410,18 @@ export function registerProjectContextHandlers(
 
           proc.on('close', (code: number) => {
             if (code === 0) {
-              console.log('[project-context] Analyzer stdout:', stdout);
+              debugLog('[project-context] Analyzer stdout:', stdout);
               resolve();
             } else {
-              console.error('[project-context] Analyzer failed with code', code);
-              console.error('[project-context] Analyzer stderr:', stderr);
-              console.error('[project-context] Analyzer stdout:', stdout);
+              debugLog('[project-context] Analyzer failed with code', code);
+              debugLog('[project-context] Analyzer stderr:', stderr);
+              debugLog('[project-context] Analyzer stdout:', stdout);
               reject(new Error(`Analyzer exited with code ${code}: ${stderr || stdout}`));
             }
           });
 
           proc.on('error', (err) => {
-            console.error('[project-context] Analyzer spawn error:', err);
+            debugLog('[project-context] Analyzer spawn error:', err);
             reject(err);
           });
         });

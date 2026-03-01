@@ -902,6 +902,14 @@ export function registerCloneGitHubRepo(): void {
     ): Promise<IPCResult<{ path: string; name: string }>> => {
       debugLog('cloneGitHubRepo handler called', { repoFullName, targetDir });
       try {
+        // Validate repo format before any operations
+        if (!isValidGitHubRepo(repoFullName)) {
+          return {
+            success: false,
+            error: 'Invalid repository format. Expected: owner/repo'
+          };
+        }
+
         // Extract repo name from fullName (owner/repo -> repo)
         const repoName = repoFullName.split('/').pop() || repoFullName;
         const clonePath = path.join(targetDir, repoName);
@@ -916,15 +924,12 @@ export function registerCloneGitHubRepo(): void {
 
         // Clone using gh CLI (uses authenticated session)
         debugLog(`Running: gh repo clone ${repoFullName} ${clonePath}`);
-        execSync(
-          `gh repo clone ${repoFullName} "${clonePath}"`,
-          {
-            encoding: 'utf-8',
-            stdio: 'pipe',
-            env: getAugmentedEnv(),
-            timeout: 120000 // 2 minute timeout for large repos
-          }
-        );
+        execFileSync(getToolPath('gh'), ['repo', 'clone', repoFullName, clonePath], {
+          encoding: 'utf-8',
+          stdio: 'pipe',
+          env: getAugmentedEnv(),
+          timeout: 120000 // 2 minute timeout for large repos
+        });
 
         debugLog('Clone successful:', clonePath);
         return {

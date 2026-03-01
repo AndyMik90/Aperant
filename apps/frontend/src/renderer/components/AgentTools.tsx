@@ -50,8 +50,8 @@ import {
 } from './ui/dialog';
 import { useSettingsStore } from '../stores/settings-store';
 import { useProjectStore } from '../stores/project-store';
-import type { ProjectEnvConfig, AgentMcpOverride, CustomMcpServer, McpHealthCheckResult } from '../../shared/types';
-import type { GlobalMcpInfo, GlobalMcpServerEntry, ClaudeAgentsInfo } from '../../shared/types/integrations';
+import type { ProjectEnvConfig, AgentMcpOverride, CustomMcpServer, McpHealthCheckResult } from '@shared/types';
+import type { GlobalMcpInfo, GlobalMcpServerEntry, ClaudeAgentsInfo } from '@shared/types/integrations';
 import { CustomMcpDialog } from './CustomMcpDialog';
 import { useTranslation } from 'react-i18next';
 import {
@@ -63,7 +63,7 @@ import {
   resolveAgentSettings as resolveAgentModelConfig,
   type AgentSettingsSource,
 } from '../hooks';
-import type { ModelTypeShort, ThinkingLevel } from '../../shared/types/settings';
+import type { ModelTypeShort, ThinkingLevel } from '@shared/types/settings';
 
 // Agent configuration data - mirrors AGENT_CONFIGS from backend
 // Model and thinking are now dynamically read from user settings

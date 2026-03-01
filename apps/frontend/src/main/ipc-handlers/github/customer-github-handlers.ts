@@ -9,6 +9,12 @@
 import { existsSync, readFileSync } from 'fs';
 import { execFileSync } from 'child_process';
 import path from 'path';
+
+/** Cross-platform child path check using path.relative */
+function isChildPath(parentPath: string, candidatePath: string): boolean {
+  const rel = path.relative(parentPath, candidatePath);
+  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+}
 import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type { IPCResult, GitHubIssue, MultiRepoGitHubStatus, MultiRepoIssuesResult, MultiRepoPRsResult } from '../../../shared/types';
@@ -85,7 +91,7 @@ function getCustomerGitHubConfig(customerId: string): CustomerGitHubConfig | nul
   // 2. Discover child repos
   const allProjects = projectStore.getProjects();
   const childProjects = allProjects.filter(
-    (p) => p.id !== customer.id && p.path.startsWith(customer.path + '/')
+    (p) => p.id !== customer.id && isChildPath(customer.path, p.path)
   );
 
   const repos: CustomerRepo[] = [];

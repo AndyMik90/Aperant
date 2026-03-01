@@ -302,6 +302,11 @@ export function registerProjectHandlers(
     IPC_CHANNELS.PROJECT_ADD,
     async (_, projectPath: string, type?: 'project' | 'customer'): Promise<IPCResult<Project>> => {
       try {
+        // Validate type parameter against allowed values
+        if (type !== undefined && type !== 'project' && type !== 'customer') {
+          return { success: false, error: 'Invalid project type' };
+        }
+
         // Validate path exists
         if (!existsSync(projectPath)) {
           return { success: false, error: 'Directory does not exist' };

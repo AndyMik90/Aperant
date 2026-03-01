@@ -111,7 +111,7 @@ class FrameworkAnalyzer(BaseAnalyzer):
             self.analysis["package_manager"] = "cargo"
         elif self._exists("conf.py"):
             content = self._read_file("conf.py")
-            if "sphinx" in content.lower() or "extensions" in content:
+            if "sphinx" in content.lower():
                 self.analysis["language"] = "Python"
                 self.analysis["framework"] = "Sphinx"
                 self.analysis["type"] = "documentation"
@@ -179,6 +179,8 @@ class FrameworkAnalyzer(BaseAnalyzer):
             "@storybook/angular": {"name": "Storybook", "type": "documentation", "port": 6006},
             "@storybook/vue3": {"name": "Storybook", "type": "documentation", "port": 6006},
         }
+
+        port_detector = PortDetector(self.path, self.analysis)
 
         for key, info in doc_frameworks.items():
             if key in deps_lower:
@@ -542,15 +544,14 @@ class FrameworkAnalyzer(BaseAnalyzer):
             except (OSError, UnicodeDecodeError):
                 continue
 
-        packages_lower = all_packages
         port_detector = PortDetector(self.path, self.analysis)
 
         # ASP.NET Core Web API
         if sdk_type == "Microsoft.NET.Sdk.Web" or any(
-            p.startswith("microsoft.aspnetcore") for p in packages_lower
+            p.startswith("microsoft.aspnetcore") for p in all_packages
         ):
             # Check for Blazor
-            if any("blazor" in p for p in packages_lower) or sdk_type == "Microsoft.NET.Sdk.BlazorWebAssembly":
+            if any("blazor" in p for p in all_packages) or sdk_type == "Microsoft.NET.Sdk.BlazorWebAssembly":
                 self.analysis["framework"] = "Blazor"
                 self.analysis["type"] = "frontend"
                 self.analysis["default_port"] = port_detector.detect_port_from_sources(5000)
@@ -560,31 +561,31 @@ class FrameworkAnalyzer(BaseAnalyzer):
                 self.analysis["default_port"] = port_detector.detect_port_from_sources(5000)
 
             # Detect API patterns (minimal API or controllers)
-            if any("microsoft.aspnetcore.openapi" in p for p in packages_lower) or \
-               any("swashbuckle" in p for p in packages_lower):
+            if any("microsoft.aspnetcore.openapi" in p for p in all_packages) or \
+               any("swashbuckle" in p for p in all_packages):
                 self.analysis["api_docs"] = "Swagger/OpenAPI"
 
         # WPF
         elif sdk_type == "Microsoft.NET.Sdk.WindowsDesktop" or any(
-            "wpf" in p for p in packages_lower
+            "wpf" in p for p in all_packages
         ):
             self.analysis["framework"] = "WPF"
             self.analysis["type"] = "desktop"
 
         # MAUI
-        elif any("microsoft.maui" in p for p in packages_lower) or sdk_type == "Microsoft.NET.Sdk.Maui":
+        elif any("microsoft.maui" in p for p in all_packages) or sdk_type == "Microsoft.NET.Sdk.Maui":
             self.analysis["framework"] = "MAUI"
             self.analysis["type"] = "mobile"
 
         # Worker Service
         elif sdk_type == "Microsoft.NET.Sdk.Worker" or any(
-            "microsoft.extensions.hosting" in p for p in packages_lower
+            "microsoft.extensions.hosting" in p for p in all_packages
         ):
             self.analysis["framework"] = ".NET Worker"
             self.analysis["type"] = "worker"
 
         # gRPC
-        elif any("grpc" in p for p in packages_lower):
+        elif any("grpc" in p for p in all_packages):
             self.analysis["framework"] = "gRPC .NET"
             self.analysis["type"] = "backend"
             self.analysis["default_port"] = port_detector.detect_port_from_sources(5000)
@@ -596,27 +597,27 @@ class FrameworkAnalyzer(BaseAnalyzer):
                 self.analysis["type"] = "backend"
 
         # ORM detection
-        if any("entityframeworkcore" in p or "entityframework" in p for p in packages_lower):
+        if any("entityframeworkcore" in p or "entityframework" in p for p in all_packages):
             self.analysis["orm"] = "Entity Framework"
-        elif any("dapper" in p for p in packages_lower):
+        elif any("dapper" in p for p in all_packages):
             self.analysis["orm"] = "Dapper"
-        elif any("npgsql" in p for p in packages_lower):
+        elif any("npgsql" in p for p in all_packages):
             self.analysis["orm"] = "Npgsql"
 
         # Task queue / messaging
-        if any("masstransit" in p for p in packages_lower):
+        if any("masstransit" in p for p in all_packages):
             self.analysis["task_queue"] = "MassTransit"
-        elif any("hangfire" in p for p in packages_lower):
+        elif any("hangfire" in p for p in all_packages):
             self.analysis["task_queue"] = "Hangfire"
-        elif any("rabbitmq" in p for p in packages_lower):
+        elif any("rabbitmq" in p for p in all_packages):
             self.analysis["task_queue"] = "RabbitMQ"
 
         # Testing
-        if any("xunit" in p for p in packages_lower):
+        if any("xunit" in p for p in all_packages):
             self.analysis["testing"] = "xUnit"
-        elif any("nunit" in p for p in packages_lower):
+        elif any("nunit" in p for p in all_packages):
             self.analysis["testing"] = "NUnit"
-        elif any("mstest" in p for p in packages_lower):
+        elif any("mstest" in p for p in all_packages):
             self.analysis["testing"] = "MSTest"
 
     def _detect_mkdocs_details(self) -> None:
