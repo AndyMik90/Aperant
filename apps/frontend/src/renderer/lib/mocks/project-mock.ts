@@ -33,6 +33,11 @@ export const projectMock = {
     data: { success: true, version: '1.0.0', wasUpdate: false }
   }),
 
+  initializeCustomerProject: async () => ({
+    success: true,
+    data: { success: true }
+  }),
+
   checkProjectVersion: async () => ({
     success: true,
     data: {

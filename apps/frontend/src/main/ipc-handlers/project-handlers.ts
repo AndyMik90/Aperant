@@ -494,6 +494,35 @@ export function registerProjectHandlers(
     }
   );
 
+  // Initialize customer project — creates .auto-claude/ without requiring git
+  ipcMain.handle(
+    IPC_CHANNELS.PROJECT_INIT_CUSTOMER,
+    async (_, projectId: string): Promise<IPCResult<InitializationResult>> => {
+      try {
+        const project = projectStore.getProject(projectId);
+        if (!project) {
+          return { success: false, error: 'Project not found' };
+        }
+
+        const path = require('path');
+        const fs = require('fs');
+        const dotAutoClaude = path.join(project.path, '.auto-claude');
+
+        if (!fs.existsSync(dotAutoClaude)) {
+          fs.mkdirSync(dotAutoClaude, { recursive: true });
+        }
+
+        projectStore.updateAutoBuildPath(projectId, '.auto-claude');
+        return { success: true, data: { success: true } };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    }
+  );
+
   // PROJECT_CHECK_VERSION now just checks if project is initialized
   // Version tracking for .auto-claude is removed since it only contains data
   ipcMain.handle(

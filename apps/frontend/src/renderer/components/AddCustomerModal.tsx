@@ -53,13 +53,14 @@ export function AddCustomerModal({ open, onOpenChange, onCustomerAdded }: AddCus
     store.selectProject(project.id);
     store.openProjectTab(project.id);
 
-    // Create .auto-claude/ folder so the customer has an .env for GitHub token.
-    // We use createProjectFolder instead of initializeProject because the full
-    // initializer requires git (which customer folders don't have).
+    // Create .auto-claude/ and persist autoBuildPath via dedicated customer IPC.
+    // We can't use initializeProject because it requires git (customers don't have git).
     if (!project.autoBuildPath) {
       try {
-        await window.electronAPI.createProjectFolder(path, '.auto-claude', false);
-        store.updateProject(project.id, { autoBuildPath: '.auto-claude' });
+        const initResult = await window.electronAPI.initializeCustomerProject(project.id);
+        if (initResult.success) {
+          store.updateProject(project.id, { autoBuildPath: '.auto-claude' });
+        }
       } catch {
         // Non-fatal — user can configure later
       }
