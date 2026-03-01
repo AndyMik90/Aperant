@@ -1,6 +1,6 @@
 {
   "name": "auto-claude-ui",
-  "version": "2.7.9",
+  "version": "2.7.10",
   "type": "module",
   "description": "Desktop UI for Auto Claude autonomous coding framework",
   "homepage": "https://github.com/AndyMik90/Auto-Claude",
