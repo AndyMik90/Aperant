@@ -64,6 +64,10 @@ export const projectMock = {
     return prompt('Enter project path (browser mock):', '/Users/demo/projects/new-project');
   },
 
+  selectFile: async () => {
+    return prompt('Enter file path (browser mock):', '/path/to/certificate.pem');
+  },
+
   createProjectFolder: async (_location: string, name: string, initGit: boolean) => ({
     success: true,
     data: {
