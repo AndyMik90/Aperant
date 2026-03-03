@@ -2,6 +2,8 @@ import { useTranslation } from 'react-i18next';
 import { useEffect, useState } from 'react';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
+import { Button } from '../ui/button';
+import { FileText } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Switch } from '../ui/switch';
 import { SettingsSection } from './SettingsSection';
@@ -351,6 +353,35 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
             value={settings.autoBuildPath || ''}
             onChange={(e) => onSettingsChange({ ...settings, autoBuildPath: e.target.value })}
           />
+        </div>
+        {/* Custom CA Certificate */}
+        <div className="space-y-3 pt-4 border-t border-border">
+          <Label htmlFor="customCACertPath" className="text-sm font-medium text-foreground">{t('general.customCACertPath')}</Label>
+          <p className="text-sm text-muted-foreground">{t('general.customCACertPathDescription')}</p>
+          <div className="flex gap-2 max-w-lg">
+            <Input
+              id="customCACertPath"
+              placeholder={t('general.customCACertPathPlaceholder')}
+              className="flex-1"
+              value={settings.customCACertPath || ''}
+              onChange={(e) => onSettingsChange({ ...settings, customCACertPath: e.target.value })}
+            />
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={async () => {
+                const result = await window.electronAPI.selectFile([
+                  { name: 'Certificates', extensions: ['pem', 'crt', 'cer'] }
+                ]);
+                if (result) {
+                  onSettingsChange({ ...settings, customCACertPath: result });
+                }
+              }}
+              aria-label={t('general.customCACertBrowse')}
+            >
+              <FileText className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </div>
     </SettingsSection>
