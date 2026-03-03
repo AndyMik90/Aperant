@@ -1,0 +1,18 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "amiga",
+            "request": "launch",
+            "name": "Ask for file name",
+            "config": "A500",
+            "program": "",
+            "kickstart": "<Enter path to KICKSTART 1.3 ROM here>"
+        }
+
+
+    ]
+}
