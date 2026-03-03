@@ -243,6 +243,10 @@
     "autoClaudePath": "Chemin Auto Claude",
     "autoClaudePathDescription": "Chemin relatif vers le répertoire auto-claude dans les projets",
     "autoClaudePathPlaceholder": "auto-claude (par défaut)",
+    "customCACertPath": "Certificat CA personnalisé",
+    "customCACertPathDescription": "Chemin vers un fichier de certificat CA (.pem/.crt) pour les connexions SSL (ex: Zscaler, proxys d'entreprise)",
+    "customCACertPathPlaceholder": "Laisser vide pour utiliser les paramètres système",
+    "customCACertBrowse": "Parcourir pour un fichier de certificat",
     "autoNameTerminals": "Nommer automatiquement les terminaux",
     "autoNameTerminalsDescription": "Utiliser l'IA pour générer des noms descriptifs pour les onglets de terminal en fonction de leur activité"
   },
