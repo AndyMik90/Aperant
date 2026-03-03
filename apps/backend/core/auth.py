@@ -64,6 +64,8 @@ SDK_ENV_VARS = [
     "CLAUDE_CLI_PATH",
     # Profile's custom config directory (for multi-profile token storage)
     "CLAUDE_CONFIG_DIR",
+    # Custom CA certificate for enterprise proxy SSL (Zscaler, etc.)
+    "NODE_EXTRA_CA_CERTS",
 ]
 
 
