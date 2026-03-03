@@ -229,6 +229,13 @@ export class AgentProcessManager {
     const ghCliEnv = this.detectAndSetCliPath('gh');
     const glabCliEnv = this.detectAndSetCliPath('glab');
 
+    // Inject custom CA certificate path for enterprise proxy SSL support
+    const certEnv: Record<string, string> = {};
+    const appSettingsForCert = readSettingsFile() as Partial<AppSettings> | null;
+    if (appSettingsForCert?.customCACertPath) {
+      certEnv['NODE_EXTRA_CA_CERTS'] = appSettingsForCert.customCACertPath;
+    }
+
     // Profile env is spread last to ensure CLAUDE_CONFIG_DIR and auth vars
     // from the active profile always win over extraEnv or augmentedEnv.
     const mergedEnv = {
@@ -237,6 +244,7 @@ export class AgentProcessManager {
       ...claudeCliEnv,
       ...ghCliEnv,
       ...glabCliEnv,
+      ...certEnv,
       ...extraEnv,
       ...profileEnv,
       PYTHONUNBUFFERED: '1',
