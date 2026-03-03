@@ -385,6 +385,25 @@ export function registerSettingsHandlers(
   );
 
   ipcMain.handle(
+    IPC_CHANNELS.DIALOG_SELECT_FILE,
+    async (_, filters?: { name: string; extensions: string[] }[]): Promise<string | null> => {
+      const mainWindow = getMainWindow();
+      if (!mainWindow) return null;
+
+      const result = await dialog.showOpenDialog(mainWindow, {
+        properties: ['openFile'],
+        filters: filters || [{ name: 'All Files', extensions: ['*'] }]
+      });
+
+      if (result.canceled || result.filePaths.length === 0) {
+        return null;
+      }
+
+      return result.filePaths[0];
+    }
+  );
+
+  ipcMain.handle(
     IPC_CHANNELS.DIALOG_CREATE_PROJECT_FOLDER,
     async (
       _,
