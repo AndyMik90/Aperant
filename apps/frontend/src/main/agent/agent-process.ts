@@ -1,7 +1,7 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, statSync } from 'fs';
 import { app } from 'electron';
 
 // ESM-compatible __dirname
@@ -235,13 +235,12 @@ export class AgentProcessManager {
     const rawCertPath = appSettingsForCert?.customCACertPath;
     const configuredCertPath = typeof rawCertPath === 'string' ? rawCertPath.trim() : undefined;
     if (configuredCertPath) {
-      const resolvedCertPath = path.isAbsolute(configuredCertPath)
-        ? configuredCertPath
-        : path.resolve(configuredCertPath);
-      if (existsSync(resolvedCertPath)) {
-        certEnv['NODE_EXTRA_CA_CERTS'] = resolvedCertPath;
+      if (!path.isAbsolute(configuredCertPath)) {
+        console.warn('[AgentProcess] customCACertPath must be an absolute path, skipping NODE_EXTRA_CA_CERTS:', configuredCertPath);
+      } else if (existsSync(configuredCertPath) && statSync(configuredCertPath).isFile()) {
+        certEnv['NODE_EXTRA_CA_CERTS'] = configuredCertPath;
       } else {
-        console.warn('[AgentProcess] customCACertPath not found, skipping NODE_EXTRA_CA_CERTS:', resolvedCertPath);
+        console.warn('[AgentProcess] customCACertPath is missing or not a file, skipping NODE_EXTRA_CA_CERTS:', configuredCertPath);
       }
     }
 
