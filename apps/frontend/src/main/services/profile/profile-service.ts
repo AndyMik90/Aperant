@@ -6,6 +6,9 @@
  * Uses atomic operations with file locking to prevent TOCTOU race conditions.
  */
 
+import https from 'node:https';
+import fs from 'node:fs';
+import type { OutgoingHttpHeaders } from 'node:http';
 import Anthropic, {
   AuthenticationError,
   NotFoundError,
@@ -14,6 +17,66 @@ import Anthropic, {
 } from '@anthropic-ai/sdk';
 
 import { loadProfilesFile, generateProfileId, atomicModifyProfiles } from './profile-manager';
+
+/**
+ * Creates a custom fetch function that routes HTTPS requests through a
+ * Node.js https.Agent configured with the provided CA certificate.
+ * Used to support custom CA certs (e.g., Zscaler, corporate proxies).
+ */
+function createFetchWithCA(ca: Buffer): typeof globalThis.fetch {
+  const agent = new https.Agent({ ca });
+
+  return async (input, init): Promise<Response> => {
+    const urlStr = typeof input === 'string' ? input : (input as URL | Request).toString();
+    const url = new URL(urlStr);
+    const method = init?.method ?? 'GET';
+
+    const rawHeaders: OutgoingHttpHeaders = {};
+    const initHeaders = init?.headers;
+    if (initHeaders) {
+      if (initHeaders instanceof Headers) {
+        initHeaders.forEach((v, k) => { rawHeaders[k] = v; });
+      } else if (Array.isArray(initHeaders)) {
+        for (const [k, v] of initHeaders as [string, string][]) rawHeaders[k] = v;
+      } else {
+        Object.assign(rawHeaders, initHeaders);
+      }
+    }
+
+    const bodyStr = init?.body != null ? String(init.body) : undefined;
+
+    return new Promise<Response>((resolve, reject) => {
+      const req = https.request(
+        {
+          hostname: url.hostname,
+          port: Number(url.port) || 443,
+          path: url.pathname + url.search,
+          method,
+          headers: rawHeaders,
+          agent,
+        },
+        (res) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (c: Buffer) => chunks.push(c));
+          res.on('end', () => {
+            const body = Buffer.concat(chunks);
+            const headers = new Headers();
+            for (const [k, v] of Object.entries(res.headers)) {
+              if (v !== undefined) {
+                (Array.isArray(v) ? v : [v]).forEach((val) => headers.append(k, val));
+              }
+            }
+            resolve(new Response(body, { status: res.statusCode ?? 200, headers }));
+          });
+          res.on('error', reject);
+        }
+      );
+      req.on('error', reject);
+      if (bodyStr) req.write(bodyStr);
+      req.end();
+    });
+  };
+}
 import type { APIProfile, TestConnectionResult, ModelInfo, DiscoverModelsResult } from '@shared/types/profile';
 
 /**
@@ -309,7 +372,8 @@ export async function getAPIProfileEnv(): Promise<Record<string, string>> {
 export async function testConnection(
   baseUrl: string,
   apiKey: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  caCertPath?: string
 ): Promise<TestConnectionResult> {
   // Validate API key first (key format doesn't depend on URL normalization)
   if (!validateApiKey(apiKey)) {
@@ -391,12 +455,24 @@ export async function testConnection(
   }
 
   try {
+    // Build custom fetch with CA cert if provided (supports corporate proxies / Zscaler)
+    let customFetch: typeof globalThis.fetch | undefined;
+    if (caCertPath) {
+      try {
+        const ca = fs.readFileSync(caCertPath);
+        customFetch = createFetchWithCA(ca);
+      } catch {
+        // If cert can't be read, proceed without it
+      }
+    }
+
     // Create Anthropic client with SDK
     const client = new Anthropic({
       apiKey,
       baseURL: normalizedUrl,
       timeout: 10000, // 10 seconds
       maxRetries: 0, // Disable retries for immediate feedback
+      fetch: customFetch,
     });
 
     // Make minimal request to test connection (pass signal for cancellation)
@@ -514,7 +590,8 @@ export async function testConnection(
 export async function discoverModels(
   baseUrl: string,
   apiKey: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  caCertPath?: string
 ): Promise<DiscoverModelsResult> {
   // Validate API key first
   if (!validateApiKey(apiKey)) {
@@ -556,12 +633,24 @@ export async function discoverModels(
   }
 
   try {
+    // Build custom fetch with CA cert if provided
+    let customFetchForDiscover: typeof globalThis.fetch | undefined;
+    if (caCertPath) {
+      try {
+        const ca = fs.readFileSync(caCertPath);
+        customFetchForDiscover = createFetchWithCA(ca);
+      } catch {
+        // If cert can't be read, proceed without it
+      }
+    }
+
     // Create Anthropic client with SDK
     const client = new Anthropic({
       apiKey,
       baseURL: normalizedUrl,
       timeout: 10000, // 10 seconds
       maxRetries: 0, // Disable retries for immediate feedback
+      fetch: customFetchForDiscover,
     });
 
     // Fetch models with pagination (1000 limit to get all), pass signal for cancellation

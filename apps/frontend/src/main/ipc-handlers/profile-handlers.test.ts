@@ -23,6 +23,12 @@ vi.mock('electron', () => ({
   }
 }));
 
+// Mock settings-utils to avoid electron.app dependency
+vi.mock('../settings-utils', () => ({
+  readSettingsFile: vi.fn(() => ({})),
+  getSettingsPath: vi.fn(() => '/test/settings.json')
+}));
+
 // Mock profile service
 vi.mock('../services/profile', () => ({
   loadProfilesFile: mockedLoadProfilesFile,
@@ -244,7 +250,8 @@ describe('profile-handlers - testConnection', () => {
       expect(testConnection).toHaveBeenCalledWith(
         'https://api.anthropic.com',
         'sk-test-key-12chars',
-        expect.any(AbortSignal)
+        expect.any(AbortSignal),
+        undefined
       );
     });
   });
