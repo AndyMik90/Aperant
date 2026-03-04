@@ -75,6 +75,14 @@ export default defineConfig({
   renderer: {
     define: sentryDefines,
     root: resolve(__dirname, 'src/renderer'),
+    optimizeDeps: {
+      include: [
+        'rehype-raw',
+        'rehype-sanitize',
+        'remark-gfm',
+        'react-markdown'
+      ]
+    },
     build: {
       rollupOptions: {
         input: {
