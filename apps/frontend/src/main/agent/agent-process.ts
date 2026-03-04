@@ -232,8 +232,16 @@ export class AgentProcessManager {
     // Inject custom CA certificate path for enterprise proxy SSL support
     const certEnv: Record<string, string> = {};
     const appSettingsForCert = readSettingsFile() as Partial<AppSettings> | null;
-    if (appSettingsForCert?.customCACertPath) {
-      certEnv['NODE_EXTRA_CA_CERTS'] = appSettingsForCert.customCACertPath;
+    const configuredCertPath = appSettingsForCert?.customCACertPath?.trim();
+    if (configuredCertPath) {
+      const resolvedCertPath = path.isAbsolute(configuredCertPath)
+        ? configuredCertPath
+        : path.resolve(configuredCertPath);
+      if (existsSync(resolvedCertPath)) {
+        certEnv['NODE_EXTRA_CA_CERTS'] = resolvedCertPath;
+      } else {
+        console.warn('[AgentProcess] customCACertPath not found, skipping NODE_EXTRA_CA_CERTS:', resolvedCertPath);
+      }
     }
 
     // Profile env is spread last to ensure CLAUDE_CONFIG_DIR and auth vars

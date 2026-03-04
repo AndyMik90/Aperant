@@ -6,6 +6,7 @@
  * Uses atomic operations with file locking to prevent TOCTOU race conditions.
  */
 
+import http from 'node:http';
 import https from 'node:https';
 import fs from 'node:fs';
 import type { OutgoingHttpHeaders } from 'node:http';
@@ -20,15 +21,21 @@ import { loadProfilesFile, generateProfileId, atomicModifyProfiles } from './pro
 import type { APIProfile, TestConnectionResult, ModelInfo, DiscoverModelsResult } from '@shared/types/profile';
 
 /**
- * Creates a custom fetch function that routes HTTPS requests through a
- * Node.js https.Agent configured with the provided CA certificate.
+ * Creates a custom fetch function that routes requests through a Node.js
+ * http/https Agent configured with the provided CA certificate.
  * Used to support custom CA certs (e.g., Zscaler, corporate proxies).
  */
 function createFetchWithCA(ca: Buffer): typeof globalThis.fetch {
-  const agent = new https.Agent({ ca });
+  const httpsAgent = new https.Agent({ ca });
 
   return async (input, init): Promise<Response> => {
-    const urlStr = typeof input === 'string' ? input : (input as URL | Request).toString();
+    // Derive URL string — use Request.url for Request objects, not toString()
+    const urlStr =
+      typeof input === 'string'
+        ? input
+        : input instanceof URL
+          ? input.toString()
+          : (input as Request).url;
     const url = new URL(urlStr);
     const method = init?.method ?? 'GET';
 
@@ -44,15 +51,26 @@ function createFetchWithCA(ca: Buffer): typeof globalThis.fetch {
       }
     }
 
+    // Abort signal: reject immediately if already aborted
+    const signal = init?.signal ?? undefined;
+    if (signal?.aborted) {
+      return Promise.reject(new DOMException('Aborted', 'AbortError'));
+    }
+
     return new Promise<Response>((resolve, reject) => {
-      const req = https.request(
+      // Support both HTTP and HTTPS — only inject the custom CA agent for HTTPS
+      const isHttps = url.protocol === 'https:';
+      const requestFn = isHttps ? https.request : http.request;
+      const defaultPort = isHttps ? 443 : 80;
+
+      const req = requestFn(
         {
           hostname: url.hostname,
-          port: Number(url.port) || 443,
+          port: Number(url.port) || defaultPort,
           path: url.pathname + url.search,
           method,
           headers: rawHeaders,
-          agent,
+          agent: isHttps ? httpsAgent : undefined,
         },
         (res) => {
           const chunks: Buffer[] = [];
@@ -70,8 +88,18 @@ function createFetchWithCA(ca: Buffer): typeof globalThis.fetch {
           res.on('error', reject);
         }
       );
+
+      // Wire abort signal to destroy the request
+      const onAbort = () => {
+        req.destroy(new DOMException('Aborted', 'AbortError'));
+        reject(new DOMException('Aborted', 'AbortError'));
+      };
+      signal?.addEventListener('abort', onAbort, { once: true });
+      req.on('close', () => signal?.removeEventListener('abort', onAbort));
+
       req.on('error', reject);
-      // Handle all valid BodyInit types: string, Buffer/Uint8Array, URLSearchParams
+
+      // Handle all valid BodyInit types the Anthropic SDK sends
       const body = init?.body;
       if (body != null) {
         if (typeof body === 'string' || body instanceof Uint8Array) {
@@ -79,7 +107,6 @@ function createFetchWithCA(ca: Buffer): typeof globalThis.fetch {
         } else if (body instanceof URLSearchParams) {
           req.write(body.toString());
         }
-        // ReadableStream is not used by the Anthropic SDK for these endpoints
       }
       req.end();
     });
@@ -88,16 +115,18 @@ function createFetchWithCA(ca: Buffer): typeof globalThis.fetch {
 
 /**
  * Build a custom fetch for the Anthropic SDK from a CA cert path.
- * Returns undefined if no path given or the file cannot be read.
+ * Throws with a clear message if the cert file cannot be read,
+ * so misconfiguration surfaces immediately rather than producing
+ * a misleading "network error".
  */
 function buildCustomFetch(caCertPath?: string): typeof globalThis.fetch | undefined {
   if (!caCertPath) return undefined;
   try {
     const ca = fs.readFileSync(caCertPath);
     return createFetchWithCA(ca);
-  } catch {
-    // If the cert file can't be read (missing/unreadable), fall back to default TLS
-    return undefined;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`Failed to read CA certificate at "${caCertPath}": ${msg}`);
   }
 }
 
@@ -476,6 +505,18 @@ export async function testConnection(
     };
   }
 
+  // Build custom fetch before the SDK try-catch so cert errors surface clearly
+  let customFetch: typeof globalThis.fetch | undefined;
+  try {
+    customFetch = buildCustomFetch(caCertPath);
+  } catch (certErr) {
+    return {
+      success: false,
+      errorType: 'network',
+      message: certErr instanceof Error ? certErr.message : 'Failed to read CA certificate.'
+    };
+  }
+
   try {
     // Create Anthropic client with SDK, using custom fetch if a CA cert is configured
     const client = new Anthropic({
@@ -483,7 +524,7 @@ export async function testConnection(
       baseURL: normalizedUrl,
       timeout: 10000, // 10 seconds
       maxRetries: 0, // Disable retries for immediate feedback
-      fetch: buildCustomFetch(caCertPath),
+      fetch: customFetch,
     });
 
     // Make minimal request to test connection (pass signal for cancellation)
@@ -643,6 +684,18 @@ export async function discoverModels(
     throw error;
   }
 
+  // Build custom fetch before the SDK try-catch so cert errors surface clearly
+  let customFetchForDiscover: typeof globalThis.fetch | undefined;
+  try {
+    customFetchForDiscover = buildCustomFetch(caCertPath);
+  } catch (certErr) {
+    const certError: Error & { errorType?: string } = new Error(
+      certErr instanceof Error ? certErr.message : 'Failed to read CA certificate.'
+    );
+    certError.errorType = 'network';
+    throw certError;
+  }
+
   try {
     // Create Anthropic client with SDK, using custom fetch if a CA cert is configured
     const client = new Anthropic({
@@ -650,7 +703,7 @@ export async function discoverModels(
       baseURL: normalizedUrl,
       timeout: 10000, // 10 seconds
       maxRetries: 0, // Disable retries for immediate feedback
-      fetch: buildCustomFetch(caCertPath),
+      fetch: customFetchForDiscover,
     });
 
     // Fetch models with pagination (1000 limit to get all), pass signal for cancellation

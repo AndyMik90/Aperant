@@ -371,7 +371,7 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
               size="icon"
               onClick={async () => {
                 const result = await window.electronAPI.selectFile([
-                  { name: 'Certificates', extensions: ['pem', 'crt', 'cer'] }
+                  { name: t('general.customCACertFileFilter'), extensions: ['pem', 'crt', 'cer'] }
                 ]);
                 if (result) {
                   onSettingsChange({ ...settings, customCACertPath: result });

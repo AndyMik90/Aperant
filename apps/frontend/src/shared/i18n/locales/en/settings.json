@@ -247,6 +247,7 @@
     "customCACertPathDescription": "Path to a custom CA certificate file (.pem/.crt) for SSL connections (e.g., Zscaler, corporate proxies)",
     "customCACertPathPlaceholder": "Leave empty to use system defaults",
     "customCACertBrowse": "Browse for certificate file",
+    "customCACertFileFilter": "Certificates",
     "autoNameTerminals": "Automatically name terminals",
     "autoNameTerminalsDescription": "Use AI to generate descriptive names for terminal tabs based on their activity"
   },
