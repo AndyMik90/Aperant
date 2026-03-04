@@ -496,18 +496,24 @@ def _check_graphiti_server_health(url: str, timeout: float = 2.0) -> bool:
     import httpx
 
     try:
-        # Just check if we can connect - don't need a valid response
-        response = httpx.head(url, timeout=timeout)
-        return response.status_code < 500
+        # Use GET instead of HEAD - many MCP servers don't implement HEAD
+        # Check for status < 400 to exclude client errors (405 Method Not Allowed, etc.)
+        response = httpx.get(url, timeout=timeout)
+        return response.status_code < 400
     except httpx.RequestError:
         return False
     except Exception:
         return False
 
 
-# Cache for graphiti health check (reset per process)
-_graphiti_health_checked = False
-_graphiti_is_healthy = False
+# Thread-safe cache for graphiti health check with TTL
+import threading
+
+_graphiti_health_lock = threading.Lock()
+_graphiti_health_cache: dict[
+    str, tuple[bool, float]
+] = {}  # url -> (is_healthy, timestamp)
+_GRAPHITI_HEALTH_TTL = 60.0  # Re-check every 60 seconds
 
 
 def is_graphiti_mcp_enabled() -> bool:
@@ -519,25 +525,41 @@ def is_graphiti_mcp_enabled() -> bool:
 
     Also performs a health check to ensure the server is actually running.
     If the server is not responding, returns False to prevent connection hangs.
-    """
-    global _graphiti_health_checked, _graphiti_is_healthy
 
+    The health check is cached with a 60-second TTL for thread safety and to allow
+    recovery if the server becomes available after initial failure.
+    """
     url = os.environ.get("GRAPHITI_MCP_URL")
     if not url:
         return False
 
-    # Check health only once per process to avoid repeated connection attempts
-    if not _graphiti_health_checked:
-        _graphiti_health_checked = True
-        _graphiti_is_healthy = _check_graphiti_server_health(url)
-        if not _graphiti_is_healthy:
+    current_time = time.time()
+
+    with _graphiti_health_lock:
+        # Check if we have a cached result that's still valid
+        if url in _graphiti_health_cache:
+            is_healthy, timestamp = _graphiti_health_cache[url]
+            if current_time - timestamp < _GRAPHITI_HEALTH_TTL:
+                return is_healthy
+
+        # Perform health check (still under lock to prevent concurrent checks)
+        is_healthy = _check_graphiti_server_health(url)
+        _graphiti_health_cache[url] = (is_healthy, current_time)
+
+        if not is_healthy:
             logger.warning(
                 f"Graphiti MCP server at {url} is not responding. "
                 "Disabling graphiti-memory integration to prevent connection hangs. "
                 "Start the Graphiti server or disable graphitiMcpEnabled in project settings."
             )
 
-    return _graphiti_is_healthy
+    return is_healthy
+
+
+def reset_graphiti_health_cache() -> None:
+    """Reset the Graphiti health check cache. Useful for testing or manual recovery."""
+    with _graphiti_health_lock:
+        _graphiti_health_cache.clear()
 
 
 def get_graphiti_mcp_url() -> str:
@@ -590,6 +612,71 @@ def is_vault_auto_load_enabled() -> bool:
     return os.environ.get("VAULT_AUTO_LOAD", "").lower() == "true"
 
 
+# Constants for vault context loading
+MAX_VAULT_LEARNING_FILES = 5
+MAX_VAULT_LEARNING_CHARS = 2000
+MAX_VAULT_CLAUDE_MD_CHARS = 10000
+
+# Sensitive directories that should not be used as vault paths
+_SENSITIVE_DIRECTORIES = frozenset(
+    [
+        "/etc",
+        "/var",
+        "/usr",
+        "/bin",
+        "/sbin",
+        "/lib",
+        "/lib64",
+        "/boot",
+        "/dev",
+        "/proc",
+        "/sys",
+        "/run",
+        "/tmp",
+        "/private/etc",
+        "/private/var",  # macOS
+        "/Windows",
+        "/Program Files",
+        "/Program Files (x86)",  # Windows
+    ]
+)
+
+
+def _is_safe_vault_path(path: Path) -> bool:
+    """
+    Validate that the vault path is safe to use.
+
+    Prevents path traversal to sensitive system directories.
+    """
+    try:
+        resolved = path.resolve()
+        str_path = str(resolved).lower()
+
+        # Check against sensitive directories
+        for sensitive in _SENSITIVE_DIRECTORIES:
+            if str_path.startswith(sensitive.lower()):
+                return False
+
+        # Ensure it's within user's home directory or a reasonable location
+        home = Path.home().resolve()
+        try:
+            resolved.relative_to(home)
+            return True
+        except ValueError:
+            # Not under home - check if it looks like a vault (has .obsidian or .claude)
+            if (resolved / ".obsidian").exists() or (resolved / ".claude").exists():
+                return True
+            # Allow explicit paths but log a warning
+            logger.warning(
+                f"Vault path {resolved} is outside home directory and has no vault markers. "
+                "Consider using a path within your home directory."
+            )
+            return True  # Allow but warn
+
+    except Exception:
+        return False
+
+
 def load_vault_context() -> dict[str, Any] | None:
     """
     Load vault context including CLAUDE.md and recent learnings.
@@ -608,38 +695,79 @@ def load_vault_context() -> dict[str, Any] | None:
         logger.warning(f"Vault path does not exist: {expanded}")
         return None
 
+    # Validate vault path is safe
+    if not _is_safe_vault_path(expanded):
+        logger.error(
+            f"Vault path {expanded} points to a sensitive system directory. "
+            "Please use a path within your home directory."
+        )
+        return None
+
     context: dict[str, Any] = {}
 
-    # Load vault's CLAUDE.md (session context)
+    # Load vault's CLAUDE.md (session context) with size limit
     vault_claude_md = expanded / ".claude" / "CLAUDE.md"
     if vault_claude_md.exists():
         try:
-            context["claude_md"] = vault_claude_md.read_text(encoding="utf-8")
+            # Validate file is within vault directory (prevent symlink escapes)
+            resolved_claude_md = vault_claude_md.resolve()
+            if not resolved_claude_md.is_relative_to(expanded):
+                logger.warning(
+                    "Vault CLAUDE.md resolves outside vault directory, skipping"
+                )
+            else:
+                content = vault_claude_md.read_text(encoding="utf-8")
+                # Truncate to prevent excessive context size
+                if len(content) > MAX_VAULT_CLAUDE_MD_CHARS:
+                    content = content[:MAX_VAULT_CLAUDE_MD_CHARS] + "\n...(truncated)"
+                context["claude_md"] = content
         except Exception as e:
             logger.warning(f"Failed to read vault CLAUDE.md: {e}")
 
-    # Load recent learnings (last 5 files, max 2000 chars each)
+    # Load recent learnings (last N files, max M chars each)
     learnings_dir = expanded / "memory" / "learnings"
     if learnings_dir.exists():
-        learning_files = sorted(
-            learnings_dir.glob("**/*.md"),
-            key=lambda p: p.stat().st_mtime,
-            reverse=True,
-        )[:5]  # Last 5 most recent
+        # Safely sort files by mtime, handling potential FileNotFoundError
+        def safe_mtime(p: Path) -> float:
+            try:
+                return p.stat().st_mtime
+            except FileNotFoundError:
+                return 0.0
+
+        try:
+            learning_files = sorted(
+                learnings_dir.glob("**/*.md"),
+                key=safe_mtime,
+                reverse=True,
+            )[:MAX_VAULT_LEARNING_FILES]
+        except Exception as e:
+            logger.warning(f"Failed to list learning files: {e}")
+            learning_files = []
 
         learnings = []
         for learning_file in learning_files:
             try:
+                # Validate file is within vault directory (prevent symlink escapes)
+                resolved_file = learning_file.resolve()
+                if not resolved_file.is_relative_to(expanded):
+                    logger.warning(
+                        f"Learning file {learning_file} resolves outside vault, skipping"
+                    )
+                    continue
+
                 content = learning_file.read_text(encoding="utf-8")
                 # Truncate to avoid bloating context
-                if len(content) > 2000:
-                    content = content[:2000] + "\n...(truncated)"
+                if len(content) > MAX_VAULT_LEARNING_CHARS:
+                    content = content[:MAX_VAULT_LEARNING_CHARS] + "\n...(truncated)"
                 learnings.append(
                     {
                         "path": str(learning_file.relative_to(expanded)),
                         "content": content,
                     }
                 )
+            except FileNotFoundError:
+                # File was deleted between glob and read, skip it
+                continue
             except Exception as e:
                 logger.warning(f"Failed to read learning {learning_file}: {e}")
 

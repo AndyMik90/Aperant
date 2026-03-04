@@ -198,17 +198,16 @@ def is_jira_mcp_enabled() -> bool:
 
     Enabled when:
     - JIRA_MCP_ENABLED is set to 'true', OR
-    - JIRA credentials are configured (JIRA_HOST + JIRA_EMAIL + JIRA_TOKEN)
+    - JIRA credentials are fully configured (JIRA_HOST + JIRA_EMAIL + JIRA_TOKEN)
 
     When enabled, agents can use JIRA tools for issue tracking and Confluence.
     """
     if os.environ.get("JIRA_MCP_ENABLED", "").lower() == "true":
         return True
-    # Check for JIRA credentials
-    jira_host = os.environ.get("JIRA_HOST") or os.environ.get("JIRA_URL")
-    jira_email = os.environ.get("JIRA_EMAIL")
-    jira_token = os.environ.get("JIRA_API_TOKEN") or os.environ.get("JIRA_TOKEN")
-    return bool(jira_host and jira_email and jira_token)
+    # Use centralized check for full credential validation
+    from core.mcp_config import is_jira_fully_configured
+
+    return is_jira_fully_configured()
 
 
 def is_gitlab_mcp_enabled() -> bool:
@@ -217,18 +216,16 @@ def is_gitlab_mcp_enabled() -> bool:
 
     Enabled when:
     - GITLAB_MCP_ENABLED is set to 'true', OR
-    - GitLab credentials are configured (GITLAB_HOST + GITLAB_TOKEN)
+    - GitLab credentials are fully configured (GITLAB_HOST + GITLAB_TOKEN)
 
     When enabled, agents can use GitLab tools for code and issue management.
     """
     if os.environ.get("GITLAB_MCP_ENABLED", "").lower() == "true":
         return True
-    # Check for GitLab credentials
-    gitlab_host = os.environ.get("GITLAB_HOST") or os.environ.get("GITLAB_URL")
-    gitlab_token = os.environ.get("GITLAB_TOKEN") or os.environ.get(
-        "GITLAB_PRIVATE_TOKEN"
-    )
-    return bool(gitlab_host and gitlab_token)
+    # Use centralized check for full credential validation
+    from core.mcp_config import is_gitlab_fully_configured
+
+    return is_gitlab_fully_configured()
 
 
 def is_obsidian_mcp_enabled() -> bool:
@@ -243,9 +240,10 @@ def is_obsidian_mcp_enabled() -> bool:
     """
     if os.environ.get("OBSIDIAN_MCP_ENABLED", "").lower() == "true":
         return True
-    # Check for vault path
-    vault_path = os.environ.get("VAULT_PATH") or os.environ.get("OBSIDIAN_VAULT_PATH")
-    return bool(vault_path)
+    # Use centralized check for vault path
+    from core.mcp_config import is_vault_configured
+
+    return is_vault_configured()
 
 
 # =============================================================================
@@ -594,39 +592,32 @@ def get_required_mcp_servers(
         if str(linear_mcp_enabled).lower() != "false":
             servers.append("linear")
 
-    # Handle JIRA integration (enabled via JIRA_MCP_ENABLED env var or credentials)
+    # Handle JIRA integration - use centralized check to ensure all credentials exist
+    # This prevents adding JIRA to required servers when config will return None
     if "jira" in optional:
-        # Check mcp_config (per-project .auto-claude/.env), env var, or credentials
-        jira_enabled = (
-            mcp_config.get("JIRA_MCP_ENABLED", "").lower() == "true"
-            or os.environ.get("JIRA_MCP_ENABLED", "").lower() == "true"
-        )
-        jira_host = os.environ.get("JIRA_HOST") or os.environ.get("JIRA_URL")
-        if jira_enabled or jira_host:
+        # Check mcp_config (per-project .auto-claude/.env) first for explicit enable/disable
+        jira_mcp_override = mcp_config.get("JIRA_MCP_ENABLED", "").lower()
+        if jira_mcp_override == "false":
+            pass  # Explicitly disabled at project level
+        elif jira_mcp_override == "true" or is_jira_mcp_enabled():
             servers.append("jira")
 
-    # Handle GitLab integration (enabled via GITLAB_MCP_ENABLED env var or credentials)
+    # Handle GitLab integration - use centralized check to ensure all credentials exist
     if "gitlab" in optional:
-        # Check mcp_config (per-project .auto-claude/.env), env var, or credentials
-        gitlab_enabled = (
-            mcp_config.get("GITLAB_MCP_ENABLED", "").lower() == "true"
-            or os.environ.get("GITLAB_MCP_ENABLED", "").lower() == "true"
-        )
-        gitlab_host = os.environ.get("GITLAB_HOST") or os.environ.get("GITLAB_URL")
-        if gitlab_enabled or gitlab_host:
+        # Check mcp_config (per-project .auto-claude/.env) first for explicit enable/disable
+        gitlab_mcp_override = mcp_config.get("GITLAB_MCP_ENABLED", "").lower()
+        if gitlab_mcp_override == "false":
+            pass  # Explicitly disabled at project level
+        elif gitlab_mcp_override == "true" or is_gitlab_mcp_enabled():
             servers.append("gitlab")
 
-    # Handle Obsidian/Vault integration (enabled via OBSIDIAN_MCP_ENABLED env var or path)
+    # Handle Obsidian/Vault integration - use centralized check
     if "obsidian" in optional:
-        # Check mcp_config (per-project .auto-claude/.env), env var, or vault path
-        obsidian_enabled = (
-            mcp_config.get("OBSIDIAN_MCP_ENABLED", "").lower() == "true"
-            or os.environ.get("OBSIDIAN_MCP_ENABLED", "").lower() == "true"
-        )
-        vault_path = os.environ.get("VAULT_PATH") or os.environ.get(
-            "OBSIDIAN_VAULT_PATH"
-        )
-        if obsidian_enabled or vault_path:
+        # Check mcp_config (per-project .auto-claude/.env) first for explicit enable/disable
+        obsidian_mcp_override = mcp_config.get("OBSIDIAN_MCP_ENABLED", "").lower()
+        if obsidian_mcp_override == "false":
+            pass  # Explicitly disabled at project level
+        elif obsidian_mcp_override == "true" or is_obsidian_mcp_enabled():
             servers.append("obsidian")
 
     # Handle dynamic "browser" → electron/puppeteer based on project type and config

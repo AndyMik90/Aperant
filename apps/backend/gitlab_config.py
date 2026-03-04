@@ -1,3 +1,45 @@
 """Backward compatibility shim - import from integrations.gitlab.config instead."""
 
-from integrations.gitlab.config import *  # noqa: F403
+from integrations.gitlab.config import (
+    GITLAB_PROJECT_MARKER,
+    LABELS,
+    STATUS_CLOSED,
+    STATUS_LOCKED,
+    STATUS_MERGED,
+    STATUS_OPENED,
+    SUBTASK_TO_GITLAB_STATE,
+    WEIGHT_HIGH,
+    WEIGHT_LOW,
+    WEIGHT_MEDIUM,
+    GitLabConfig,
+    GitLabProjectState,
+    format_issue_description,
+    format_session_note,
+    format_stuck_note,
+    get_creator_label,
+    get_gitlab_state,
+    get_labels_for_subtask,
+    get_weight_for_phase,
+)
+
+__all__ = [
+    "STATUS_OPENED",
+    "STATUS_CLOSED",
+    "STATUS_MERGED",
+    "STATUS_LOCKED",
+    "WEIGHT_HIGH",
+    "WEIGHT_MEDIUM",
+    "WEIGHT_LOW",
+    "SUBTASK_TO_GITLAB_STATE",
+    "LABELS",
+    "GITLAB_PROJECT_MARKER",
+    "GitLabConfig",
+    "GitLabProjectState",
+    "get_creator_label",
+    "get_gitlab_state",
+    "get_weight_for_phase",
+    "get_labels_for_subtask",
+    "format_issue_description",
+    "format_session_note",
+    "format_stuck_note",
+]
