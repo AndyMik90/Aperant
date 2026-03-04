@@ -237,10 +237,16 @@ export class AgentProcessManager {
     if (configuredCertPath) {
       if (!path.isAbsolute(configuredCertPath)) {
         console.warn('[AgentProcess] customCACertPath must be an absolute path, skipping NODE_EXTRA_CA_CERTS:', configuredCertPath);
-      } else if (existsSync(configuredCertPath) && statSync(configuredCertPath).isFile()) {
-        certEnv['NODE_EXTRA_CA_CERTS'] = configuredCertPath;
       } else {
-        console.warn('[AgentProcess] customCACertPath is missing or not a file, skipping NODE_EXTRA_CA_CERTS:', configuredCertPath);
+        try {
+          if (existsSync(configuredCertPath) && statSync(configuredCertPath).isFile()) {
+            certEnv['NODE_EXTRA_CA_CERTS'] = configuredCertPath;
+          } else {
+            console.warn('[AgentProcess] customCACertPath is missing or not a file, skipping NODE_EXTRA_CA_CERTS:', configuredCertPath);
+          }
+        } catch (err) {
+          console.warn('[AgentProcess] customCACertPath stat failed, skipping NODE_EXTRA_CA_CERTS:', configuredCertPath, err);
+        }
       }
     }
 
