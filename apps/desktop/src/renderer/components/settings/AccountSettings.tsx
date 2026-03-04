@@ -74,12 +74,20 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
       const usageData = (account.claudeProfileId
         ? profileUsageData.get(account.claudeProfileId)
         : undefined) ?? profileUsageData.get(account.id);
+      const profileEmail = usageData?.profileEmail || account.email;
+
+      const identifier = account.authType === 'oauth'
+        ? (profileEmail || PROVIDER_REGISTRY.find(p => p.id === account.provider)?.name || t('accounts.priority.noEmail'))
+        : (account.baseUrl ?? (PROVIDER_REGISTRY.find(p => p.id === account.provider)?.name ?? account.provider));
+
       return {
         id: account.id,
         name: account.name,
         type: account.authType === 'oauth' ? 'oauth' : 'api',
         displayName: account.name,
-        identifier: account.baseUrl ?? (PROVIDER_REGISTRY.find(p => p.id === account.provider)?.name ?? account.provider),
+        identifier,
+        provider: account.provider,
+        profileEmail,
         isActive: priorityOrder.length > 0 ? priorityOrder[0] === account.id : false,
         isNext: false,
         isAvailable: true,

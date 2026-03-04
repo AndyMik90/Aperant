@@ -531,6 +531,50 @@ describe('ProjectStore', () => {
 
       expect(tasks[0].status).toBe('done');
     });
+
+    it('should prefer original task description from requirements.json over plan description', async () => {
+      const specsDir = path.join(TEST_PROJECT_PATH, '.auto-claude', 'specs', '007-description-priority');
+      mkdirSync(specsDir, { recursive: true });
+
+      const aiDescription = 'AI-generated implementation plan description';
+      const userDescription = 'User entered: preserve this exact original task description';
+
+      const plan = {
+        feature: 'Description Priority Feature',
+        description: aiDescription,
+        workflow_type: 'feature',
+        services_involved: [],
+        status: 'pending',
+        phases: [],
+        final_acceptance: [],
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        spec_file: 'spec.md'
+      };
+
+      writeFileSync(
+        path.join(specsDir, 'implementation_plan.json'),
+        JSON.stringify(plan)
+      );
+
+      const requirements = {
+        task_description: userDescription,
+        workflow_type: 'feature'
+      };
+      writeFileSync(
+        path.join(specsDir, 'requirements.json'),
+        JSON.stringify(requirements)
+      );
+
+      const { ProjectStore } = await import('../project-store');
+      const store = new ProjectStore();
+
+      const project = store.addProject(TEST_PROJECT_PATH);
+      const tasks = store.getTasks(project.id);
+
+      expect(tasks).toHaveLength(1);
+      expect(tasks[0].description).toBe(userDescription);
+    });
   });
 
   describe('persistence', () => {

@@ -95,6 +95,7 @@ export interface CodexAuthResult {
   accessToken: string;
   refreshToken: string;
   expiresAt: number; // unix ms
+  email?: string;
 }
 
 export interface CodexAuthState {
@@ -385,10 +386,14 @@ async function exchangeCodeForTokens(code: string, codeVerifier: string): Promis
   const expiresIn = typeof data.expires_in === 'number' ? data.expires_in : 3600;
   const expiresAt = Date.now() + expiresIn * 1000;
 
+  const email =
+    typeof data.id_token === 'string' ? getEmailFromIdToken(data.id_token) : undefined;
+
   return {
     accessToken: data.access_token,
     refreshToken: data.refresh_token,
     expiresAt,
+    email,
   };
 }
 
@@ -450,6 +455,7 @@ export async function refreshCodexToken(refreshToken: string): Promise<CodexAuth
     accessToken: data.access_token,
     refreshToken: newRefreshToken,
     expiresAt,
+    ...(typeof data.id_token === 'string' ? { email: getEmailFromIdToken(data.id_token) } : {}),
   };
 
   await writeStoredTokens({
@@ -459,6 +465,19 @@ export async function refreshCodexToken(refreshToken: string): Promise<CodexAuth
   });
 
   return result;
+}
+
+function getEmailFromIdToken(idToken: string): string | undefined {
+  const parts = idToken.split('.');
+  if (parts.length !== 3) return undefined;
+
+  try {
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf-8')) as Record<string, unknown>;
+    const email = payload.email;
+    return typeof email === 'string' ? email : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 // =============================================================================

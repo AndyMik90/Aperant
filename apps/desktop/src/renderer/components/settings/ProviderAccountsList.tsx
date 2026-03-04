@@ -22,6 +22,7 @@ export function ProviderAccountsList() {
   const { t } = useTranslation('settings');
   const {
     deleteProviderAccount,
+    updateProviderAccount,
     providerAccounts,
     checkEnvCredentials,
     loadProviderAccounts,
@@ -29,7 +30,7 @@ export function ProviderAccountsList() {
   } = useSettingsStore();
   const { toast } = useToast();
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -109,12 +110,24 @@ export function ProviderAccountsList() {
 
     const isCodex = account.provider === 'openai';
 
+    const refreshUsageData = async () => {
+      try {
+        await window.electronAPI.requestAllProfilesUsage?.(true);
+      } catch {
+        // Non-fatal. Usage will refresh on next polling cycle.
+      }
+    };
+
     if (isCodex) {
       // Codex OAuth: trigger re-auth flow directly
       try {
         toast({ title: t('providers.toast.reauthStarted') });
         const result = await window.electronAPI.codexAuthLogin();
         if (result.success) {
+          if (result.data?.email) {
+            await updateProviderAccount(account.id, { email: result.data.email });
+          }
+          await refreshUsageData();
           toast({ title: t('providers.toast.reauthSuccess'), description: account.name });
         } else {
           toast({ variant: 'destructive', title: t('providers.toast.reauthFailed'), description: result.error ?? '' });
@@ -128,6 +141,10 @@ export function ProviderAccountsList() {
         toast({ title: t('providers.toast.reauthStarted') });
         const result = await window.electronAPI.claudeAuthLoginSubprocess(account.claudeProfileId);
         if (result.success && result.data?.authenticated) {
+          if (result.data.email) {
+            await updateProviderAccount(account.id, { email: result.data.email });
+          }
+          await refreshUsageData();
           toast({ title: t('providers.toast.reauthSuccess'), description: account.name });
         } else {
           toast({ variant: 'destructive', title: t('providers.toast.reauthFailed'), description: result.error ?? '' });
@@ -136,7 +153,7 @@ export function ProviderAccountsList() {
         toast({ variant: 'destructive', title: t('providers.toast.reauthFailed'), description: err instanceof Error ? err.message : '' });
       }
     }
-  }, [toast, t]);
+  }, [toast, t, updateProviderAccount]);
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;

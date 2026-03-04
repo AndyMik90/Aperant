@@ -462,27 +462,25 @@ export class ProjectStore {
           }
         }
 
-        // PRIORITY 1: Read description from implementation_plan.json (user's original)
         let description = '';
-        if (plan?.description) {
-          description = plan.description;
+        const requirementsPath = path.join(specPath, AUTO_BUILD_PATHS.REQUIREMENTS);
+        // PRIORITY 1: Read original user task description from requirements.json
+        if (existsSync(requirementsPath)) {
+          try {
+            const reqContent = readFileSync(requirementsPath, 'utf-8');
+            const requirements = JSON.parse(reqContent);
+            if (typeof requirements.task_description === 'string' && requirements.task_description.trim()) {
+              // Use the full task description that the user entered
+              description = requirements.task_description.trim();
+            }
+          } catch {
+            // Ignore parse errors
+          }
         }
 
-        // PRIORITY 2: Fallback to requirements.json
-        if (!description) {
-          const requirementsPath = path.join(specPath, AUTO_BUILD_PATHS.REQUIREMENTS);
-          if (existsSync(requirementsPath)) {
-            try {
-              const reqContent = readFileSync(requirementsPath, 'utf-8');
-              const requirements = JSON.parse(reqContent);
-              if (requirements.task_description) {
-                // Use the full task description for the modal view
-                description = requirements.task_description;
-              }
-            } catch {
-              // Ignore parse errors
-            }
-          }
+        // PRIORITY 2: Fallback to plan description if user requirement text is missing
+        if (!description && plan?.description) {
+          description = plan.description;
         }
 
         // PRIORITY 3: Final fallback to spec.md Overview (AI-synthesized content)

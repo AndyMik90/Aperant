@@ -393,8 +393,15 @@ export async function resolveAuthFromQueue(
     if (!modelSpec) {
       // No cross-provider equivalent found. Only proceed if the model is
       // native to this provider's API (detected via model ID prefix).
+      // Ollama is a special case: it runs arbitrary user-installed models with
+      // no predictable prefix (e.g., 'llama3.1:8b', 'mistral:7b', 'phi3:mini').
+      // When the account IS Ollama, allow any unrecognized model through since
+      // the user explicitly configured it. When the account is NOT Ollama, skip
+      // if the model can't be identified as native.
       const nativeProvider = detectProviderFromModel(requestedModel);
-      if (nativeProvider !== supportedProvider) continue;
+      if (nativeProvider !== supportedProvider && supportedProvider !== 'ollama') continue;
+      // If nativeProvider is defined but doesn't match Ollama, skip (e.g., 'claude-*' on Ollama)
+      if (supportedProvider === 'ollama' && nativeProvider && nativeProvider !== 'ollama') continue;
     }
 
     const resolvedModelId = modelSpec?.modelId ?? requestedModel;

@@ -1403,6 +1403,8 @@ export function registerClaudeCodeHandlers(): void {
           const usageMonitor = getUsageMonitor();
           usageMonitor.clearProfileUsageCache(profileId);
           console.warn('[Claude Code] Cleared usage cache for profile after re-authentication:', profileId);
+          usageMonitor.checkNow();
+          console.warn('[Claude Code] Triggered immediate usage check after re-authentication:', profileId);
 
           // Clean up backup file after successful authentication
           if (existsSync(claudeJsonBakPath)) {
@@ -1563,6 +1565,8 @@ export function registerClaudeCodeHandlers(): void {
                 clearKeychainCache(expandedConfigDir);
                 const usageMonitor = getUsageMonitor();
                 usageMonitor.clearProfileUsageCache(profileId);
+                usageMonitor.checkNow();
+                console.warn('[Claude Code] Triggered immediate usage check after re-authentication:', profileId);
 
                 // Clean up backup
                 if (existsSync(claudeJsonBakPath)) {

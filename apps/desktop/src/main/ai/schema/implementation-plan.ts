@@ -74,11 +74,13 @@ function coerceSubtask(input: unknown): unknown {
     description: raw.description ?? raw.title ?? raw.name ?? raw.summary ?? raw.details ?? undefined,
     // Normalize status
     status: normalizeStatus(raw.status),
-    // Coerce files_to_modify: accept file_paths as alias
-    files_to_modify: raw.files_to_modify ?? raw.file_paths ?? undefined,
+    // Coerce files_to_modify: accept file_paths, files_modified as aliases
+    files_to_modify: raw.files_to_modify ?? raw.file_paths ?? raw.files_modified ?? undefined,
     // Coerce files_to_create: accept new_files as alias
     files_to_create: raw.files_to_create ?? raw.new_files ?? undefined,
-    // Coerce verification: accept method as alias for type
+    // Coerce verification object: accept method as alias for type.
+    // Non-object verification values (strings, etc.) are NOT coerced — let Zod
+    // reject them so the validation retry loop can tell the LLM what's wrong.
     verification: raw.verification && typeof raw.verification === 'object'
       ? {
           ...(raw.verification as Record<string, unknown>),
@@ -119,7 +121,9 @@ function coercePhase(input: unknown): unknown {
     id: raw.id ?? raw.phase_id ?? (raw.phase !== undefined ? String(raw.phase) : undefined),
     // Coerce name: accept title as alias
     name: raw.name ?? raw.title ?? (raw.id ? String(raw.id) : undefined) ?? 'Phase',
-    // Coerce subtasks: accept chunks, tasks as aliases
+    // Coerce subtasks: accept chunks, tasks as aliases.
+    // If no subtask array exists, let Zod reject it — the validation retry loop
+    // will tell the LLM that phases must contain a "subtasks" array.
     subtasks: raw.subtasks ?? raw.chunks ?? raw.tasks ?? undefined,
   };
 }

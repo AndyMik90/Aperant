@@ -546,9 +546,16 @@ async function runBuildOrchestrator(
     sourceSpecDir: session.sourceSpecDir,
     abortSignal: abortController.signal,
 
-    generatePrompt: async (agentType, _phase, _context) => {
+    generatePrompt: async (agentType, _phase, context) => {
       const promptName = agentType === 'coder' ? 'coder' : agentType;
-      return assemblePrompt(promptName, session);
+      let prompt = await assemblePrompt(promptName, session);
+
+      // Inject schema validation error feedback on retry so the planner knows what to fix
+      if (context.planningRetryContext) {
+        prompt += `\n\n${context.planningRetryContext}`;
+      }
+
+      return prompt;
     },
 
     runSession: async (runConfig) => {
@@ -810,9 +817,16 @@ async function runSpecOrchestrator(
     projectIndex: projectIndexContent,
     abortSignal: abortController.signal,
 
-    generatePrompt: async (_agentType, phase, _context) => {
+    generatePrompt: async (_agentType, phase, context) => {
       const promptName = specPhaseToPromptName(phase);
-      return assemblePrompt(promptName, session);
+      let prompt = await assemblePrompt(promptName, session);
+
+      // Inject schema validation error feedback on retry so the agent knows what to fix
+      if (context.schemaRetryContext) {
+        prompt += `\n\n${context.schemaRetryContext}`;
+      }
+
+      return prompt;
     },
 
     runSession: async (runConfig) => {

@@ -114,6 +114,30 @@ describe('PlanSubtaskSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects string verification (must be an object for retry feedback)', () => {
+    const result = PlanSubtaskSchema.safeParse({
+      id: '1.1',
+      description: 'Add HiDPI support',
+      status: 'pending',
+      verification: 'Open in Chrome, canvas should render sharp on DPR=2',
+    });
+    // String verification should fail so the retry loop can tell the LLM what's wrong
+    expect(result.success).toBe(false);
+  });
+
+  it('coerces "files_modified" to "files_to_modify"', () => {
+    const result = PlanSubtaskSchema.safeParse({
+      id: '1.1',
+      description: 'Task',
+      status: 'pending',
+      files_modified: ['script.js', 'style.css'],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.files_to_modify).toEqual(['script.js', 'style.css']);
+    }
+  });
+
   it('preserves unknown fields via passthrough', () => {
     const result = PlanSubtaskSchema.safeParse({
       id: '1.1',
@@ -352,5 +376,55 @@ describe('ImplementationPlanSchema', () => {
       phases: [],
     });
     expect(result.success).toBe(false);
+  });
+
+  it('rejects phases without subtasks (retry feedback tells LLM to add subtasks)', () => {
+    // Phases without subtasks should fail validation so the retry loop
+    // can tell the LLM: "Phase must have a subtasks array"
+    const flatPhasePlan = {
+      phases: [
+        {
+          phase: 1,
+          title: 'Game State Machine',
+          description: 'Refactor game to use a state machine',
+          files_to_modify: ['script.js'],
+          key_changes: ['Add mode selection'],
+          verification: 'Mode selection screen appears on load.',
+        },
+      ],
+    };
+
+    const result = ImplementationPlanSchema.safeParse(flatPhasePlan);
+    expect(result.success).toBe(false);
+  });
+
+  it('coerces flat steps[] into phases with subtasks (steps become subtasks)', () => {
+    // steps[] → single phase with subtasks is a valid structural alias
+    // because steps ARE subtasks wrapped in a phase
+    const stepsPlan = {
+      steps: [
+        {
+          step: 1,
+          title: 'Disable canvas alpha',
+          description: 'Apply canvas changes',
+          files_modified: ['script.js'],
+        },
+        {
+          step: 2,
+          title: 'Pre-render background',
+          description: 'Create offscreen canvas',
+          files_modified: ['script.js'],
+        },
+      ],
+    };
+
+    const result = ImplementationPlanSchema.safeParse(stepsPlan);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.phases).toHaveLength(1);
+      expect(result.data.phases[0].subtasks).toHaveLength(2);
+      expect(result.data.phases[0].subtasks[0].id).toBe('1');
+      expect(result.data.phases[0].subtasks[0].files_to_modify).toEqual(['script.js']);
+    }
   });
 });

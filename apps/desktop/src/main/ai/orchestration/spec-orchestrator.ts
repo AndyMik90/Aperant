@@ -26,6 +26,8 @@ import {
   ComplexityAssessmentSchema,
   ImplementationPlanSchema,
   ComplexityAssessmentOutputSchema,
+  buildValidationRetryPrompt,
+  IMPLEMENTATION_PLAN_SCHEMA_HINT,
 } from '../schema';
 import type { ZodSchema } from 'zod';
 import type { SessionResult } from '../session/types';
@@ -157,6 +159,8 @@ export interface SpecPromptContext {
   priorPhaseOutputs?: Record<string, string>;
   /** Retry attempt number (0 = first try) */
   attemptCount: number;
+  /** Schema validation error feedback for retry (built by buildValidationRetryPrompt) */
+  schemaRetryContext?: string;
 }
 
 /** Configuration passed to runSession callback */
@@ -406,6 +410,7 @@ export class SpecOrchestrator extends EventEmitter {
   ): Promise<SpecPhaseResult> {
     const agentType = PHASE_AGENT_MAP[phase];
     const errors: string[] = [];
+    let schemaRetryContext: string | undefined;
 
     this.emitTyped('phase-start', phase, phaseNumber, totalPhases);
 
@@ -427,6 +432,7 @@ export class SpecOrchestrator extends EventEmitter {
         projectIndex: this.config.projectIndex,
         priorPhaseOutputs: phaseOutputs,
         attemptCount: attempt,
+        schemaRetryContext,
       });
 
       const result = await this.config.runSession({
@@ -477,7 +483,16 @@ export class SpecOrchestrator extends EventEmitter {
           errors.push(`Schema validation failed: ${schemaValidation.errors.join(', ')}`);
           this.emitTyped('log', `Phase ${phase} schema validation failed (attempt ${attempt + 1}): ${schemaValidation.errors.join(', ')}`);
           if (attempt < MAX_PHASE_RETRIES) {
-            continue; // Retry the phase
+            // Build LLM-friendly error feedback so the agent knows what to fix
+            const schemaHint = (phase === 'planning' || phase === 'quick_spec')
+              ? IMPLEMENTATION_PLAN_SCHEMA_HINT
+              : undefined;
+            schemaRetryContext = buildValidationRetryPrompt(
+              phase === 'quick_spec' ? 'implementation_plan.json' : PHASE_OUTPUTS[phase]?.[0] ?? 'output file',
+              schemaValidation.errors,
+              schemaHint,
+            );
+            continue; // Retry with error feedback
           }
           break;
         }

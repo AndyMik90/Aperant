@@ -42,6 +42,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
+import { PROVIDER_REGISTRY } from '@shared/constants/providers';
 
 /**
  * Usage threshold constants for color coding (matching UsageIndicator)
@@ -70,11 +71,31 @@ const getBarColorClass = (percent: number): string => {
   return 'bg-green-500';
 };
 
+const PROVIDER_BADGE_COLORS: Record<string, string> = {
+  'anthropic': 'bg-orange-500/10 text-orange-500 border-orange-500/20',
+  'openai': 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+  'google': 'bg-blue-500/10 text-blue-500 border-blue-500/20',
+  'mistral': 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+  'groq': 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+  'xai': 'bg-slate-500/10 text-slate-500 border-slate-500/20',
+  'amazon-bedrock': 'bg-orange-600/10 text-orange-600 border-orange-600/20',
+  'azure': 'bg-sky-500/10 text-sky-500 border-sky-500/20',
+  'ollama': 'bg-purple-500/10 text-purple-500 border-purple-500/20',
+  'openai-compatible': 'bg-gray-500/10 text-gray-500 border-gray-500/20',
+  'zai': 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20',
+  'openrouter': 'bg-violet-500/10 text-violet-500 border-violet-500/20',
+};
+
+const getProviderDisplayName = (provider?: string): string => {
+  return PROVIDER_REGISTRY.find((entry) => entry.id === provider)?.name ?? provider ?? 'Unknown';
+};
+
 /**
  * Get status label key based on usage
  */
 const getStatusKey = (sessionPercent?: number, weeklyPercent?: number, isRateLimited?: boolean): string => {
-  if (isRateLimited) return 'rateLimited';
+  const atOrBeyondLimit = (sessionPercent ?? 0) >= 100 || (weeklyPercent ?? 0) >= 100;
+  if (isRateLimited || atOrBeyondLimit) return 'rateLimited';
   const maxPercent = Math.max(sessionPercent ?? 0, weeklyPercent ?? 0);
   if (maxPercent >= THRESHOLD_CRITICAL) return 'nearLimit';
   if (maxPercent >= THRESHOLD_WARNING) return 'highUsage';
@@ -89,6 +110,7 @@ export interface UnifiedAccount {
   id: string;
   name: string;
   type: 'oauth' | 'api';
+  provider?: string;
   displayName: string;
   identifier: string; // email for OAuth, baseUrl for API
   isActive: boolean;  // TRUE only for the ONE account currently in use
@@ -104,6 +126,8 @@ export interface UnifiedAccount {
   isDuplicateUsage?: boolean;
   /** Set when this account has an invalid refresh token and needs re-authentication */
   needsReauthentication?: boolean;
+  /** Best-effort account-level identity used to reduce duplicate false positives */
+  profileEmail?: string;
 }
 
 interface SortableAccountItemProps {
@@ -175,6 +199,13 @@ function SortableAccountItem({ account, index }: SortableAccountItemProps) {
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-foreground truncate">
             {account.displayName}
+          </span>
+          {/* Provider label */}
+          <span className={cn(
+            "text-[10px] px-1.5 py-0.5 rounded border",
+            PROVIDER_BADGE_COLORS[account.provider ?? ''] ?? 'bg-muted text-muted-foreground border-border'
+          )}>
+            {getProviderDisplayName(account.provider)}
           </span>
           {/* Account type indicator */}
           <span className="text-[10px] text-muted-foreground px-1.5 py-0.5 bg-muted rounded">
@@ -267,7 +298,7 @@ function SortableAccountItem({ account, index }: SortableAccountItemProps) {
           </div>
         )}
 
-        {/* Duplicate usage warning - may indicate same underlying Anthropic account */}
+        {/* Duplicate usage warning - may indicate same underlying OAuth account */}
         {account.type === 'oauth' && account.isDuplicateUsage && account.isAvailable && (
           <Tooltip>
             <TooltipTrigger asChild>
@@ -351,7 +382,8 @@ export function AccountPriorityList({ accounts, onReorder, isLoading }: AccountP
     return null;
   }, [items]);
 
-  // Detect duplicate usage - OAuth accounts with identical non-zero usage may be the same underlying account
+  // Detect duplicate usage - OAuth accounts with identical non-zero usage may be the same underlying account.
+  // Prefer matching by provider + profile email when available to reduce false positives.
   const duplicateUsageIds = useMemo(() => {
     const duplicates = new Set<string>();
     const oauthAccounts = items.filter(a => a.type === 'oauth' && a.isAvailable);
@@ -368,7 +400,11 @@ export function AccountPriorityList({ accounts, onReorder, isLoading }: AccountP
         // Skip if both are 0 (could be new accounts or accounts with reset usage)
         if (account.sessionPercent === 0 && account.weeklyPercent === 0) continue;
 
-        const signature = `${account.sessionPercent}-${account.weeklyPercent}`;
+        const normalizedEmail = account.profileEmail?.trim().toLowerCase();
+        const providerPrefix = (account.provider ?? 'oauth').toLowerCase();
+        const signature = normalizedEmail
+          ? `${providerPrefix}:email:${normalizedEmail}:${account.sessionPercent}-${account.weeklyPercent}`
+          : `${providerPrefix}:usage:${account.sessionPercent}-${account.weeklyPercent}`;
         const existing = usageSignatures.get(signature) ?? [];
         existing.push(account.id);
         usageSignatures.set(signature, existing);
