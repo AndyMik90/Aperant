@@ -17,6 +17,7 @@ import Anthropic, {
 } from '@anthropic-ai/sdk';
 
 import { loadProfilesFile, generateProfileId, atomicModifyProfiles } from './profile-manager';
+import type { APIProfile, TestConnectionResult, ModelInfo, DiscoverModelsResult } from '@shared/types/profile';
 
 /**
  * Creates a custom fetch function that routes HTTPS requests through a
@@ -42,8 +43,6 @@ function createFetchWithCA(ca: Buffer): typeof globalThis.fetch {
         Object.assign(rawHeaders, initHeaders);
       }
     }
-
-    const bodyStr = init?.body != null ? String(init.body) : undefined;
 
     return new Promise<Response>((resolve, reject) => {
       const req = https.request(
@@ -72,12 +71,35 @@ function createFetchWithCA(ca: Buffer): typeof globalThis.fetch {
         }
       );
       req.on('error', reject);
-      if (bodyStr) req.write(bodyStr);
+      // Handle all valid BodyInit types: string, Buffer/Uint8Array, URLSearchParams
+      const body = init?.body;
+      if (body != null) {
+        if (typeof body === 'string' || body instanceof Uint8Array) {
+          req.write(body);
+        } else if (body instanceof URLSearchParams) {
+          req.write(body.toString());
+        }
+        // ReadableStream is not used by the Anthropic SDK for these endpoints
+      }
       req.end();
     });
   };
 }
-import type { APIProfile, TestConnectionResult, ModelInfo, DiscoverModelsResult } from '@shared/types/profile';
+
+/**
+ * Build a custom fetch for the Anthropic SDK from a CA cert path.
+ * Returns undefined if no path given or the file cannot be read.
+ */
+function buildCustomFetch(caCertPath?: string): typeof globalThis.fetch | undefined {
+  if (!caCertPath) return undefined;
+  try {
+    const ca = fs.readFileSync(caCertPath);
+    return createFetchWithCA(ca);
+  } catch {
+    // If the cert file can't be read (missing/unreadable), fall back to default TLS
+    return undefined;
+  }
+}
 
 /**
  * Input type for creating a profile (without id, createdAt, updatedAt)
@@ -455,24 +477,13 @@ export async function testConnection(
   }
 
   try {
-    // Build custom fetch with CA cert if provided (supports corporate proxies / Zscaler)
-    let customFetch: typeof globalThis.fetch | undefined;
-    if (caCertPath) {
-      try {
-        const ca = fs.readFileSync(caCertPath);
-        customFetch = createFetchWithCA(ca);
-      } catch {
-        // If cert can't be read, proceed without it
-      }
-    }
-
-    // Create Anthropic client with SDK
+    // Create Anthropic client with SDK, using custom fetch if a CA cert is configured
     const client = new Anthropic({
       apiKey,
       baseURL: normalizedUrl,
       timeout: 10000, // 10 seconds
       maxRetries: 0, // Disable retries for immediate feedback
-      fetch: customFetch,
+      fetch: buildCustomFetch(caCertPath),
     });
 
     // Make minimal request to test connection (pass signal for cancellation)
@@ -633,24 +644,13 @@ export async function discoverModels(
   }
 
   try {
-    // Build custom fetch with CA cert if provided
-    let customFetchForDiscover: typeof globalThis.fetch | undefined;
-    if (caCertPath) {
-      try {
-        const ca = fs.readFileSync(caCertPath);
-        customFetchForDiscover = createFetchWithCA(ca);
-      } catch {
-        // If cert can't be read, proceed without it
-      }
-    }
-
-    // Create Anthropic client with SDK
+    // Create Anthropic client with SDK, using custom fetch if a CA cert is configured
     const client = new Anthropic({
       apiKey,
       baseURL: normalizedUrl,
       timeout: 10000, // 10 seconds
       maxRetries: 0, // Disable retries for immediate feedback
-      fetch: customFetchForDiscover,
+      fetch: buildCustomFetch(caCertPath),
     });
 
     // Fetch models with pagination (1000 limit to get all), pass signal for cancellation

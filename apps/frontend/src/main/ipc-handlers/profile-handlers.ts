@@ -31,6 +31,11 @@ import { readSettingsFile } from '../settings-utils';
 // Track active test connection requests for cancellation
 const activeTestConnections = new Map<number, AbortController>();
 
+function getCustomCaCertPath(): string | undefined {
+  const settings = readSettingsFile() as Partial<AppSettings> | null;
+  return settings?.customCACertPath || undefined;
+}
+
 // Track active discover models requests for cancellation
 const activeDiscoverModelsRequests = new Map<number, AbortController>();
 
@@ -215,12 +220,8 @@ export function registerProfileHandlers(): void {
           };
         }
 
-        // Read custom CA cert path from settings
-        const appSettings = readSettingsFile() as Partial<AppSettings> | null;
-        const caCertPath = appSettings?.customCACertPath || undefined;
-
         // Call testConnection from service layer with abort signal
-        const result = await testConnection(baseUrl, apiKey, controller.signal, caCertPath);
+        const result = await testConnection(baseUrl, apiKey, controller.signal, getCustomCaCertPath());
 
         // Clear timeout on success
         clearTimeout(timeoutId);
@@ -305,12 +306,8 @@ export function registerProfileHandlers(): void {
           };
         }
 
-        // Read custom CA cert path from settings
-        const appSettingsForDiscover = readSettingsFile() as Partial<AppSettings> | null;
-        const caCertPathForDiscover = appSettingsForDiscover?.customCACertPath || undefined;
-
         // Call discoverModels from service layer with abort signal
-        const result = await discoverModels(baseUrl, apiKey, controller.signal, caCertPathForDiscover);
+        const result = await discoverModels(baseUrl, apiKey, controller.signal, getCustomCaCertPath());
 
         // Clear timeout on success
         clearTimeout(timeoutId);
