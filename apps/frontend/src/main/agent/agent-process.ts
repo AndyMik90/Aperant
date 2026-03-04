@@ -232,7 +232,8 @@ export class AgentProcessManager {
     // Inject custom CA certificate path for enterprise proxy SSL support
     const certEnv: Record<string, string> = {};
     const appSettingsForCert = readSettingsFile() as Partial<AppSettings> | null;
-    const configuredCertPath = appSettingsForCert?.customCACertPath?.trim();
+    const rawCertPath = appSettingsForCert?.customCACertPath;
+    const configuredCertPath = typeof rawCertPath === 'string' ? rawCertPath.trim() : undefined;
     if (configuredCertPath) {
       const resolvedCertPath = path.isAbsolute(configuredCertPath)
         ? configuredCertPath

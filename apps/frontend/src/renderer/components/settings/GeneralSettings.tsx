@@ -370,11 +370,15 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
               variant="outline"
               size="icon"
               onClick={async () => {
-                const result = await window.electronAPI.selectFile([
-                  { name: t('general.customCACertFileFilter'), extensions: ['pem', 'crt', 'cer'] }
-                ]);
-                if (result) {
-                  onSettingsChange({ ...settings, customCACertPath: result });
+                try {
+                  const result = await window.electronAPI.selectFile([
+                    { name: t('general.customCACertFileFilter'), extensions: ['pem', 'crt', 'cer'] }
+                  ]);
+                  if (result) {
+                    onSettingsChange({ ...settings, customCACertPath: result });
+                  }
+                } catch (err) {
+                  console.error('Failed to open file dialog:', err);
                 }
               }}
               aria-label={t('general.customCACertBrowse')}
