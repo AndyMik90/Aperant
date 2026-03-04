@@ -141,13 +141,20 @@ function createProviderInstance(config: ProviderConfig) {
         headers,
       });
 
-    case SupportedProvider.Ollama:
+    case SupportedProvider.Ollama: {
+      // Account settings store the base Ollama URL (e.g., 'http://localhost:11434')
+      // but the OpenAI-compatible SDK needs the /v1 path appended.
+      let ollamaBaseURL = baseURL ?? 'http://localhost:11434';
+      if (!ollamaBaseURL.endsWith('/v1')) {
+        ollamaBaseURL = ollamaBaseURL.replace(/\/+$/, '') + '/v1';
+      }
       return createOpenAICompatible({
         name: 'ollama',
         apiKey: apiKey ?? 'ollama',
-        baseURL: baseURL ?? 'http://localhost:11434/v1',
+        baseURL: ollamaBaseURL,
         headers,
       });
+    }
 
     default: {
       const _exhaustive: never = provider;

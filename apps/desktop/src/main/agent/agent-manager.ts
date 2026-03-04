@@ -20,6 +20,8 @@ import { projectStore } from '../project-store';
 import { resolveAuth, resolveAuthFromQueue } from '../ai/auth/resolver';
 import { resolveModelId } from '../ai/config/phase-config';
 import { detectProviderFromModel } from '../ai/providers/factory';
+import { resolveModelEquivalent } from '../../shared/constants/models';
+import type { BuiltinProvider } from '../../shared/types/provider-account';
 import type { AgentExecutorConfig, SerializableSessionConfig, SerializedSecurityProfile } from '../ai/agent/types';
 import { getSecurityProfile } from '../ai/security/security-profile';
 import { createOrGetWorktree } from '../ai/worktree';
@@ -350,13 +352,26 @@ export class AgentManager extends EventEmitter {
     const specModelShorthand = metadata?.phaseModels?.spec
       ? metadata.phaseModels.spec
       : (metadata?.model ?? 'sonnet');
-    const specModelId = resolveModelId(specModelShorthand);
+
+    // Determine the preferred provider (from metadata or task_metadata.json)
+    const preferredProvider = (
+      specDir ? this.resolveTaskPhaseProvider(specDir, 'spec') : null
+    ) ?? (metadata?.provider as string | undefined) ?? null;
+
+    // Resolve the model ID, translating to the target provider's equivalent if needed
+    let specModelId: string;
+    if (preferredProvider && preferredProvider !== 'anthropic') {
+      const equiv = resolveModelEquivalent(specModelShorthand, preferredProvider as BuiltinProvider)
+        ?? resolveModelEquivalent(resolveModelId(specModelShorthand), preferredProvider as BuiltinProvider);
+      specModelId = equiv?.modelId ?? specModelShorthand;
+    } else {
+      specModelId = resolveModelId(specModelShorthand);
+    }
 
     // Load system prompt from prompts directory
     const systemPrompt = this.loadPrompt('spec_orchestrator') ?? this.buildDefaultSpecPrompt(taskDescription, specDir);
 
     // Resolve auth from provider accounts priority queue (falls back to legacy profile)
-    const preferredProvider = specDir ? this.resolveTaskPhaseProvider(specDir, 'spec') : null;
     const resolved = await this.resolveAuthFromProviderQueue(specModelId, preferredProvider);
 
     // Build the serializable session config for the worker
@@ -932,19 +947,62 @@ export class AgentManager extends EventEmitter {
           isAutoProfile?: boolean;
           phaseModels?: Record<string, string>;
           phaseProviders?: Record<string, string>;
+          provider?: string;
           model?: string;
         };
 
+        // Determine the target provider for this phase
+        const targetProvider = (metadata.phaseProviders?.[phase] ?? metadata.provider ?? null) as BuiltinProvider | null;
+
+        let shorthand: string | undefined;
         if (metadata.phaseModels?.[phase]) {
-          return resolveModelId(metadata.phaseModels[phase]);
+          shorthand = metadata.phaseModels[phase];
+        } else if (metadata.model) {
+          shorthand = metadata.model;
         }
-        if (metadata.model) {
-          return resolveModelId(metadata.model);
+
+        // If shorthand is empty (e.g., Ollama presets use '' because models are dynamic),
+        // try reading the user's per-provider phase config from settings
+        if (!shorthand && targetProvider) {
+          const settings = readSettingsFile();
+          const providerPhaseModels = (settings?.providerAgentConfig as Record<string, Record<string, unknown>> | undefined)?.[targetProvider]?.customPhaseModels as Record<string, string> | undefined;
+          if (providerPhaseModels?.[phase]) {
+            shorthand = providerPhaseModels[phase];
+          }
+        }
+
+        if (shorthand) {
+          // First resolve to a full model ID (handles Anthropic shorthands like 'opus' → 'claude-opus-4-6')
+          const baseModelId = resolveModelId(shorthand);
+
+          // If the target provider is non-Anthropic, translate the model ID to the
+          // target provider's equivalent. This ensures the queue resolution succeeds
+          // when the user has swapped away from Anthropic.
+          if (targetProvider && targetProvider !== 'anthropic') {
+            const equiv = resolveModelEquivalent(shorthand, targetProvider)
+              ?? resolveModelEquivalent(baseModelId, targetProvider);
+            if (equiv) {
+              return equiv.modelId;
+            }
+            // If no equivalence found and the model is already a raw model name
+            // (e.g., user-configured Ollama model), pass it through unchanged
+            return shorthand;
+          }
+
+          return baseModelId;
+        }
+
+        // Still no model but have a target provider — resolve 'sonnet' equivalent
+        if (targetProvider && targetProvider !== 'anthropic') {
+          const equiv = resolveModelEquivalent('sonnet', targetProvider);
+          if (equiv) return equiv.modelId;
         }
       }
     } catch {
       // Fall through to default
     }
+
+    // Default: resolve 'sonnet' (Anthropic fallback)
     return resolveModelId('sonnet');
   }
 

@@ -25,7 +25,7 @@ import type { ThinkingLevel } from '../config/types';
 import { resolveReasoningParams } from '../config/types';
 import { createMcpClientsForAgent, closeAllMcpClients, mergeMcpTools } from '../mcp/client';
 import type { McpClientResult } from '../mcp/types';
-import { createProviderFromModelId, detectProviderFromModel } from '../providers/factory';
+import { createProvider, detectProviderFromModel } from '../providers/factory';
 import { buildToolRegistry } from '../tools/build-registry';
 import type { QueueResolvedAuth } from '../auth/types';
 import type {
@@ -108,11 +108,18 @@ export async function createAgentClient(
       throw new Error('No available account in priority queue for model: ' + queueConfig.requestedModel);
     }
 
-    model = createProviderFromModelId(queueAuth.resolvedModelId, {
-      apiKey: queueAuth.apiKey,
-      baseURL: queueAuth.baseURL,
-      headers: queueAuth.headers,
-      oauthTokenFilePath: queueAuth.oauthTokenFilePath,
+    // Use createProvider() with the queue-resolved provider to avoid re-detecting
+    // from model ID prefix. This is critical for providers like Ollama whose models
+    // (e.g., 'llama3.1:8b') don't follow predictable prefix conventions.
+    model = createProvider({
+      config: {
+        provider: queueAuth.resolvedProvider,
+        apiKey: queueAuth.apiKey,
+        baseURL: queueAuth.baseURL,
+        headers: queueAuth.headers,
+        oauthTokenFilePath: queueAuth.oauthTokenFilePath,
+      },
+      modelId: queueAuth.resolvedModelId,
     });
 
     // Derive thinking level from reasoning config
@@ -128,11 +135,15 @@ export async function createAgentClient(
       profileId,
     });
 
-    model = createProviderFromModelId(modelId, {
-      apiKey: auth?.apiKey,
-      baseURL: auth?.baseURL,
-      headers: auth?.headers,
-      oauthTokenFilePath: auth?.oauthTokenFilePath,
+    model = createProvider({
+      config: {
+        provider: detectedProvider,
+        apiKey: auth?.apiKey,
+        baseURL: auth?.baseURL,
+        headers: auth?.headers,
+        oauthTokenFilePath: auth?.oauthTokenFilePath,
+      },
+      modelId,
     });
 
     resolvedThinkingLevel = thinkingLevel ?? getDefaultThinkingLevel(agentType);
@@ -237,11 +248,18 @@ export async function createSimpleClient(
     }
 
     resolvedModelId = queueAuth.resolvedModelId;
-    model = createProviderFromModelId(resolvedModelId, {
-      apiKey: queueAuth.apiKey,
-      baseURL: queueAuth.baseURL,
-      headers: queueAuth.headers,
-      oauthTokenFilePath: queueAuth.oauthTokenFilePath,
+    // Use createProvider() with the queue-resolved provider to avoid re-detecting
+    // from model ID prefix. This is critical for providers like Ollama whose models
+    // (e.g., 'llama3.1:8b') don't follow predictable prefix conventions.
+    model = createProvider({
+      config: {
+        provider: queueAuth.resolvedProvider,
+        apiKey: queueAuth.apiKey,
+        baseURL: queueAuth.baseURL,
+        headers: queueAuth.headers,
+        oauthTokenFilePath: queueAuth.oauthTokenFilePath,
+      },
+      modelId: resolvedModelId,
     });
 
     resolveReasoningParams(queueAuth.reasoningConfig);
@@ -255,11 +273,15 @@ export async function createSimpleClient(
       profileId,
     });
 
-    model = createProviderFromModelId(resolvedModelId, {
-      apiKey: auth?.apiKey,
-      baseURL: auth?.baseURL,
-      headers: auth?.headers,
-      oauthTokenFilePath: auth?.oauthTokenFilePath,
+    model = createProvider({
+      config: {
+        provider: detectedProvider,
+        apiKey: auth?.apiKey,
+        baseURL: auth?.baseURL,
+        headers: auth?.headers,
+        oauthTokenFilePath: auth?.oauthTokenFilePath,
+      },
+      modelId: resolvedModelId,
     });
   }
 

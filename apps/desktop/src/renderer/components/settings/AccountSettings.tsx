@@ -12,10 +12,12 @@ import {
   Activity,
   AlertCircle,
   Clock,
-  TrendingUp
+  TrendingUp,
+  Info
 } from 'lucide-react';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import { SettingsSection } from './SettingsSection';
 import { AccountPriorityList, type UnifiedAccount } from './AccountPriorityList';
 import { ProviderAccountsList } from './ProviderAccountsList';
@@ -33,7 +35,7 @@ interface AccountSettingsProps {
 export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountSettingsProps) {
   const { t } = useTranslation('settings');
   const { toast } = useToast();
-  const { getProviderAccounts } = useSettingsStore();
+  const { getProviderAccounts, setCrossProviderQueueOrder } = useSettingsStore();
 
   // ============================================
   // Auto-switch settings state
@@ -46,6 +48,8 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
   // ============================================
   const [priorityOrder, setPriorityOrder] = useState<string[]>([]);
   const [isSavingPriority, setIsSavingPriority] = useState(false);
+  const [crossProviderPriorityOrder, setCrossProviderPriorityOrder] = useState<string[]>([]);
+  const [priorityTab, setPriorityTab] = useState<string>('default');
 
   // ============================================
   // Usage data state
@@ -108,6 +112,49 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
 
   const unifiedAccounts = buildUnifiedAccounts();
 
+  const buildCrossProviderUnifiedAccounts = useCallback((): UnifiedAccount[] => {
+    const allAccounts = getProviderAccounts();
+    const cpOrder = crossProviderPriorityOrder.length > 0
+      ? crossProviderPriorityOrder
+      : priorityOrder;
+
+    return allAccounts.map(account => {
+      const usageData = (account.claudeProfileId
+        ? profileUsageData.get(account.claudeProfileId)
+        : undefined) ?? profileUsageData.get(account.id);
+      const profileEmail = usageData?.profileEmail || account.email;
+      const identifier = account.authType === 'oauth'
+        ? (profileEmail || PROVIDER_REGISTRY.find(p => p.id === account.provider)?.name || t('accounts.priority.noEmail'))
+        : (account.baseUrl ?? (PROVIDER_REGISTRY.find(p => p.id === account.provider)?.name ?? account.provider));
+
+      return {
+        id: account.id,
+        name: account.name,
+        type: account.authType === 'oauth' ? 'oauth' : 'api',
+        displayName: account.name,
+        identifier,
+        provider: account.provider,
+        profileEmail,
+        isActive: cpOrder.length > 0 ? cpOrder[0] === account.id : false,
+        isNext: false,
+        isAvailable: true,
+        hasUnlimitedUsage: account.authType === 'api-key',
+        sessionPercent: usageData?.sessionPercent,
+        weeklyPercent: usageData?.weeklyPercent,
+        isRateLimited: usageData?.isRateLimited,
+        rateLimitType: usageData?.rateLimitType,
+        needsReauthentication: usageData?.needsReauthentication,
+      } satisfies UnifiedAccount;
+    }).sort((a, b) => {
+      if (cpOrder.length === 0) return 0;
+      const aPos = cpOrder.indexOf(a.id);
+      const bPos = cpOrder.indexOf(b.id);
+      return (aPos === -1 ? Infinity : aPos) - (bPos === -1 ? Infinity : bPos);
+    });
+  }, [getProviderAccounts, profileUsageData, crossProviderPriorityOrder, priorityOrder, t]);
+
+  const crossProviderUnifiedAccounts = buildCrossProviderUnifiedAccounts();
+
   const loadPriorityOrder = async () => {
     try {
       const result = await window.electronAPI.getAccountPriorityOrder();
@@ -135,11 +182,42 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
     }
   };
 
+  const handleCrossProviderPriorityReorder = async (newOrder: string[]) => {
+    setCrossProviderPriorityOrder(newOrder);
+    setIsSavingPriority(true);
+    try {
+      await setCrossProviderQueueOrder(newOrder);
+    } catch {
+      toast({
+        variant: 'destructive',
+        title: t('accounts.toast.settingsUpdateFailed'),
+        description: t('accounts.toast.tryAgain'),
+      });
+    } finally {
+      setIsSavingPriority(false);
+    }
+  };
+
+  const handlePriorityTabChange = useCallback((tab: string) => {
+    setPriorityTab(tab);
+    // Lazy-initialize cross-provider order from global order on first tab switch
+    if (tab === 'cross-provider' && crossProviderPriorityOrder.length === 0 && priorityOrder.length > 0) {
+      setCrossProviderPriorityOrder(priorityOrder);
+      setCrossProviderQueueOrder(priorityOrder);
+    }
+  }, [crossProviderPriorityOrder.length, priorityOrder, setCrossProviderQueueOrder]);
+
   useEffect(() => {
     if (isOpen) {
       loadAutoSwitchSettings();
       loadPriorityOrder();
       loadProfileUsageData(true);
+
+      // Load cross-provider priority from settings
+      const cpOrder = useSettingsStore.getState().settings.crossProviderPriorityOrder;
+      if (cpOrder) {
+        setCrossProviderPriorityOrder(cpOrder);
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, loadProfileUsageData]);
@@ -344,13 +422,42 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                     </div>
                   </div>
 
-                  {/* Account Priority Order */}
+                  {/* Account Priority Order - Tabbed */}
                   <div className="pt-4 border-t border-border/50">
-                    <AccountPriorityList
-                      accounts={unifiedAccounts}
-                      onReorder={handlePriorityReorder}
-                      isLoading={isSavingPriority}
-                    />
+                    <Tabs value={priorityTab} onValueChange={handlePriorityTabChange}>
+                      <TabsList className="mb-3">
+                        <TabsTrigger value="default">
+                          {t('accounts.priority.tabs.default')}
+                        </TabsTrigger>
+                        <TabsTrigger value="cross-provider">
+                          {t('accounts.priority.tabs.crossProvider')}
+                        </TabsTrigger>
+                      </TabsList>
+
+                      <TabsContent value="default">
+                        <AccountPriorityList
+                          accounts={unifiedAccounts}
+                          onReorder={handlePriorityReorder}
+                          isLoading={isSavingPriority}
+                        />
+                      </TabsContent>
+
+                      <TabsContent value="cross-provider">
+                        <AccountPriorityList
+                          accounts={crossProviderUnifiedAccounts}
+                          onReorder={handleCrossProviderPriorityReorder}
+                          isLoading={isSavingPriority}
+                        />
+                        <div className="rounded-lg bg-info/10 border border-info/30 p-3 mt-3">
+                          <div className="flex items-start gap-2">
+                            <Info className="h-4 w-4 text-info shrink-0 mt-0.5" />
+                            <p className="text-xs text-muted-foreground">
+                              {t('accounts.priority.crossProviderDescription')}
+                            </p>
+                          </div>
+                        </div>
+                      </TabsContent>
+                    </Tabs>
                   </div>
                 </>
               )}

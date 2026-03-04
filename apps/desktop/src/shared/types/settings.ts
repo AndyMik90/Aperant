@@ -279,6 +279,8 @@ export interface AppSettings {
   providerAccounts?: ProviderAccount[];
   /** Global priority order — array of ProviderAccount IDs. First = highest priority. */
   globalPriorityOrder?: string[];
+  /** Cross-provider priority order — array of ProviderAccount IDs for cross-provider mode. */
+  crossProviderPriorityOrder?: string[];
   /** User overrides for model equivalence mapping per provider */
   modelOverrides?: Record<string, Partial<Record<BuiltinProvider, ProviderModelSpec>>>;
   _migratedProviderAccounts?: boolean;

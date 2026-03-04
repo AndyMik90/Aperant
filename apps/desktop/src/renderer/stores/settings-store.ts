@@ -53,6 +53,7 @@ interface SettingsState {
   updateProviderAccount: (id: string, updates: Partial<ProviderAccount>) => Promise<IPCResult<ProviderAccount>>;
   deleteProviderAccount: (id: string) => Promise<IPCResult>;
   setQueueOrder: (order: string[]) => Promise<IPCResult>;
+  setCrossProviderQueueOrder: (order: string[]) => Promise<IPCResult>;
   saveModelOverrides: (overrides: Record<string, unknown>) => Promise<IPCResult>;
   getProviderAccounts: (provider?: BuiltinProvider) => ProviderAccount[];
   checkEnvCredentials: () => Promise<IPCResult<Record<string, boolean>>>;
@@ -340,6 +341,10 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         settings: {
           ...state.settings,
           globalPriorityOrder: [newAccount.id, ...(state.settings.globalPriorityOrder ?? [])],
+          // Also prepend to cross-provider order if it's been initialized
+          crossProviderPriorityOrder: state.settings.crossProviderPriorityOrder
+            ? [newAccount.id, ...state.settings.crossProviderPriorityOrder]
+            : undefined,
         },
       }));
     }
@@ -364,6 +369,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         settings: {
           ...state.settings,
           globalPriorityOrder: (state.settings.globalPriorityOrder ?? []).filter(qid => qid !== id),
+          crossProviderPriorityOrder: state.settings.crossProviderPriorityOrder?.filter(qid => qid !== id),
         },
       }));
     }
@@ -375,6 +381,16 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     if (result.success) {
       set(state => ({
         settings: { ...state.settings, globalPriorityOrder: order }
+      }));
+    }
+    return result;
+  },
+
+  setCrossProviderQueueOrder: async (order: string[]): Promise<IPCResult> => {
+    const result = await window.electronAPI.setCrossProviderQueueOrder(order);
+    if (result.success) {
+      set(state => ({
+        settings: { ...state.settings, crossProviderPriorityOrder: order }
       }));
     }
     return result;

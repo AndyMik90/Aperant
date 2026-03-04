@@ -180,14 +180,18 @@ export async function runAgentSession(
         const newAuth = await onAccountSwitch(activeAccountId, sessionError);
         if (newAuth) {
           // Switch to new account — dynamic import to avoid circular deps
-          const { createProviderFromModelId } = await import('../providers/factory');
+          const { createProvider } = await import('../providers/factory');
           activeConfig = {
             ...activeConfig,
-            model: createProviderFromModelId(newAuth.resolvedModelId, {
-              apiKey: newAuth.apiKey,
-              baseURL: newAuth.baseURL,
-              headers: newAuth.headers,
-              oauthTokenFilePath: newAuth.oauthTokenFilePath,
+            model: createProvider({
+              config: {
+                provider: newAuth.resolvedProvider,
+                apiKey: newAuth.apiKey,
+                baseURL: newAuth.baseURL,
+                headers: newAuth.headers,
+                oauthTokenFilePath: newAuth.oauthTokenFilePath,
+              },
+              modelId: newAuth.resolvedModelId,
             }),
           };
           activeAccountId = newAuth.accountId;

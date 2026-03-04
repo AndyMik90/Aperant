@@ -103,14 +103,27 @@ export function AuthStatusIndicator() {
 
   const { account: activeAccount } = useActiveProvider();
 
+  const isCrossProviderMode = settings.customMixedProfileActive && !!settings.customMixedPhaseConfig;
+  const crossProviderList = isCrossProviderMode
+    ? [...new Set(Object.values(settings.customMixedPhaseConfig!).map((phase) => phase.provider))]
+    : [];
+  const crossProviderLabel = crossProviderList
+    .map((provider) => PROVIDER_I18N_KEYS[provider] ?? provider)
+    .map((key) => t(key))
+    .join(', ');
+
   const Icon = !activeAccount ? Server : activeAccount.authType === 'oauth' ? Lock : Key;
 
-  const badgeLabel = activeAccount
-    ? t(PROVIDER_I18N_KEYS[activeAccount.provider] ?? 'common:usage.providerUnknown')
-    : t('common:usage.noAccount');
-  const badgeColor = activeAccount
-    ? (PROVIDER_BADGE_COLORS[activeAccount.provider] ?? PROVIDER_BADGE_COLORS['openai-compatible'])
-    : 'bg-muted text-muted-foreground border-border';
+  const badgeLabel = isCrossProviderMode
+    ? t('common:usage.crossProvider')
+    : activeAccount
+      ? t(PROVIDER_I18N_KEYS[activeAccount.provider] ?? 'common:usage.providerUnknown')
+      : t('common:usage.noAccount');
+  const badgeColor = isCrossProviderMode
+    ? 'bg-blue-500/10 text-blue-500 border-blue-500/20 hover:bg-blue-500/15'
+    : (activeAccount
+      ? (PROVIDER_BADGE_COLORS[activeAccount.provider] ?? PROVIDER_BADGE_COLORS['openai-compatible'])
+      : 'bg-muted text-muted-foreground border-border');
 
   // Queue position info
   const queuePosition = useMemo(() => {
@@ -190,12 +203,28 @@ export function AuthStatusIndicator() {
               {activeAccount ? (
                 <>
                   {/* Provider info */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1.5 text-muted-foreground">
-                      <Server className="h-3.5 w-3.5" />
-                      <span className="font-medium text-[11px]">{t('common:usage.provider')}</span>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-1.5 text-muted-foreground">
+                      <Server className="h-3.5 w-3.5 mt-0.5" />
+                      <div className="text-left">
+                        <span className="font-medium text-[11px]">
+                          {isCrossProviderMode ? t('common:usage.crossProviderConfig') : t('common:usage.provider')}
+                        </span>
+                        {isCrossProviderMode ? (
+                          <div className="mt-1 text-xs text-foreground/90">
+                            {crossProviderLabel}
+                          </div>
+                        ) : (
+                          <div className="text-xs text-foreground/90">{badgeLabel}</div>
+                        )}
+                      </div>
                     </div>
-                    <span className="font-semibold text-xs">{badgeLabel}</span>
+
+                    {isCrossProviderMode && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                        {t('common:usage.crossProvider')}
+                      </span>
+                    )}
                   </div>
 
                   {/* Billing model */}

@@ -208,6 +208,10 @@ const browserMockAPI: ElectronAPI = {
     success: true
   }),
 
+  setCrossProviderQueueOrder: async (_order: string[]) => ({
+    success: true
+  }),
+
   saveModelOverrides: async (_overrides: Record<string, unknown>) => ({
     success: true
   }),

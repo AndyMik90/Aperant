@@ -7,13 +7,12 @@
  *
  * Used in TaskCreationWizard and TaskEditDialog.
  */
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useActiveProvider } from '../hooks/useActiveProvider';
 import { getProviderModelLabel } from '../../shared/utils/model-display';
 import { Brain, Scale, Zap, Sliders, Sparkles, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
 import { Label } from './ui/label';
-import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
 import {
   Select,
   SelectContent,
@@ -21,14 +20,13 @@ import {
   SelectTrigger,
   SelectValue
 } from './ui/select';
+import { ThinkingLevelSelect } from './settings/ThinkingLevelSelect';
 import {
   DEFAULT_AGENT_PROFILES,
   AVAILABLE_MODELS,
   ALL_AVAILABLE_MODELS,
-  THINKING_LEVELS,
   DEFAULT_PHASE_MODELS,
   DEFAULT_PHASE_THINKING,
-  ADAPTIVE_THINKING_MODELS
 } from '../../shared/constants';
 import type { ModelType, ThinkingLevel } from '../../shared/types';
 import type { PhaseModelConfig, PhaseThinkingConfig } from '../../shared/types/settings';
@@ -91,6 +89,34 @@ export function AgentProfileSelector({
   const { provider: activeProvider } = useActiveProvider();
   const [showPhaseDetails, setShowPhaseDetails] = useState(false);
 
+  // Ollama models are user-installed — fetch dynamically from the local server
+  const [ollamaModels, setOllamaModels] = useState<Array<{ value: string; label: string }>>([]);
+
+  const fetchOllamaModels = useCallback(async (signal?: AbortSignal) => {
+    try {
+      const result = await window.electronAPI.listOllamaModels();
+      if (signal?.aborted) return;
+      if (result?.success && Array.isArray(result?.data?.models)) {
+        const llmModels = (result.data.models as Array<{ name: string; is_embedding: boolean }>)
+          .filter(m => !m.is_embedding)
+          .map(m => ({ value: m.name, label: m.name }));
+        setOllamaModels(llmModels);
+      }
+    } catch {
+      // Ollama not available — leave empty
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeProvider !== 'ollama') {
+      setOllamaModels([]);
+      return;
+    }
+    const controller = new AbortController();
+    fetchOllamaModels(controller.signal);
+    return () => { controller.abort(); };
+  }, [activeProvider, fetchOllamaModels]);
+
   const isCustom = profileId === 'custom';
   const _isAuto = profileId === 'auto';
 
@@ -103,12 +129,16 @@ export function AgentProfileSelector({
     if (!activeProvider || activeProvider === 'anthropic') {
       return AVAILABLE_MODELS.map(m => ({ value: m.value, label: m.label }));
     }
+    // Ollama: use dynamically fetched installed models
+    if (activeProvider === 'ollama' && ollamaModels.length > 0) {
+      return ollamaModels;
+    }
     const providerModels = ALL_AVAILABLE_MODELS.filter(m => m.provider === activeProvider);
     if (providerModels.length === 0) {
       return AVAILABLE_MODELS.map(m => ({ value: m.value, label: m.label }));
     }
     return providerModels.map(m => ({ value: m.value, label: m.label }));
-  }, [activeProvider]);
+  }, [activeProvider, ollamaModels]);
 
   const handleProfileSelect = (selectedId: string) => {
     if (selectedId === 'custom') {
@@ -315,39 +345,13 @@ export function AgentProfileSelector({
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1.5">
-                        <Label className="text-[10px] text-muted-foreground">{t('agentProfile.thinking')}</Label>
-                        {ADAPTIVE_THINKING_MODELS.includes(currentPhaseModels[phase]) && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary cursor-help">
-                                {t('agentProfile.adaptiveThinking.badge')}
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-xs">
-                              <p className="text-xs">{t('agentProfile.adaptiveThinking.tooltip')}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        )}
-                      </div>
-                      <Select
-                        value={currentPhaseThinking[phase]}
-                        onValueChange={(value) => handlePhaseThinkingChange(phase, value as ThinkingLevel)}
-                        disabled={disabled}
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {THINKING_LEVELS.map((level) => (
-                            <SelectItem key={level.value} value={level.value}>
-                              {level.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
+                    <ThinkingLevelSelect
+                      value={currentPhaseThinking[phase]}
+                      onChange={(value) => handlePhaseThinkingChange(phase, value as ThinkingLevel)}
+                      modelValue={currentPhaseModels[phase]}
+                      provider={activeProvider ?? 'anthropic'}
+                      disabled={disabled}
+                    />
                   </div>
                 </div>
               ))}
@@ -373,7 +377,7 @@ export function AgentProfileSelector({
                 <SelectValue placeholder={t('agentProfile.selectModel')} />
               </SelectTrigger>
               <SelectContent>
-                {AVAILABLE_MODELS.map((m) => (
+                {phaseModelOptions.map((m) => (
                   <SelectItem key={m.value} value={m.value}>
                     {m.label}
                   </SelectItem>
@@ -383,32 +387,13 @@ export function AgentProfileSelector({
           </div>
 
           {/* Thinking Level Selection */}
-          <div className="space-y-2">
-            <Label htmlFor="custom-thinking" className="text-xs font-medium text-muted-foreground">
-              {t('agentProfile.thinking')}
-            </Label>
-            <Select
-              value={thinkingLevel}
-              onValueChange={(value) => onThinkingLevelChange(value as ThinkingLevel)}
-              disabled={disabled}
-            >
-              <SelectTrigger id="custom-thinking" className="h-9">
-                <SelectValue placeholder={t('agentProfile.selectThinkingLevel')} />
-              </SelectTrigger>
-              <SelectContent>
-                {THINKING_LEVELS.map((level) => (
-                  <SelectItem key={level.value} value={level.value}>
-                    <div className="flex items-center gap-2">
-                      <span>{level.label}</span>
-                      <span className="text-xs text-muted-foreground">
-                        - {level.description}
-                      </span>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <ThinkingLevelSelect
+            value={thinkingLevel || 'low'}
+            onChange={(value) => onThinkingLevelChange(value as ThinkingLevel)}
+            modelValue={model || 'sonnet'}
+            provider={activeProvider ?? 'anthropic'}
+            disabled={disabled}
+          />
         </div>
       )}
     </div>

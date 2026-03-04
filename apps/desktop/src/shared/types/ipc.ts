@@ -415,6 +415,7 @@ export interface ElectronAPI {
   updateProviderAccount: (id: string, updates: Partial<ProviderAccount>) => Promise<IPCResult<ProviderAccount>>;
   deleteProviderAccount: (id: string) => Promise<IPCResult>;
   setProviderAccountQueueOrder: (order: string[]) => Promise<IPCResult>;
+  setCrossProviderQueueOrder: (order: string[]) => Promise<IPCResult>;
   saveModelOverrides: (overrides: Record<string, unknown>) => Promise<IPCResult>;
   testProviderConnection: (provider: string, config: { apiKey?: string; baseUrl?: string; region?: string }) => Promise<IPCResult<{ success: boolean; error?: string }>>;
   checkEnvCredentials: () => Promise<IPCResult<Record<string, boolean>>>;

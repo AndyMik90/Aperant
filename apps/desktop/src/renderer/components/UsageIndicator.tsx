@@ -12,7 +12,7 @@
  * - Pay-per-use / API key providers: shows "Unlimited" badge
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Activity, TrendingUp, AlertCircle, Clock, ChevronRight, Info, LogIn } from 'lucide-react';
 import {
   Popover,
@@ -29,9 +29,10 @@ import { useTranslation } from 'react-i18next';
 import { formatTimeRemaining, localizeUsageWindowLabel, hasHardcodedText } from '../../shared/utils/format-time';
 import type { ClaudeUsageSnapshot, ProfileUsageSummary } from '../../shared/types/agent';
 import type { AppSection } from './settings/AppSettings';
-import { useSettingsStore } from '../stores/settings-store';
+import { useSettingsStore, saveSettings } from '../stores/settings-store';
 import { useActiveProvider } from '../hooks/useActiveProvider';
 import { PROVIDER_REGISTRY } from '@shared/constants/providers';
+import type { ProviderAccount, BuiltinProvider } from '../../shared/types/provider-account';
 
 /**
  * Usage threshold constants for color coding
@@ -54,6 +55,21 @@ const PROVIDER_BADGE_COLORS: Record<string, string> = {
   'openai-compatible': 'bg-gray-500/10 text-gray-500 border-gray-500/20',
   'zai': 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20',
   'openrouter': 'bg-violet-500/10 text-violet-500 border-violet-500/20',
+};
+
+const PROVIDER_I18N_KEYS: Record<string, string> = {
+  'anthropic': 'common:usage.providerAnthropic',
+  'openai': 'common:usage.providerOpenAI',
+  'google': 'common:usage.providerGoogle',
+  'mistral': 'common:usage.providerMistral',
+  'groq': 'common:usage.providerGroq',
+  'xai': 'common:usage.providerXai',
+  'amazon-bedrock': 'common:usage.providerBedrock',
+  'azure': 'common:usage.providerAzure',
+  'ollama': 'common:usage.providerOllama',
+  'openrouter': 'common:usage.providerOpenRouter',
+  'openai-compatible': 'common:usage.providerCustomEndpoint',
+  'zai': 'common:usage.providerZai',
 };
 
 /**
@@ -123,7 +139,7 @@ export function UsageIndicator() {
 
   const { providerAccounts, settings, setQueueOrder } = useSettingsStore();
 
-  const { account: activeAccount, orderedAccounts } = useActiveProvider();
+  const { account: activeAccount, orderedAccounts, crossProviderOrderedAccounts } = useActiveProvider();
   const otherAccounts = orderedAccounts.slice(1);
 
   // Usage monitoring is available for Anthropic/OpenAI OAuth accounts and Z.AI API key accounts
@@ -131,6 +147,27 @@ export function UsageIndicator() {
   // Subscription accounts (any provider) have rate limits even though we can't monitor them
   const hasSubscriptionLimits = activeAccount?.billingModel === 'subscription';
   const isPayPerUse = activeAccount?.billingModel === 'pay-per-use';
+  const isCrossProviderMode = settings.customMixedProfileActive === true && !!settings.customMixedPhaseConfig;
+  const crossProviderConfig = settings.customMixedPhaseConfig;
+  const crossProviderOrder = useMemo(() => {
+    if (!crossProviderConfig) {
+      return [];
+    }
+
+    const providerSet = new Set<BuiltinProvider>();
+    (['spec', 'planning', 'coding', 'qa'] as const).forEach((phase) => {
+      providerSet.add(crossProviderConfig[phase].provider);
+    });
+
+    return [...providerSet];
+  }, [crossProviderConfig]);
+  const crossProviderLabel = crossProviderOrder
+    .map((provider) => PROVIDER_I18N_KEYS[provider] ?? provider)
+    .map((providerLabelKey) => t(providerLabelKey))
+    .join(', ');
+  // Show cross-provider section whenever a config exists with 2+ providers,
+  // regardless of whether the mode is currently active (so it persists after account swaps)
+  const isCrossProviderConfigured = !!crossProviderConfig && crossProviderOrder.length > 1;
 
   /**
    * Helper function to get initials from a profile name
@@ -188,9 +225,92 @@ export function UsageIndicator() {
   /**
    * Handle swapping to a different account in the priority queue
    */
+  const profileUsageById = useMemo(() => {
+    const map = new Map<string, ProfileUsageSummary>();
+
+    if (usage) {
+      map.set(usage.profileId, {
+        profileId: usage.profileId,
+        profileName: usage.profileName,
+        profileEmail: usage.profileEmail,
+        sessionPercent: usage.sessionPercent,
+        weeklyPercent: usage.weeklyPercent,
+        sessionResetTimestamp: usage.sessionResetTimestamp,
+        weeklyResetTimestamp: usage.weeklyResetTimestamp,
+        isAuthenticated: true,
+        isRateLimited: usage.sessionPercent >= THRESHOLD_CRITICAL || usage.weeklyPercent >= THRESHOLD_CRITICAL,
+        availabilityScore: 100 - Math.max(usage.sessionPercent, usage.weeklyPercent),
+        isActive: true,
+        needsReauthentication: usage.needsReauthentication,
+      });
+    }
+
+    otherProfiles.forEach((profile) => {
+      map.set(profile.profileId, profile);
+    });
+
+    return map;
+  }, [usage, otherProfiles]);
+
+  const crossProviderRows = useMemo(() => {
+    if (!crossProviderConfig) {
+      return [];
+    }
+
+    // Use cross-provider ordered accounts when available
+    const cpOrderedAccounts = crossProviderOrderedAccounts.length > 0
+      ? crossProviderOrderedAccounts
+      : orderedAccounts;
+
+    return crossProviderOrder.map((provider) => {
+      // Find ALL accounts for this provider, sorted by cross-provider priority
+      const providerCandidates = cpOrderedAccounts.filter(
+        account => account.provider === provider
+      );
+
+      // Helper: look up usage by claudeProfileId first, then by account id
+      const getUsage = (a: ProviderAccount) =>
+        (a.claudeProfileId ? profileUsageById.get(a.claudeProfileId) : undefined)
+        ?? profileUsageById.get(a.id);
+
+      // Pick the best: prefer accounts with usage data that aren't rate-limited
+      const account = providerCandidates.find(a => {
+        const u = getUsage(a);
+        return u && !u.isRateLimited;
+      })
+      // Fallback: first one with any usage data
+      ?? providerCandidates.find(a => getUsage(a))
+      // Final fallback: first account for this provider
+      ?? providerCandidates[0];
+
+      const providerProfile = account ? getUsage(account) : undefined;
+
+      return {
+        provider,
+        providerLabel: t(PROVIDER_I18N_KEYS[provider] ?? 'provider'),
+        account,
+        profile: providerProfile,
+      };
+    });
+  }, [crossProviderConfig, crossProviderOrder, crossProviderOrderedAccounts, orderedAccounts, profileUsageById, t]);
+
+  const handleToggleCrossProviderMode = useCallback(async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    await saveSettings({
+      customMixedProfileActive: !isCrossProviderMode,
+    });
+  }, [isCrossProviderMode]);
+
   const handleSwapAccount = useCallback(async (e: React.MouseEvent, accountId: string) => {
     e.preventDefault();
     e.stopPropagation();
+
+    // Manual swap explicitly selects a single account — disable cross-provider mode
+    if (isCrossProviderMode) {
+      await saveSettings({ customMixedProfileActive: false });
+    }
 
     const currentOrder = settings.globalPriorityOrder ?? providerAccounts.map(a => a.id);
     const newOrder = [accountId, ...currentOrder.filter(id => id !== accountId)];
@@ -244,7 +364,131 @@ export function UsageIndicator() {
     // Fetch fresh data from backend
     window.electronAPI.requestUsageUpdate();
     window.electronAPI.requestAllProfilesUsage?.();
-  }, [settings.globalPriorityOrder, providerAccounts, setQueueOrder, otherProfiles, usage]);
+  }, [settings.globalPriorityOrder, providerAccounts, setQueueOrder, otherProfiles, usage, isCrossProviderMode]);
+
+  const renderCrossProviderUsageSection = useCallback(() => {
+    if (!isCrossProviderConfigured) {
+      return null;
+    }
+
+    return (
+      <div className="pt-2 -mx-3 px-3 pb-2 space-y-2">
+        <div className="text-[10px] text-muted-foreground font-medium">
+          {t('common:usage.crossProviderUsage')}
+        </div>
+
+        <div className="flex items-start gap-2 px-3 py-2 rounded bg-muted/30">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 text-[11px]">
+              <span className="font-medium truncate">
+                {t('common:usage.crossProvider')}
+              </span>
+              {isCrossProviderMode && (
+                <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold bg-blue-500/10 text-blue-500 border border-blue-500/20">
+                  {t('common:usage.inUse')}
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] text-muted-foreground mt-0.5 block">
+              {crossProviderLabel}
+            </span>
+          </div>
+          {!isCrossProviderMode ? (
+            <button
+              type="button"
+              onClick={handleToggleCrossProviderMode}
+              className="text-[9px] px-1.5 py-0.5 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded transition-colors ml-auto"
+            >
+              {t('common:usage.swap')}
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleToggleCrossProviderMode}
+              className="text-[9px] px-1.5 py-0.5 bg-destructive/10 text-destructive rounded hover:bg-destructive/20 transition-colors ml-auto"
+            >
+              {t('common:usage.swap')}
+            </button>
+          )}
+        </div>
+
+        <div className="space-y-1">
+          {crossProviderRows.map((row) => {
+            const account = row.account;
+            const summary = row.profile;
+
+            return (
+              <div
+                key={row.provider}
+                className="flex items-start gap-2 py-1.5 px-3 rounded hover:bg-muted/30 transition-colors"
+              >
+                <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 bg-muted/80">
+                  <span className="text-[10px] font-semibold text-foreground/70">
+                    {row.providerLabel.slice(0, 2).toUpperCase() || '??'}
+                  </span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-medium truncate">
+                      {row.providerLabel}
+                    </span>
+                    {account && (
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold border ${
+                        PROVIDER_BADGE_COLORS[account.provider] ?? PROVIDER_BADGE_COLORS['openai-compatible']
+                      }`}>
+                        {row.providerLabel}
+                      </span>
+                    )}
+                  </div>
+
+                  {summary ? (
+                    summary.isRateLimited ? (
+                      <span className="text-[9px] text-red-500">
+                        {summary.rateLimitType === 'weekly'
+                          ? t('common:usage.weeklyLimitReached')
+                          : t('common:usage.sessionLimitReached')}
+                      </span>
+                    ) : (
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-2.5 w-2.5 text-muted-foreground/70" />
+                          <div className="w-10 h-1 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${getBarColorClass(summary.sessionPercent)}`}
+                              style={{ width: `${Math.min(summary.sessionPercent, 100)}%` }}
+                            />
+                          </div>
+                          <span className={`text-[9px] tabular-nums w-6 ${getColorClass(summary.sessionPercent).replace('text-green-500', 'text-muted-foreground').replace('500', '600')}`}>
+                            {Math.round(summary.sessionPercent)}%
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <TrendingUp className="h-2.5 w-2.5 text-muted-foreground/70" />
+                          <div className="w-10 h-1 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${getBarColorClass(summary.weeklyPercent)}`}
+                              style={{ width: `${Math.min(summary.weeklyPercent, 100)}%` }}
+                            />
+                          </div>
+                          <span className={`text-[9px] tabular-nums w-6 ${getColorClass(summary.weeklyPercent).replace('text-green-500', 'text-muted-foreground').replace('500', '600')}`}>
+                            {Math.round(summary.weeklyPercent)}%
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  ) : (
+                    <span className="text-[9px] text-muted-foreground">
+                      {t('common:usage.dataUnavailable')}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }, [crossProviderLabel, crossProviderRows, handleToggleCrossProviderMode, isCrossProviderMode, t, isCrossProviderConfigured]);
 
   /**
    * Handle swapping to a different profile (legacy Anthropic-only path)
@@ -503,11 +747,11 @@ export function UsageIndicator() {
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
         >
-          <div className="p-3 space-y-3">
-            <div className="flex items-center gap-1.5 pb-2 border-b">
-              <Activity className="h-3.5 w-3.5" />
-              <span className="font-semibold text-xs">{t('common:usage.usageBreakdown')}</span>
-            </div>
+            <div className="p-3 space-y-3">
+              <div className="flex items-center gap-1.5 pb-2 border-b">
+                <Activity className="h-3.5 w-3.5" />
+                <span className="font-semibold text-xs">{t('common:usage.usageBreakdown')}</span>
+              </div>
             <div className="flex items-start gap-2.5 py-3">
               <Info className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />
               <div className="space-y-1">
@@ -631,6 +875,8 @@ export function UsageIndicator() {
                 })}
               </div>
             )}
+
+            {renderCrossProviderUsageSection()}
           </div>
         </PopoverContent>
       </Popover>
@@ -782,6 +1028,8 @@ export function UsageIndicator() {
                 })}
               </div>
             )}
+
+            {renderCrossProviderUsageSection()}
           </div>
         </PopoverContent>
       </Popover>
@@ -992,13 +1240,15 @@ export function UsageIndicator() {
                           </span>
                         )}
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </PopoverContent>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+            {renderCrossProviderUsageSection()}
+        </div>
+      </PopoverContent>
       </Popover>
     );
   }
@@ -1448,6 +1698,8 @@ export function UsageIndicator() {
               ))}
             </div>
           )}
+
+          {renderCrossProviderUsageSection()}
         </div>
       </PopoverContent>
     </Popover>

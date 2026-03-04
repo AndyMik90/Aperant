@@ -43,6 +43,8 @@ vi.mock('react-i18next', () => ({
         'common:usage.queuePosition': 'Queue Position',
         'common:usage.inUse': 'In Use',
         'common:usage.accountName': 'Account',
+        'common:usage.crossProvider': 'Cross-Provider',
+        'common:usage.crossProviderConfig': 'Cross-Provider',
       };
       if (params && Object.keys(params).length > 0) {
         const translated = translations[key] || key;
@@ -98,11 +100,15 @@ const testAccounts: ProviderAccount[] = [
 function createStoreMock(overrides?: {
   providerAccounts?: ProviderAccount[];
   globalPriorityOrder?: string[];
+  customMixedProfileActive?: boolean;
+  customMixedPhaseConfig?: Record<string, { provider: string }>;
 }) {
   return {
     providerAccounts: overrides?.providerAccounts ?? testAccounts,
     settings: {
       globalPriorityOrder: overrides?.globalPriorityOrder ?? ['account-anthropic', 'account-openai', 'account-google'],
+      customMixedProfileActive: overrides?.customMixedProfileActive,
+      customMixedPhaseConfig: overrides?.customMixedPhaseConfig,
     },
     // Legacy fields (still in store type but not used by new component)
     profiles: [],
@@ -218,6 +224,36 @@ describe('AuthStatusIndicator', () => {
     it('should display No Account badge', () => {
       render(<AuthStatusIndicator />);
       expect(screen.getByText('No Account')).toBeInTheDocument();
+    });
+  });
+
+  describe('when cross-provider mode is active', () => {
+    beforeEach(() => {
+      vi.mocked(useSettingsStore).mockReturnValue(
+        createStoreMock({
+          providerAccounts: testAccounts,
+          globalPriorityOrder: ['account-openai', 'account-anthropic', 'account-google'],
+          customMixedProfileActive: true,
+          customMixedPhaseConfig: {
+            spec: { provider: 'anthropic', modelId: 'claude-3-opus', thinkingLevel: 'high' },
+            planning: { provider: 'openai', modelId: 'gpt-4', thinkingLevel: 'medium' },
+            coding: { provider: 'openai', modelId: 'gpt-4', thinkingLevel: 'high' },
+            qa: { provider: 'google', modelId: 'gemini-1.5', thinkingLevel: 'medium' },
+          } as any,
+        }) as any
+      );
+    });
+
+    it('should display cross-provider in provider badge', () => {
+      render(<AuthStatusIndicator />);
+      expect(screen.getByRole('button', { name: /authentication: cross-provider/i })).toBeInTheDocument();
+    });
+
+    it('should display provider list in authentication details tooltip', () => {
+      render(<AuthStatusIndicator />);
+      const tooltipTrigger = screen.getByRole('button', { name: /authentication: cross-provider/i });
+      expect(tooltipTrigger).toBeInTheDocument();
+      expect(screen.getByText('Cross-Provider')).toBeInTheDocument();
     });
   });
 

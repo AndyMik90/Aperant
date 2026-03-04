@@ -658,6 +658,11 @@
     "priority": {
       "title": "Account Priority Order",
       "description": "Drag to reorder. System will switch to the next available account in order.",
+      "tabs": {
+        "default": "Default",
+        "crossProvider": "Cross-Provider"
+      },
+      "crossProviderDescription": "This priority order is used when cross-provider mode is active. When multiple accounts share a provider, the system selects the best available one based on this order.",
       "noAccounts": "No accounts configured. Add accounts above to set priority.",
       "noEmail": "No email",
       "active": "Active",

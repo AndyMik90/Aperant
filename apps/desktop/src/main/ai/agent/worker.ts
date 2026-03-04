@@ -17,7 +17,8 @@ import { join, basename } from 'node:path';
 
 import { runAgentSession } from '../session/runner';
 import { runContinuableSession } from '../session/continuation';
-import { createProviderFromModelId } from '../providers/factory';
+import { createProvider } from '../providers/factory';
+import type { SupportedProvider } from '../providers/types';
 import { getModelContextWindow } from '../../../shared/constants/models';
 import { refreshOAuthTokenReactive } from '../auth/resolver';
 import { buildToolRegistry } from '../tools/build-registry';
@@ -259,10 +260,14 @@ async function runSingleSession(
   const phaseModelId = baseSession.modelId;
   const phaseThinking = await getPhaseThinking(specDir, phase);
 
-  const model = createProviderFromModelId(phaseModelId, {
-    apiKey: baseSession.apiKey,
-    baseURL: baseSession.baseURL,
-    oauthTokenFilePath: baseSession.oauthTokenFilePath,
+  const model = createProvider({
+    config: {
+      provider: baseSession.provider as SupportedProvider,
+      apiKey: baseSession.apiKey,
+      baseURL: baseSession.baseURL,
+      oauthTokenFilePath: baseSession.oauthTokenFilePath,
+    },
+    modelId: phaseModelId,
   });
 
   const tools: Record<string, AITool> = {
@@ -324,9 +329,13 @@ async function runSingleSession(
       ? () => refreshOAuthTokenReactive(baseSession.configDir as string)
       : undefined,
     onModelRefresh: baseSession.configDir
-      ? (newToken: string) => createProviderFromModelId(phaseModelId, {
-          apiKey: newToken,
-          baseURL: baseSession.baseURL,
+      ? (newToken: string) => createProvider({
+          config: {
+            provider: baseSession.provider as SupportedProvider,
+            apiKey: newToken,
+            baseURL: baseSession.baseURL,
+          },
+          modelId: phaseModelId,
         })
       : undefined,
   };
@@ -434,10 +443,14 @@ async function runDefaultSession(
   toolContext: ToolContext,
   registry: ToolRegistry,
 ): Promise<void> {
-  const model = createProviderFromModelId(session.modelId, {
-    apiKey: session.apiKey,
-    baseURL: session.baseURL,
-    oauthTokenFilePath: session.oauthTokenFilePath,
+  const model = createProvider({
+    config: {
+      provider: session.provider as SupportedProvider,
+      apiKey: session.apiKey,
+      baseURL: session.baseURL,
+      oauthTokenFilePath: session.oauthTokenFilePath,
+    },
+    modelId: session.modelId,
   });
 
   const tools: Record<string, AITool> = {
@@ -492,9 +505,13 @@ async function runDefaultSession(
         ? () => refreshOAuthTokenReactive(session.configDir as string)
         : undefined,
       onModelRefresh: session.configDir
-        ? (newToken: string) => createProviderFromModelId(session.modelId, {
-            apiKey: newToken,
-            baseURL: session.baseURL,
+        ? (newToken: string) => createProvider({
+            config: {
+              provider: session.provider as SupportedProvider,
+              apiKey: newToken,
+              baseURL: session.baseURL,
+            },
+            modelId: session.modelId,
           })
         : undefined,
     }, {
@@ -968,10 +985,14 @@ async function runAgenticSpecOrchestrator(
   }
 
   // Create the SubagentExecutor
-  const model = createProviderFromModelId(session.modelId, {
-    apiKey: session.apiKey,
-    baseURL: session.baseURL,
-    oauthTokenFilePath: session.oauthTokenFilePath,
+  const model = createProvider({
+    config: {
+      provider: session.provider as SupportedProvider,
+      apiKey: session.apiKey,
+      baseURL: session.baseURL,
+      oauthTokenFilePath: session.oauthTokenFilePath,
+    },
+    modelId: session.modelId,
   });
 
   const executor = new SubagentExecutorImpl({
@@ -1061,9 +1082,13 @@ async function runAgenticSpecOrchestrator(
         ? () => refreshOAuthTokenReactive(session.configDir as string)
         : undefined,
       onModelRefresh: session.configDir
-        ? (newToken: string) => createProviderFromModelId(session.modelId, {
-            apiKey: newToken,
-            baseURL: session.baseURL,
+        ? (newToken: string) => createProvider({
+            config: {
+              provider: session.provider as SupportedProvider,
+              apiKey: newToken,
+              baseURL: session.baseURL,
+            },
+            modelId: session.modelId,
           })
         : undefined,
     }, {

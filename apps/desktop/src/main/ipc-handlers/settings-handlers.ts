@@ -988,6 +988,12 @@ export function registerSettingsHandlers(
         const queue: string[] = (settings.globalPriorityOrder as string[] | undefined) ?? [];
         settings.globalPriorityOrder = queue.filter(qid => qid !== id);
 
+        // Remove from crossProviderPriorityOrder
+        const cpQueue: string[] = (settings.crossProviderPriorityOrder as string[] | undefined) ?? [];
+        if (cpQueue.length > 0) {
+          settings.crossProviderPriorityOrder = cpQueue.filter(qid => qid !== id);
+        }
+
         const settingsPath = getSettingsPath();
         writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
         console.warn('[PROVIDER_ACCOUNTS_DELETE] Deleted account:', id);
@@ -1013,6 +1019,22 @@ export function registerSettingsHandlers(
       } catch (error) {
         console.error('[PROVIDER_ACCOUNTS_SET_QUEUE_ORDER] Error:', error);
         return { success: false, error: error instanceof Error ? error.message : 'Failed to set queue order' };
+      }
+    }
+  );
+
+  // SET CROSS-PROVIDER QUEUE ORDER (separate priority for cross-provider mode)
+  ipcMain.handle(
+    IPC_CHANNELS.PROVIDER_ACCOUNTS_SET_CROSS_PROVIDER_QUEUE_ORDER,
+    async (_event, order: string[]): Promise<IPCResult> => {
+      try {
+        const settings = readSettingsFile() ?? {};
+        settings.crossProviderPriorityOrder = order;
+        const currentSettingsPath = getSettingsPath();
+        writeFileSync(currentSettingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : 'Failed to set cross-provider queue order' };
       }
     }
   );

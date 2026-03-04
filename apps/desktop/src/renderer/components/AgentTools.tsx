@@ -59,6 +59,7 @@ import {
   resolveAgentSettings as resolveAgentModelConfig,
   type AgentSettingsSource,
 } from '../hooks';
+import { useActiveProvider } from '../hooks/useActiveProvider';
 import type { ThinkingLevel } from '../../shared/types/settings';
 
 // Agent configuration data - mirrors AGENT_CONFIGS from backend
@@ -969,9 +970,10 @@ export function AgentTools() {
     }
   }, []);
 
-  // Resolve agent settings using the centralized utility
+  // Resolve agent settings using the centralized utility, scoped to the active provider
   // Resolution order: custom overrides -> selected profile's config -> global defaults
-  const { phaseModels, phaseThinking, featureModels, featureThinking } = useResolvedAgentSettings(settings);
+  const { provider: currentProvider } = useActiveProvider();
+  const { phaseModels, phaseThinking, featureModels, featureThinking } = useResolvedAgentSettings(settings, currentProvider ?? undefined);
 
   // Get MCP server states for display
   const mcpServers = envConfig?.mcpServers || {};
