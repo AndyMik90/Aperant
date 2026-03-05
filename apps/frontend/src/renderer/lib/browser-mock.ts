@@ -394,7 +394,13 @@ const browserMockAPI: ElectronAPI = {
   copyDebugInfo: async () => ({ success: false, error: 'Not available in browser mode' }),
   getRecentErrors: async () => [],
   listLogFiles: async () => [],
-  onIndexProgress: () => () => {}
+  onIndexProgress: () => () => {},
+
+  // Ollama Embedding Dimension Lookup (single source of truth)
+  getOllamaEmbeddingDim: async () => ({
+    success: false as const,
+    error: 'Not available in browser mode'
+  }),
 };
 
 /**

@@ -35,25 +35,17 @@ import { openTerminalWithCommand } from './claude-code-handlers';
 
 /**
  * Known Ollama embedding model dimensions.
- *
- * Single source of truth for the Electron main process, mirroring the authoritative
- * Python backend maps in:
- *   - apps/backend/ollama_model_detector.py (KNOWN_EMBEDDING_MODELS)
- *   - apps/backend/integrations/graphiti/providers_pkg/embedder_providers/ollama_embedder.py
- *     (KNOWN_OLLAMA_EMBEDDING_MODELS)
- *
- * When adding a new model, update ALL THREE locations.
+ * Single source of truth for the frontend — mirrors the backend's
+ * KNOWN_EMBEDDING_MODELS in ollama_model_detector.py and
+ * KNOWN_OLLAMA_EMBEDDING_MODELS in ollama_embedder.py.
  */
 const KNOWN_OLLAMA_EMBEDDING_DIMS: Record<string, number> = {
-  // Google EmbeddingGemma
   'embeddinggemma': 768,
   'embeddinggemma:300m': 768,
-  // Qwen3 Embedding series
   'qwen3-embedding': 1024,
   'qwen3-embedding:0.6b': 1024,
   'qwen3-embedding:4b': 2560,
   'qwen3-embedding:8b': 4096,
-  // Popular models
   'nomic-embed-text': 768,
   'nomic-embed-text:latest': 768,
   'mxbai-embed-large': 1024,
@@ -76,11 +68,8 @@ const KNOWN_OLLAMA_EMBEDDING_DIMS: Record<string, number> = {
 };
 
 /**
- * Look up the embedding dimension for an Ollama model name.
- * Tries exact match first, then base name (without tag), then heuristic fallback.
- *
- * @param modelName - Ollama model name (e.g. 'qwen3-embedding:8b')
- * @returns {{ dim: number; source: 'known' | 'fallback' }} or null if unknown
+ * Look up the embedding dimension for an Ollama model.
+ * Tries exact match, base-name match, prefix match, then heuristic fallback.
  */
 function lookupEmbeddingDim(modelName: string): { dim: number; source: 'known' | 'fallback' } | null {
   const nameLower = modelName.toLowerCase();
@@ -90,13 +79,13 @@ function lookupEmbeddingDim(modelName: string): { dim: number; source: 'known' |
     return { dim: KNOWN_OLLAMA_EMBEDDING_DIMS[nameLower], source: 'known' };
   }
 
-  // Try without tag suffix
+  // Base name match (strip :tag)
   const baseName = nameLower.split(':')[0];
   if (baseName in KNOWN_OLLAMA_EMBEDDING_DIMS) {
     return { dim: KNOWN_OLLAMA_EMBEDDING_DIMS[baseName], source: 'known' };
   }
 
-  // Check if any known key is a substring (handles quantization variants like qwen3-embedding:8b-q4_K_M)
+  // Prefix match
   for (const [key, dim] of Object.entries(KNOWN_OLLAMA_EMBEDDING_DIMS)) {
     if (nameLower.startsWith(key)) {
       return { dim, source: 'known' };
@@ -947,15 +936,9 @@ export function registerMemoryHandlers(): void {
   // ============================================
 
   /**
-   * Get the embedding dimension for a given Ollama model name.
-   * Uses the KNOWN_OLLAMA_EMBEDDING_DIMS map (single source of truth for the frontend)
-   * which mirrors the Python backend's KNOWN_EMBEDDING_MODELS.
-   *
-   * This eliminates dimension duplication between frontend and backend by providing
-   * the renderer process a single IPC endpoint to query dimensions.
-   *
-   * @param {string} modelName - Ollama model name (e.g. 'qwen3-embedding:8b')
-   * @returns {Promise<IPCResult<{ model, dim, source }>>} Dimension info with source indicator
+   * Get the embedding dimension for an Ollama model.
+   * Single source of truth — the renderer calls this instead of
+   * maintaining its own hardcoded dimension map.
    */
   ipcMain.handle(
     IPC_CHANNELS.OLLAMA_GET_EMBEDDING_DIM,
@@ -965,21 +948,14 @@ export function registerMemoryHandlers(): void {
     ): Promise<IPCResult<{ model: string; dim: number; source: 'known' | 'fallback' }>> => {
       try {
         if (!modelName || typeof modelName !== 'string') {
-          return {
-            success: false,
-            error: 'Model name is required',
-          };
+          return { success: false, error: 'Model name is required' };
         }
 
         const result = lookupEmbeddingDim(modelName);
         if (result) {
           return {
             success: true,
-            data: {
-              model: modelName,
-              dim: result.dim,
-              source: result.source,
-            },
+            data: { model: modelName, dim: result.dim, source: result.source },
           };
         }
 

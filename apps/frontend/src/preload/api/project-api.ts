@@ -149,6 +149,8 @@ export interface ProjectAPI {
     status: 'completed' | 'failed';
     output: string[];
   }>>;
+
+  // Ollama Embedding Dimension Lookup (single source of truth)
   getOllamaEmbeddingDim: (modelName: string) => Promise<IPCResult<{
     model: string;
     dim: number;
@@ -331,6 +333,7 @@ export const createProjectAPI = (): ProjectAPI => ({
   pullOllamaModel: (modelName: string, baseUrl?: string) =>
     ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_PULL_MODEL, modelName, baseUrl),
 
+  // Ollama Embedding Dimension Lookup (single source of truth)
   getOllamaEmbeddingDim: (modelName: string) =>
-    ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_GET_EMBEDDING_DIM, modelName)
+    ipcRenderer.invoke(IPC_CHANNELS.OLLAMA_GET_EMBEDDING_DIM, modelName),
 });
