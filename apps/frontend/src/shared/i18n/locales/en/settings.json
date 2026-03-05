@@ -788,7 +788,17 @@
         "sse": "SSE"
       },
       "refreshTooltip": "Refresh global MCP list",
-      "readOnly": "Read-only — configure in Claude Code CLI settings"
+      "readOnly": "Read-only — configure in Claude Code CLI settings",
+      "checkHealth": "Check Health",
+      "statusUnknown": "Status unknown — click Check Health",
+      "useIn": "Use in:",
+      "phases": {
+        "spec": "Spec",
+        "build": "Build",
+        "qa": "QA",
+        "utility": "Utility",
+        "ideation": "Ideation"
+      }
     },
     "customAgents": {
       "title": "Custom Agents (Global)",

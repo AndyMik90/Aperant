@@ -33,7 +33,8 @@ import {
   Loader2,
   RefreshCw,
   Lock,
-  ExternalLink
+  ExternalLink,
+  Activity
 } from 'lucide-react';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { ScrollArea } from './ui/scroll-area';
@@ -46,7 +47,8 @@ import {
   DialogHeader,
   DialogTitle
 } from './ui/dialog';
-import { useSettingsStore } from '../stores/settings-store';
+import { useSettingsStore, saveSettings } from '../stores/settings-store';
+import { cn } from '../lib/utils';
 import { useProjectStore } from '../stores/project-store';
 import type { ProjectEnvConfig, AgentMcpOverride, CustomMcpServer, McpHealthCheckResult } from '@shared/types';
 import type { GlobalMcpInfo, GlobalMcpServerEntry } from '@shared/types/integrations';
@@ -61,7 +63,7 @@ import {
   resolveAgentSettings as resolveAgentModelConfig,
   type AgentSettingsSource,
 } from '../hooks';
-import type { ModelTypeShort, ThinkingLevel } from '@shared/types/settings';
+import type { ModelTypeShort, ThinkingLevel, GlobalMcpPhaseConfig } from '@shared/types/settings';
 
 // Agent configuration data - mirrors AGENT_CONFIGS from backend
 // Model and thinking are now dynamically read from user settings
@@ -667,6 +669,8 @@ export function AgentTools() {
   // Global Claude Code MCP state
   const [globalMcps, setGlobalMcps] = useState<GlobalMcpInfo | null>(null);
   const [isLoadingGlobalMcps, setIsLoadingGlobalMcps] = useState(false);
+  const [globalMcpHealth, setGlobalMcpHealth] = useState<Record<string, McpHealthCheckResult>>({});
+  const [isCheckingGlobalHealth, setIsCheckingGlobalHealth] = useState(false);
 
   // Load project env config when project changes
   useEffect(() => {
@@ -715,6 +719,78 @@ export function AgentTools() {
     if (!globalMcps) return [];
     return [...globalMcps.claudeJsonServers, ...globalMcps.pluginServers, ...globalMcps.inlineServers];
   }, [globalMcps]);
+
+  // Check health of all global MCP servers
+  const checkGlobalMcpHealth = useCallback(async () => {
+    if (!allGlobalServers.length) return;
+    setIsCheckingGlobalHealth(true);
+
+    const results: Record<string, McpHealthCheckResult> = {};
+
+    // Check all servers in parallel
+    await Promise.all(
+      allGlobalServers.map(async (server) => {
+        try {
+          // Convert GlobalMcpServerEntry to CustomMcpServer format for health check
+          const customServer: CustomMcpServer = {
+            id: server.serverId,
+            name: server.serverName,
+            type: server.config.command ? 'command' : 'http',
+            command: server.config.command,
+            args: server.config.args,
+            url: server.config.url,
+            headers: server.config.headers,
+          };
+          const result = await window.electronAPI.checkMcpHealth(customServer);
+          if (result.success && result.data) {
+            results[server.serverId] = result.data;
+          }
+        } catch {
+          results[server.serverId] = {
+            serverId: server.serverId,
+            status: 'unknown',
+            message: 'Health check failed',
+            checkedAt: new Date().toISOString(),
+          };
+        }
+      })
+    );
+
+    setGlobalMcpHealth(results);
+    setIsCheckingGlobalHealth(false);
+  }, [allGlobalServers]);
+
+  // Auto-check health when global MCPs are loaded
+  useEffect(() => {
+    if (allGlobalServers.length > 0) {
+      checkGlobalMcpHealth();
+    }
+  }, [allGlobalServers.length, checkGlobalMcpHealth]);
+
+  // Settings access for global MCP phase assignments
+  const globalMcpPhases = settings.globalMcpPhases || {};
+
+  // Toggle a global MCP server's assignment to a pipeline phase
+  const handleToggleGlobalMcpPhase = async (serverId: string, phase: keyof GlobalMcpPhaseConfig) => {
+    const current = { ...globalMcpPhases };
+    const phaseServers = current[phase] || [];
+
+    if (phaseServers.includes(serverId)) {
+      current[phase] = phaseServers.filter(id => id !== serverId);
+    } else {
+      current[phase] = [...phaseServers, serverId];
+    }
+
+    // Clean up empty arrays
+    for (const key of Object.keys(current) as Array<keyof GlobalMcpPhaseConfig>) {
+      if (current[key]?.length === 0) {
+        delete current[key];
+      }
+    }
+
+    const hasAny = Object.values(current).some(v => v && v.length > 0);
+    await saveSettings({ globalMcpPhases: hasAny ? current : undefined });
+  };
 
   // Update MCP server toggle
   const updateMcpServer = useCallback(async (
@@ -1360,9 +1436,20 @@ export function AgentTools() {
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground italic">
-                    {t('settings:mcp.globalMcps.readOnly')}
-                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-[10px] px-2"
+                    onClick={checkGlobalMcpHealth}
+                    disabled={isCheckingGlobalHealth}
+                  >
+                    {isCheckingGlobalHealth ? (
+                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                    ) : (
+                      <Activity className="h-3 w-3 mr-1" />
+                    )}
+                    {t('settings:mcp.globalMcps.checkHealth')}
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -1393,32 +1480,88 @@ export function AgentTools() {
                   const detail = server.config.command
                     ? `${server.config.command} ${server.config.args?.join(' ') || ''}`
                     : server.config.url || '';
+                  const health = globalMcpHealth[server.serverId];
+                  const statusColor = health?.status === 'healthy'
+                    ? 'bg-green-500'
+                    : health?.status === 'unhealthy'
+                      ? 'bg-red-500'
+                      : health?.status === 'needs_auth'
+                        ? 'bg-yellow-500'
+                        : 'bg-gray-400';
+
+                  const PIPELINE_PHASES: Array<{ key: keyof GlobalMcpPhaseConfig; label: string }> = [
+                    { key: 'spec', label: t('settings:mcp.globalMcps.phases.spec') },
+                    { key: 'build', label: t('settings:mcp.globalMcps.phases.build') },
+                    { key: 'qa', label: t('settings:mcp.globalMcps.phases.qa') },
+                    { key: 'utility', label: t('settings:mcp.globalMcps.phases.utility') },
+                    { key: 'ideation', label: t('settings:mcp.globalMcps.phases.ideation') },
+                  ];
 
                   return (
                     <div
                       key={`${server.source}-${server.serverId}`}
-                      className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg"
+                      className="py-2 px-3 bg-muted/50 rounded-lg space-y-2"
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <ServerIcon className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-sm font-medium">{server.serverName}</span>
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-secondary text-secondary-foreground">
-                              {serverType}
-                            </span>
-                            <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-blue-500/10 text-blue-500">
-                              {server.source === 'plugin'
-                                ? t('settings:mcp.globalMcps.source.plugin')
-                                : server.source === 'claude-json'
-                                  ? t('settings:mcp.globalMcps.source.claudeJson')
-                                  : t('settings:mcp.globalMcps.source.settings')}
-                            </span>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="relative shrink-0">
+                            <ServerIcon className="h-4 w-4 text-muted-foreground" />
+                            <span
+                              className={cn(
+                                'absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full ring-1 ring-background',
+                                statusColor
+                              )}
+                              title={health?.message || t('settings:mcp.globalMcps.statusUnknown')}
+                            />
                           </div>
-                          <p className="text-xs text-muted-foreground truncate" title={detail}>
-                            {detail}
-                          </p>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-sm font-medium">{server.serverName}</span>
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-secondary text-secondary-foreground">
+                                {serverType}
+                              </span>
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-medium bg-blue-500/10 text-blue-500">
+                                {server.source === 'plugin'
+                                  ? t('settings:mcp.globalMcps.source.plugin')
+                                  : server.source === 'claude-json'
+                                    ? t('settings:mcp.globalMcps.source.claudeJson')
+                                    : t('settings:mcp.globalMcps.source.settings')}
+                              </span>
+                              {health?.responseTime && (
+                                <span className="text-[9px] text-muted-foreground">
+                                  {health.responseTime}ms
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate" title={detail}>
+                              {detail}
+                            </p>
+                          </div>
                         </div>
+                      </div>
+                      {/* Phase assignment chips */}
+                      <div className="flex items-center gap-1.5 ml-7">
+                        <span className="text-[9px] text-muted-foreground mr-1">
+                          {t('settings:mcp.globalMcps.useIn')}
+                        </span>
+                        {PIPELINE_PHASES.map(({ key, label }) => {
+                          const isActive = (globalMcpPhases[key] || []).includes(server.serverId);
+                          return (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => handleToggleGlobalMcpPhase(server.serverId, key)}
+                              className={cn(
+                                'px-1.5 py-0.5 rounded text-[9px] font-medium transition-colors',
+                                isActive
+                                  ? 'bg-primary/15 text-primary border border-primary/30'
+                                  : 'bg-muted text-muted-foreground hover:bg-muted/80 border border-transparent'
+                              )}
+                            >
+                              {label}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
                   );

@@ -788,7 +788,17 @@
         "sse": "SSE"
       },
       "refreshTooltip": "Actualiser la liste des MCP globaux",
-      "readOnly": "Lecture seule — configurez dans les paramètres Claude Code CLI"
+      "readOnly": "Lecture seule — configurez dans les paramètres Claude Code CLI",
+      "checkHealth": "Vérifier",
+      "statusUnknown": "Statut inconnu — cliquez Vérifier",
+      "useIn": "Utiliser dans :",
+      "phases": {
+        "spec": "Spec",
+        "build": "Build",
+        "qa": "QA",
+        "utility": "Utilitaire",
+        "ideation": "Idéation"
+      }
     },
     "customAgents": {
       "title": "Agents Personnalisés (Global)",

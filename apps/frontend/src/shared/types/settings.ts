@@ -172,6 +172,18 @@ export interface PhaseCustomAgentsConfig {
   qa?: string;          // Custom agent ID for QA
 }
 
+/**
+ * Configuration for assigning global MCP servers to pipeline phases.
+ * Each phase has a list of global MCP server IDs that should be available during that phase.
+ */
+export interface GlobalMcpPhaseConfig {
+  spec?: string[];
+  build?: string[];
+  qa?: string[];
+  utility?: string[];
+  ideation?: string[];
+}
+
 // Phase-based model configuration for Auto profile
 // Each phase can use a different model optimized for that task type
 export interface PhaseModelConfig {
@@ -271,6 +283,8 @@ export interface AppSettings {
   customPhaseThinking?: PhaseThinkingConfig;
   // Custom agent per phase (from ~/.claude/agents/)
   phaseCustomAgents?: PhaseCustomAgentsConfig;
+  // Global MCP servers assigned to pipeline phases
+  globalMcpPhases?: GlobalMcpPhaseConfig;
   // Feature-specific configuration (insights, ideation, roadmap)
   featureModels?: FeatureModelConfig;
   featureThinking?: FeatureThinkingConfig;
