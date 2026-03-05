@@ -25,7 +25,8 @@
     "hideArchivedTasks": "Hide archived tasks",
     "closeTab": "Close tab",
     "closeTabAriaLabel": "Close tab (removes project from app)",
-    "addProjectAriaLabel": "Add project"
+    "addProjectAriaLabel": "Add project",
+    "dragHandle": "Drag to reorder {{name}}"
   },
   "accessibility": {
     "deleteFeatureAriaLabel": "Delete feature",
@@ -529,6 +530,8 @@
     "conversionErrorDescription": "An error occurred while converting the idea"
   },
   "issues": {
+    "noIssuesFound": "No issues found",
+    "selectIssueToView": "Select an issue to view details",
     "loadingMore": "Loading more...",
     "scrollForMore": "Scroll for more",
     "allLoaded": "All issues loaded",

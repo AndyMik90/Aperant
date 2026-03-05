@@ -12,7 +12,7 @@ import { Separator } from '../ui/separator';
 import { useProjectStore, removeProject } from '../../stores/project-store';
 import { AddProjectModal } from '../AddProjectModal';
 import { AddCustomerModal } from '../AddCustomerModal';
-import type { Project } from '../../../shared/types';
+import type { Project } from '@shared/types';
 
 interface ProjectSelectorProps {
   selectedProjectId: string | null;

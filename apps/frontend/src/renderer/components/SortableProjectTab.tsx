@@ -90,6 +90,9 @@ export function SortableProjectTab({
             {/* Drag handle - visible on hover, fluorescent green when active */}
             <div
               {...listeners}
+              role="button"
+              aria-label={t('projectTab.dragHandle', { name: project.name })}
+              tabIndex={0}
               className={cn(
                 'hidden sm:block',
                 'cursor-grab active:cursor-grabbing',

@@ -143,12 +143,12 @@ class FrameworkAnalyzer(BaseAnalyzer):
             "litestar": {"name": "Litestar", "type": "backend", "port": 8000},
         }
 
+        port_detector = PortDetector(self.path, self.analysis)
+
         for key, info in frameworks.items():
             if key in content_lower:
                 self.analysis["framework"] = info["name"]
                 self.analysis["type"] = info["type"]
-                # Try to detect actual port, fall back to default
-                port_detector = PortDetector(self.path, self.analysis)
                 detected_port = port_detector.detect_port_from_sources(info["port"])
                 self.analysis["default_port"] = detected_port
                 break
@@ -376,11 +376,12 @@ class FrameworkAnalyzer(BaseAnalyzer):
             "go-chi/chi": {"name": "Chi", "port": 8080},
         }
 
+        port_detector = PortDetector(self.path, self.analysis)
+
         for key, info in frameworks.items():
             if key in content:
                 self.analysis["framework"] = info["name"]
                 self.analysis["type"] = "backend"
-                port_detector = PortDetector(self.path, self.analysis)
                 detected_port = port_detector.detect_port_from_sources(info["port"])
                 self.analysis["default_port"] = detected_port
                 break
@@ -388,6 +389,8 @@ class FrameworkAnalyzer(BaseAnalyzer):
     def _detect_rust_framework(self, content: str) -> None:
         """Detect Rust framework."""
         from .port_detector import PortDetector
+
+        port_detector = PortDetector(self.path, self.analysis)
 
         frameworks = {
             "actix-web": {"name": "Actix Web", "port": 8080},
@@ -399,7 +402,6 @@ class FrameworkAnalyzer(BaseAnalyzer):
             if key in content:
                 self.analysis["framework"] = info["name"]
                 self.analysis["type"] = "backend"
-                port_detector = PortDetector(self.path, self.analysis)
                 detected_port = port_detector.detect_port_from_sources(info["port"])
                 self.analysis["default_port"] = detected_port
                 break
@@ -449,8 +451,8 @@ class FrameworkAnalyzer(BaseAnalyzer):
                         if line.startswith("import "):
                             module = line.replace("import ", "").split()[0]
                             imports.add(module)
-                except Exception:
-                    continue  # Silently skip unparseable Swift files
+                except (OSError, UnicodeDecodeError):
+                    continue  # Silently skip unreadable Swift files
 
             # Detect UI framework
             if "SwiftUI" in imports:
@@ -487,8 +489,8 @@ class FrameworkAnalyzer(BaseAnalyzer):
             dependencies = self._detect_spm_dependencies()
             if dependencies:
                 self.analysis["spm_dependencies"] = dependencies
-        except Exception:
-            # Silently fail if Swift detection has issues
+        except (OSError, UnicodeDecodeError, ValueError):
+            # Silently fail if Swift detection has issues (file I/O, path resolution)
             pass
 
     def _detect_spm_dependencies(self) -> list[str]:
@@ -522,8 +524,8 @@ class FrameworkAnalyzer(BaseAnalyzer):
                         name = url.rstrip("/").split("/")[-1].replace(".git", "")
                         if name and name not in dependencies:
                             dependencies.append(name)
-                except Exception:
-                    continue  # Silently skip unparseable .pbxproj files
+                except (OSError, UnicodeDecodeError):
+                    continue  # Silently skip unreadable .pbxproj files
 
         return dependencies
 

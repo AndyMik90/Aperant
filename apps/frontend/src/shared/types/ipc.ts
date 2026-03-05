@@ -885,6 +885,12 @@ export interface ElectronAPI {
     status: 'completed' | 'failed';
     output: string[];
   }>>;
+  /** Get the embedding dimension for an Ollama model (single source of truth from backend) */
+  getOllamaEmbeddingDim: (modelName: string) => Promise<IPCResult<{
+    model: string;
+    dim: number;
+    source: 'known' | 'fallback';
+  }>>;
 
   // Ollama download progress listener
   onDownloadProgress: (

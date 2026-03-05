@@ -25,7 +25,8 @@
     "hideArchivedTasks": "Masquer les tâches archivées",
     "closeTab": "Fermer l'onglet",
     "closeTabAriaLabel": "Fermer l'onglet (retire le projet de l'application)",
-    "addProjectAriaLabel": "Ajouter un projet"
+    "addProjectAriaLabel": "Ajouter un projet",
+    "dragHandle": "Glisser pour réorganiser {{name}}"
   },
   "accessibility": {
     "deleteFeatureAriaLabel": "Supprimer la fonctionnalité",
@@ -529,6 +530,8 @@
     "conversionErrorDescription": "Une erreur s'est produite lors de la conversion de l'idée"
   },
   "issues": {
+    "noIssuesFound": "Aucune issue trouvée",
+    "selectIssueToView": "Sélectionnez une issue pour voir les détails",
     "loadingMore": "Chargement...",
     "scrollForMore": "Défiler pour plus",
     "allLoaded": "Toutes les issues chargées",

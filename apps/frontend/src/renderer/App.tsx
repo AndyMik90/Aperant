@@ -814,10 +814,10 @@ export function App() {
       }
     } catch (error) {
       console.error('Failed to save GitHub settings:', error);
+    } finally {
+      setShowGitHubSetup(false);
+      setGitHubSetupProject(null);
     }
-
-    setShowGitHubSetup(false);
-    setGitHubSetupProject(null);
   };
 
   const handleGitHubSetupSkip = () => {

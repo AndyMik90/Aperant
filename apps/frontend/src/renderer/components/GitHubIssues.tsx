@@ -257,7 +257,7 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
               autoFixQueueItem={getAutoFixQueueItem(selectedIssue.number)}
             />
           ) : (
-            <EmptyState message="Select an issue to view details" />
+            <EmptyState message={t('issues.selectIssueToView')} />
           )}
         </div>
       </div>

@@ -191,6 +191,19 @@ function resolveInlineServers(
       source,
     };
 
+    // Ensure the server has a usable transport (command-based or HTTP/SSE)
+    const hasCommandTransport =
+      typeof entry.config.command === 'string' && entry.config.command.trim().length > 0;
+    const hasHttpTransport =
+      (entry.config.type === 'http' || entry.config.type === 'sse') &&
+      typeof entry.config.url === 'string' &&
+      entry.config.url.trim().length > 0;
+
+    if (!hasCommandTransport && !hasHttpTransport) {
+      debugLog(`${LOG_PREFIX} Skipping unusable mcpServers entry (no command or url transport):`, serverId);
+      continue;
+    }
+
     entries.push(entry);
   }
 

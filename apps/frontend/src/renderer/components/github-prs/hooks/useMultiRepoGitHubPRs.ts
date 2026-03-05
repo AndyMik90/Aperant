@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useMemo, useState, useRef } from 'react';
+import { useEffect, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { MultiRepoGitHubStatus, MultiRepoPRData } from '@shared/types';
 
@@ -48,13 +48,9 @@ export function useMultiRepoGitHubPRs(customerId: string | undefined) {
     selectedPRId: null,
   });
 
-  const hasCheckedRef = useRef(false);
-
   // Check multi-repo connection on mount/customerId change
   useEffect(() => {
     if (!customerId) return;
-
-    hasCheckedRef.current = false;
 
     const checkConnection = async () => {
       try {
@@ -66,7 +62,6 @@ export function useMultiRepoGitHubPRs(customerId: string | undefined) {
             syncStatus: data,
             repos: data.repos.map(r => r.repoFullName),
           }));
-          hasCheckedRef.current = true;
         } else {
           setState(prev => ({
             ...prev,
@@ -182,7 +177,7 @@ export function useMultiRepoGitHubPRs(customerId: string | undefined) {
     const { prs, selectedRepo } = state;
     if (selectedRepo === 'all') return prs;
     return prs.filter(pr => pr.repoFullName === selectedRepo);
-  }, [state]);
+  }, [state.prs, state.selectedRepo]);
 
   const selectedPR = useMemo(() => {
     if (!state.selectedPRId) return null;
