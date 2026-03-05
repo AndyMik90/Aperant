@@ -53,6 +53,12 @@ Environment Variables:
         - qwen3-embedding:0.6b (1024), :4b (2560), :8b (4096) - Qwen3 series
         - nomic-embed-text (768), mxbai-embed-large (1024), bge-large (1024)
     OLLAMA_EMBEDDING_DIM: Override dimension (optional if using known model)
+
+    # Search
+    GRAPHITI_MAX_RESULTS: Max context results per query (default: 10)
+
+    # Lifecycle
+    GRAPHITI_EPISODE_TTL_DAYS: Auto-cleanup episodes older than N days (default: 0 = disabled)
 """
 
 import json
@@ -155,6 +161,9 @@ class GraphitiConfig:
     ollama_embedding_model: str = ""
     ollama_embedding_dim: int = 0  # Required for Ollama embeddings
 
+    # Lifecycle settings
+    episode_ttl_days: int = 0  # 0 = disabled (no expiration)
+
     @classmethod
     def from_env(cls) -> "GraphitiConfig":
         """Create config from environment variables."""
@@ -227,6 +236,12 @@ class GraphitiConfig:
         except ValueError:
             ollama_embedding_dim = 0
 
+        # Lifecycle settings
+        try:
+            episode_ttl_days = int(os.environ.get("GRAPHITI_EPISODE_TTL_DAYS", "0"))
+        except ValueError:
+            episode_ttl_days = 0
+
         return cls(
             enabled=enabled,
             llm_provider=llm_provider,
@@ -255,6 +270,7 @@ class GraphitiConfig:
             ollama_llm_model=ollama_llm_model,
             ollama_embedding_model=ollama_embedding_model,
             ollama_embedding_dim=ollama_embedding_dim,
+            episode_ttl_days=episode_ttl_days,
         )
 
     def is_valid(self) -> bool:

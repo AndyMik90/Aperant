@@ -31,8 +31,10 @@ interface OllamaModelSelectorProps {
   baseUrl?: string;
 }
 
-// Recommended embedding models for Auto Claude Memory
-// qwen3-embedding:4b is first as the recommended default (balanced quality/speed)
+// Recommended embedding models for Auto Claude Memory.
+// The `dim` values here serve as fallbacks if the IPC dimension lookup fails.
+// The authoritative dimension source is the OLLAMA_GET_EMBEDDING_DIM IPC handler,
+// which mirrors the Python backend's KNOWN_EMBEDDING_MODELS.
 const RECOMMENDED_MODELS: OllamaModel[] = [
   {
     name: 'qwen3-embedding:4b',
@@ -75,6 +77,26 @@ const RECOMMENDED_MODELS: OllamaModel[] = [
 ];
 
 /**
+ * Fetch the authoritative embedding dimension for an Ollama model via IPC.
+ * Falls back to the hardcoded dimension from RECOMMENDED_MODELS if the IPC call fails.
+ *
+ * @param modelName - Ollama model name
+ * @param fallbackDim - Hardcoded fallback dimension from RECOMMENDED_MODELS
+ * @returns The resolved embedding dimension
+ */
+async function resolveEmbeddingDim(modelName: string, fallbackDim: number): Promise<number> {
+  try {
+    const result = await window.electronAPI.getOllamaEmbeddingDim(modelName);
+    if (result?.success && result?.data?.dim) {
+      return result.data.dim;
+    }
+  } catch {
+    // IPC call failed; use fallback
+  }
+  return fallbackDim;
+}
+
+/**
  * OllamaModelSelector Component
  *
  * Provides UI for selecting and downloading Ollama embedding models for semantic search.
@@ -85,6 +107,7 @@ const RECOMMENDED_MODELS: OllamaModel[] = [
  * - Real-time download progress tracking with speed and ETA
  * - Automatic list refresh after successful downloads
  * - Graceful handling when Ollama service is not running
+ * - Fetches authoritative embedding dimensions from backend via IPC
  *
  * @component
  * @param {Object} props - Component props
@@ -296,18 +319,22 @@ export function OllamaModelSelector({
     * Handles model selection with toggle behavior.
     * Clicking an already-selected model will deselect it.
     * Only allows selection of installed models and when component is not disabled.
+    * Fetches the authoritative embedding dimension via IPC, falling back to
+    * the hardcoded value in RECOMMENDED_MODELS if the IPC call fails.
     *
     * @param {OllamaModel} model - The model to select or deselect
     * @returns {void}
     */
-   const handleSelect = (model: OllamaModel) => {
+   const handleSelect = async (model: OllamaModel) => {
      if (!model.installed || disabled) return;
 
      // Toggle behavior: if already selected, deselect by passing empty values
      if (selectedModel === model.name) {
        onModelSelect('', 0);
      } else {
-       onModelSelect(model.name, model.dim);
+       // Fetch authoritative dimension from backend, fall back to hardcoded value
+       const dim = await resolveEmbeddingDim(model.name, model.dim);
+       onModelSelect(model.name, dim);
      }
    };
 
