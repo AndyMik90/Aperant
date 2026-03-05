@@ -472,6 +472,7 @@ export const IPC_CHANNELS = {
   OLLAMA_LIST_EMBEDDING_MODELS: 'ollama:listEmbeddingModels',
   OLLAMA_PULL_MODEL: 'ollama:pullModel',
   OLLAMA_PULL_PROGRESS: 'ollama:pullProgress',
+  OLLAMA_GET_EMBEDDING_DIM: 'ollama:getEmbeddingDim',
 
   // Auto Claude source environment configuration
   AUTOBUILD_SOURCE_ENV_GET: 'autobuild:source:env:get',

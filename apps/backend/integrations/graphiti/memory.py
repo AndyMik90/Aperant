@@ -30,6 +30,7 @@ from graphiti_config import (
 # Re-export from modular system (queries_pkg)
 from .queries_pkg.graphiti import GraphitiMemory
 from .queries_pkg.schema import (
+    ALL_EPISODE_TYPES,
     EPISODE_TYPE_CODEBASE_DISCOVERY,
     EPISODE_TYPE_GOTCHA,
     EPISODE_TYPE_HISTORICAL_CONTEXT,
@@ -192,4 +193,5 @@ __all__ = [
     "EPISODE_TYPE_TASK_OUTCOME",
     "EPISODE_TYPE_QA_RESULT",
     "EPISODE_TYPE_HISTORICAL_CONTEXT",
+    "ALL_EPISODE_TYPES",
 ]

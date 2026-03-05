@@ -34,6 +34,84 @@ import { getConfiguredPythonPath, pythonEnvManager } from '../python-env-manager
 import { openTerminalWithCommand } from './claude-code-handlers';
 
 /**
+ * Known Ollama embedding model dimensions.
+ *
+ * Single source of truth for the Electron main process, mirroring the authoritative
+ * Python backend maps in:
+ *   - apps/backend/ollama_model_detector.py (KNOWN_EMBEDDING_MODELS)
+ *   - apps/backend/integrations/graphiti/providers_pkg/embedder_providers/ollama_embedder.py
+ *     (KNOWN_OLLAMA_EMBEDDING_MODELS)
+ *
+ * When adding a new model, update ALL THREE locations.
+ */
+const KNOWN_OLLAMA_EMBEDDING_DIMS: Record<string, number> = {
+  // Google EmbeddingGemma
+  'embeddinggemma': 768,
+  'embeddinggemma:300m': 768,
+  // Qwen3 Embedding series
+  'qwen3-embedding': 1024,
+  'qwen3-embedding:0.6b': 1024,
+  'qwen3-embedding:4b': 2560,
+  'qwen3-embedding:8b': 4096,
+  // Popular models
+  'nomic-embed-text': 768,
+  'nomic-embed-text:latest': 768,
+  'mxbai-embed-large': 1024,
+  'mxbai-embed-large:latest': 1024,
+  'bge-large': 1024,
+  'bge-large:latest': 1024,
+  'bge-large-en': 1024,
+  'bge-base-en': 768,
+  'bge-small-en': 384,
+  'bge-m3': 1024,
+  'bge-m3:latest': 1024,
+  'all-minilm': 384,
+  'all-minilm:latest': 384,
+  'snowflake-arctic-embed': 1024,
+  'jina-embeddings-v2-base-en': 768,
+  'e5-small': 384,
+  'e5-base': 768,
+  'e5-large': 1024,
+  'paraphrase-multilingual': 768,
+};
+
+/**
+ * Look up the embedding dimension for an Ollama model name.
+ * Tries exact match first, then base name (without tag), then heuristic fallback.
+ *
+ * @param modelName - Ollama model name (e.g. 'qwen3-embedding:8b')
+ * @returns {{ dim: number; source: 'known' | 'fallback' }} or null if unknown
+ */
+function lookupEmbeddingDim(modelName: string): { dim: number; source: 'known' | 'fallback' } | null {
+  const nameLower = modelName.toLowerCase();
+
+  // Exact match
+  if (nameLower in KNOWN_OLLAMA_EMBEDDING_DIMS) {
+    return { dim: KNOWN_OLLAMA_EMBEDDING_DIMS[nameLower], source: 'known' };
+  }
+
+  // Try without tag suffix
+  const baseName = nameLower.split(':')[0];
+  if (baseName in KNOWN_OLLAMA_EMBEDDING_DIMS) {
+    return { dim: KNOWN_OLLAMA_EMBEDDING_DIMS[baseName], source: 'known' };
+  }
+
+  // Check if any known key is a substring (handles quantization variants like qwen3-embedding:8b-q4_K_M)
+  for (const [key, dim] of Object.entries(KNOWN_OLLAMA_EMBEDDING_DIMS)) {
+    if (nameLower.startsWith(key)) {
+      return { dim, source: 'known' };
+    }
+  }
+
+  // Heuristic fallback based on name patterns
+  if (nameLower.includes('large')) return { dim: 1024, source: 'fallback' };
+  if (nameLower.includes('base')) return { dim: 768, source: 'fallback' };
+  if (nameLower.includes('small') || nameLower.includes('mini')) return { dim: 384, source: 'fallback' };
+
+  return null;
+}
+
+/**
  * Ollama Service Status
  * Contains information about Ollama service availability and configuration
  */
@@ -859,6 +937,60 @@ export function registerMemoryHandlers(): void {
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to pull model',
+        };
+      }
+    }
+  );
+
+  // ============================================
+  // Ollama Embedding Dimension Lookup
+  // ============================================
+
+  /**
+   * Get the embedding dimension for a given Ollama model name.
+   * Uses the KNOWN_OLLAMA_EMBEDDING_DIMS map (single source of truth for the frontend)
+   * which mirrors the Python backend's KNOWN_EMBEDDING_MODELS.
+   *
+   * This eliminates dimension duplication between frontend and backend by providing
+   * the renderer process a single IPC endpoint to query dimensions.
+   *
+   * @param {string} modelName - Ollama model name (e.g. 'qwen3-embedding:8b')
+   * @returns {Promise<IPCResult<{ model, dim, source }>>} Dimension info with source indicator
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.OLLAMA_GET_EMBEDDING_DIM,
+    async (
+      _,
+      modelName: string
+    ): Promise<IPCResult<{ model: string; dim: number; source: 'known' | 'fallback' }>> => {
+      try {
+        if (!modelName || typeof modelName !== 'string') {
+          return {
+            success: false,
+            error: 'Model name is required',
+          };
+        }
+
+        const result = lookupEmbeddingDim(modelName);
+        if (result) {
+          return {
+            success: true,
+            data: {
+              model: modelName,
+              dim: result.dim,
+              source: result.source,
+            },
+          };
+        }
+
+        return {
+          success: false,
+          error: `Unknown embedding model: ${modelName}. Dimension could not be determined.`,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get embedding dimension',
         };
       }
     }

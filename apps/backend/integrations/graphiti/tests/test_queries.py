@@ -9,10 +9,11 @@ Tests cover:
 - add_gotcha()
 - add_task_outcome()
 - add_structured_insights()
+- cleanup_expired_episodes()
 """
 
 import json
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -781,3 +782,164 @@ class TestAddStructuredInsightsExceptionHandling:
         assert episode_body["why_failed"] is None
         assert episode_body["alternatives_tried"] == ["Alt1", "Alt2"]
         assert episode_body["changed_files"] == ["file1.py", "file2.py"]
+
+
+# =============================================================================
+# Episode TTL Cleanup Tests
+# =============================================================================
+
+
+def _make_episode_node(uuid: str, created_at: datetime, group_id: str = "test_group"):
+    """Create a mock EpisodicNode for testing."""
+    node = MagicMock()
+    node.uuid = uuid
+    node.created_at = created_at
+    node.group_id = group_id
+    return node
+
+
+class TestCleanupExpiredEpisodes:
+    """Test cleanup_expired_episodes method."""
+
+    @pytest.mark.asyncio
+    async def test_cleanup_disabled_when_ttl_zero(self, queries):
+        """Test that TTL of 0 returns 0 without querying."""
+        result = await queries.cleanup_expired_episodes(0)
+        assert result == 0
+
+    @pytest.mark.asyncio
+    async def test_cleanup_disabled_when_ttl_negative(self, queries):
+        """Test that negative TTL returns 0 without querying."""
+        result = await queries.cleanup_expired_episodes(-5)
+        assert result == 0
+
+    @pytest.mark.asyncio
+    async def test_cleanup_removes_old_episodes(self, queries, mock_graphiti_core_nodes):
+        """Test that episodes older than TTL are removed."""
+        import sys
+
+        now = datetime.now(timezone.utc)
+        old_episode = _make_episode_node(
+            "old-uuid", now - timedelta(days=40)
+        )
+        recent_episode = _make_episode_node(
+            "recent-uuid", now - timedelta(days=5)
+        )
+
+        # Mock EpisodicNode.get_by_group_ids
+        mock_episodic_node = MagicMock()
+        mock_episodic_node.get_by_group_ids = AsyncMock(
+            return_value=[old_episode, recent_episode]
+        )
+        sys.modules["graphiti_core.nodes"].EpisodicNode = mock_episodic_node
+
+        # Mock remove_episode
+        queries.client.graphiti.remove_episode = AsyncMock()
+        queries.client.graphiti.driver = MagicMock()
+
+        result = await queries.cleanup_expired_episodes(30)
+
+        assert result == 1
+        queries.client.graphiti.remove_episode.assert_called_once_with("old-uuid")
+
+    @pytest.mark.asyncio
+    async def test_cleanup_no_expired_episodes(self, queries, mock_graphiti_core_nodes):
+        """Test cleanup when no episodes are expired."""
+        import sys
+
+        now = datetime.now(timezone.utc)
+        recent = _make_episode_node("recent-uuid", now - timedelta(days=1))
+
+        mock_episodic_node = MagicMock()
+        mock_episodic_node.get_by_group_ids = AsyncMock(return_value=[recent])
+        sys.modules["graphiti_core.nodes"].EpisodicNode = mock_episodic_node
+
+        queries.client.graphiti.remove_episode = AsyncMock()
+        queries.client.graphiti.driver = MagicMock()
+
+        result = await queries.cleanup_expired_episodes(30)
+
+        assert result == 0
+        queries.client.graphiti.remove_episode.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_cleanup_handles_naive_datetime(self, queries, mock_graphiti_core_nodes):
+        """Test that episodes with naive datetimes are handled correctly."""
+        import sys
+
+        # Created_at without tzinfo (naive datetime)
+        naive_old = datetime(2020, 1, 1)
+        old_episode = _make_episode_node("old-uuid", naive_old)
+
+        mock_episodic_node = MagicMock()
+        mock_episodic_node.get_by_group_ids = AsyncMock(
+            return_value=[old_episode]
+        )
+        sys.modules["graphiti_core.nodes"].EpisodicNode = mock_episodic_node
+
+        queries.client.graphiti.remove_episode = AsyncMock()
+        queries.client.graphiti.driver = MagicMock()
+
+        result = await queries.cleanup_expired_episodes(30)
+
+        assert result == 1
+        queries.client.graphiti.remove_episode.assert_called_once_with("old-uuid")
+
+    @pytest.mark.asyncio
+    async def test_cleanup_continues_on_single_remove_failure(
+        self, queries, mock_graphiti_core_nodes
+    ):
+        """Test that cleanup continues when one episode removal fails."""
+        import sys
+
+        now = datetime.now(timezone.utc)
+        old1 = _make_episode_node("old-1", now - timedelta(days=60))
+        old2 = _make_episode_node("old-2", now - timedelta(days=60))
+
+        mock_episodic_node = MagicMock()
+        mock_episodic_node.get_by_group_ids = AsyncMock(
+            return_value=[old1, old2]
+        )
+        sys.modules["graphiti_core.nodes"].EpisodicNode = mock_episodic_node
+
+        # First removal fails, second succeeds
+        queries.client.graphiti.remove_episode = AsyncMock(
+            side_effect=[Exception("remove failed"), None]
+        )
+        queries.client.graphiti.driver = MagicMock()
+
+        result = await queries.cleanup_expired_episodes(30)
+
+        assert result == 1  # Only the second one succeeded
+
+    @pytest.mark.asyncio
+    async def test_cleanup_handles_query_exception(self, queries, mock_graphiti_core_nodes):
+        """Test that cleanup handles exceptions from get_by_group_ids."""
+        import sys
+
+        mock_episodic_node = MagicMock()
+        mock_episodic_node.get_by_group_ids = AsyncMock(
+            side_effect=Exception("Database error")
+        )
+        sys.modules["graphiti_core.nodes"].EpisodicNode = mock_episodic_node
+
+        queries.client.graphiti.driver = MagicMock()
+
+        result = await queries.cleanup_expired_episodes(30)
+
+        assert result == 0
+
+    @pytest.mark.asyncio
+    async def test_cleanup_empty_group(self, queries, mock_graphiti_core_nodes):
+        """Test cleanup when no episodes exist in the group."""
+        import sys
+
+        mock_episodic_node = MagicMock()
+        mock_episodic_node.get_by_group_ids = AsyncMock(return_value=[])
+        sys.modules["graphiti_core.nodes"].EpisodicNode = mock_episodic_node
+
+        queries.client.graphiti.driver = MagicMock()
+
+        result = await queries.cleanup_expired_episodes(30)
+
+        assert result == 0

@@ -192,6 +192,20 @@ class GraphitiMemory:
                 f"Graphiti initialized for group: {self.group_id} "
                 f"(mode: {self.group_id_mode}, providers: {self.config.get_provider_summary()})"
             )
+
+            # Run TTL cleanup if configured (non-blocking)
+            if self.config.episode_ttl_days > 0:
+                try:
+                    removed = await self._queries.cleanup_expired_episodes(
+                        self.config.episode_ttl_days
+                    )
+                    if removed > 0:
+                        logger.info(
+                            f"TTL cleanup: removed {removed} expired episodes"
+                        )
+                except Exception as e:
+                    logger.debug(f"TTL cleanup skipped: {e}")
+
             return True
 
         except Exception as e:
@@ -382,6 +396,7 @@ class GraphitiMemory:
         query: str,
         num_results: int = MAX_CONTEXT_RESULTS,
         include_project_context: bool = True,
+        episode_types: list[str] | None = None,
     ) -> list[dict]:
         """Search for relevant context based on a query."""
         if not await self._ensure_initialized():
@@ -389,7 +404,7 @@ class GraphitiMemory:
 
         try:
             return await self._search.get_relevant_context(
-                query, num_results, include_project_context
+                query, num_results, include_project_context, episode_types=episode_types
             )
         except Exception as e:
             logger.warning(f"Failed to get relevant context: {e}")

@@ -1,12 +1,12 @@
 """
 Graph query operations for Graphiti memory.
 
-Handles episode storage, retrieval, and filtering operations.
+Handles episode storage, retrieval, filtering, and lifecycle operations.
 """
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from core.sentry import capture_exception
 
@@ -521,3 +521,72 @@ class GraphitiQueries:
                 content_summary=", ".join(insight_types) if insight_types else "empty",
             )
             return False
+
+    async def cleanup_expired_episodes(self, ttl_days: int) -> int:
+        """
+        Remove episodes older than the specified TTL.
+
+        Uses the graphiti_core EpisodicNode API to retrieve all episodes for
+        the current group, then removes those whose created_at timestamp
+        exceeds the TTL cutoff. Removal uses Graphiti.remove_episode() which
+        also cleans up orphaned edges and entity nodes.
+
+        Args:
+            ttl_days: Number of days after which episodes expire.
+                      Must be > 0; returns 0 immediately otherwise.
+
+        Returns:
+            Number of episodes removed
+        """
+        if ttl_days <= 0:
+            return 0
+
+        try:
+            from graphiti_core.nodes import EpisodicNode
+
+            cutoff = datetime.now(timezone.utc) - timedelta(days=ttl_days)
+
+            # Retrieve all episodes for this group via the graph database directly
+            episodes = await EpisodicNode.get_by_group_ids(
+                self.client.graphiti.driver,
+                group_ids=[self.group_id],
+            )
+
+            # Filter episodes older than cutoff
+            expired_uuids = []
+            for episode in episodes:
+                episode_time = episode.created_at
+                # Ensure timezone-aware comparison
+                if episode_time.tzinfo is None:
+                    episode_time = episode_time.replace(tzinfo=timezone.utc)
+                if episode_time < cutoff:
+                    expired_uuids.append(episode.uuid)
+
+            if not expired_uuids:
+                return 0
+
+            # Remove each expired episode (cleans up edges and orphaned nodes)
+            removed = 0
+            for uuid in expired_uuids:
+                try:
+                    await self.client.graphiti.remove_episode(uuid)
+                    removed += 1
+                except Exception:
+                    logger.debug(f"Could not remove expired episode {uuid}")
+
+            if removed > 0:
+                logger.info(
+                    f"Memory cleanup: removed {removed} episodes older than "
+                    f"{ttl_days} days (group: {self.group_id})"
+                )
+            return removed
+
+        except Exception as e:
+            logger.warning(f"Episode TTL cleanup failed: {e}")
+            capture_exception(
+                e,
+                operation="cleanup_expired_episodes",
+                group_id=self.group_id,
+                ttl_days=ttl_days,
+            )
+            return 0

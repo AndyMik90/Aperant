@@ -22,6 +22,9 @@ from .schema import (
 
 logger = logging.getLogger(__name__)
 
+# Sentinel value for scores when embedding was not computed (distinct from 0.0)
+SCORE_NOT_COMPUTED: float = -1.0
+
 
 class GraphitiSearch:
     """
@@ -29,6 +32,8 @@ class GraphitiSearch:
 
     Provides methods for finding relevant knowledge from the graph.
     """
+
+    _dimension_validated = False
 
     def __init__(
         self,
@@ -54,12 +59,32 @@ class GraphitiSearch:
         self.group_id_mode = group_id_mode
         self.project_dir = project_dir
 
+    def _validate_embedding_dimension(self) -> None:
+        """Log a warning if embedding dimension may be mismatched (once per session)."""
+        if GraphitiSearch._dimension_validated:
+            return
+        GraphitiSearch._dimension_validated = True
+
+        try:
+            from graphiti_config import GraphitiConfig
+
+            config = GraphitiConfig.from_env()
+            expected_dim = config.get_embedding_dimension()
+            if expected_dim > 0:
+                logger.info(
+                    f"Embedding dimension: {expected_dim} "
+                    f"(provider: {config.embedder_provider}, model: {config.ollama_embedding_model or 'default'})"
+                )
+        except Exception:
+            pass
+
     async def get_relevant_context(
         self,
         query: str,
         num_results: int = MAX_CONTEXT_RESULTS,
         include_project_context: bool = True,
         min_score: float = 0.0,
+        episode_types: list[str] | None = None,
     ) -> list[dict]:
         """
         Search for relevant context based on a query.
@@ -73,6 +98,8 @@ class GraphitiSearch:
         Returns:
             List of relevant context items with content, score, and type
         """
+        self._validate_embedding_dimension()
+
         try:
             # Determine which group IDs to search
             group_ids = [self.group_id]
@@ -102,9 +129,9 @@ class GraphitiSearch:
                     or str(result)
                 )
 
-                # Normalize score to float, treating None as 0.0
+                # Normalize score: None means embedding wasn't computed
                 raw_score = getattr(result, "score", None)
-                score = raw_score if raw_score is not None else 0.0
+                score = raw_score if raw_score is not None else SCORE_NOT_COMPUTED
 
                 context_items.append(
                     {
@@ -114,12 +141,21 @@ class GraphitiSearch:
                     }
                 )
 
-            # Filter by minimum score if specified
+            # Filter by episode types if specified
+            if episode_types:
+                context_items = [
+                    item
+                    for item in context_items
+                    if item.get("type", "unknown") in episode_types
+                ]
+
+            # Filter by minimum score if specified (exclude unscored results)
             if min_score > 0:
                 context_items = [
                     item
                     for item in context_items
-                    if (item.get("score", 0.0)) >= min_score
+                    if item.get("score", SCORE_NOT_COMPUTED) != SCORE_NOT_COMPUTED
+                    and item.get("score", 0.0) >= min_score
                 ]
 
             logger.info(
@@ -233,7 +269,7 @@ class GraphitiSearch:
                             continue
                         if data.get("type") == EPISODE_TYPE_TASK_OUTCOME:
                             raw_score = getattr(result, "score", None)
-                            score = raw_score if raw_score is not None else 0.0
+                            score = raw_score if raw_score is not None else SCORE_NOT_COMPUTED
                             outcomes.append(
                                 {
                                     "task_id": data.get("task_id"),
@@ -294,9 +330,9 @@ class GraphitiSearch:
                     result, "fact", None
                 )
                 raw_score = getattr(result, "score", None)
-                score = raw_score if raw_score is not None else 0.0
+                score = raw_score if raw_score is not None else SCORE_NOT_COMPUTED
 
-                if score < min_score:
+                if score == SCORE_NOT_COMPUTED or score < min_score:
                     continue
 
                 if content and EPISODE_TYPE_PATTERN in str(content):
@@ -331,9 +367,9 @@ class GraphitiSearch:
                     result, "fact", None
                 )
                 raw_score = getattr(result, "score", None)
-                score = raw_score if raw_score is not None else 0.0
+                score = raw_score if raw_score is not None else SCORE_NOT_COMPUTED
 
-                if score < min_score:
+                if score == SCORE_NOT_COMPUTED or score < min_score:
                     continue
 
                 if content and EPISODE_TYPE_GOTCHA in str(content):
