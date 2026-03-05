@@ -233,6 +233,7 @@ export interface TaskMetadata {
   isAutoProfile?: boolean;  // True when using Auto (Optimized) profile
   phaseModels?: PhaseModelConfig;  // Per-phase model configuration
   phaseThinking?: PhaseThinkingConfig;  // Per-phase thinking configuration
+  phaseCustomAgents?: import('./settings').PhaseCustomAgentsConfig;  // Per-phase custom agent IDs
   fastMode?: boolean;  // Fast Mode — faster Opus 4.6 output, higher cost per token
 
   // Git/Worktree configuration

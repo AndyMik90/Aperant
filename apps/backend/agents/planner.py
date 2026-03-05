@@ -12,6 +12,7 @@ from core.client import create_client
 from phase_config import (
     get_fast_mode,
     get_phase_client_thinking_kwargs,
+    get_phase_custom_agent,
     get_phase_model,
     get_phase_model_betas,
 )
@@ -32,6 +33,7 @@ from ui import (
     print_status,
 )
 
+from .custom_agents import load_custom_agent
 from .session import run_agent_session
 
 logger = logging.getLogger(__name__)
@@ -107,6 +109,18 @@ async def run_followup_planner(
     logger.info(
         f"[Planner] [Fast Mode] {'ENABLED' if fast_mode else 'disabled'} for follow-up planning"
     )
+
+    # Load custom agent prompt if configured for planning phase
+    custom_agent_prompt = None
+    custom_agent_id = get_phase_custom_agent(spec_dir, "planning")
+    if custom_agent_id:
+        custom_agent = load_custom_agent(custom_agent_id)
+        if custom_agent:
+            custom_agent_prompt = custom_agent.system_prompt
+            logger.info(
+                f"[Planner] Custom agent '{custom_agent_id}' loaded for planning"
+            )
+
     client = create_client(
         project_dir,
         spec_dir,
@@ -114,6 +128,7 @@ async def run_followup_planner(
         agent_type="planner",
         betas=planning_betas,
         fast_mode=fast_mode,
+        custom_agent_prompt=custom_agent_prompt,
         **thinking_kwargs,
     )
 

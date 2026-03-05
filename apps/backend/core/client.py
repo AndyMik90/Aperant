@@ -536,6 +536,7 @@ def create_client(
     betas: list[str] | None = None,
     effort_level: str | None = None,
     fast_mode: bool = False,
+    custom_agent_prompt: str | None = None,
 ) -> ClaudeSDKClient:
     """
     Create a Claude Agent SDK client with multi-layered security.
@@ -571,6 +572,10 @@ def create_client(
                   the "user" setting source so the CLI reads fastMode from
                   ~/.claude/settings.json. Requires extra usage enabled on Claude
                   subscription; falls back to standard speed automatically.
+        custom_agent_prompt: Optional system prompt from a custom agent file
+                           (~/.claude/agents/). When provided, this is appended to
+                           the base system prompt to give the agent specialized
+                           instructions for the phase.
 
     Returns:
         Configured ClaudeSDKClient
@@ -899,6 +904,17 @@ def create_client(
         f"your work through thorough testing. You communicate progress through Git commits "
         f"and build-progress.txt updates."
     )
+
+    # Include custom agent instructions if provided
+    if custom_agent_prompt:
+        base_prompt = (
+            f"{base_prompt}\n\n"
+            f"# Custom Agent Instructions\n\n"
+            f"The following specialized instructions define your role and expertise "
+            f"for this phase. Follow them in addition to your base capabilities.\n\n"
+            f"{custom_agent_prompt}"
+        )
+        print(f"   - Custom agent: instructions injected ({len(custom_agent_prompt)} chars)")
 
     # Include CLAUDE.md if enabled and present
     if should_use_claude_md():

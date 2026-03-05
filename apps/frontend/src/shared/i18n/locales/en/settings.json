@@ -415,6 +415,9 @@
     "resetToProfileDefaults": "Reset to {{profile}} defaults",
     "customized": "Customized",
     "phaseConfigNote": "These settings will be used as defaults when creating new tasks with this profile. You can override them per-task in the task creation wizard.",
+    "customAgent": "Custom Agent",
+    "customAgentTooltip": "Assign a custom agent from ~/.claude/agents/ to inject specialized instructions for this phase. The agent's system prompt will be appended to the phase's base instructions.",
+    "noCustomAgent": "None (default)",
     "adaptiveThinking": {
       "badge": "Adaptive",
       "tooltip": "Opus uses adaptive thinking — it dynamically decides how much to think within the budget cap set by the thinking level."

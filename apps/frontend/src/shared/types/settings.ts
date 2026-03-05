@@ -163,6 +163,15 @@ export type ThinkingLevel = 'low' | 'medium' | 'high';
 // Model type shorthand
 export type ModelTypeShort = 'haiku' | 'sonnet' | 'opus' | 'opus-1m' | 'opus-4.5';
 
+// Phase-based custom agent configuration
+// Each phase can optionally use a custom agent from ~/.claude/agents/
+export interface PhaseCustomAgentsConfig {
+  spec?: string;        // Custom agent ID for spec creation
+  planning?: string;    // Custom agent ID for planning
+  coding?: string;      // Custom agent ID for coding
+  qa?: string;          // Custom agent ID for QA
+}
+
 // Phase-based model configuration for Auto profile
 // Each phase can use a different model optimized for that task type
 export interface PhaseModelConfig {
@@ -260,6 +269,8 @@ export interface AppSettings {
   // Custom phase configuration for Auto profile (overrides defaults)
   customPhaseModels?: PhaseModelConfig;
   customPhaseThinking?: PhaseThinkingConfig;
+  // Custom agent per phase (from ~/.claude/agents/)
+  phaseCustomAgents?: PhaseCustomAgentsConfig;
   // Feature-specific configuration (insights, ideation, roadmap)
   featureModels?: FeatureModelConfig;
   featureThinking?: FeatureThinkingConfig;

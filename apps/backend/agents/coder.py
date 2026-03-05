@@ -26,6 +26,7 @@ from linear_updater import (
 from phase_config import (
     get_fast_mode,
     get_phase_client_thinking_kwargs,
+    get_phase_custom_agent,
     get_phase_model,
     get_phase_model_betas,
 )
@@ -83,6 +84,7 @@ from .base import (
     sanitize_error_message,
 )
 from .memory_manager import debug_memory_system_status, get_graphiti_context
+from .custom_agents import load_custom_agent
 from .session import post_session_processing, run_agent_session
 from .utils import (
     find_phase_for_subtask,
@@ -982,6 +984,17 @@ async def run_autonomous_agent(
             f"[Coder] [Fast Mode] {'ENABLED' if fast_mode else 'disabled'} for phase={current_phase}"
         )
 
+        # Load custom agent prompt if configured for this phase
+        custom_agent_prompt = None
+        custom_agent_id = get_phase_custom_agent(spec_dir, current_phase)
+        if custom_agent_id:
+            custom_agent = load_custom_agent(custom_agent_id)
+            if custom_agent:
+                custom_agent_prompt = custom_agent.system_prompt
+                logger.info(
+                    f"[Coder] Custom agent '{custom_agent_id}' loaded for {current_phase} phase"
+                )
+
         if first_run:
             # Create client for planning phase
             client = create_client(
@@ -991,6 +1004,7 @@ async def run_autonomous_agent(
                 agent_type="planner",
                 betas=phase_betas,
                 fast_mode=fast_mode,
+                custom_agent_prompt=custom_agent_prompt,
                 **thinking_kwargs,
             )
             prompt = generate_planner_prompt(spec_dir, project_dir)
@@ -1139,6 +1153,7 @@ async def run_autonomous_agent(
                 agent_type="coder",
                 betas=phase_betas,
                 fast_mode=fast_mode,
+                custom_agent_prompt=custom_agent_prompt,
                 **thinking_kwargs,
             )
 

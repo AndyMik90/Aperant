@@ -415,6 +415,9 @@
     "resetToProfileDefaults": "Réinitialiser aux défauts de {{profile}}",
     "customized": "Personnalisé",
     "phaseConfigNote": "Ces paramètres seront utilisés par défaut lors de la création de nouvelles tâches avec ce profil. Vous pouvez les modifier par tâche dans l'assistant de création.",
+    "customAgent": "Agent personnalisé",
+    "customAgentTooltip": "Assignez un agent personnalisé depuis ~/.claude/agents/ pour injecter des instructions spécialisées pour cette phase. Le prompt système de l'agent sera ajouté aux instructions de base de la phase.",
+    "noCustomAgent": "Aucun (par défaut)",
     "adaptiveThinking": {
       "badge": "Adaptatif",
       "tooltip": "Opus utilise la réflexion adaptative — il décide dynamiquement de la profondeur de réflexion dans la limite du budget défini par le niveau de réflexion."
