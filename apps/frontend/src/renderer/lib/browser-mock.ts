@@ -352,6 +352,15 @@ const browserMockAPI: ElectronAPI = {
       checkedAt: new Date().toISOString()
     }
   }),
+  checkGlobalMcpHealth: async (server) => ({
+    success: true,
+    data: {
+      serverId: server.id,
+      status: 'unknown' as const,
+      message: 'Health check not available in browser mode',
+      checkedAt: new Date().toISOString()
+    }
+  }),
   testMcpConnection: async (server) => ({
     success: true,
     data: {

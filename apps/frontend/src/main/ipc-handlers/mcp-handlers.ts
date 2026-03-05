@@ -255,6 +255,77 @@ async function checkCommandHealth(server: CustomMcpServer, startTime: number): P
 }
 
 /**
+ * Health check for global MCPs from Claude Code config.
+ * These servers come from a trusted source (~/.claude.json, ~/.claude/settings.json)
+ * so we skip the command allowlist validation. For command-based servers, we check
+ * if the command exists in PATH. For HTTP servers, we probe the URL.
+ */
+async function checkGlobalMcpHealth(server: CustomMcpServer): Promise<McpHealthCheckResult> {
+  const startTime = Date.now();
+
+  if (server.type === 'http') {
+    // HTTP servers: reuse existing check (no allowlist involved)
+    return checkHttpHealth(server, startTime);
+  }
+
+  // Command-based servers: just verify the command exists (no allowlist filter)
+  if (!server.command) {
+    return {
+      serverId: server.id,
+      status: 'unhealthy',
+      message: 'No command configured',
+      checkedAt: new Date().toISOString(),
+    };
+  }
+
+  return new Promise((resolve) => {
+    const whichCmd = isWindows() ? getWhereExePath() : 'which';
+    const proc = spawn(whichCmd, [server.command!], {
+      timeout: 5000,
+      windowsHide: true,
+    });
+
+    let found = false;
+
+    proc.stdout.on('data', () => {
+      found = true;
+    });
+
+    proc.on('close', (code) => {
+      const responseTime = Date.now() - startTime;
+      if (code === 0 || found) {
+        resolve({
+          serverId: server.id,
+          status: 'healthy',
+          message: `Available — '${server.command}' found (starts on demand)`,
+          responseTime,
+          checkedAt: new Date().toISOString(),
+        });
+      } else {
+        resolve({
+          serverId: server.id,
+          status: 'unhealthy',
+          message: `Command '${server.command}' not found in PATH`,
+          responseTime,
+          checkedAt: new Date().toISOString(),
+        });
+      }
+    });
+
+    proc.on('error', (error: Error) => {
+      const responseTime = Date.now() - startTime;
+      resolve({
+        serverId: server.id,
+        status: 'unhealthy',
+        message: `Failed to check: ${error.message}`,
+        responseTime,
+        checkedAt: new Date().toISOString(),
+      });
+    });
+  });
+}
+
+/**
  * Full MCP connection test - actually connects to the server and tries to list tools.
  * This is more thorough but slower than the health check.
  */
@@ -559,6 +630,20 @@ export function registerMcpHandlers(): void {
       return { success: true, data: result };
     } catch (error) {
       appLog.error('MCP health check error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Health check failed',
+      };
+    }
+  });
+
+  // Health check for global MCPs (from Claude Code config — trusted source, skip allowlist)
+  ipcMain.handle(IPC_CHANNELS.MCP_CHECK_GLOBAL_HEALTH, async (_event, server: CustomMcpServer) => {
+    try {
+      const result = await checkGlobalMcpHealth(server);
+      return { success: true, data: result };
+    } catch (error) {
+      appLog.error('Global MCP health check error:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Health check failed',

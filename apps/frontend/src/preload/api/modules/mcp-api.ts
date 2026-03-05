@@ -14,6 +14,8 @@ import type { GlobalMcpInfo, ClaudeAgentsInfo } from '../../../shared/types/inte
 export interface McpAPI {
   /** Quick health check for a custom MCP server */
   checkMcpHealth: (server: CustomMcpServer) => Promise<IPCResult<McpHealthCheckResult>>;
+  /** Health check for global MCPs (trusted source, no command allowlist) */
+  checkGlobalMcpHealth: (server: CustomMcpServer) => Promise<IPCResult<McpHealthCheckResult>>;
   /** Full MCP connection test */
   testMcpConnection: (server: CustomMcpServer) => Promise<IPCResult<McpTestConnectionResult>>;
   /** Get all global MCP servers from Claude Code settings (plugins + inline) */
@@ -26,6 +28,9 @@ export function createMcpAPI(): McpAPI {
   return {
     checkMcpHealth: (server: CustomMcpServer) =>
       ipcRenderer.invoke(IPC_CHANNELS.MCP_CHECK_HEALTH, server),
+
+    checkGlobalMcpHealth: (server: CustomMcpServer) =>
+      ipcRenderer.invoke(IPC_CHANNELS.MCP_CHECK_GLOBAL_HEALTH, server),
 
     testMcpConnection: (server: CustomMcpServer) =>
       ipcRenderer.invoke(IPC_CHANNELS.MCP_TEST_CONNECTION, server),

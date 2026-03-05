@@ -577,6 +577,7 @@ export const IPC_CHANNELS = {
 
   // MCP Server health checks
   MCP_CHECK_HEALTH: 'mcp:checkHealth',           // Quick connectivity check
+  MCP_CHECK_GLOBAL_HEALTH: 'mcp:checkGlobalHealth', // Health check for global MCPs (trusted source, no allowlist)
   MCP_TEST_CONNECTION: 'mcp:testConnection',     // Full MCP protocol test
 
   // Claude Code global MCP configuration

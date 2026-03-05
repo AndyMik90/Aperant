@@ -741,7 +741,7 @@ export function AgentTools() {
             url: server.config.url,
             headers: server.config.headers,
           };
-          const result = await window.electronAPI.checkMcpHealth(customServer);
+          const result = await window.electronAPI.checkGlobalMcpHealth(customServer);
           if (result.success && result.data) {
             results[server.serverId] = result.data;
           }
