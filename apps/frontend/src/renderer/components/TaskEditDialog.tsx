@@ -245,10 +245,6 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       metadataUpdates.phaseModels = phaseModels;
       metadataUpdates.phaseThinking = phaseThinking;
     }
-    // Include custom agent assignments if configured in settings
-    if (settings.phaseCustomAgents && Object.values(settings.phaseCustomAgents).some(Boolean)) {
-      metadataUpdates.phaseCustomAgents = settings.phaseCustomAgents;
-    }
     // Always set attachedImages to persist removal when all images are deleted
     metadataUpdates.attachedImages = images.length > 0 ? images : [];
     metadataUpdates.requireReviewBeforeCoding = requireReviewBeforeCoding;

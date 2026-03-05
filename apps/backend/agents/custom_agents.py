@@ -145,6 +145,84 @@ def load_custom_agent(agent_id: str) -> CustomAgentConfig | None:
     return None
 
 
+def load_all_agents() -> list[CustomAgentConfig]:
+    """Load all custom agents from all categories in ~/.claude/agents/."""
+    agents_dir = get_agents_dir()
+    if not agents_dir.exists():
+        return []
+
+    agents = []
+    for category_dir in sorted(agents_dir.iterdir()):
+        if not category_dir.is_dir():
+            continue
+        for agent_file in sorted(category_dir.glob("*.md")):
+            if agent_file.name == "README.md":
+                continue
+            agent = parse_agent_file(agent_file)
+            if agent:
+                agents.append(agent)
+    return agents
+
+
+def build_agents_catalog_prompt() -> str | None:
+    """
+    Build a concise catalog of all available custom agents for system prompt injection.
+
+    Returns a formatted string listing all agents by category with their descriptions,
+    or None if no agents are available.
+    """
+    agents_dir = get_agents_dir()
+    if not agents_dir.exists():
+        return None
+
+    categories: list[tuple[str, list[tuple[str, str]]]] = []
+
+    for category_dir in sorted(agents_dir.iterdir()):
+        if not category_dir.is_dir():
+            continue
+        category_name = category_dir.name.split("-", 1)[-1].replace("-", " ").title() if "-" in category_dir.name else category_dir.name
+
+        agent_entries = []
+        for agent_file in sorted(category_dir.glob("*.md")):
+            if agent_file.name == "README.md":
+                continue
+            agent = parse_agent_file(agent_file)
+            if agent:
+                # Get description from frontmatter, or first line of prompt
+                description = agent.raw_frontmatter.get("description", "")
+                if not description:
+                    # Use first sentence of system prompt as fallback
+                    first_line = agent.system_prompt.split("\n")[0].strip()
+                    description = first_line[:120]
+                elif len(description) > 150:
+                    description = description[:147] + "..."
+                agent_entries.append((agent.agent_id, description))
+
+        if agent_entries:
+            categories.append((category_name, agent_entries))
+
+    if not categories:
+        return None
+
+    total = sum(len(entries) for _, entries in categories)
+    lines = [
+        f"# Available Specialist Agents ({total} agents)",
+        "",
+        "You have access to the following specialist agents organized by category.",
+        "Use them when the task requires specialized expertise — spawn them as subagents",
+        "via the Agent tool with the appropriate subagent_type.",
+        "",
+    ]
+
+    for category_name, entries in categories:
+        lines.append(f"## {category_name}")
+        for agent_id, desc in entries:
+            lines.append(f"- **{agent_id}**: {desc}")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
 def _parse_simple_yaml(text: str) -> dict:
     """
     Parse simple YAML-like frontmatter (key: value pairs).

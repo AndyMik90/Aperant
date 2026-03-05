@@ -33,9 +33,7 @@ import {
   Loader2,
   RefreshCw,
   Lock,
-  ExternalLink,
-  Users,
-  Bot
+  ExternalLink
 } from 'lucide-react';
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { ScrollArea } from './ui/scroll-area';
@@ -51,7 +49,7 @@ import {
 import { useSettingsStore } from '../stores/settings-store';
 import { useProjectStore } from '../stores/project-store';
 import type { ProjectEnvConfig, AgentMcpOverride, CustomMcpServer, McpHealthCheckResult } from '@shared/types';
-import type { GlobalMcpInfo, GlobalMcpServerEntry, ClaudeAgentsInfo } from '@shared/types/integrations';
+import type { GlobalMcpInfo, GlobalMcpServerEntry } from '@shared/types/integrations';
 import { CustomMcpDialog } from './CustomMcpDialog';
 import { useTranslation } from 'react-i18next';
 import {
@@ -670,11 +668,6 @@ export function AgentTools() {
   const [globalMcps, setGlobalMcps] = useState<GlobalMcpInfo | null>(null);
   const [isLoadingGlobalMcps, setIsLoadingGlobalMcps] = useState(false);
 
-  // Custom agents state
-  const [agentsInfo, setAgentsInfo] = useState<ClaudeAgentsInfo | null>(null);
-  const [isLoadingAgents, setIsLoadingAgents] = useState(false);
-  const [expandedAgentCategories, setExpandedAgentCategories] = useState<Set<string>>(new Set());
-
   // Load project env config when project changes
   useEffect(() => {
     if (selectedProjectId && selectedProject?.autoBuildPath) {
@@ -716,25 +709,6 @@ export function AgentTools() {
   useEffect(() => {
     loadGlobalMcps();
   }, [loadGlobalMcps]);
-
-  // Load custom agents on mount
-  const loadClaudeAgents = useCallback(async () => {
-    setIsLoadingAgents(true);
-    try {
-      const result = await window.electronAPI.getClaudeAgents();
-      if (result.success && result.data) {
-        setAgentsInfo(result.data);
-      }
-    } catch {
-      // Non-critical
-    } finally {
-      setIsLoadingAgents(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadClaudeAgents();
-  }, [loadClaudeAgents]);
 
   // Combine all global MCP servers for display
   const allGlobalServers = useMemo((): GlobalMcpServerEntry[] => {
@@ -1446,93 +1420,6 @@ export function AgentTools() {
                           </p>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Claude Code Custom Agents Section */}
-          {agentsInfo && agentsInfo.totalAgents > 0 && (
-            <div className="rounded-lg border border-border bg-card p-4">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-muted-foreground" />
-                  <h2 className="text-sm font-medium text-foreground">
-                    {t('settings:mcp.customAgents.title')}
-                  </h2>
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-500/10 text-purple-500">
-                    {agentsInfo.totalAgents}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground italic">
-                    {t('settings:mcp.globalMcps.readOnly')}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={loadClaudeAgents}
-                    disabled={isLoadingAgents}
-                    title={t('settings:mcp.customAgents.refreshTooltip')}
-                  >
-                    {isLoadingAgents ? (
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-3 w-3" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground mb-3">
-                {t('settings:mcp.customAgents.description')}
-              </p>
-              <div className="space-y-1">
-                {agentsInfo.categories.map((category) => {
-                  const isExpanded = expandedAgentCategories.has(category.categoryDir);
-                  return (
-                    <div key={category.categoryDir}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setExpandedAgentCategories(prev => {
-                            const next = new Set(prev);
-                            if (next.has(category.categoryDir)) {
-                              next.delete(category.categoryDir);
-                            } else {
-                              next.add(category.categoryDir);
-                            }
-                            return next;
-                          });
-                        }}
-                        className="flex items-center gap-2 w-full text-left py-1.5 px-2 rounded hover:bg-muted/50 transition-colors"
-                        aria-expanded={isExpanded}
-                      >
-                        {isExpanded ? (
-                          <ChevronDown className="h-3 w-3 text-muted-foreground" />
-                        ) : (
-                          <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                        )}
-                        <span className="text-sm font-medium">{category.categoryName}</span>
-                        <span className="text-[10px] text-muted-foreground">
-                          ({category.agents.length})
-                        </span>
-                      </button>
-                      {isExpanded && (
-                        <div className="ml-5 space-y-0.5 mt-0.5">
-                          {category.agents.map((agent) => (
-                            <div
-                              key={agent.agentId}
-                              className="flex items-center gap-2 py-1 px-2 text-xs text-muted-foreground"
-                            >
-                              <Bot className="h-3 w-3 shrink-0" />
-                              <span>{agent.agentName}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
                     </div>
                   );
                 })}

@@ -21,11 +21,10 @@ from linear_updater import (
     linear_qa_rejected,
     linear_qa_started,
 )
-from agents.custom_agents import load_custom_agent
+from agents.custom_agents import build_agents_catalog_prompt
 from phase_config import (
     get_fast_mode,
     get_phase_client_thinking_kwargs,
-    get_phase_custom_agent,
     get_phase_model,
     get_phase_model_betas,
 )
@@ -143,17 +142,8 @@ async def run_qa_validation_loop(
         {"iteration": 1, "maxIterations": MAX_QA_ITERATIONS},
     )
 
-    # Load custom agent prompt if configured for QA phase
-    qa_custom_agent_prompt = None
-    qa_custom_agent_id = get_phase_custom_agent(spec_dir, "qa")
-    if qa_custom_agent_id:
-        qa_custom_agent = load_custom_agent(qa_custom_agent_id)
-        if qa_custom_agent:
-            qa_custom_agent_prompt = qa_custom_agent.system_prompt
-            debug(
-                "qa_loop",
-                f"Custom agent '{qa_custom_agent_id}' loaded for QA phase",
-            )
+    # Build catalog of available specialist agents
+    agents_catalog = build_agents_catalog_prompt()
 
     fast_mode = get_fast_mode(spec_dir)
     debug(
@@ -199,7 +189,7 @@ async def run_qa_validation_loop(
             agent_type="qa_fixer",
             betas=qa_betas,
             fast_mode=fast_mode,
-            custom_agent_prompt=qa_custom_agent_prompt,
+            agents_catalog_prompt=agents_catalog,
             **fixer_thinking_kwargs,
         )
 
@@ -317,7 +307,7 @@ async def run_qa_validation_loop(
             agent_type="qa_reviewer",
             betas=qa_betas,
             fast_mode=fast_mode,
-            custom_agent_prompt=qa_custom_agent_prompt,
+            agents_catalog_prompt=agents_catalog,
             **qa_thinking_kwargs,
         )
 
@@ -518,7 +508,7 @@ async def run_qa_validation_loop(
                 agent_type="qa_fixer",
                 betas=fixer_betas,
                 fast_mode=fast_mode,
-                custom_agent_prompt=qa_custom_agent_prompt,
+                agents_catalog_prompt=agents_catalog,
                 **fixer_thinking_kwargs,
             )
 

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Brain, Scale, Zap, Check, Sparkles, ChevronDown, ChevronUp, RotateCcw, Settings2, Bot } from 'lucide-react';
+import { Brain, Scale, Zap, Check, Sparkles, ChevronDown, ChevronUp, ChevronRight, RotateCcw, Settings2, Bot } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import {
   DEFAULT_AGENT_PROFILES,
@@ -23,8 +23,8 @@ import {
   SelectValue
 } from '../ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
-import type { AgentProfile, PhaseModelConfig, PhaseThinkingConfig, PhaseCustomAgentsConfig, ModelTypeShort, ThinkingLevel } from '../../../shared/types/settings';
-import type { ClaudeAgentsInfo, ClaudeCustomAgent } from '../../../shared/types/integrations';
+import type { AgentProfile, PhaseModelConfig, PhaseThinkingConfig, ModelTypeShort, ThinkingLevel } from '../../../shared/types/settings';
+import type { ClaudeAgentsInfo } from '../../../shared/types/integrations';
 
 /**
  * Icon mapping for agent profile icons
@@ -47,6 +47,8 @@ export function AgentProfileSettings() {
   const settings = useSettingsStore((state) => state.settings);
   const selectedProfileId = settings.selectedAgentProfile || 'auto';
   const [showPhaseConfig, setShowPhaseConfig] = useState(true);
+  const [showAgentsCatalog, setShowAgentsCatalog] = useState(false);
+  const [expandedAgentCategories, setExpandedAgentCategories] = useState<Set<string>>(new Set());
   const [agentsInfo, setAgentsInfo] = useState<ClaudeAgentsInfo | null>(null);
 
   // Load custom agents from ~/.claude/agents/
@@ -65,12 +67,6 @@ export function AgentProfileSettings() {
     loadAgents();
   }, [loadAgents]);
 
-  // Flatten all agents for easy lookup
-  const allAgents = useMemo((): ClaudeCustomAgent[] => {
-    if (!agentsInfo) return [];
-    return agentsInfo.categories.flatMap(c => c.agents);
-  }, [agentsInfo]);
-
   // Find the selected profile
   const selectedProfile = useMemo(() =>
     DEFAULT_AGENT_PROFILES.find(p => p.id === selectedProfileId) || DEFAULT_AGENT_PROFILES[0],
@@ -84,7 +80,6 @@ export function AgentProfileSettings() {
   // Get current phase config from settings (custom) or fall back to profile defaults
   const currentPhaseModels: PhaseModelConfig = settings.customPhaseModels || profilePhaseModels;
   const currentPhaseThinking: PhaseThinkingConfig = settings.customPhaseThinking || profilePhaseThinking;
-  const currentPhaseCustomAgents: PhaseCustomAgentsConfig = settings.phaseCustomAgents || {};
 
   /**
    * Check if current config differs from the selected profile's defaults
@@ -129,24 +124,11 @@ export function AgentProfileSettings() {
     await saveSettings({ customPhaseThinking: newPhaseThinking });
   };
 
-  const handlePhaseCustomAgentChange = async (phase: keyof PhaseCustomAgentsConfig, agentId: string | undefined) => {
-    const newCustomAgents = { ...currentPhaseCustomAgents };
-    if (agentId) {
-      newCustomAgents[phase] = agentId;
-    } else {
-      delete newCustomAgents[phase];
-    }
-    // Save empty object as undefined to clean up
-    const hasAny = Object.values(newCustomAgents).some(Boolean);
-    await saveSettings({ phaseCustomAgents: hasAny ? newCustomAgents : undefined });
-  };
-
   const handleResetToProfileDefaults = async () => {
     // Reset to the selected profile's defaults
     await saveSettings({
       customPhaseModels: undefined,
       customPhaseThinking: undefined,
-      phaseCustomAgents: undefined,
     });
   };
 
@@ -306,7 +288,7 @@ export function AgentProfileSettings() {
                         {t(`agentProfile.phases.${phase}.description`)}
                       </span>
                     </div>
-                    <div className={cn("grid gap-3", allAgents.length > 0 ? "grid-cols-3" : "grid-cols-2")}>
+                    <div className="grid grid-cols-2 gap-3">
                       {/* Model Select */}
                       <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">{t('agentProfile.model')}</Label>
@@ -359,45 +341,6 @@ export function AgentProfileSettings() {
                           </SelectContent>
                         </Select>
                       </div>
-                      {/* Custom Agent Select (only shown when agents are available) */}
-                      {allAgents.length > 0 && (
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1.5">
-                            <Label className="text-xs text-muted-foreground">{t('agentProfile.customAgent')}</Label>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Bot className="h-3 w-3 text-muted-foreground cursor-help" />
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="max-w-xs">
-                                <p className="text-xs">{t('agentProfile.customAgentTooltip')}</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </div>
-                          <Select
-                            value={currentPhaseCustomAgents[phase] || '_none'}
-                            onValueChange={(value) => handlePhaseCustomAgentChange(phase, value === '_none' ? undefined : value)}
-                          >
-                            <SelectTrigger className="h-9">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="_none">
-                                <span className="text-muted-foreground">{t('agentProfile.noCustomAgent')}</span>
-                              </SelectItem>
-                              {agentsInfo?.categories.map((category) => (
-                                category.agents.map((agent) => (
-                                  <SelectItem key={agent.agentId} value={agent.agentId}>
-                                    <div className="flex items-center gap-1.5">
-                                      <Bot className="h-3 w-3 shrink-0" />
-                                      <span>{agent.agentName}</span>
-                                    </div>
-                                  </SelectItem>
-                                ))
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      )}
                     </div>
                   </div>
                 ))}
@@ -410,6 +353,91 @@ export function AgentProfileSettings() {
             </div>
           )}
         </div>
+
+        {/* Available Specialist Agents */}
+        {agentsInfo && agentsInfo.totalAgents > 0 && (
+          <div className="mt-6 rounded-lg border border-border bg-card">
+            <button
+              type="button"
+              onClick={() => setShowAgentsCatalog(!showAgentsCatalog)}
+              className="flex w-full items-center justify-between p-4 text-left hover:bg-muted/50 transition-colors rounded-t-lg"
+            >
+              <div className="flex items-center gap-2">
+                <Bot className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <h4 className="font-medium text-sm text-foreground">
+                    {t('agentProfile.availableAgents.title')}
+                  </h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {t('agentProfile.availableAgents.description')}
+                  </p>
+                </div>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-500/10 text-purple-500">
+                  {agentsInfo.totalAgents}
+                </span>
+              </div>
+              {showAgentsCatalog ? (
+                <ChevronUp className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              )}
+            </button>
+
+            {showAgentsCatalog && (
+              <div className="border-t border-border p-4 space-y-1">
+                <p className="text-xs text-muted-foreground mb-3">
+                  {t('agentProfile.availableAgents.info')}
+                </p>
+                {agentsInfo.categories.map((category) => {
+                  const isExpanded = expandedAgentCategories.has(category.categoryDir);
+                  return (
+                    <div key={category.categoryDir}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExpandedAgentCategories(prev => {
+                            const next = new Set(prev);
+                            if (next.has(category.categoryDir)) {
+                              next.delete(category.categoryDir);
+                            } else {
+                              next.add(category.categoryDir);
+                            }
+                            return next;
+                          });
+                        }}
+                        className="flex items-center gap-2 w-full text-left py-1.5 px-2 rounded hover:bg-muted/50 transition-colors"
+                        aria-expanded={isExpanded}
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                        )}
+                        <span className="text-sm font-medium">{category.categoryName}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          ({category.agents.length})
+                        </span>
+                      </button>
+                      {isExpanded && (
+                        <div className="ml-5 space-y-0.5 mt-0.5">
+                          {category.agents.map((agent) => (
+                            <div
+                              key={agent.agentId}
+                              className="flex items-center gap-2 py-1 px-2 text-xs text-muted-foreground"
+                            >
+                              <Bot className="h-3 w-3 shrink-0" />
+                              <span>{agent.agentName}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
       </div>
     </SettingsSection>
