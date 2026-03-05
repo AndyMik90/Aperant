@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Brain, Scale, Zap, Check, Sparkles, ChevronDown, ChevronUp, RotateCcw, Settings2 } from 'lucide-react';
+import { Brain, Scale, Zap, Check, Sparkles, ChevronDown, ChevronUp, RotateCcw, Settings2, Bot } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import {
   DEFAULT_AGENT_PROFILES,
@@ -23,7 +23,8 @@ import {
   SelectValue
 } from '../ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
-import type { AgentProfile, PhaseModelConfig, PhaseThinkingConfig, ModelTypeShort, ThinkingLevel } from '../../../shared/types/settings';
+import type { AgentProfile, PhaseModelConfig, PhaseThinkingConfig, PhaseCustomAgentsConfig, ModelTypeShort, ThinkingLevel } from '../../../shared/types/settings';
+import type { ClaudeAgentsInfo, ClaudeCustomAgent } from '../../../shared/types/integrations';
 
 /**
  * Icon mapping for agent profile icons
@@ -46,6 +47,29 @@ export function AgentProfileSettings() {
   const settings = useSettingsStore((state) => state.settings);
   const selectedProfileId = settings.selectedAgentProfile || 'auto';
   const [showPhaseConfig, setShowPhaseConfig] = useState(true);
+  const [agentsInfo, setAgentsInfo] = useState<ClaudeAgentsInfo | null>(null);
+
+  // Load custom agents from ~/.claude/agents/
+  const loadAgents = useCallback(async () => {
+    try {
+      const result = await window.electronAPI.getClaudeAgents();
+      if (result.success && result.data) {
+        setAgentsInfo(result.data);
+      }
+    } catch {
+      // Silently fail - custom agents are optional
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAgents();
+  }, [loadAgents]);
+
+  // Flatten all agents for easy lookup
+  const allAgents = useMemo((): ClaudeCustomAgent[] => {
+    if (!agentsInfo) return [];
+    return agentsInfo.categories.flatMap(c => c.agents);
+  }, [agentsInfo]);
 
   // Find the selected profile
   const selectedProfile = useMemo(() =>
@@ -60,6 +84,7 @@ export function AgentProfileSettings() {
   // Get current phase config from settings (custom) or fall back to profile defaults
   const currentPhaseModels: PhaseModelConfig = settings.customPhaseModels || profilePhaseModels;
   const currentPhaseThinking: PhaseThinkingConfig = settings.customPhaseThinking || profilePhaseThinking;
+  const currentPhaseCustomAgents: PhaseCustomAgentsConfig = settings.phaseCustomAgents || {};
 
   /**
    * Check if current config differs from the selected profile's defaults
@@ -104,11 +129,24 @@ export function AgentProfileSettings() {
     await saveSettings({ customPhaseThinking: newPhaseThinking });
   };
 
+  const handlePhaseCustomAgentChange = async (phase: keyof PhaseCustomAgentsConfig, agentId: string | undefined) => {
+    const newCustomAgents = { ...currentPhaseCustomAgents };
+    if (agentId) {
+      newCustomAgents[phase] = agentId;
+    } else {
+      delete newCustomAgents[phase];
+    }
+    // Save empty object as undefined to clean up
+    const hasAny = Object.values(newCustomAgents).some(Boolean);
+    await saveSettings({ phaseCustomAgents: hasAny ? newCustomAgents : undefined });
+  };
+
   const handleResetToProfileDefaults = async () => {
     // Reset to the selected profile's defaults
     await saveSettings({
       customPhaseModels: undefined,
-      customPhaseThinking: undefined
+      customPhaseThinking: undefined,
+      phaseCustomAgents: undefined,
     });
   };
 
@@ -268,7 +306,7 @@ export function AgentProfileSettings() {
                         {t(`agentProfile.phases.${phase}.description`)}
                       </span>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className={cn("grid gap-3", allAgents.length > 0 ? "grid-cols-3" : "grid-cols-2")}>
                       {/* Model Select */}
                       <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">{t('agentProfile.model')}</Label>
@@ -321,6 +359,45 @@ export function AgentProfileSettings() {
                           </SelectContent>
                         </Select>
                       </div>
+                      {/* Custom Agent Select (only shown when agents are available) */}
+                      {allAgents.length > 0 && (
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5">
+                            <Label className="text-xs text-muted-foreground">{t('agentProfile.customAgent')}</Label>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Bot className="h-3 w-3 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs">
+                                <p className="text-xs">{t('agentProfile.customAgentTooltip')}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                          <Select
+                            value={currentPhaseCustomAgents[phase] || '_none'}
+                            onValueChange={(value) => handlePhaseCustomAgentChange(phase, value === '_none' ? undefined : value)}
+                          >
+                            <SelectTrigger className="h-9">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="_none">
+                                <span className="text-muted-foreground">{t('agentProfile.noCustomAgent')}</span>
+                              </SelectItem>
+                              {agentsInfo?.categories.map((category) => (
+                                category.agents.map((agent) => (
+                                  <SelectItem key={agent.agentId} value={agent.agentId}>
+                                    <div className="flex items-center gap-1.5">
+                                      <Bot className="h-3 w-3 shrink-0" />
+                                      <span>{agent.agentName}</span>
+                                    </div>
+                                  </SelectItem>
+                                ))
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}

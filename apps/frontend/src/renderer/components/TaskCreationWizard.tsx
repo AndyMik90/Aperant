@@ -440,6 +440,10 @@ export function TaskCreationWizard({
         metadata.phaseModels = phaseModels;
         metadata.phaseThinking = phaseThinking;
       }
+      // Include custom agent assignments if configured in settings
+      if (settings.phaseCustomAgents && Object.values(settings.phaseCustomAgents).some(Boolean)) {
+        metadata.phaseCustomAgents = settings.phaseCustomAgents;
+      }
       if (images.length > 0) metadata.attachedImages = images;
       if (allReferencedFiles.length > 0) metadata.referencedFiles = allReferencedFiles;
       if (requireReviewBeforeCoding) metadata.requireReviewBeforeCoding = true;

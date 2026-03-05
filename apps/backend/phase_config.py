@@ -96,12 +96,22 @@ class PhaseThinkingConfig(TypedDict, total=False):
     qa: str
 
 
+class PhaseCustomAgentsConfig(TypedDict, total=False):
+    """Per-phase custom agent IDs from ~/.claude/agents/"""
+
+    spec: str
+    planning: str
+    coding: str
+    qa: str
+
+
 class TaskMetadataConfig(TypedDict, total=False):
     """Structure of model-related fields in task_metadata.json"""
 
     isAutoProfile: bool
     phaseModels: PhaseModelConfig
     phaseThinking: PhaseThinkingConfig
+    phaseCustomAgents: PhaseCustomAgentsConfig
     model: str
     thinkingLevel: str
     fastMode: bool
@@ -494,6 +504,36 @@ def get_fast_mode(spec_dir: Path) -> bool:
         return enabled
     logger.info("[Fast Mode] disabled — no task_metadata.json found")
     return False
+
+
+def get_phase_custom_agent(
+    spec_dir: Path,
+    phase: Phase,
+) -> str | None:
+    """
+    Get the custom agent ID for a specific execution phase.
+
+    Reads the phaseCustomAgents field from task_metadata.json.
+
+    Args:
+        spec_dir: Path to the spec directory
+        phase: Execution phase (spec, planning, coding, qa)
+
+    Returns:
+        Custom agent ID if configured, None otherwise
+    """
+    metadata = load_task_metadata(spec_dir)
+    if not metadata:
+        return None
+
+    phase_agents = metadata.get("phaseCustomAgents")
+    if not phase_agents:
+        return None
+
+    agent_id = phase_agents.get(phase)
+    if agent_id and isinstance(agent_id, str) and agent_id.strip():
+        return agent_id.strip()
+    return None
 
 
 def get_spec_phase_thinking_budget(phase_name: str) -> int:
