@@ -81,7 +81,7 @@ export class AgentQueueManager {
   private emitter: EventEmitter;
   private debouncedPersistRoadmapProgress: (
     projectPath: string,
-    phase: string,
+    phase: RoadmapPhase,
     progress: number,
     message: string,
     startedAt: string,
