@@ -151,6 +151,15 @@ function sanitizeMcpServers(mcpServers: unknown): Record<string, ClaudeCodeMcpSe
       }
     }
 
+    // Validate env (Record<string, string>)
+    if ('env' in value && isPlainObject(value.env)) {
+      const sanitizedEnvResult = sanitizeEnv(value.env);
+      if (sanitizedEnvResult) {
+        serverConfig.env = sanitizedEnvResult;
+        hasFields = true;
+      }
+    }
+
     // Validate oauth (opaque object, just check it's an object)
     if ('oauth' in value && isPlainObject(value.oauth)) {
       serverConfig.oauth = value.oauth as Record<string, unknown>;

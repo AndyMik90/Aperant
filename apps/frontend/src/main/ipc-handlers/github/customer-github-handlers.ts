@@ -11,14 +11,6 @@ import { existsSync, readFileSync } from 'fs';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
-
-const execFileAsync = promisify(execFile);
-
-/** Cross-platform child path check using path.relative */
-function isChildPath(parentPath: string, candidatePath: string): boolean {
-  const rel = path.relative(parentPath, candidatePath);
-  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
-}
 import { IPC_CHANNELS } from '../../../shared/constants';
 import type { IPCResult, GitHubIssue, MultiRepoGitHubStatus, MultiRepoIssuesResult, MultiRepoPRsResult } from '../../../shared/types';
 import { projectStore } from '../../project-store';
@@ -28,6 +20,14 @@ import type { GitHubAPIIssue } from './types';
 import { transformIssue } from './issue-handlers';
 import { parseEnvFile } from '../utils';
 import { debugLog } from '../../../shared/utils/debug-logger';
+
+const execFileAsync = promisify(execFile);
+
+/** Cross-platform child path check using path.relative */
+function isChildPath(parentPath: string, candidatePath: string): boolean {
+  const rel = path.relative(parentPath, candidatePath);
+  return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel);
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // Shared helper
@@ -185,6 +185,15 @@ function registerGetMultiRepoIssues(): void {
       state: 'open' | 'closed' | 'all' = 'open',
       page: number = 1
     ): Promise<IPCResult<MultiRepoIssuesResult>> => {
+      // Validate IPC query parameters
+      const validStates = ['open', 'closed', 'all'] as const;
+      if (!validStates.includes(state)) {
+        return { success: false, error: `Invalid state parameter: ${String(state)}. Must be one of: ${validStates.join(', ')}` };
+      }
+      if (typeof page !== 'number' || !Number.isFinite(page) || page < 1) {
+        page = 1;
+      }
+
       debugLog('[Customer GitHub] getMultiRepoIssues called', { customerId, state, page });
 
       const config = await getCustomerGitHubConfig(customerId);
@@ -274,6 +283,11 @@ function registerGetMultiRepoIssueDetail(): void {
       repoFullName: string,
       issueNumber: number
     ): Promise<IPCResult<GitHubIssue>> => {
+      // Validate issueNumber
+      if (typeof issueNumber !== 'number' || !Number.isFinite(issueNumber) || issueNumber < 1) {
+        return { success: false, error: `Invalid issue number: ${String(issueNumber)}` };
+      }
+
       debugLog('[Customer GitHub] getMultiRepoIssueDetail called', {
         customerId,
         repoFullName,

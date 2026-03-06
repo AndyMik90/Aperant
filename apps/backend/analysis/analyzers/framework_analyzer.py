@@ -735,8 +735,13 @@ class FrameworkAnalyzer(BaseAnalyzer):
             if not csproj_path.exists():
                 continue
 
-            # Get the project directory path relative to solution root
-            project_dir = str(csproj_path.parent.relative_to(self.path))
+            # Get the project directory path relative to solution root.
+            # Skip projects that resolve outside the solution directory
+            # (e.g., via ".." segments in the .sln reference).
+            try:
+                project_dir = str(csproj_path.parent.relative_to(self.path))
+            except ValueError:
+                continue
 
             # Parse .csproj to determine type
             info = self._parse_csproj_info(csproj_path)

@@ -137,6 +137,7 @@ export function CustomerReposModal({ open, onOpenChange, customer }: CustomerRep
             <button
               type="button"
               onClick={() => setSearch('')}
+              aria-label="Clear search"
               className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
               <X className="h-4 w-4" />
@@ -145,7 +146,7 @@ export function CustomerReposModal({ open, onOpenChange, customer }: CustomerRep
         </div>
 
         {/* Repo list */}
-        <div className="flex-1 overflow-y-auto min-h-0 space-y-2 py-2" style={{ maxHeight: '400px' }}>
+        <div className="flex-1 overflow-y-auto min-h-0 space-y-2 py-2 max-h-[400px]">
           {isLoading && (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />

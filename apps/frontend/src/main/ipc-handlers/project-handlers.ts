@@ -515,6 +515,12 @@ export function registerProjectHandlers(
           return { success: false, error: 'Project is not a customer project' };
         }
 
+        // Validate that the project root directory still exists before creating subdirectory.
+        // This prevents silently recreating deleted/moved project directories.
+        if (!existsSync(project.path)) {
+          return { success: false, error: `Project directory does not exist: ${project.path}` };
+        }
+
         const dotAutoClaude = path.join(project.path, '.auto-claude');
 
         if (!existsSync(dotAutoClaude)) {

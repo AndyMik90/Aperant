@@ -27,7 +27,8 @@
   "multiRepo": {
     "allRepos": "All Repos",
     "filterByRepo": "Filter by repository",
-    "repoCount": "{{count}} repos"
+    "repoCount_one": "{{count}} repo",
+    "repoCount_other": "{{count}} repos"
   },
   "actions": {
     "settings": "Settings",

@@ -34,6 +34,14 @@ import {
 import { cn } from '../lib/utils';
 import type { ClaudeProfile } from '../../shared/types';
 
+/**
+ * Unified predicate for determining whether a Claude profile has valid credentials.
+ * Used both for filtering the profile list and for the "use profile" action.
+ */
+function isAuthenticatedProfile(profile: { oauthToken?: string; isDefault: boolean; configDir?: string }): boolean {
+  return !!profile.oauthToken || !!(profile.isDefault && profile.configDir);
+}
+
 interface EnvConfigModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -106,7 +114,7 @@ export function EnvConfigModal({
         // Handle Claude profiles
         if (profilesResult.success && profilesResult.data) {
           const authenticatedProfiles = profilesResult.data.profiles.filter(
-            (p: ClaudeProfile) => p.oauthToken || (p.isDefault && p.configDir)
+            (p: ClaudeProfile) => isAuthenticatedProfile(p)
           );
           setClaudeProfiles(authenticatedProfiles);
 
@@ -163,6 +171,12 @@ export function EnvConfigModal({
         return;
       }
 
+      if (!isAuthenticatedProfile(profile)) {
+        setError(t('envConfig.invalidProfileCredentials'));
+        setIsSaving(false);
+        return;
+      }
+
       // Try to use profile's oauthToken if available (legacy path)
       if (profile.oauthToken) {
         const result = await window.electronAPI.updateSourceEnv({
@@ -179,7 +193,7 @@ export function EnvConfigModal({
         } else {
           setError(result.error || t('envConfig.failedToSaveToken'));
         }
-      } else if (profile.configDir || profile.isDefault) {
+      } else {
         // Profile uses Keychain-based auth (modern path)
         // The profile is authenticated via OS Keychain, no need to copy token to .env
         // The main process will resolve credentials from the active profile's Keychain
@@ -189,8 +203,6 @@ export function EnvConfigModal({
           onConfigured?.();
           onOpenChange(false);
         }, 1500);
-      } else {
-        setError(t('envConfig.invalidProfileCredentials'));
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : t('envConfig.failedToUseProfile'));

@@ -62,12 +62,15 @@ Environment Variables:
 """
 
 import json
+import logging
 import os
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 # Default configuration values
 DEFAULT_DATABASE = "auto_claude_memory"
@@ -240,6 +243,12 @@ class GraphitiConfig:
         try:
             episode_ttl_days = int(os.environ.get("GRAPHITI_EPISODE_TTL_DAYS", "0"))
         except ValueError:
+            episode_ttl_days = 0
+        if episode_ttl_days < 0:
+            logger.warning(
+                "GRAPHITI_EPISODE_TTL_DAYS=%d is negative; clamping to 0 (disabled)",
+                episode_ttl_days,
+            )
             episode_ttl_days = 0
 
         return cls(

@@ -92,7 +92,7 @@ export function SortableProjectTab({
               {...listeners}
               role="button"
               aria-label={t('projectTab.dragHandle', { name: project.name })}
-              tabIndex={0}
+              tabIndex={isActive ? 0 : -1}
               className={cn(
                 'hidden sm:block',
                 'cursor-grab active:cursor-grabbing',

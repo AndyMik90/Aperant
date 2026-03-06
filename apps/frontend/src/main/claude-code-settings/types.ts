@@ -39,6 +39,8 @@ export interface ClaudeCodeMcpServerConfig {
   headers?: Record<string, string>;
   /** OAuth config (for some servers like Slack) */
   oauth?: Record<string, unknown>;
+  /** Environment variables passed to the server process */
+  env?: Record<string, string>;
 }
 
 /**

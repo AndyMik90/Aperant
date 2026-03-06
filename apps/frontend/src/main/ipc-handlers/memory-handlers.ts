@@ -92,10 +92,21 @@ function lookupEmbeddingDim(modelName: string): { dim: number; source: 'known' |
     }
   }
 
-  // Heuristic fallback based on name patterns
-  if (nameLower.includes('large')) return { dim: 1024, source: 'fallback' };
-  if (nameLower.includes('base')) return { dim: 768, source: 'fallback' };
-  if (nameLower.includes('small') || nameLower.includes('mini')) return { dim: 384, source: 'fallback' };
+  // Heuristic fallback based on name patterns.
+  // WARNING: These are guesses and may be incorrect for unknown models.
+  // The 'fallback' source flag allows callers to surface this uncertainty.
+  if (nameLower.includes('large')) {
+    console.warn(`[OllamaEmbedding] Using heuristic dimension guess (1024) for unknown model: ${modelName}`);
+    return { dim: 1024, source: 'fallback' };
+  }
+  if (nameLower.includes('base')) {
+    console.warn(`[OllamaEmbedding] Using heuristic dimension guess (768) for unknown model: ${modelName}`);
+    return { dim: 768, source: 'fallback' };
+  }
+  if (nameLower.includes('small') || nameLower.includes('mini')) {
+    console.warn(`[OllamaEmbedding] Using heuristic dimension guess (384) for unknown model: ${modelName}`);
+    return { dim: 384, source: 'fallback' };
+  }
 
   return null;
 }

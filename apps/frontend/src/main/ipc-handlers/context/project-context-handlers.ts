@@ -223,10 +223,10 @@ export function registerProjectContextHandlers(
   getMainWindow: () => BrowserWindow | null
 ): void {
   /** Send progress event to renderer */
-  function sendIndexProgress(message: string, current?: number, total?: number) {
+  function sendIndexProgress(message: string, current?: number, total?: number, projectId?: string) {
     const win = getMainWindow();
     if (win && !win.isDestroyed()) {
-      win.webContents.send(IPC_CHANNELS.CONTEXT_INDEX_PROGRESS, { message, current, total });
+      win.webContents.send(IPC_CHANNELS.CONTEXT_INDEX_PROGRESS, { message, current, total, projectId });
     }
   }
 
@@ -340,14 +340,14 @@ export function registerProjectContextHandlers(
 
           const total = childProjects.length;
           debugLog(`[project-context] Customer project: indexing ${total} child repos (force=${!!force})`);
-          sendIndexProgress(`Discovering ${total} repositories...`, 0, total);
+          sendIndexProgress('progress.discovering_repos', 0, total);
 
           const childIndexes: Record<string, ProjectIndex> = {};
           const errors: string[] = [];
 
           for (let i = 0; i < childProjects.length; i++) {
             const child = childProjects[i];
-            sendIndexProgress(`Analyzing ${child.name}...`, i + 1, total);
+            sendIndexProgress('progress.analyzing_repo', i + 1, total);
 
             // Check if child already has an index (skip if force=true)
             let childIndex = force ? null : loadProjectIndex(child.path);
@@ -366,7 +366,7 @@ export function registerProjectContextHandlers(
             }
           }
 
-          sendIndexProgress('Aggregating results...', total, total);
+          sendIndexProgress('progress.aggregating_results', total, total);
 
           if (Object.keys(childIndexes).length === 0) {
             sendIndexProgress('');
@@ -396,7 +396,7 @@ export function registerProjectContextHandlers(
         }
 
         // Regular project: run analyzer directly
-        sendIndexProgress('Analyzing project structure...');
+        sendIndexProgress('progress.analyzing_structure');
 
         const analyzerPath = path.join(autoBuildSource, 'analyzer.py');
         const indexOutputPath = path.join(project.path, AUTO_BUILD_PATHS.PROJECT_INDEX);

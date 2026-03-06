@@ -28,7 +28,7 @@ export function IssueListItem({ issue, isSelected, onClick, onInvestigate, showR
             </Badge>
             <span className="text-xs text-muted-foreground">#{issue.number}</span>
             {showRepoBadge && issue.repoFullName && (
-              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal text-muted-foreground">
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 font-normal text-muted-foreground max-w-[150px] truncate">
                 {issue.repoFullName}
               </Badge>
             )}

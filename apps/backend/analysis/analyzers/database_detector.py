@@ -482,7 +482,9 @@ class DatabaseDetector(BaseAnalyzer):
                         continue
 
                     # Only include properties with recognized types or common patterns
-                    if clean_type not in csharp_types and not clean_type[0].isupper():
+                    if clean_type not in csharp_types and (
+                        not clean_type or not clean_type[0].isupper()
+                    ):
                         continue
 
                     # Look at preceding lines for attributes

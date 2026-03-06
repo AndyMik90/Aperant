@@ -1422,8 +1422,8 @@ export function AgentTools() {
             </div>
           )}
 
-          {/* Claude Code Global MCPs Section */}
-          {allGlobalServers.length > 0 && (
+          {/* Claude Code Global MCPs Section - always show container so refresh controls remain visible */}
+          {(
             <div className="rounded-lg border border-border bg-card p-4">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
@@ -1470,6 +1470,11 @@ export function AgentTools() {
                 {t('settings:mcp.globalMcps.description')}
               </p>
               <div className="space-y-2">
+                {allGlobalServers.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center py-3">
+                    {t('settings:mcp.globalMcps.noServers', 'No global MCP servers found.')}
+                  </p>
+                )}
                 {allGlobalServers.map((server) => {
                   const serverType = server.config.command
                     ? t('settings:mcp.globalMcps.serverType.command')

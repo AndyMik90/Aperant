@@ -75,8 +75,8 @@ class GraphitiSearch:
                     f"Embedding dimension: {expected_dim} "
                     f"(provider: {config.embedder_provider}, model: {config.ollama_embedding_model or 'default'})"
                 )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Skipping embedding dimension validation: %s", exc)
 
     async def get_relevant_context(
         self,

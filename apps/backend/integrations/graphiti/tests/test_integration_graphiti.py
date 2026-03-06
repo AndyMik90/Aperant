@@ -43,6 +43,15 @@ def mock_graphiti_core_modules():
 
     This prevents actual graph database connections during tests.
     """
+    # Save pre-existing module entries so we can restore them in teardown
+    _module_keys = [
+        "graphiti_core",
+        "graphiti_core.nodes",
+        "graphiti_core.driver",
+        "graphiti_core.driver.kuzu_driver",
+    ]
+    _saved = {k: sys.modules[k] for k in _module_keys if k in sys.modules}
+
     mock_graphiti_core = MagicMock()
     mock_nodes = MagicMock()
     mock_episode_type = MagicMock()
@@ -61,7 +70,7 @@ def mock_graphiti_core_modules():
     mock_graphiti_core.Graphiti = mock_graphiti_class
 
     # Mock driver
-    mock_driver = MagicMock()
+    _mock_driver = MagicMock()
     mock_driver_module = MagicMock()
     mock_driver_module.KuzuDriver = MagicMock()
     mock_graphiti_core.driver = MagicMock()
@@ -79,10 +88,11 @@ def mock_graphiti_core_modules():
             "graphiti_instance": mock_graphiti_instance,
         }
     finally:
-        sys.modules.pop("graphiti_core", None)
-        sys.modules.pop("graphiti_core.nodes", None)
-        sys.modules.pop("graphiti_core.driver", None)
-        sys.modules.pop("graphiti_core.driver.kuzu_driver", None)
+        for k in _module_keys:
+            if k in _saved:
+                sys.modules[k] = _saved[k]
+            else:
+                sys.modules.pop(k, None)
 
 
 @pytest.fixture

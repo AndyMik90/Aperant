@@ -27,7 +27,8 @@
   "multiRepo": {
     "allRepos": "Tous les dépôts",
     "filterByRepo": "Filtrer par dépôt",
-    "repoCount": "{{count}} dépôts"
+    "repoCount_one": "{{count}} dépôt",
+    "repoCount_other": "{{count}} dépôts"
   },
   "actions": {
     "settings": "Paramètres",

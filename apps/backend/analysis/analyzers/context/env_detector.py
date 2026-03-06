@@ -38,17 +38,20 @@ class EnvironmentDetector(BaseAnalyzer):
         required_vars = set()
         optional_vars = set()
 
-        # Parse various sources
+        # Parse concrete config sources first so their values take precedence.
+        # Code references (placeholders) run last and only fill in missing keys.
         self._parse_env_files(env_vars)
         self._parse_env_example(env_vars, required_vars)
         self._parse_docker_compose(env_vars)
-        self._parse_code_references(env_vars, optional_vars)
 
         # .NET appsettings.json
         self._parse_appsettings(env_vars)
 
         # .NET launchSettings.json (Properties/launchSettings.json)
         self._parse_launch_settings(env_vars)
+
+        # Code references last — only adds keys not already discovered above
+        self._parse_code_references(env_vars, optional_vars)
 
         # Mark required vs optional
         for key in env_vars:

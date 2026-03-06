@@ -82,12 +82,16 @@ export function registerClaudeAgentsHandlers(): void {
             const filePath = path.join(entryPath, file);
             const agentId = file.replace(/\.md$/, '');
 
+            // Use relative path (categoryDir/file) instead of absolute filePath
+            // to avoid exposing full filesystem paths to the renderer process
+            const relativePath = path.join(entry.name, file);
+
             agents.push({
               agentId,
               agentName: toAgentName(file),
               categoryDir: entry.name,
               categoryName: toCategoryName(entry.name),
-              filePath,
+              filePath: relativePath,
             });
           }
         } catch {

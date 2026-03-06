@@ -670,13 +670,14 @@ export function registerSettingsHandlers(
         const globalSettings = { ...DEFAULT_APP_SETTINGS, ...savedSettings };
 
         if (!sourcePath) {
-          // Even without source path, check global token
+          // Even without source path, check global token or keychain
           const globalToken = globalSettings.globalClaudeOAuthToken;
+          const hasToken = isNonBlankToken(globalToken) || hasKeychainClaudeToken();
           return {
             success: true,
             data: {
-              hasClaudeToken: !!globalToken && globalToken.length > 0,
-              claudeOAuthToken: globalToken,
+              hasClaudeToken: hasToken,
+              claudeOAuthToken: isNonBlankToken(globalToken) ? globalToken : undefined,
               envExists: false
             }
           };
@@ -691,13 +692,18 @@ export function registerSettingsHandlers(
           const content = readFileSync(envPath, 'utf-8');
           const vars = parseEnvFile(content);
           claudeOAuthToken = vars['CLAUDE_CODE_OAUTH_TOKEN'];
-          hasClaudeToken = !!claudeOAuthToken && claudeOAuthToken.length > 0;
+          hasClaudeToken = isNonBlankToken(claudeOAuthToken);
         }
 
         // Fallback to global settings if no token in source .env
-        if (!hasClaudeToken && globalSettings.globalClaudeOAuthToken) {
+        if (!hasClaudeToken && isNonBlankToken(globalSettings.globalClaudeOAuthToken)) {
           claudeOAuthToken = globalSettings.globalClaudeOAuthToken;
           hasClaudeToken = true;
+        }
+
+        // Fallback to keychain if no token found in .env or global settings
+        if (!hasClaudeToken) {
+          hasClaudeToken = hasKeychainClaudeToken();
         }
 
         return {
@@ -778,6 +784,14 @@ export function registerSettingsHandlers(
   );
 
   /**
+   * Check whether a non-blank token string is present.
+   * Rejects undefined, null, and whitespace-only strings.
+   */
+  function isNonBlankToken(token: string | undefined | null): boolean {
+    return typeof token === 'string' && token.trim().length > 0;
+  }
+
+  /**
    * Check whether a valid Claude token exists in the OS keychain.
    * Tries the profile manager first, then falls back to reading the keychain directly.
    */
@@ -790,7 +804,7 @@ export function registerSettingsHandlers(
     }
     try {
       const creds = getCredentialsFromKeychain();
-      return !!creds.token;
+      return typeof creds.token === 'string' && creds.token.trim().length > 0;
     } catch {
       return false;
     }
@@ -808,7 +822,7 @@ export function registerSettingsHandlers(
 
         // Check global token first as it's the primary method
         const globalToken = globalSettings.globalClaudeOAuthToken;
-        const hasGlobalToken = !!globalToken && globalToken.length > 0;
+        const hasGlobalToken = isNonBlankToken(globalToken);
 
         if (!sourcePath) {
           // In production, no source path is acceptable if global token exists
@@ -849,7 +863,7 @@ export function registerSettingsHandlers(
           const content = readFileSync(envPath, 'utf-8');
           const vars = parseEnvFile(content);
           const token = vars['CLAUDE_CODE_OAUTH_TOKEN'];
-          hasEnvToken = !!token && token.length > 0;
+          hasEnvToken = isNonBlankToken(token);
         }
 
         // Token exists if source .env, global settings, OR Keychain has it

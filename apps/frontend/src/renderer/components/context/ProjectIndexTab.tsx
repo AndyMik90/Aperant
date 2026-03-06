@@ -102,12 +102,12 @@ export function ProjectIndexTab({
                   <div className="w-64 mx-auto">
                     <div className="flex justify-between text-xs text-muted-foreground mb-1">
                       <span>{t('projectIndex.repoProgress', { current: indexProgressCurrent, total: indexProgressTotal })}</span>
-                      <span>{Math.round((indexProgressCurrent / indexProgressTotal) * 100)}%</span>
+                      <span>{indexProgressTotal > 0 ? Math.round((indexProgressCurrent / indexProgressTotal) * 100) : 0}%</span>
                     </div>
                     <div className="h-2 bg-muted rounded-full overflow-hidden">
                       <div
                         className="h-full bg-primary rounded-full transition-all duration-300"
-                        style={{ width: `${(indexProgressCurrent / indexProgressTotal) * 100}%` }}
+                        style={{ width: `${indexProgressTotal > 0 ? (indexProgressCurrent / indexProgressTotal) * 100 : 0}%` }}
                       />
                     </div>
                   </div>
@@ -129,12 +129,12 @@ export function ProjectIndexTab({
                 <div className="mt-2">
                   <div className="flex justify-between text-xs text-muted-foreground mb-1">
                     <span>{t('projectIndex.repoProgress', { current: indexProgressCurrent, total: indexProgressTotal })}</span>
-                    <span>{Math.round((indexProgressCurrent / indexProgressTotal) * 100)}%</span>
+                    <span>{indexProgressTotal > 0 ? Math.round((indexProgressCurrent / indexProgressTotal) * 100) : 0}%</span>
                   </div>
                   <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                     <div
                       className="h-full bg-primary rounded-full transition-all duration-300"
-                      style={{ width: `${(indexProgressCurrent / indexProgressTotal) * 100}%` }}
+                      style={{ width: `${indexProgressTotal > 0 ? (indexProgressCurrent / indexProgressTotal) * 100 : 0}%` }}
                     />
                   </div>
                 </div>

@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { GitHubIssue, MultiRepoGitHubStatus } from '@shared/types';
-import type { FilterState } from '../types';
+import type { FilterState } from '@/components/github-issues/types';
 
 /**
  * Creates a composite issue ID from repo name and issue number.
@@ -54,10 +54,12 @@ export function useMultiRepoGitHubIssues(customerId: string | undefined) {
   // Check multi-repo connection on mount/customerId change
   useEffect(() => {
     if (!customerId) return;
+    let cancelled = false;
 
     const checkConnection = async () => {
       try {
         const result = await window.electronAPI.github.checkMultiRepoConnection(customerId);
+        if (cancelled) return;
         if (result.success && result.data) {
           const data = result.data;
           setState(prev => ({
@@ -73,6 +75,7 @@ export function useMultiRepoGitHubIssues(customerId: string | undefined) {
           }));
         }
       } catch (error) {
+        if (cancelled) return;
         setState(prev => ({
           ...prev,
           error: error instanceof Error ? error.message : t('issues.multiRepo.unknownError'),
@@ -81,11 +84,13 @@ export function useMultiRepoGitHubIssues(customerId: string | undefined) {
     };
 
     checkConnection();
+    return () => { cancelled = true; };
   }, [customerId, t]);
 
   // Load issues when connected or filter changes
   useEffect(() => {
     if (!customerId || !state.syncStatus?.connected) return;
+    let cancelled = false;
 
     const loadIssues = async () => {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
@@ -96,6 +101,7 @@ export function useMultiRepoGitHubIssues(customerId: string | undefined) {
           state.filterState
         );
 
+        if (cancelled) return;
         if (result.success && result.data) {
           const data = result.data;
           setState(prev => ({
@@ -112,6 +118,7 @@ export function useMultiRepoGitHubIssues(customerId: string | undefined) {
           }));
         }
       } catch (error) {
+        if (cancelled) return;
         setState(prev => ({
           ...prev,
           error: error instanceof Error ? error.message : t('issues.multiRepo.unknownError'),
@@ -121,6 +128,7 @@ export function useMultiRepoGitHubIssues(customerId: string | undefined) {
     };
 
     loadIssues();
+    return () => { cancelled = true; };
   }, [customerId, state.syncStatus?.connected, state.filterState, t]);
 
   const selectIssue = useCallback((issueId: string | null) => {

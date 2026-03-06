@@ -74,10 +74,13 @@ def parse_agent_file(file_path: Path) -> CustomAgentConfig | None:
 
     agent_id = file_path.stem  # filename without .md
     frontmatter = {}
-    body = content
+
+    # Normalize CRLF to LF so frontmatter regex works on Windows files
+    normalized = content.replace("\r\n", "\n")
+    body = normalized
 
     # Extract YAML frontmatter if present
-    fm_match = re.match(r"^---\s*\n(.*?)\n---\s*\n(.*)", content, re.DOTALL)
+    fm_match = re.match(r"^---\s*\n(.*?)\n---\s*\n(.*)", normalized, re.DOTALL)
     if fm_match:
         fm_text = fm_match.group(1)
         body = fm_match.group(2).strip()
@@ -124,6 +127,10 @@ def load_custom_agent(agent_id: str) -> CustomAgentConfig | None:
     Returns:
         CustomAgentConfig if found, None otherwise
     """
+    # Validate agent_id to prevent path traversal
+    if not re.fullmatch(r"[A-Za-z0-9._-]+", agent_id):
+        return None
+
     agents_dir = get_agents_dir()
     if not agents_dir.exists():
         return None
@@ -227,21 +234,37 @@ def _parse_simple_yaml(text: str) -> dict:
     """
     Parse simple YAML-like frontmatter (key: value pairs).
 
-    Handles:
+    Uses ``yaml.safe_load`` when available for full YAML support (including
+    block-list syntax).  Falls back to a manual parser that handles:
     - key: value (strings)
     - key: [item1, item2] (inline lists)
     - key: (empty value)
-
-    Does NOT handle nested structures or multi-line values.
+    - key:\\n  - item1\\n  - item2 (YAML block lists)
     """
-    result = {}
-    for line in text.split("\n"):
-        line = line.strip()
-        if not line or line.startswith("#"):
+    # Prefer yaml.safe_load for robust parsing
+    try:
+        import yaml
+
+        parsed = yaml.safe_load(text)
+        if isinstance(parsed, dict):
+            return parsed
+    except Exception:
+        pass
+
+    # Fallback: manual parser with block-list support
+    result: dict = {}
+    lines = text.split("\n")
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#"):
+            i += 1
             continue
-        if ":" not in line:
+        if ":" not in stripped:
+            i += 1
             continue
-        key, _, value = line.partition(":")
+        key, _, value = stripped.partition(":")
         key = key.strip()
         value = value.strip()
 
@@ -253,12 +276,33 @@ def _parse_simple_yaml(text: str) -> dict:
             # Strip quotes
             result[key] = value.strip("\"'")
         else:
-            result[key] = ""
+            # Empty value — check if next lines are block-list items (- item)
+            block_items: list[str] = []
+            j = i + 1
+            while j < len(lines):
+                next_line = lines[j]
+                next_stripped = next_line.strip()
+                if not next_stripped or next_stripped.startswith("#"):
+                    j += 1
+                    continue
+                if next_stripped.startswith("- "):
+                    block_items.append(next_stripped[2:].strip().strip("\"'"))
+                    j += 1
+                else:
+                    break
+            if block_items:
+                result[key] = block_items
+                i = j
+                continue
+            else:
+                result[key] = ""
+
+        i += 1
 
     return result
 
 
-def _parse_string_list(value) -> list[str] | None:
+def _parse_string_list(value: object) -> list[str] | None:
     """Parse a value as a list of strings, or None if empty/invalid."""
     if value is None:
         return None

@@ -58,7 +58,8 @@ function EmptyState({ message }: { message: string }) {
 function formatRelativeDate(dateString: string, t: (key: string, options?: Record<string, unknown>) => string): string {
   const date = new Date(dateString);
   const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
+  // Clamp negative diff to zero to handle future timestamps gracefully
+  const diffMs = Math.max(0, now.getTime() - date.getTime());
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   if (diffDays === 0) {
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
@@ -488,7 +489,7 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
         onOpenSettings={onOpenSettings}
         t={t}
         fullPRDetail={
-          resolvedChildProjectId && selectedPR ? (
+          resolvedChildProjectId && selectedPR && multiRepoSelectedNumber === selectedPR.number ? (
             <PRDetail
               pr={selectedPR}
               projectId={resolvedChildProjectId}

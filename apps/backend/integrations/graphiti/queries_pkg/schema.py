@@ -26,7 +26,10 @@ ALL_EPISODE_TYPES = [
 ]
 
 # Maximum results to return for context queries (configurable via env var)
-MAX_CONTEXT_RESULTS = int(os.getenv("GRAPHITI_MAX_RESULTS", "10"))
+try:
+    MAX_CONTEXT_RESULTS = int(os.getenv("GRAPHITI_MAX_RESULTS", "10"))
+except ValueError:
+    MAX_CONTEXT_RESULTS = 10
 
 # Retry configuration
 MAX_RETRIES = 2

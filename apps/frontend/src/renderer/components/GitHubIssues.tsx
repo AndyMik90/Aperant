@@ -135,12 +135,16 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
     }
   }, [analysisError]);
 
-  // Build a map of GitHub issue numbers to task IDs for quick lookup
+  // Build a map of GitHub issue identifiers to task IDs for quick lookup.
+  // Uses repo-scoped keys ("owner/repo#number") when available to avoid
+  // ambiguity in customer multi-repo mode where numbers can overlap.
   const issueToTaskMap = useMemo(() => {
-    const map = new Map<number, string>();
+    const map = new Map<string, string>();
     for (const task of tasks) {
       if (task.metadata?.githubIssueNumber) {
-        map.set(task.metadata.githubIssueNumber, task.specId || task.id);
+        const repo = task.metadata?.githubRepo || '';
+        const key = repo ? `${repo}#${task.metadata.githubIssueNumber}` : `#${task.metadata.githubIssueNumber}`;
+        map.set(key, task.specId || task.id);
       }
     }
     return map;

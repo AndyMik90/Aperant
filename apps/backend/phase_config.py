@@ -527,7 +527,7 @@ def get_phase_custom_agent(
         return None
 
     phase_agents = metadata.get("phaseCustomAgents")
-    if not phase_agents:
+    if not phase_agents or not isinstance(phase_agents, dict):
         return None
 
     agent_id = phase_agents.get(phase)

@@ -61,7 +61,7 @@ import {
   clearProjectEnvConfig
 } from '../stores/project-env-store';
 import { AddProjectModal } from './AddProjectModal';
-import { AddCustomerModal } from './AddCustomerModal';
+// AddCustomerModal is used in ProjectSelector, not Sidebar
 import { GitSetupModal } from './GitSetupModal';
 import { RateLimitIndicator } from './RateLimitIndicator';
 import { ClaudeCodeStatusBadge } from './ClaudeCodeStatusBadge';
@@ -124,7 +124,6 @@ export function Sidebar({
   const settings = useSettingsStore((state) => state.settings);
 
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
-  const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
   const [showInitDialog, setShowInitDialog] = useState(false);
   const [showGitSetupModal, setShowGitSetupModal] = useState(false);
   const [gitStatus, setGitStatus] = useState<GitStatus | null>(null);
@@ -132,6 +131,10 @@ export function Sidebar({
   const [isInitializing, setIsInitializing] = useState(false);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
+
+  // Normalize path separators for cross-platform customer/child comparisons.
+  // startsWith(p.path + '/') breaks on Windows where paths use backslashes.
+  const normalizePath = (value: string) => value.replace(/\\/g, '/').replace(/\/+$/, '');
 
   // Determine customer context: the parent customer for the selected project
   // - If selected is a customer → that customer
@@ -141,8 +144,9 @@ export function Sidebar({
     if (!selectedProject) return null;
     if (selectedProject.type === 'customer') return selectedProject;
     // Check if selected project is inside a customer's folder
+    const normalizedSelected = normalizePath(selectedProject.path);
     const parentCustomer = projects.find(
-      p => p.type === 'customer' && selectedProject.path.startsWith(p.path + '/')
+      p => p.type === 'customer' && normalizedSelected.startsWith(normalizePath(p.path) + '/')
     );
     return parentCustomer ?? null;
   }, [selectedProject, projects]);
@@ -150,8 +154,9 @@ export function Sidebar({
   // Child repos belonging to the current customer context
   const customerChildRepos = useMemo(() => {
     if (!customerContext) return [];
+    const normalizedCustomer = normalizePath(customerContext.path);
     return projects.filter(
-      p => p.id !== customerContext.id && p.path.startsWith(customerContext.path + '/')
+      p => p.id !== customerContext.id && normalizePath(p.path).startsWith(normalizedCustomer + '/')
     );
   }, [customerContext, projects]);
 
@@ -637,15 +642,6 @@ export function Sidebar({
         open={showAddProjectModal}
         onOpenChange={setShowAddProjectModal}
         onProjectAdded={handleProjectAdded}
-      />
-
-      {/* Add Customer Modal */}
-      <AddCustomerModal
-        open={showAddCustomerModal}
-        onOpenChange={setShowAddCustomerModal}
-        onCustomerAdded={(project) => {
-          onCustomerAdded?.(project);
-        }}
       />
 
       {/* Git Setup Modal */}

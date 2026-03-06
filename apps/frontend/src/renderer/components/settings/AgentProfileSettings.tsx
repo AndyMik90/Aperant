@@ -10,7 +10,7 @@ import {
   DEFAULT_PHASE_THINKING,
   ADAPTIVE_THINKING_MODELS,
   PHASE_KEYS
-} from '../../../shared/constants';
+} from '@shared/constants';
 import { useSettingsStore, saveSettings } from '../../stores/settings-store';
 import { SettingsSection } from './SettingsSection';
 import { Label } from '../ui/label';
@@ -23,8 +23,8 @@ import {
   SelectValue
 } from '../ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
-import type { AgentProfile, PhaseModelConfig, PhaseThinkingConfig, ModelTypeShort, ThinkingLevel } from '../../../shared/types/settings';
-import type { ClaudeAgentsInfo } from '../../../shared/types/integrations';
+import type { AgentProfile, PhaseModelConfig, PhaseThinkingConfig, ModelTypeShort, ThinkingLevel } from '@shared/types/settings';
+import type { ClaudeAgentsInfo } from '@shared/types/integrations';
 
 /**
  * Icon mapping for agent profile icons

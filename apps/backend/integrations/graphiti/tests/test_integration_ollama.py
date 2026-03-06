@@ -28,6 +28,9 @@ import pytest
 # Markers
 # =============================================================================
 
+# NOTE: Despite the `integration` marker, these are unit-level tests with fully
+# mocked dependencies (no live Ollama server required).  The marker is retained
+# for grouping with other Ollama-related tests that *do* need a running server.
 pytestmark = [
     pytest.mark.integration,
 ]
@@ -40,6 +43,15 @@ pytestmark = [
 @pytest.fixture(autouse=True)
 def mock_graphiti_core_modules():
     """Auto-mock graphiti_core and related modules for all tests."""
+    # Save pre-existing module entries so we can restore them in teardown
+    _module_keys = [
+        "graphiti_core",
+        "graphiti_core.nodes",
+        "graphiti_core.driver",
+        "graphiti_core.driver.kuzu_driver",
+    ]
+    _saved = {k: sys.modules[k] for k in _module_keys if k in sys.modules}
+
     mock_graphiti_core = MagicMock()
     mock_nodes = MagicMock()
     mock_episode_type = MagicMock()
@@ -73,10 +85,11 @@ def mock_graphiti_core_modules():
             "graphiti_instance": mock_graphiti_instance,
         }
     finally:
-        sys.modules.pop("graphiti_core", None)
-        sys.modules.pop("graphiti_core.nodes", None)
-        sys.modules.pop("graphiti_core.driver", None)
-        sys.modules.pop("graphiti_core.driver.kuzu_driver", None)
+        for k in _module_keys:
+            if k in _saved:
+                sys.modules[k] = _saved[k]
+            else:
+                sys.modules.pop(k, None)
 
 
 # =============================================================================

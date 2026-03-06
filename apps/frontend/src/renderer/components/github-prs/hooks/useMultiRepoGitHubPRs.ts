@@ -51,10 +51,15 @@ export function useMultiRepoGitHubPRs(customerId: string | undefined) {
   // Check multi-repo connection on mount/customerId change
   useEffect(() => {
     if (!customerId) return;
+    let cancelled = false;
+
+    // Reset state on customer change to prevent stale data
+    setState(prev => ({ ...prev, prs: [], repos: [], syncStatus: null, error: null, selectedPRId: null }));
 
     const checkConnection = async () => {
       try {
         const result = await window.electronAPI.github.checkMultiRepoConnection(customerId);
+        if (cancelled) return;
         if (result.success && result.data) {
           const data = result.data;
           setState(prev => ({
@@ -70,6 +75,7 @@ export function useMultiRepoGitHubPRs(customerId: string | undefined) {
           }));
         }
       } catch (error) {
+        if (cancelled) return;
         setState(prev => ({
           ...prev,
           syncStatus: { connected: false, repos: [], error: error instanceof Error ? error.message : t('prReview.multiRepo.unknownError') },
@@ -79,11 +85,13 @@ export function useMultiRepoGitHubPRs(customerId: string | undefined) {
     };
 
     checkConnection();
+    return () => { cancelled = true; };
   }, [customerId, t]);
 
   // Load PRs when connected
   useEffect(() => {
     if (!customerId || !state.syncStatus?.connected) return;
+    let cancelled = false;
 
     const loadPRs = async () => {
       setState(prev => ({ ...prev, isLoading: true, error: null }));
@@ -91,6 +99,7 @@ export function useMultiRepoGitHubPRs(customerId: string | undefined) {
       try {
         const result = await window.electronAPI.github.getMultiRepoPRs(customerId);
 
+        if (cancelled) return;
         if (result.success && result.data) {
           const data = result.data;
           setState(prev => ({
@@ -107,6 +116,7 @@ export function useMultiRepoGitHubPRs(customerId: string | undefined) {
           }));
         }
       } catch (error) {
+        if (cancelled) return;
         setState(prev => ({
           ...prev,
           error: error instanceof Error ? error.message : t('prReview.multiRepo.unknownError'),
@@ -116,6 +126,7 @@ export function useMultiRepoGitHubPRs(customerId: string | undefined) {
     };
 
     loadPRs();
+    return () => { cancelled = true; };
   }, [customerId, state.syncStatus?.connected, t]);
 
   const selectPR = useCallback((prId: string | null) => {

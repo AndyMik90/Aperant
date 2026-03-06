@@ -392,6 +392,63 @@ def _validate_custom_mcp_server(server: dict) -> bool:
     return True
 
 
+def _load_global_mcp_servers() -> dict[str, dict]:
+    """Load MCP servers from ~/.claude.json (user's global Claude Code config).
+
+    Returns a dict mapping server_id -> server_config for all non-disabled
+    MCP servers defined in the user's global config. These are the same
+    servers available in interactive Claude Code sessions.
+    """
+    home = Path.home()
+    claude_json_path = home / ".claude.json"
+    if not claude_json_path.exists():
+        return {}
+
+    try:
+        with open(claude_json_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.warning("Failed to read ~/.claude.json: %s", exc)
+        return {}
+
+    raw_servers = data.get("mcpServers")
+    if not isinstance(raw_servers, dict):
+        return {}
+
+    servers: dict[str, dict] = {}
+    for server_id, config in raw_servers.items():
+        if not isinstance(config, dict):
+            continue
+        # Skip disabled servers
+        if config.get("disabled", False):
+            continue
+
+        # Build a clean config dict compatible with the SDK
+        clean: dict[str, Any] = {}
+        if "type" in config and config["type"] in ("http", "sse"):
+            clean["type"] = config["type"]
+        if "url" in config:
+            clean["url"] = config["url"]
+        if "command" in config:
+            clean["command"] = config["command"]
+        if "args" in config and isinstance(config["args"], list):
+            clean["args"] = config["args"]
+        if "env" in config and isinstance(config["env"], dict):
+            clean["env"] = config["env"]
+        if "headers" in config and isinstance(config["headers"], dict):
+            clean["headers"] = config["headers"]
+
+        # Must have a usable transport
+        has_command = bool(clean.get("command"))
+        has_url = bool(clean.get("url"))
+        if not has_command and not has_url:
+            continue
+
+        servers[server_id] = clean
+
+    return servers
+
+
 def load_project_mcp_config(project_dir: Path) -> dict:
     """
     Load MCP configuration from project's .auto-claude/.env file.
@@ -768,6 +825,9 @@ def create_client(
                     else []
                 ),
                 *[f"{tool}(*)" for tool in browser_tools_permissions],
+                # Allow all tools from global MCP servers (loaded from ~/.claude.json)
+                # Uses wildcard pattern to permit any tool from each global server
+                *[f"mcp__{sid}__*(*)" for sid in global_mcp_added],
             ],
         },
     }
@@ -893,6 +953,21 @@ def create_client(
                 server_config["headers"] = custom["headers"]
             mcp_servers[server_id] = server_config
 
+    # ========== Merge global MCP servers from ~/.claude.json ==========
+    # Load all user-configured MCPs and add any that Auto-Claude doesn't
+    # already define. Auto-Claude's hardcoded/project MCPs take priority.
+    global_mcp_servers = _load_global_mcp_servers()
+    global_mcp_added = []
+    for server_id, server_config in global_mcp_servers.items():
+        if server_id not in mcp_servers:
+            mcp_servers[server_id] = server_config
+            global_mcp_added.append(server_id)
+            # Allow all tools from this global MCP server
+            allowed_tools_list.append(f"mcp__{server_id}__*")
+
+    if global_mcp_added:
+        print(f"   - Global MCPs (from ~/.claude.json): {', '.join(sorted(global_mcp_added))}")
+
     # Build system prompt
     base_prompt = (
         f"You are an expert full-stack developer building production-quality software. "
@@ -907,6 +982,10 @@ def create_client(
 
     # Include specialist agents catalog if provided
     if agents_catalog_prompt:
+        # Protect against Windows command-line length limits for large catalogs
+        MAX_AGENT_PROMPT_LEN = 8000
+        if len(agents_catalog_prompt) > MAX_AGENT_PROMPT_LEN:
+            agents_catalog_prompt = agents_catalog_prompt[:MAX_AGENT_PROMPT_LEN] + "\n\n[Truncated due to length]"
         base_prompt = (
             f"{base_prompt}\n\n"
             f"{agents_catalog_prompt}"

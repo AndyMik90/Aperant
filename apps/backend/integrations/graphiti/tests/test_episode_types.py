@@ -29,6 +29,10 @@ def mock_graphiti_core_nodes():
     """Auto-mock graphiti_core for all tests."""
     import sys
 
+    # Save pre-existing module entries so we can restore them in teardown
+    _module_keys = ["graphiti_core", "graphiti_core.nodes"]
+    _saved = {k: sys.modules[k] for k in _module_keys if k in sys.modules}
+
     # Patch graphiti_core at module level before import
     mock_graphiti_core = MagicMock()
     mock_nodes = MagicMock()
@@ -43,8 +47,11 @@ def mock_graphiti_core_nodes():
     try:
         yield mock_episode_type
     finally:
-        sys.modules.pop("graphiti_core", None)
-        sys.modules.pop("graphiti_core.nodes", None)
+        for k in _module_keys:
+            if k in _saved:
+                sys.modules[k] = _saved[k]
+            else:
+                sys.modules.pop(k, None)
 
 
 # =============================================================================

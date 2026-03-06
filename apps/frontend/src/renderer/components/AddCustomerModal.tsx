@@ -68,8 +68,8 @@ export function AddCustomerModal({ open, onOpenChange, onCustomerAdded }: AddCus
       }
     }
 
-    // Read updated project from store (has autoBuildPath set)
-    const updatedProject = store.projects.find(p => p.id === project.id) || project;
+    // Read updated project from fresh store state (avoids stale Zustand snapshot)
+    const updatedProject = useProjectStore.getState().projects.find(p => p.id === project.id) || project;
     onCustomerAdded?.(updatedProject);
     onOpenChange(false);
   };

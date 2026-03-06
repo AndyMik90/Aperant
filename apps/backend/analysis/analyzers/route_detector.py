@@ -514,7 +514,7 @@ class RouteDetector(BaseAnalyzer):
         # Captures: [HttpGet], [HttpGet("route")], [HttpGet("route", Name = "...")]
         # Also handles unquoted route templates like [HttpGet({id})]
         http_method_pattern = re.compile(
-            r'\[(Http(?:Get|Post|Put|Delete|Patch))(?:\(\s*["\']([^"\']*)["\'][^)]*\))?\]',
+            r'\[(Http(?:Get|Post|Put|Delete|Patch))(?:\((?:\s*["\']([^"\']*)["\'][^)]*)?\))?\]',
             re.MULTILINE,
         )
 
@@ -541,12 +541,15 @@ class RouteDetector(BaseAnalyzer):
 
             # Replace [action] with method name (find the method after the attribute)
             method_name_match = re.search(
-                r"(?:public|private|protected|internal)\s+\S+\s+(\w+)\s*\(",
+                r"(?:public|private|protected|internal)\s+(?:(?:async|static|virtual|override|abstract|sealed)\s+)*\S+\s+(\w+)\s*\(",
                 content[match.end() : match.end() + 300],
             )
             if method_name_match:
                 method_name = method_name_match.group(1).lower()
                 full_path = full_path.replace("[action]", method_name)
+            else:
+                # Remove unresolved [action] placeholder
+                full_path = full_path.replace("[action]", "")
 
             # Normalize path params
             full_path = self._normalize_aspnet_path(full_path)
@@ -612,7 +615,7 @@ class RouteDetector(BaseAnalyzer):
             if stmt_end == -1:
                 stmt_end = min(len(content), match.end() + 500)
             group_stmt = content[match.start() : stmt_end]
-            group_auth = ".RequireAuthorization()" in group_stmt
+            group_auth = ".RequireAuthorization(" in group_stmt
             group_prefixes[var_name] = (prefix, group_auth)
 
         # Step 2: Detect individual route mappings
@@ -650,7 +653,7 @@ class RouteDetector(BaseAnalyzer):
                 stmt_end = min(len(content), match.end() + 300)
             route_stmt = content[match.start() : stmt_end]
 
-            requires_auth = group_auth or ".RequireAuthorization()" in route_stmt
+            requires_auth = group_auth or ".RequireAuthorization(" in route_stmt
 
             routes.append(
                 {
