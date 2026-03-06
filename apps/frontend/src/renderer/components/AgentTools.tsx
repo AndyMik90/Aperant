@@ -749,7 +749,7 @@ export function AgentTools() {
           results[server.serverId] = {
             serverId: server.serverId,
             status: 'unknown',
-            message: 'Health check failed',
+            message: t('mcp.globalMcps.healthCheckFailed'),
             checkedAt: new Date().toISOString(),
           };
         }
@@ -758,14 +758,14 @@ export function AgentTools() {
 
     setGlobalMcpHealth(results);
     setIsCheckingGlobalHealth(false);
-  }, [allGlobalServers]);
+  }, [allGlobalServers, t]);
 
   // Auto-check health when global MCPs are loaded
   useEffect(() => {
     if (allGlobalServers.length > 0) {
       checkGlobalMcpHealth();
     }
-  }, [allGlobalServers.length, checkGlobalMcpHealth]);
+  }, [checkGlobalMcpHealth]);
 
   // Settings access for global MCP phase assignments
   const globalMcpPhases = settings.globalMcpPhases || {};
@@ -1023,13 +1023,13 @@ export function AgentTools() {
           [server.id]: {
             serverId: server.id,
             status: 'unknown',
-            message: 'Health check failed',
+            message: t('mcp.globalMcps.healthCheckFailed'),
             checkedAt: new Date().toISOString(),
           }
         }));
       }
     }
-  }, [envConfig?.customMcpServers]);
+  }, [envConfig?.customMcpServers, t]);
 
   // Check health when custom servers change
   useEffect(() => {

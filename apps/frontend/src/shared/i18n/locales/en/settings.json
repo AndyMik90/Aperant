@@ -790,6 +790,7 @@
       "refreshTooltip": "Refresh global MCP list",
       "readOnly": "Read-only — configure in Claude Code CLI settings",
       "checkHealth": "Check Health",
+      "healthCheckFailed": "Health check failed",
       "statusUnknown": "Status unknown — click Check Health",
       "useIn": "Use in:",
       "phases": {

@@ -374,7 +374,7 @@ const browserMockAPI: ElectronAPI = {
     data: { pluginServers: [], inlineServers: [], claudeJsonServers: [] }
   }),
   getClaudeAgents: async () => ({
-    success: true as const,
+    success: true,
     data: { categories: [], totalAgents: 0 },
   }),
 

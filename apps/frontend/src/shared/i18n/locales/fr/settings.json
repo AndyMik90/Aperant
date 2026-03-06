@@ -790,6 +790,7 @@
       "refreshTooltip": "Actualiser la liste des MCP globaux",
       "readOnly": "Lecture seule — configurez dans les paramètres Claude Code CLI",
       "checkHealth": "Vérifier",
+      "healthCheckFailed": "Échec de la vérification de santé",
       "statusUnknown": "Statut inconnu — cliquez Vérifier",
       "useIn": "Utiliser dans :",
       "phases": {
