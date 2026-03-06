@@ -11,6 +11,7 @@ import { Combobox } from '../../ui/combobox';
 import { GitHubOAuthFlow } from '../../project-settings/GitHubOAuthFlow';
 import { PasswordInput } from '../../project-settings/PasswordInput';
 import { buildBranchOptions } from '../../../lib/branch-utils';
+import { cn } from '../../../lib/utils';
 import type { ProjectEnvConfig, GitHubSyncStatus, ProjectSettings, GitBranchDetail } from '../../../../shared/types';
 
 // Debug logging
@@ -507,11 +508,12 @@ export function GitHubIntegration({
                         return (
                           <div
                             key={repo.fullName}
-                            className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm ${
+                            className={cn(
+                              'flex items-center gap-2 rounded-md border px-3 py-2 text-sm',
                               status === 'done' || alreadyCloned
                                 ? 'border-green-500/30 bg-green-500/5'
                                 : 'border-border'
-                            }`}
+                            )}
                           >
                             <Github className="h-4 w-4 shrink-0 text-muted-foreground" />
                             <div className="flex-1 min-w-0">

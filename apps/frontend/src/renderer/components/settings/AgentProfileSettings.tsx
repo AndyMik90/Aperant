@@ -384,7 +384,7 @@ export function AgentProfileSettings() {
             </button>
 
             {showAgentsCatalog && (
-              <div className="border-t border-border p-4 space-y-1">
+              <div className="border-t border-border p-4 space-y-1 max-h-[400px] overflow-y-auto">
                 <p className="text-xs text-muted-foreground mb-3">
                   {t('agentProfile.availableAgents.info')}
                 </p>

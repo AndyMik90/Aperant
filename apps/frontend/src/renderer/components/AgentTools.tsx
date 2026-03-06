@@ -47,9 +47,9 @@ import {
   DialogHeader,
   DialogTitle
 } from './ui/dialog';
-import { useSettingsStore, saveSettings } from '../stores/settings-store';
-import { cn } from '../lib/utils';
-import { useProjectStore } from '../stores/project-store';
+import { useSettingsStore, saveSettings } from '@/stores/settings-store';
+import { cn } from '@/lib/utils';
+import { useProjectStore } from '@/stores/project-store';
 import type { ProjectEnvConfig, AgentMcpOverride, CustomMcpServer, McpHealthCheckResult } from '@shared/types';
 import type { GlobalMcpInfo, GlobalMcpServerEntry } from '@shared/types/integrations';
 import { CustomMcpDialog } from './CustomMcpDialog';
@@ -57,12 +57,12 @@ import { useTranslation } from 'react-i18next';
 import {
   AVAILABLE_MODELS,
   THINKING_LEVELS,
-} from '../../shared/constants/models';
+} from '@shared/constants/models';
 import {
   useResolvedAgentSettings,
   resolveAgentSettings as resolveAgentModelConfig,
   type AgentSettingsSource,
-} from '../hooks';
+} from '@/hooks';
 import type { ModelTypeShort, ThinkingLevel, GlobalMcpPhaseConfig } from '@shared/types/settings';
 
 // Agent configuration data - mirrors AGENT_CONFIGS from backend
