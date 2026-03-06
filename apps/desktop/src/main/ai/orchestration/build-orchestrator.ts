@@ -624,25 +624,13 @@ export class BuildOrchestrator extends EventEmitter {
   // ===========================================================================
 
   /**
-   * Check if this is effectively a first run.
-   *
-   * Treats missing, invalid, or empty-subtask implementation plans as first-run
-   * so the planner phase can regenerate a valid plan before coding starts.
+   * Check if this is a first run (no implementation plan exists).
    */
   private async isFirstRun(): Promise<boolean> {
     const planPath = join(this.config.specDir, 'implementation_plan.json');
     try {
-      const raw = await readFile(planPath, 'utf-8');
-      const plan = safeParseJson<ImplementationPlan>(raw);
-      if (!plan || !Array.isArray(plan.phases) || plan.phases.length === 0) {
-        return true;
-      }
-
-      const hasSubtasks = plan.phases.some(
-        (phase) => Array.isArray(phase.subtasks) && phase.subtasks.length > 0
-      );
-
-      return !hasSubtasks;
+      await readFile(planPath, 'utf-8');
+      return false;
     } catch {
       return true;
     }
