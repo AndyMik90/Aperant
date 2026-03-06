@@ -1,3 +1,27 @@
+## 2.7.15 - Global MCP Integration & Code Quality
+
+### ✨ New Features
+
+- **Global MCP server integration** — Auto-Claude now automatically loads all MCP servers from `~/.claude.json`, making tools like Keycloak, Redis, Kubernetes, Grafana, and others available in agent sessions. Auto-Claude's built-in MCPs take priority over global ones to avoid conflicts.
+
+### 🛠️ Improvements
+
+- **Custom agents** — Use `sanitize_thinking_level()` for consistent thinking level validation, include root-level agents in catalog, extract category name helper for readability
+- **Route detection** — Improved .NET HTTP attribute regex handling for optional parameters and method modifiers
+- **Project analysis** — Fixed single-solution early return that could misclassify monorepos with sibling services
+- **Port detection** — Handle `--port=<value>` equals form in commandLineArgs parsing
+- **Graphiti memory** — Non-negative TTL validation, safe env parsing for MAX_RESULTS, proper exception logging instead of silent swallowing
+- **Frontend async safety** — Added cancellation guards to prevent stale async responses from corrupting UI state across customer/PR/issue hooks
+- **Accessibility** — Added aria-labels to icon-only buttons, fixed invisible keyboard focus targets on drag handles
+- **i18n** — Proper singular/plural handling for repo counts (en + fr), progress message keys for localization
+
+### 🐛 Bug Fixes
+
+- **Security** — Path traversal validation on custom agent IDs, CRLF normalization for Windows frontmatter files, Windows command-line length protection for agent prompts
+- **Type safety** — Guard `phaseCustomAgents` dict type before `.get()`, validate IPC parameters, normalize keychain token checks
+- **Frontend** — Fix division by zero in progress bars, guard stale PR detail rendering, clamp negative timestamps, handle project registration failures, keep GitHub setup modal open on save failure
+- **Claude MCP handlers** — Convert sync filesystem operations to async, validate header values for type safety
+
 ## 2.7.6 - Stability & Feature Enhancements
 
 ### ✨ New Features
