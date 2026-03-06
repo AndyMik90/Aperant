@@ -368,10 +368,10 @@ class PortDetector(BaseAnalyzer):
                             except ValueError:
                                 continue
 
-                # 2. Check commandLineArgs (e.g., "--port 7173")
+                # 2. Check commandLineArgs (e.g., "--port 7173" or "--port=7173")
                 cmd_args = profile.get("commandLineArgs", "")
                 if cmd_args:
-                    match = re.search(r"--port\s+(\d+)", cmd_args)
+                    match = re.search(r"--port[=\s]+(\d+)", cmd_args)
                     if match:
                         try:
                             port = int(match.group(1))

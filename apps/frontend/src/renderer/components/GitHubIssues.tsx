@@ -136,13 +136,19 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
   }, [analysisError]);
 
   // Build a map of GitHub issue identifiers to task IDs for quick lookup.
-  // Uses repo-scoped keys ("owner/repo#number") when available to avoid
-  // ambiguity in customer multi-repo mode where numbers can overlap.
+  // Uses the GitHub URL (which includes repo) as key when available to avoid
+  // ambiguity in customer multi-repo mode where issue numbers can overlap.
+  // Falls back to "#number" when URL is not available.
   const issueToTaskMap = useMemo(() => {
     const map = new Map<string, string>();
     for (const task of tasks) {
       if (task.metadata?.githubIssueNumber) {
-        const repo = task.metadata?.githubRepo || '';
+        // Extract repo from githubUrl if available (e.g. "https://github.com/owner/repo/issues/123")
+        let repo = '';
+        if (task.metadata.githubUrl) {
+          const match = task.metadata.githubUrl.match(/github\.com\/([^/]+\/[^/]+)\//);
+          if (match) repo = match[1];
+        }
         const key = repo ? `${repo}#${task.metadata.githubIssueNumber}` : `#${task.metadata.githubIssueNumber}`;
         map.set(key, task.specId || task.id);
       }
@@ -254,7 +260,13 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
                   ? lastInvestigationResult
                   : null
               }
-              linkedTaskId={issueToTaskMap.get(selectedIssue.number)}
+              linkedTaskId={
+                issueToTaskMap.get(
+                  selectedIssue.repoFullName
+                    ? `${selectedIssue.repoFullName}#${selectedIssue.number}`
+                    : `#${selectedIssue.number}`
+                )
+              }
               onViewTask={onNavigateToTask}
               projectId={effectiveProjectId}
               autoFixConfig={autoFixConfig}

@@ -44,7 +44,10 @@ export function AddCustomerModal({ open, onOpenChange, onCustomerAdded }: AddCus
   const registerAndInitCustomer = async (path: string) => {
     // Pass type: 'customer' through IPC so it's persisted to disk (projects.json)
     const result = await window.electronAPI.addProject(path, 'customer');
-    if (!result.success || !result.data) return;
+    if (!result.success || !result.data) {
+      setError(result.error || t('addCustomer.failedToOpen'));
+      return;
+    }
 
     const store = useProjectStore.getState();
     const project = result.data;

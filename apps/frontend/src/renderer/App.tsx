@@ -812,11 +812,11 @@ export function App() {
         setCustomerReposProject(gitHubSetupProject);
         setShowCustomerRepos(true);
       }
-    } catch (error) {
-      console.error('Failed to save GitHub settings:', error);
-    } finally {
+
       setShowGitHubSetup(false);
       setGitHubSetupProject(null);
+    } catch (error) {
+      console.error('Failed to save GitHub settings:', error);
     }
   };
 

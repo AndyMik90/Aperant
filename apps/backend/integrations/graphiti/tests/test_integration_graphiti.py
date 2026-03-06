@@ -1,11 +1,14 @@
 """
-Integration tests for Graphiti memory system with LadybugDB.
+Unit-level tests for Graphiti memory system with mocked dependencies.
+
+NOTE: Despite the @pytest.mark.integration marker and the filename, these are
+**unit tests** that mock all external dependencies (graphiti_core, database
+connections). The autouse ``mock_graphiti_core_modules`` fixture replaces
+graphiti_core modules in sys.modules so no real graph database is contacted.
+To add true integration tests that exercise a live LadybugDB/kuzu instance,
+create a separate test module without the autouse mock fixture.
 
 Converted from run_graphiti_memory_test.py to proper pytest format.
-
-These tests require a running LadybugDB/kuzu environment and are marked
-with @pytest.mark.integration so they can be skipped in CI without the
-required infrastructure.
 
 Original script: integrations/graphiti/run_graphiti_memory_test.py
 

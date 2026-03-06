@@ -26,6 +26,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from phase_config import sanitize_thinking_level
+
 logger = logging.getLogger(__name__)
 
 
@@ -98,11 +100,13 @@ def parse_agent_file(file_path: Path) -> CustomAgentConfig | None:
     mcp_servers = _parse_string_list(frontmatter.get("mcp_servers"))
     thinking = frontmatter.get("thinking")
 
-    if thinking and thinking not in ("low", "medium", "high"):
-        logger.warning(
-            f"Invalid thinking level '{thinking}' in {file_path}, ignoring"
-        )
-        thinking = None
+    if thinking:
+        sanitized = sanitize_thinking_level(str(thinking))
+        if sanitized != str(thinking):
+            logger.warning(
+                f"Thinking level '{thinking}' in {file_path} was sanitized to '{sanitized}'"
+            )
+        thinking = sanitized
 
     return CustomAgentConfig(
         agent_id=agent_id,
@@ -153,12 +157,14 @@ def load_custom_agent(agent_id: str) -> CustomAgentConfig | None:
 
 
 def load_all_agents() -> list[CustomAgentConfig]:
-    """Load all custom agents from all categories in ~/.claude/agents/."""
+    """Load all custom agents from all categories and root level in ~/.claude/agents/."""
     agents_dir = get_agents_dir()
     if not agents_dir.exists():
         return []
 
     agents = []
+
+    # Load agents from category subdirectories
     for category_dir in sorted(agents_dir.iterdir()):
         if not category_dir.is_dir():
             continue
@@ -168,7 +174,33 @@ def load_all_agents() -> list[CustomAgentConfig]:
             agent = parse_agent_file(agent_file)
             if agent:
                 agents.append(agent)
+
+    # Also load root-level agent files (no category)
+    for agent_file in sorted(agents_dir.glob("*.md")):
+        if agent_file.name == "README.md":
+            continue
+        agent = parse_agent_file(agent_file)
+        if agent:
+            agents.append(agent)
+
     return agents
+
+
+def _format_category_name(dir_name: str) -> str:
+    """Format a directory name into a human-readable category name.
+
+    Strips a leading numeric prefix (e.g. '01-backend' -> 'Backend') and
+    replaces hyphens with spaces, then title-cases the result.
+
+    Args:
+        dir_name: Raw directory name (e.g. '02-frontend-tools')
+
+    Returns:
+        Formatted category name (e.g. 'Frontend Tools')
+    """
+    if "-" in dir_name:
+        return dir_name.split("-", 1)[-1].replace("-", " ").title()
+    return dir_name
 
 
 def build_agents_catalog_prompt() -> str | None:
@@ -187,7 +219,7 @@ def build_agents_catalog_prompt() -> str | None:
     for category_dir in sorted(agents_dir.iterdir()):
         if not category_dir.is_dir():
             continue
-        category_name = category_dir.name.split("-", 1)[-1].replace("-", " ").title() if "-" in category_dir.name else category_dir.name
+        category_name = _format_category_name(category_dir.name)
 
         agent_entries = []
         for agent_file in sorted(category_dir.glob("*.md")):
@@ -207,6 +239,23 @@ def build_agents_catalog_prompt() -> str | None:
 
         if agent_entries:
             categories.append((category_name, agent_entries))
+
+    # Also include root-level agent files (no category)
+    root_entries: list[tuple[str, str]] = []
+    for agent_file in sorted(agents_dir.glob("*.md")):
+        if agent_file.name == "README.md":
+            continue
+        agent = parse_agent_file(agent_file)
+        if agent:
+            description = agent.raw_frontmatter.get("description", "")
+            if not description:
+                first_line = agent.system_prompt.split("\n")[0].strip()
+                description = first_line[:120]
+            elif len(description) > 150:
+                description = description[:147] + "..."
+            root_entries.append((agent.agent_id, description))
+    if root_entries:
+        categories.append(("General", root_entries))
 
     if not categories:
         return None

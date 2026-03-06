@@ -7,7 +7,7 @@
  */
 
 import { ipcMain } from 'electron';
-import { existsSync, readFileSync, readdirSync, statSync } from 'fs';
+import fs from 'fs/promises';
 import { homedir } from 'os';
 import path from 'path';
 import { IPC_CHANNELS } from '../../shared/constants/ipc';
@@ -32,20 +32,22 @@ function toServerName(serverId: string): string {
  * Find the most recently modified subdirectory within a directory.
  * Plugin caches store configs in hash-named subdirectories; we want the latest one.
  */
-function findLatestSubdir(dirPath: string): string | undefined {
-  if (!existsSync(dirPath)) {
+async function findLatestSubdir(dirPath: string): Promise<string | undefined> {
+  try {
+    await fs.access(dirPath);
+  } catch {
     return undefined;
   }
 
   try {
-    const entries = readdirSync(dirPath);
+    const entries = await fs.readdir(dirPath);
     let latestDir: string | undefined;
     let latestMtime = 0;
 
     for (const entry of entries) {
       const entryPath = path.join(dirPath, entry);
       try {
-        const stat = statSync(entryPath);
+        const stat = await fs.stat(entryPath);
         if (stat.isDirectory() && stat.mtimeMs > latestMtime) {
           latestMtime = stat.mtimeMs;
           latestDir = entryPath;
@@ -69,7 +71,7 @@ function findLatestSubdir(dirPath: string): string | undefined {
  * @param claudeDir - Path to ~/.claude directory
  * @returns Array of resolved server entries (a plugin .mcp.json can define multiple servers)
  */
-function resolvePluginServers(pluginKey: string, claudeDir: string): GlobalMcpServerEntry[] {
+async function resolvePluginServers(pluginKey: string, claudeDir: string): Promise<GlobalMcpServerEntry[]> {
   const atIndex = pluginKey.lastIndexOf('@');
   if (atIndex <= 0) {
     debugLog(`${LOG_PREFIX} Invalid plugin key format (missing @):`, pluginKey);
@@ -82,13 +84,15 @@ function resolvePluginServers(pluginKey: string, claudeDir: string): GlobalMcpSe
   // Plugin cache path: ~/.claude/plugins/cache/{marketplace}/{pluginId}/
   const pluginCacheDir = path.join(claudeDir, 'plugins', 'cache', marketplace, pluginId);
 
-  if (!existsSync(pluginCacheDir)) {
+  try {
+    await fs.access(pluginCacheDir);
+  } catch {
     debugLog(`${LOG_PREFIX} Plugin cache directory not found:`, pluginCacheDir);
     return [];
   }
 
   // Find the most recently modified hash subdirectory
-  const latestHashDir = findLatestSubdir(pluginCacheDir);
+  const latestHashDir = await findLatestSubdir(pluginCacheDir);
   if (!latestHashDir) {
     debugLog(`${LOG_PREFIX} No hash subdirectory found in plugin cache:`, pluginCacheDir);
     return [];
@@ -96,13 +100,15 @@ function resolvePluginServers(pluginKey: string, claudeDir: string): GlobalMcpSe
 
   // Read .mcp.json from the hash directory
   const mcpJsonPath = path.join(latestHashDir, '.mcp.json');
-  if (!existsSync(mcpJsonPath)) {
+  try {
+    await fs.access(mcpJsonPath);
+  } catch {
     debugLog(`${LOG_PREFIX} .mcp.json not found in plugin cache:`, mcpJsonPath);
     return [];
   }
 
   try {
-    const content = readFileSync(mcpJsonPath, 'utf-8');
+    const content = await fs.readFile(mcpJsonPath, 'utf-8');
     const parsed = JSON.parse(content);
 
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
@@ -185,7 +191,10 @@ function resolveInlineServers(
           : {}),
         ...(typeof config.url === 'string' ? { url: config.url } : {}),
         ...(typeof config.headers === 'object' && config.headers !== null && !Array.isArray(config.headers)
-          ? { headers: config.headers as Record<string, string> }
+          ? { headers: Object.fromEntries(
+              Object.entries(config.headers as Record<string, unknown>)
+                .filter(([, v]) => typeof v === 'string')
+            ) as Record<string, string> }
           : {}),
       },
       source,
@@ -229,20 +238,29 @@ function getClaudeHomeDir(): string {
  *
  * @returns Array of GlobalMcpServerEntry with source 'claude-json', or empty array on failure.
  */
-function readClaudeJsonMcpServers(): GlobalMcpServerEntry[] {
+async function readClaudeJsonMcpServers(): Promise<GlobalMcpServerEntry[]> {
   const claudeConfigDir = process.env.CLAUDE_CONFIG_DIR;
   const candidates = claudeConfigDir
     ? [path.join(claudeConfigDir, '.claude.json'), path.join(homedir(), '.claude.json')]
     : [path.join(homedir(), '.claude.json')];
 
-  const claudeJsonPath = candidates.find(existsSync);
+  let claudeJsonPath: string | undefined;
+  for (const candidate of candidates) {
+    try {
+      await fs.access(candidate);
+      claudeJsonPath = candidate;
+      break;
+    } catch {
+      // Not found, try next
+    }
+  }
   if (!claudeJsonPath) {
     debugLog(`${LOG_PREFIX} .claude.json not found in expected locations`);
     return [];
   }
 
   try {
-    const content = readFileSync(claudeJsonPath, 'utf-8');
+    const content = await fs.readFile(claudeJsonPath, 'utf-8');
     const parsed = JSON.parse(content);
 
     if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
@@ -293,7 +311,7 @@ export function registerClaudeMcpHandlers(): void {
             continue;
           }
 
-          const servers = resolvePluginServers(pluginKey, claudeDir);
+          const servers = await resolvePluginServers(pluginKey, claudeDir);
           result.pluginServers.push(...servers);
         }
       }
@@ -304,7 +322,7 @@ export function registerClaudeMcpHandlers(): void {
       }
 
       // Read ~/.claude.json mcpServers
-      result.claudeJsonServers = readClaudeJsonMcpServers();
+      result.claudeJsonServers = await readClaudeJsonMcpServers();
 
       debugLog(
         `${LOG_PREFIX} Resolved global MCPs:`,

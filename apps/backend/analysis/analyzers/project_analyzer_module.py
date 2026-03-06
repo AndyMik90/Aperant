@@ -69,10 +69,11 @@ class ProjectAnalyzer:
         # Only skip monorepo detection when there's exactly ONE .sln; multiple .sln
         # files may indicate a multi-solution monorepo.
         sln_files = list(self.project_dir.glob("*.sln"))
+        has_single_sln_with_src = False
         if len(sln_files) == 1:
             src_dir = self.project_dir / "src"
             if src_dir.exists() and src_dir.is_dir():
-                return  # Single .NET solution, not a monorepo
+                has_single_sln_with_src = True
 
         # Check for multiple service directories at root level
         service_dirs_found = 0
@@ -86,9 +87,13 @@ class ProjectAnalyzer:
             if has_service_root(item):
                 service_dirs_found += 1
 
-        # If we have 2+ directories with service root files, it's likely a monorepo
+        # If we have 2+ directories with service root files, it's likely a monorepo.
+        # A single .sln with src/ is only treated as single-project when there are
+        # no additional sibling service directories outside src/.
         if service_dirs_found >= 2:
             self.index["project_type"] = "monorepo"
+        elif has_single_sln_with_src and service_dirs_found == 0:
+            pass  # Single .NET solution, not a monorepo
 
     def _find_and_analyze_services(self) -> None:
         """Find all services and analyze each."""
