@@ -1,0 +1,87 @@
+{
+  "sections": {
+    "project": "项目",
+    "tools": "工具"
+  },
+  "items": {
+    "kanban": "看板",
+    "terminals": "代理终端",
+    "insights": "洞察",
+    "roadmap": "路线图",
+    "ideation": "创意",
+    "changelog": "变更日志",
+    "context": "上下文",
+    "githubIssues": "GitHub 问题",
+    "githubPRs": "GitHub PR",
+    "gitlabIssues": "GitLab问题",
+    "gitlabMRs": "GitLab MR",
+    "worktrees": "工作树",
+    "agentTools": "MCP概述"
+  },
+  "actions": {
+    "settings": "设置",
+    "help": "帮助与反馈",
+    "newTask": "新任务",
+    "collapseSidebar": "折叠侧边栏",
+    "expandSidebar": "展开侧边栏",
+    "sponsor": "赞助我们"
+  },
+  "tooltips": {
+    "settings": "应用程序设置",
+    "help": "帮助与反馈"
+  },
+  "messages": {
+    "initializeToCreateTasks": "初始化 Auto Claude 以创建任务"
+  },
+  "updateBanner": {
+    "title": "可用更新",
+    "version": "版本 {{version}} 已准备就绪",
+    "updateAndRestart": "更新并重启",
+    "installAndRestart": "安装并重新启动",
+    "downloading": "正在下载...",
+    "dismiss": "忽略",
+    "downloadError": "下载更新失败",
+    "readOnlyVolumeWarning": "移至应用程序文件夹进行更新"
+  },
+  "claudeCode": {
+    "checking": "检查Claude代码...",
+    "upToDate": "Claude代码已更新",
+    "updateAvailable": "Claude代码更新可用",
+    "notInstalled": "Claude代码未安装",
+    "error": "检查Claude代码时出错",
+    "installed": "已安装",
+    "outdated": "可用更新",
+    "missing": "未安装",
+    "current": "当前的",
+    "latest": "最新的",
+    "path": "路径",
+    "lastChecked": "最后检查",
+    "learnMore": "了解有关Claude Code的更多信息",
+    "learnMoreAriaLabel": "了解有关Claude Code的更多信息（在新窗口中打开）",
+    "viewChangelog": "查看Claude代码变更日志",
+    "viewChangelogAriaLabel": "查看 Claude 代码变更日志（在新窗口中打开）",
+    "updateWarningTitle": "更新Claude代码？",
+    "updateWarningDescription": "更新将关闭所有正在运行的 Claude Code 会话。这些会话中任何未保存的工作都可能会丢失。请确保在继续之前保存您的工作。",
+    "updateWarningTerminalNote": "将打开一个终端窗口以运行安装命令。请等待安装完成后再继续。",
+    "updateAnyway": "打开终端并更新",
+    "switchVersion": "切换版本",
+    "selectVersion": "选择版本",
+    "loadingVersions": "正在加载版本...",
+    "failedToLoadVersions": "无法加载版本",
+    "installingVersion": "正在安装版本 {{version}}...",
+    "rollbackWarningTitle": "切换到版本 {{version}}？",
+    "rollbackWarningDescription": "切换版本将关闭所有正在运行的 Claude Code 会话。这些会话中任何未保存的工作都可能会丢失。请确保在继续之前保存您的工作。",
+    "rollbackWarningTerminalNote": "将打开一个终端窗口以运行安装命令。请等待安装完成后再继续。",
+    "switchAnyway": "打开终端并切换",
+    "currentVersion": "当前的",
+    "switchInstallation": "切换安装",
+    "selectInstallation": "选择安装",
+    "loadingInstallations": "正在加载安装...",
+    "failedToLoadInstallations": "无法加载安装",
+    "activeInstallation": "活跃",
+    "pathChangeWarningTitle": "切换 CLI 安装？",
+    "pathChangeWarningDescription": "切换 CLI 安装将使用不同的 Claude Code 二进制文件。任何正在运行的会话将继续使用以前的安装，直到重新启动。",
+    "switchInstallationConfirm": "切换",
+    "versionUnknown": "版本未知"
+  }
+}

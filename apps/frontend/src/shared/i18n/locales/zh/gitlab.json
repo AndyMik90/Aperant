@@ -1,0 +1,212 @@
+{
+  "title": "GitLab问题",
+  "states": {
+    "opened": "打开",
+    "closed": "关闭"
+  },
+  "complexity": {
+    "simple": "简单",
+    "standard": "标准",
+    "complex": "复杂"
+  },
+  "header": {
+    "open": "打开",
+    "searchPlaceholder": "搜索问题..."
+  },
+  "filters": {
+    "opened": "打开",
+    "closed": "关闭",
+    "all": "全部"
+  },
+  "empty": {
+    "noMatch": "没有符合您搜索条件的问题",
+    "selectIssue": "选择问题查看详细信息",
+    "noIssues": "未找到问题"
+  },
+  "accessibility": {
+    "investigateIssueAriaLabel": "分析该问题"
+  },
+  "notConnected": {
+    "title": "GitLab未连接",
+    "description": "在项目设置中配置您的 GitLab 令牌和项目以同步问题。",
+    "openSettings": "打开设置"
+  },
+  "detail": {
+    "notes": "笔记",
+    "viewTask": "查看任务",
+    "createTask": "创建任务",
+    "taskLinked": "任务链接",
+    "taskId": "任务编号",
+    "description": "描述",
+    "noDescription": "没有提供描述。",
+    "assignees": "受让人",
+    "milestone": "里程碑"
+  },
+  "investigation": {
+    "title": "从问题创建任务",
+    "issuePrefix": "问题",
+    "description": "从此 GitLab 问题创建一个任务。该任务将添加到看板的“待办事项”列中。",
+    "selectNotes": "选择要包含的注释",
+    "deselectAll": "取消全选",
+    "selectAll": "选择全部",
+    "willInclude": "该任务将包括：",
+    "includeTitle": "问题标题和描述",
+    "includeLink": "返回 GitLab 问题的链接",
+    "includeLabels": "问题中的标签和元数据",
+    "noNotes": "无注释（本期无注释）",
+    "failedToLoadNotes": "加载笔记失败",
+    "taskCreated": "任务已创建！在您的看板中查看它。",
+    "creating": "创建...",
+    "cancel": "取消",
+    "done": "完成",
+    "close": "关闭"
+  },
+  "settings": {
+    "enableIssues": "启用 GitLab 问题",
+    "enableIssuesDescription": "从 GitLab 同步问题并自动创建任务",
+    "instance": "GitLab实例",
+    "instanceDescription": "使用 https://gitlab.com 或您的自托管实例 URL",
+    "connectedVia": "通过 GitLab CLI 连接",
+    "authenticatedAs": "验证为",
+    "useDifferentToken": "使用不同的令牌",
+    "authentication": "GitLab身份验证",
+    "useManualToken": "使用手动令牌",
+    "authenticating": "使用 glab CLI 进行身份验证...",
+    "browserWindow": "应打开一个浏览器窗口供您登录。",
+    "personalAccessToken": "个人访问令牌",
+    "useOAuth": "使用 OAuth 代替",
+    "tokenScope": "创建一个令牌",
+    "scopeApi": "API",
+    "scopeFrom": "范围从",
+    "gitlabSettings": "GitLab设置",
+    "project": "项目",
+    "enterManually": "手动输入",
+    "loadingProjects": "正在加载项目...",
+    "selectProject": "选择一个项目...",
+    "searchProjects": "搜索项目...",
+    "noMatchingProjects": "没有匹配的项目",
+    "noProjectsFound": "没有找到项目",
+    "selected": "已选择",
+    "projectFormat": "格式：",
+    "projectFormatExample": "（例如，gitlab-org/gitlab）",
+    "connectionStatus": "连接状态",
+    "checking": "检查...",
+    "connectedTo": "连接到",
+    "notConnected": "未连接",
+    "issuesAvailable": "可用问题",
+    "issuesAvailableDescription": "从侧边栏访问 GitLab 问题以查看、调查问题并根据问题创建任务。",
+    "defaultBranch": "默认分支",
+    "defaultBranchDescription": "用于创建任务工作树的基础分支",
+    "loadingBranches": "正在加载分支...",
+    "autoDetect": "自动检测（主/主）",
+    "searchBranches": "搜索分支...",
+    "noMatchingBranches": "没有匹配的分支",
+    "noBranchesFound": "没有找到分支",
+    "branchFromNote": "所有新任务都将从",
+    "autoSyncOnLoad": "加载时自动同步",
+    "autoSyncDescription": "项目加载时自动获取问题",
+    "cli": {
+      "required": "需要 GitLab CLI",
+      "notInstalled": "OAuth 身份验证需要 GitLab CLI (glab)。安装它以使用“使用 OAuth”选项。",
+      "installButton": "安装glab",
+      "installing": "正在安装...",
+      "installSuccess": "安装在您的终端中开始。完成它并单击刷新。",
+      "refresh": "刷新",
+      "learnMore": "了解更多",
+      "installed": "安装的 GitLab CLI："
+    }
+  },
+  "mergeRequests": {
+    "title": "GitLab 合并请求",
+    "newMR": "新合并请求",
+    "selectMR": "选择合并请求以查看详细信息",
+    "states": {
+      "opened": "打开",
+      "closed": "关闭",
+      "merged": "合并",
+      "locked": "锁定"
+    },
+    "filters": {
+      "opened": "打开",
+      "closed": "关闭",
+      "merged": "合并",
+      "all": "全部"
+    }
+  },
+  "mrReview": {
+    "runReview": "运行人工智能审查",
+    "reviewing": "正在审查...",
+    "followupReview": "后续审查",
+    "newCommits": "新提交",
+    "newCommitsPlural": "新提交",
+    "cancel": "取消",
+    "postFindings": "发布调查结果",
+    "posting": "发布...",
+    "postedTo": "发布到 GitLab",
+    "approve": "批准",
+    "approving": "正在批准...",
+    "merge": "合并MR",
+    "merging": "合并...",
+    "aiReviewResult": "人工智能审核结果",
+    "followupReviewResult": "后续审查",
+    "description": "描述",
+    "noDescription": "没有提供描述。",
+    "labels": "标签",
+    "status": {
+      "notReviewed": "未审查",
+      "notReviewedDesc": "运行 AI 审核来分析此 MR",
+      "reviewComplete": "审核完成",
+      "reviewCompleteDesc": "发现结果。选择并发布到 GitLab。",
+      "waitingForChanges": "等待改变",
+      "waitingForChangesDesc": "已发布调查结果。等待贡献者解决问题。",
+      "readyToMerge": "准备合并",
+      "readyToMergeDesc": "没有发现阻塞问题。这个MR可以合并。",
+      "needsAttention": "需要注意",
+      "needsAttentionDesc": "发现结果需要发布到 GitLab。",
+      "readyForFollowup": "准备跟进",
+      "readyForFollowupDesc": "自审查以来。进行后续检查以检查问题是否得到解决。",
+      "blockingIssues": "阻塞问题",
+      "blockingIssuesDesc": "阻塞问题仍然存在。"
+    },
+    "overallStatus": {
+      "approve": "批准",
+      "requestChanges": "要求更改",
+      "comment": "评论"
+    },
+    "resolution": {
+      "resolved": "已解决",
+      "stillOpen": "仍然开放",
+      "newIssue": "新一期",
+      "newIssues": "新问题"
+    }
+  },
+  "findings": {
+    "summary": "已选择",
+    "selectCriticalHigh": "选择拦截器/必需",
+    "selectAll": "选择全部",
+    "clear": "清除",
+    "noIssues": "没有发现问题！代码看起来不错。",
+    "suggestedFix": "建议修复：",
+    "posted": "已发布",
+    "severity": {
+      "critical": "拦截者",
+      "criticalDesc": "必须修复",
+      "high": "必须修复",
+      "highDesc": "应该修复",
+      "medium": "推荐",
+      "mediumDesc": "提高质量",
+      "low": "建议",
+      "lowDesc": "考虑"
+    },
+    "category": {
+      "security": "安全",
+      "quality": "质量",
+      "style": "风格",
+      "test": "测试",
+      "docs": "文档",
+      "pattern": "模式",
+      "performance": "性能",
+      "logic": "逻辑"
+    }
+  }
+}

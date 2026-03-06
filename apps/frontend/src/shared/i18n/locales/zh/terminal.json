@@ -1,0 +1,58 @@
+{
+  "expand": {
+    "expand": "扩展终端",
+    "collapse": "折叠终端"
+  },
+  "resume": {
+    "pending": "可恢复",
+    "pendingTooltip": "单击以恢复之前的Claude会话",
+    "resumeAllSessions": "恢复全部"
+  },
+  "auth": {
+    "terminalTitle": "授权：{{profileName}}",
+    "maxTerminalsReached": "无法打开身份验证终端：已达到最大终端数。首先关闭终端。"
+  },
+  "swap": {
+    "inProgress": "正在切换配置文件...",
+    "resumingSession": "继续Claude会话...",
+    "sessionResumed": "会话在新的配置文件下恢复",
+    "resumeFailed": "无法恢复会话。您可以开始新的会话。",
+    "noSession": "配置文件已切换。没有可恢复的活动会话。",
+    "migrationFailed": "配置文件已切换，但会话迁移失败。启动新的终端。"
+  },
+  "worktree": {
+    "create": "工作树",
+    "createNew": "新工作树",
+    "existing": "终端工作树",
+    "taskWorktrees": "任务工作树",
+    "otherWorktrees": "其他的",
+    "createTitle": "创建终端工作树",
+    "createDescription": "为此终端创建一个独立的工作区。所有工作都将在工作树目录中进行。",
+    "name": "工作树名称",
+    "namePlaceholder": "我的功能",
+    "nameRequired": "工作树名称为必填项",
+    "nameInvalid": "名称必须以字母或数字开头和结尾",
+    "nameHelp": "小写字母、数字、破折号和下划线（空格变为连字符）",
+    "associateTask": "任务链接",
+    "selectTask": "选择一个任务...",
+    "noTask": "无任务（独立工作树）",
+    "createBranch": "创建 Git 分支",
+    "branchHelp": "创建分支：{{branch}}",
+    "baseBranch": "基地支部",
+    "selectBaseBranch": "选择基础分支...",
+    "searchBranch": "搜索分支...",
+    "noBranchFound": "没有找到分支",
+    "useProjectDefault": "使用项目默认值 ({{branch}})",
+    "baseBranchHelp": "用于创建工作树的分支",
+    "openInIDE": "在 IDE 中打开",
+    "maxReached": "达到最多 12 个终端工作树",
+    "alreadyExists": "同名的工作树已存在",
+    "searchPlaceholder": "搜索工作树...",
+    "noResults": "未找到工作树",
+    "deleteTitle": "删除工作树？",
+    "deleteDescription": "这将永久删除工作树及其分支。任何未提交的更改都将丢失。",
+    "detached": "（分离）",
+    "remotePushFailed": "远程跟踪未设置",
+    "remotePushFailedDescription": "已创建工作树，但无法将分支推送到远程。您可能需要手动运行 git push -u。"
+  }
+}

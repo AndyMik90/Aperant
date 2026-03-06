@@ -57,7 +57,7 @@ export function InvestigationDialog({
           if (!isMounted) return;
           console.error('Failed to fetch notes:', err);
           setFetchNotesError(
-            err instanceof Error ? err.message : 'Failed to load notes'
+            err instanceof Error ? err.message : t('investigation.failedToLoadNotes')
           );
         })
         .finally(() => {

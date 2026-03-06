@@ -20,7 +20,11 @@
   },
   "empty": {
     "noMatch": "No issues match your search",
-    "selectIssue": "Select an issue to view details"
+    "selectIssue": "Select an issue to view details",
+    "noIssues": "No issues found"
+  },
+  "accessibility": {
+    "investigateIssueAriaLabel": "Investigate issue"
   },
   "notConnected": {
     "title": "GitLab Not Connected",

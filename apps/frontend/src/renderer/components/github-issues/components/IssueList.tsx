@@ -71,7 +71,7 @@ export function IssueList({
   }
 
   if (issues.length === 0) {
-    return <EmptyState message="No issues found" />;
+    return <EmptyState message={t('issues.noIssues')} />;
   }
 
   return (
