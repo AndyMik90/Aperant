@@ -399,6 +399,8 @@ export interface CustomMcpServer {
   url?: string;
   /** HTTP headers (for type: 'http'). e.g., { "Authorization": "Bearer ..." } */
   headers?: Record<string, string>;
+  /** Environment variables to pass to the MCP server process */
+  env?: Record<string, string>;
   /** Optional description shown in UI */
   description?: string;
 }

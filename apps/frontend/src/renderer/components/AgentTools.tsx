@@ -740,6 +740,7 @@ export function AgentTools() {
             args: server.config.args,
             url: server.config.url,
             headers: server.config.headers,
+            env: server.config.env,
           };
           const result = await window.electronAPI.checkGlobalMcpHealth(customServer);
           if (result.success && result.data) {

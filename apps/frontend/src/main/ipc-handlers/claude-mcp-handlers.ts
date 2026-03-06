@@ -143,6 +143,12 @@ async function resolvePluginServers(pluginKey: string, claudeDir: string): Promi
                   .filter(([, v]) => typeof v === 'string')
               ) as Record<string, string> }
             : {}),
+          ...(typeof config.env === 'object' && config.env !== null && !Array.isArray(config.env)
+            ? { env: Object.fromEntries(
+                Object.entries(config.env as Record<string, unknown>)
+                  .filter(([, v]) => typeof v === 'string')
+              ) as Record<string, string> }
+            : {}),
         },
         source: 'plugin',
       };
@@ -178,6 +184,13 @@ function resolveInlineServers(
     }
 
     const config = rawConfig as Record<string, unknown>;
+
+    // Skip disabled servers
+    if (config.disabled === true) {
+      debugLog(`${LOG_PREFIX} Skipping disabled mcpServers entry:`, serverId);
+      continue;
+    }
+
     const entry: GlobalMcpServerEntry = {
       serverId,
       serverName: toServerName(serverId),
@@ -193,6 +206,12 @@ function resolveInlineServers(
         ...(typeof config.headers === 'object' && config.headers !== null && !Array.isArray(config.headers)
           ? { headers: Object.fromEntries(
               Object.entries(config.headers as Record<string, unknown>)
+                .filter(([, v]) => typeof v === 'string')
+            ) as Record<string, string> }
+          : {}),
+        ...(typeof config.env === 'object' && config.env !== null && !Array.isArray(config.env)
+          ? { env: Object.fromEntries(
+              Object.entries(config.env as Record<string, unknown>)
                 .filter(([, v]) => typeof v === 'string')
             ) as Record<string, string> }
           : {}),

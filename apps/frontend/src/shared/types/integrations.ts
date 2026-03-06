@@ -543,6 +543,7 @@ export interface GlobalMcpServerEntry {
     args?: string[];
     url?: string;
     headers?: Record<string, string>;
+    env?: Record<string, string>;
   };
   /** Where this server config was sourced from */
   source: 'plugin' | 'settings' | 'claude-json';
