@@ -195,6 +195,28 @@ const initialGenerationStatus: RoadmapGenerationStatus = {
 };
 
 /**
+ * Normalize inbound phase aliases from backend/legacy progress files
+ * to the canonical roadmap generation phases expected by XState.
+ */
+function normalizeGenerationPhase(phase: string): RoadmapGenerationStatus['phase'] {
+  switch (phase) {
+    case 'idle':
+    case 'analyzing':
+    case 'discovering':
+    case 'generating':
+    case 'complete':
+    case 'error':
+      return phase;
+    case 'discovery':
+      return 'discovering';
+    case 'features':
+      return 'generating';
+    default:
+      return 'analyzing';
+  }
+}
+
+/**
  * Derive RoadmapGenerationStatus from the generation actor's current snapshot.
  */
 function deriveGenerationStatus(actor: Actor<typeof roadmapGenerationMachine>): RoadmapGenerationStatus {
@@ -240,20 +262,27 @@ export const useRoadmapStore = create<RoadmapState>((set) => ({
   setCompetitorAnalysis: (analysis) => set({ competitorAnalysis: analysis }),
 
   setGenerationStatus: (status) => {
+    // Defensive normalization: runtime IPC payloads can contain legacy aliases
+    // ('discovery', 'features') even though the TS type is canonical.
+    const normalizedStatus: RoadmapGenerationStatus = {
+      ...status,
+      phase: normalizeGenerationPhase(status.phase as string)
+    };
+
     const actor = getOrCreateGenerationActor(
-      status.phase !== 'idle' ? status.phase : undefined,
-      status.phase !== 'idle' ? {
-        progress: status.progress,
-        message: status.message,
-        error: status.error,
-        startedAt: status.startedAt?.getTime(),
-        lastActivityAt: status.lastActivityAt?.getTime()
+      normalizedStatus.phase !== 'idle' ? normalizedStatus.phase : undefined,
+      normalizedStatus.phase !== 'idle' ? {
+        progress: normalizedStatus.progress,
+        message: normalizedStatus.message,
+        error: normalizedStatus.error,
+        startedAt: normalizedStatus.startedAt?.getTime(),
+        lastActivityAt: normalizedStatus.lastActivityAt?.getTime()
       } : undefined
     );
 
     // Map the incoming status phase to an XState event
     let event: RoadmapGenerationEvent | null = null;
-    switch (status.phase) {
+    switch (normalizedStatus.phase) {
       case 'analyzing': {
         const currentState = String(actor.getSnapshot().value);
         if (currentState === 'idle') {
@@ -324,7 +353,7 @@ export const useRoadmapStore = create<RoadmapState>((set) => ({
           actor.send({ type: 'RESET' });
           actor.send({ type: 'START_GENERATION' });
         }
-        event = { type: 'GENERATION_ERROR', error: status.error ?? 'Unknown error' };
+        event = { type: 'GENERATION_ERROR', error: normalizedStatus.error ?? 'Unknown error' };
         break;
       }
       case 'idle': {
@@ -346,7 +375,11 @@ export const useRoadmapStore = create<RoadmapState>((set) => ({
     // Send progress updates for active states
     const currentState = String(actor.getSnapshot().value);
     if (currentState === 'analyzing' || currentState === 'discovering' || currentState === 'generating') {
-      actor.send({ type: 'PROGRESS_UPDATE', progress: status.progress, message: status.message });
+      actor.send({
+        type: 'PROGRESS_UPDATE',
+        progress: normalizedStatus.progress,
+        message: normalizedStatus.message
+      });
     }
 
     // Derive store state from the actor snapshot

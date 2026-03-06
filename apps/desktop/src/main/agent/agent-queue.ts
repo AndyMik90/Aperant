@@ -5,7 +5,7 @@ import { AgentState } from './agent-state';
 import type { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
 import { RoadmapConfig } from './types';
-import type { IdeationConfig, Idea } from '../../shared/types';
+import type { IdeationConfig, Idea, RoadmapGenerationStatus } from '../../shared/types';
 import { AUTO_BUILD_PATHS } from '../../shared/constants';
 import { detectRateLimit, createSDKRateLimitInfo } from '../rate-limit-detector';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
@@ -20,6 +20,57 @@ import { runRoadmapGeneration } from '../ai/runners/roadmap';
 import type { RoadmapStreamEvent } from '../ai/runners/roadmap';
 import type { ModelShorthand, ThinkingLevel } from '../ai/config/types';
 import { resolvePromptsDir } from '../ai/prompts/prompt-loader';
+
+type RoadmapPhase = RoadmapGenerationStatus['phase'];
+const ROADMAP_HEARTBEAT_INTERVAL_MS = 3000;
+
+const ROADMAP_PHASE_PROGRESS_CAPS: Record<RoadmapPhase, number> = {
+  idle: 0,
+  analyzing: 25,
+  discovering: 55,
+  generating: 90,
+  complete: 100,
+  error: 100,
+};
+
+function getRoadmapHeartbeatMessage(phase: RoadmapPhase): string {
+  switch (phase) {
+    case 'analyzing':
+      return 'Analyzing project structure...';
+    case 'discovering':
+      return 'Discovering target audience and user needs...';
+    case 'generating':
+      return 'Generating roadmap features and phases...';
+    case 'complete':
+      return 'Roadmap generation complete';
+    case 'error':
+      return 'Roadmap generation failed';
+    default:
+      return 'Starting roadmap generation...';
+  }
+}
+
+/**
+ * Normalize runner-emitted roadmap phase names to the canonical UI/XState phases.
+ * Supports legacy aliases emitted by the TS roadmap runner.
+ */
+function normalizeRoadmapPhase(rawPhase: string): RoadmapPhase {
+  switch (rawPhase) {
+    case 'idle':
+    case 'analyzing':
+    case 'discovering':
+    case 'generating':
+    case 'complete':
+    case 'error':
+      return rawPhase;
+    case 'discovery':
+      return 'discovering';
+    case 'features':
+      return 'generating';
+    default:
+      return 'analyzing';
+  }
+}
 
 /**
  * Queue management for ideation and roadmap generation
@@ -76,7 +127,7 @@ export class AgentQueueManager {
    */
   private async persistRoadmapProgress(
     projectPath: string,
-    phase: string,
+    phase: RoadmapPhase,
     progress: number,
     message: string,
     startedAt: string,
@@ -384,9 +435,10 @@ export class AgentQueueManager {
     });
 
     // Track progress
-    let progressPhase = 'analyzing';
+    let progressPhase: RoadmapPhase = 'analyzing';
     let progressPercent = 10;
     const roadmapStartedAt = new Date().toISOString();
+    let lastHeartbeatAt = 0;
 
     // Persist initial progress
     this.debouncedPersistRoadmapProgress(
@@ -405,6 +457,34 @@ export class AgentQueueManager {
       message: 'Starting roadmap generation...'
     });
 
+    const emitRoadmapHeartbeat = (message?: string, trickleProgress: boolean = false): void => {
+      const now = Date.now();
+      if (now - lastHeartbeatAt < ROADMAP_HEARTBEAT_INTERVAL_MS) return;
+      lastHeartbeatAt = now;
+
+      if (trickleProgress) {
+        const cap = ROADMAP_PHASE_PROGRESS_CAPS[progressPhase];
+        if (progressPercent < cap) {
+          progressPercent = Math.min(progressPercent + 1, cap);
+        }
+      }
+
+      const heartbeatMessage = message ?? getRoadmapHeartbeatMessage(progressPhase);
+      this.emitter.emit('roadmap-progress', projectId, {
+        phase: progressPhase,
+        progress: progressPercent,
+        message: heartbeatMessage
+      });
+      this.debouncedPersistRoadmapProgress(
+        projectPath,
+        progressPhase,
+        progressPercent,
+        heartbeatMessage,
+        roadmapStartedAt,
+        true
+      );
+    };
+
     try {
       const result = await runRoadmapGeneration(
         {
@@ -418,9 +498,9 @@ export class AgentQueueManager {
         (event: RoadmapStreamEvent) => {
           switch (event.type) {
             case 'phase-start': {
-              progressPhase = event.phase;
+              progressPhase = normalizeRoadmapPhase(event.phase);
               progressPercent = Math.min(progressPercent + 20, 90);
-              const msg = `Running ${event.phase} phase...`;
+              const msg = `Running ${progressPhase} phase...`;
               this.emitter.emit('roadmap-log', projectId, msg);
               this.emitter.emit('roadmap-progress', projectId, {
                 phase: progressPhase,
@@ -439,6 +519,13 @@ export class AgentQueueManager {
             }
             case 'text-delta': {
               this.emitter.emit('roadmap-log', projectId, event.text);
+              emitRoadmapHeartbeat(undefined, true);
+              break;
+            }
+            case 'tool-use': {
+              const msg = `Using tool: ${event.name}`;
+              this.emitter.emit('roadmap-log', projectId, msg);
+              emitRoadmapHeartbeat(msg, true);
               break;
             }
             case 'error': {

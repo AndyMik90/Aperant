@@ -34,6 +34,27 @@ function getFeatureSettings(): { model?: string; thinkingLevel?: string } {
 }
 
 /**
+ * Normalize legacy roadmap phase aliases to canonical frontend phases.
+ */
+function normalizeRoadmapProgressPhase(rawPhase: string): RoadmapGenerationStatus['phase'] | null {
+  switch (rawPhase) {
+    case 'idle':
+    case 'analyzing':
+    case 'discovering':
+    case 'generating':
+    case 'complete':
+    case 'error':
+      return rawPhase;
+    case 'discovery':
+      return 'discovering';
+    case 'features':
+      return 'generating';
+    default:
+      return null;
+  }
+}
+
+/**
  * Register all roadmap-related IPC handlers
  */
 export function registerRoadmapHandlers(
@@ -705,18 +726,17 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
         const content = await readFileWithRetry(progressPath, { encoding: "utf-8" }) as string;
         const rawData = JSON.parse(content);
 
-        // Valid phase values that the frontend expects
-        const validPhases = ['idle', 'analyzing', 'discovering', 'generating', 'complete', 'error'];
+        const normalizedPhase = normalizeRoadmapProgressPhase(String(rawData.phase ?? ''));
 
         // Validate required fields exist and phase is valid
-        if (!rawData.phase || typeof rawData.progress !== 'number' || !validPhases.includes(rawData.phase)) {
+        if (!normalizedPhase || typeof rawData.progress !== 'number') {
           debugLog("[Roadmap Handler] Invalid progress file structure or phase, ignoring:", { projectId, phase: rawData.phase });
           return { success: true, data: null };
         }
 
         // Transform snake_case to camelCase for frontend
         const progressData: PersistedRoadmapProgress = {
-          phase: rawData.phase,
+          phase: normalizedPhase,
           progress: rawData.progress,
           message: rawData.message || '',
           startedAt: rawData.started_at,
