@@ -1,0 +1,601 @@
+{
+  "title": "Настройки",
+  "tabs": {
+    "app": "Настройки приложения",
+    "project": "Настройки проекта"
+  },
+  "sections": {
+    "appearance": {
+      "title": "Внешний вид",
+      "description": "Настройте внешний вид Auto Claude"
+    },
+    "display": {
+      "title": "Отображение",
+      "description": "Настройте размер элементов интерфейса"
+    },
+    "language": {
+      "title": "Язык",
+      "description": "Выберите предпочитаемый язык"
+    },
+    "devtools": {
+      "title": "Инструменты разработки",
+      "description": "Настройки IDE и терминала"
+    },
+    "agent": {
+      "title": "Настройки агента",
+      "description": "Модель по умолчанию и фреймворк"
+    },
+    "paths": {
+      "title": "Пути",
+      "description": "Пути к CLI-инструментам и фреймворку"
+    },
+    "integrations": {
+      "title": "Интеграции",
+      "description": "API-ключи и аккаунты Claude"
+    },
+    "api-profiles": {
+      "title": "API-профили",
+      "description": "Профили пользовательских API-эндпоинтов"
+    },
+    "updates": {
+      "title": "Обновления",
+      "description": "Обновления Auto Claude"
+    },
+    "notifications": {
+      "title": "Уведомления",
+      "description": "Настройки оповещений"
+    },
+    "debug": {
+      "title": "Отладка и логи",
+      "description": "Инструменты диагностики"
+    }
+  },
+  "apiProfiles": {
+    "title": "API-профили",
+    "description": "Настройте пользовательские Anthropic-совместимые API-эндпоинты",
+    "addButton": "Добавить профиль",
+    "presets": {
+      "anthropic": "Anthropic",
+      "openrouter": "OpenRouter",
+      "groq": "Groq",
+      "glmGlobal": "GLM (Глобальный)",
+      "glmChina": "GLM (Китай)"
+    },
+    "fields": {
+      "name": "Имя",
+      "preset": "Пресет",
+      "baseUrl": "Базовый URL",
+      "apiKey": "API-ключ"
+    },
+    "placeholders": {
+      "name": "Мой API",
+      "preset": "Выберите пресет провайдера",
+      "baseUrl": "https://api.anthropic.com",
+      "apiKey": "sk-ant-..."
+    },
+    "hints": {
+      "preset": "Пресеты заполняют базовый URL; вам всё равно нужно вставить API-ключ.",
+      "baseUrl": "Пример: https://api.anthropic.com или http://localhost:8080"
+    },
+    "validation": {
+      "nameRequired": "Имя обязательно",
+      "baseUrlRequired": "Базовый URL обязателен",
+      "baseUrlInvalid": "Неверный формат URL (должен быть http:// или https://)",
+      "apiKeyRequired": "API-ключ обязателен",
+      "apiKeyInvalid": "Неверный формат API-ключа"
+    },
+    "actions": {
+      "save": "Сохранить профиль",
+      "saving": "Сохранение...",
+      "cancel": "Отмена",
+      "changeKey": "Изменить",
+      "cancelKeyChange": "Отмена"
+    },
+    "testConnection": {
+      "label": "Проверить соединение",
+      "testing": "Проверка...",
+      "success": "Соединение успешно",
+      "failure": "Соединение не удалось"
+    },
+    "models": {
+      "title": "Необязательно: Сопоставление имён моделей",
+      "description": "Выберите модели от вашего API-провайдера. Оставьте пустым для использования значений по умолчанию.",
+      "defaultLabel": "Модель по умолчанию (необязательно)",
+      "haikuLabel": "Модель Haiku (необязательно)",
+      "sonnetLabel": "Модель Sonnet (необязательно)",
+      "opusLabel": "Модель Opus (необязательно)",
+      "defaultPlaceholder": "напр., claude-sonnet-4-5-20250929",
+      "haikuPlaceholder": "напр., claude-haiku-4-5-20251001",
+      "sonnetPlaceholder": "напр., claude-sonnet-4-5-20250929",
+      "opusPlaceholder": "напр., claude-opus-4-5-20251101"
+    },
+    "empty": {
+      "title": "API-профили не настроены",
+      "description": "Создайте профиль для настройки пользовательских API-эндпоинтов для ваших сборок.",
+      "action": "Создать первый профиль"
+    },
+    "switchToOauth": {
+      "label": "Переключить на OAuth",
+      "loading": "Переключение..."
+    },
+    "activeBadge": "Активный",
+    "customModels": "Пользовательские модели: {{models}}",
+    "setActive": {
+      "label": "Сделать активным",
+      "loading": "Установка..."
+    },
+    "tooltips": {
+      "edit": "Редактировать профиль",
+      "deleteActive": "Переключитесь на OAuth перед удалением",
+      "deleteInactive": "Удалить профиль"
+    },
+    "deleteAriaLabel": "Удалить профиль {{name}}",
+    "toast": {
+      "create": {
+        "title": "Профиль создан",
+        "description": "\"{{name}}\" успешно добавлен."
+      },
+      "update": {
+        "title": "Профиль обновлён",
+        "description": "\"{{name}}\" успешно обновлён."
+      },
+      "delete": {
+        "title": "Профиль удалён",
+        "description": "\"{{name}}\" удалён.",
+        "errorTitle": "Не удалось удалить профиль",
+        "errorFallback": "Произошла ошибка при удалении профиля."
+      },
+      "switch": {
+        "oauthTitle": "Переключено на OAuth",
+        "oauthDescription": "Теперь используется OAuth-авторизация",
+        "profileTitle": "Профиль активирован",
+        "profileDescription": "Теперь используется {{name}}",
+        "errorTitle": "Не удалось переключить авторизацию",
+        "errorFallback": "Произошла ошибка при переключении метода авторизации."
+      }
+    },
+    "dialog": {
+      "createTitle": "Добавить API-профиль",
+      "editTitle": "Редактировать профиль",
+      "description": "Настройте пользовательский Anthropic-совместимый API-эндпоинт для ваших сборок.",
+      "deleteTitle": "Удалить профиль?",
+      "deleteDescription": "Вы уверены, что хотите удалить \"{{name}}\"? Это действие нельзя отменить.",
+      "cancel": "Отмена",
+      "delete": "Удалить",
+      "deleting": "Удаление..."
+    }
+  },
+  "modelSelect": {
+    "placeholder": "Выберите модель или введите вручную",
+    "placeholderManual": "Введите имя модели (напр., claude-sonnet-4-5-20250929)",
+    "searchPlaceholder": "Поиск моделей...",
+    "noResults": "Модели не найдены",
+    "discoveryNotAvailable": "Обнаружение моделей недоступно. Введите имя модели вручную."
+  },
+  "language": {
+    "label": "Язык интерфейса",
+    "description": "Выберите язык интерфейса приложения"
+  },
+  "scale": {
+    "presets": "Пресеты масштаба",
+    "presetsDescription": "Быстрые опции масштабирования",
+    "fineTune": "Точная настройка масштаба",
+    "fineTuneDescription": "Настройка от 75% до 200% с шагом 5%",
+    "default": "По умолчанию",
+    "comfortable": "Комфортный",
+    "large": "Крупный"
+  },
+  "general": {
+    "otherAgentSettings": "Другие настройки агента",
+    "otherAgentSettingsDescription": "Дополнительные параметры настройки агента",
+    "agentFramework": "Фреймворк агента",
+    "agentFrameworkDescription": "Фреймворк программирования для автономных задач",
+    "agentFrameworkAutoClaude": "Auto Claude",
+    "aiTerminalNaming": "AI-именование терминалов",
+    "aiTerminalNamingDescription": "Автоматическое именование терминалов на основе команд (использует Haiku)",
+    "featureModelSettings": "Настройки модели для функций",
+    "featureModelSettingsDescription": "Модель и уровень мышления для Аналитики, Идей и Дорожной карты",
+    "model": "Модель",
+    "thinkingLevel": "Уровень мышления",
+    "paths": "Пути",
+    "pathsDescription": "Настройте пути к исполняемым файлам и фреймворку",
+    "pythonPath": "Путь к Python",
+    "pythonPathDescription": "Путь к исполняемому файлу Python (оставьте пустым для автоопределения)",
+    "pythonPathPlaceholder": "python3 (по умолчанию)",
+    "gitPath": "Путь к Git",
+    "gitPathDescription": "Путь к исполняемому файлу Git (оставьте пустым для автоопределения)",
+    "gitPathPlaceholder": "git (по умолчанию)",
+    "githubCLIPath": "Путь к GitHub CLI",
+    "githubCLIPathDescription": "Путь к исполняемому файлу GitHub CLI (gh) (оставьте пустым для автоопределения)",
+    "githubCLIPathPlaceholder": "gh (по умолчанию)",
+    "claudePath": "Путь к Claude CLI",
+    "claudePathDescription": "Путь к исполняемому файлу Claude CLI (оставьте пустым для автоопределения)",
+    "claudePathPlaceholder": "claude (по умолчанию)",
+    "detectedPath": "Автоопределено",
+    "detectedVersion": "Версия",
+    "detectedSource": "Источник",
+    "sourceUserConfig": "Пользовательская настройка",
+    "sourceVenv": "Виртуальное окружение",
+    "sourceHomebrew": "Homebrew",
+    "sourceNvm": "NVM",
+    "sourceSystemPath": "Системный PATH",
+    "sourceBundled": "Встроенный",
+    "sourceFallback": "Резервный",
+    "notDetected": "Не обнаружено",
+    "autoClaudePath": "Путь Auto Claude",
+    "autoClaudePathDescription": "Относительный путь к директории auto-claude в проектах",
+    "autoClaudePathPlaceholder": "auto-claude (по умолчанию)",
+    "autoNameTerminals": "Автоматическое именование терминалов",
+    "autoNameTerminalsDescription": "Использовать AI для генерации описательных имён вкладок терминалов на основе их активности"
+  },
+  "theme": {
+    "title": "Внешний вид",
+    "description": "Настройте внешний вид Auto Claude",
+    "mode": "Режим",
+    "modeDescription": "Выберите между светлой и тёмной темами",
+    "light": "Светлая",
+    "dark": "Тёмная",
+    "system": "Системная",
+    "colorTheme": "Цветовая тема",
+    "colorThemeDescription": "Выберите предпочитаемую цветовую палитру"
+  },
+  "devtools": {
+    "title": "Инструменты разработки",
+    "description": "Настройте предпочитаемые IDE и терминал для работы с рабочими деревьями",
+    "detecting": "Поиск установленных инструментов...",
+    "detectAgain": "Искать снова",
+    "ide": {
+      "label": "Предпочитаемый IDE",
+      "description": "Auto Claude будет открывать рабочие деревья в этом редакторе",
+      "placeholder": "Выберите IDE...",
+      "customPath": "Путь к пользовательскому IDE",
+      "customPathPlaceholder": "/путь/к/вашему/ide"
+    },
+    "terminal": {
+      "label": "Предпочитаемый терминал",
+      "description": "Auto Claude будет открывать терминальные сессии здесь",
+      "placeholder": "Выберите терминал...",
+      "customPath": "Путь к пользовательскому терминалу",
+      "customPathPlaceholder": "/путь/к/вашему/терминалу"
+    },
+    "detected": "Обнаружено",
+    "notInstalled": "Не установлено",
+    "detectedSummary": "Обнаружено в вашей системе:",
+    "noToolsDetected": "Дополнительные инструменты не обнаружены (будут использоваться VS Code и системный терминал)",
+    "yoloMode": {
+      "label": "Режим YOLO",
+      "description": "Запускать Claude с флагом --dangerously-skip-permissions, обходя все запросы безопасности. Используйте с осторожностью.",
+      "warning": "Этот режим обходит систему разрешений Claude. Включайте только если полностью доверяете выполняемому коду."
+    }
+  },
+  "updates": {
+    "title": "Обновления",
+    "description": "Управление обновлениями Auto Claude",
+    "appUpdateReady": "Обновление приложения готово",
+    "newVersion": "Новая версия",
+    "released": "Выпущена",
+    "downloading": "Загрузка...",
+    "updateDownloaded": "Обновление загружено! Нажмите Установить для перезапуска и применения обновления.",
+    "installAndRestart": "Установить и перезапустить",
+    "downloadUpdate": "Загрузить обновление",
+    "version": "Версия",
+    "loading": "Загрузка...",
+    "checkingForUpdates": "Проверка обновлений...",
+    "newVersionAvailable": "Доступна новая версия:",
+    "latestVersion": "У вас установлена последняя версия.",
+    "viewRelease": "Посмотреть релиз на GitHub",
+    "unableToCheck": "Не удалось проверить обновления",
+    "checkForUpdates": "Проверить обновления",
+    "autoUpdateProjects": "Автообновление проектов",
+    "autoUpdateProjectsDescription": "Автоматически обновлять Auto Claude в проектах при выходе новой версии",
+    "betaUpdates": "Бета-обновления",
+    "betaUpdatesDescription": "Получать предрелизные бета-версии с новыми функциями (могут быть менее стабильными)",
+    "stableDowngradeAvailable": "Доступна стабильная версия",
+    "stableDowngradeDescription": "Вы используете бета-версию. Поскольку бета-обновления отключены, вы можете переключиться на последнюю стабильную версию.",
+    "stableVersion": "Стабильная версия",
+    "downloadStableVersion": "Загрузить стабильную версию"
+  },
+  "notifications": {
+    "title": "Уведомления",
+    "description": "Настройте параметры уведомлений по умолчанию",
+    "onTaskComplete": "При завершении задачи",
+    "onTaskCompleteDescription": "Уведомлять о успешном завершении задачи",
+    "onTaskFailed": "При ошибке задачи",
+    "onTaskFailedDescription": "Уведомлять при возникновении ошибки",
+    "onReviewNeeded": "При необходимости проверки",
+    "onReviewNeededDescription": "Уведомлять когда QA требует вашей проверки",
+    "sound": "Звук",
+    "soundDescription": "Воспроизводить звук с уведомлениями"
+  },
+  "actions": {
+    "save": "Сохранить настройки",
+    "rerunWizard": "Перезапустить мастер",
+    "rerunWizardDescription": "Запустить мастер настройки снова"
+  },
+  "projectSections": {
+    "general": {
+      "title": "Основные",
+      "description": "Auto-Build и настройка агента",
+      "useClaudeMd": "Использовать CLAUDE.md",
+      "useClaudeMdDescription": "Включить инструкции CLAUDE.md в контекст агента"
+    },
+    "claude": {
+      "title": "Авторизация Claude",
+      "description": "Авторизация Claude"
+    },
+    "linear": {
+      "title": "Linear",
+      "description": "Интеграция с Linear",
+      "integrationTitle": "Интеграция Linear",
+      "integrationDescription": "Подключение к Linear для отслеживания задач и импорта",
+      "syncDescription": "Синхронизация с Linear для отслеживания задач"
+    },
+    "github": {
+      "title": "GitHub",
+      "description": "Синхронизация GitHub Issues",
+      "integrationTitle": "Интеграция GitHub",
+      "integrationDescription": "Подключение к GitHub для отслеживания задач",
+      "syncDescription": "Синхронизация с GitHub Issues"
+    },
+    "gitlab": {
+      "title": "GitLab",
+      "description": "Синхронизация GitLab Issues",
+      "integrationTitle": "Интеграция GitLab",
+      "integrationDescription": "Подключение к GitLab для отслеживания задач",
+      "syncDescription": "Синхронизация с GitLab Issues"
+    },
+    "memory": {
+      "title": "Память",
+      "description": "Бэкенд памяти Graphiti",
+      "integrationTitle": "Память",
+      "integrationDescription": "Настройка постоянной межсессионной памяти для агентов",
+      "syncDescription": "Настройка постоянной памяти"
+    }
+  },
+  "agentProfile": {
+    "label": "Профиль агента",
+    "title": "Профиль агента по умолчанию",
+    "sectionDescription": "Выберите пресет настройки модели и уровня мышления",
+    "profilesInfo": "Профили агентов предоставляют пресеты настройки модели Claude и уровня мышления. При создании новой задачи эти настройки будут использоваться по умолчанию. Вы всегда можете переопределить их в мастере создания задачи.",
+    "custom": "Пользовательский",
+    "customConfiguration": "Пользовательская настройка",
+    "customDescription": "Выберите модель и уровень мышления",
+    "phaseConfiguration": "Настройка по фазам",
+    "phaseConfigurationDescription": "Настройте модель и уровень мышления для каждой фазы",
+    "clickToCustomize": "Нажмите для настройки",
+    "model": "Модель",
+    "thinking": "Мышление",
+    "thinkingLevel": "Уровень мышления",
+    "selectModel": "Выберите модель",
+    "selectThinkingLevel": "Выберите уровень мышления",
+    "perPhaseOptimization": "(оптимизация по фазам)",
+    "resetToDefaults": "Сбросить к умолчаниям",
+    "resetToProfileDefaults": "Сбросить к умолчаниям {{profile}}",
+    "customized": "Настроено",
+    "phaseConfigNote": "Эти настройки будут использоваться по умолчанию при создании новых задач с этим профилем. Вы можете переопределить их для конкретной задачи в мастере создания.",
+    "phases": {
+      "spec": {
+        "label": "Создание спецификации",
+        "description": "Исследование, требования, сбор контекста"
+      },
+      "planning": {
+        "label": "Планирование",
+        "description": "Планирование реализации и архитектура"
+      },
+      "coding": {
+        "label": "Написание кода",
+        "description": "Реализация кода"
+      },
+      "qa": {
+        "label": "QA-проверка",
+        "description": "Обеспечение качества и валидация"
+      }
+    }
+  },
+  "workspace": {
+    "roles": {
+      "backend": "Бэкенд",
+      "frontend": "Фронтенд",
+      "mobile": "Мобильный",
+      "shared": "Общий",
+      "apiGateway": "API Gateway",
+      "worker": "Воркер",
+      "other": "Другое"
+    }
+  },
+  "integrations": {
+    "title": "Интеграции",
+    "description": "Управление аккаунтами Claude и API-ключами",
+    "claudeAccounts": "Аккаунты Claude",
+    "claudeAccountsDescription": "Добавьте несколько подписок Claude для автоматического переключения при достижении лимитов.",
+    "noAccountsYet": "Аккаунты ещё не настроены",
+    "default": "По умолчанию",
+    "active": "Активный",
+    "authenticated": "Авторизован",
+    "needsAuth": "Требует авторизации",
+    "authenticate": "Авторизовать",
+    "authenticating": "Авторизация...",
+    "setActive": "Сделать активным",
+    "manualTokenEntry": "Ручной ввод токена",
+    "runSetupToken": "Запустите claude и введите /login для авторизации",
+    "tokenPlaceholder": "sk-ant-oat01-...",
+    "emailPlaceholder": "Email (необязательно, для отображения)",
+    "saveToken": "Сохранить токен",
+    "accountNamePlaceholder": "Имя аккаунта (напр., Работа, Личный)",
+    "autoSwitching": "Автоматическое переключение аккаунтов",
+    "autoSwitchingDescription": "Автоматическое переключение между аккаунтами Claude для избежания прерываний. Настройте проактивный мониторинг для переключения до достижения лимитов.",
+    "enableAutoSwitching": "Включить автоматическое переключение",
+    "masterSwitch": "Главный переключатель для всех функций автопереключения",
+    "proactiveMonitoring": "Проактивный мониторинг",
+    "proactiveDescription": "Регулярно проверять использование и переключаться до достижения лимитов",
+    "checkUsageEvery": "Проверять использование каждые",
+    "seconds15": "15 секунд",
+    "seconds30": "30 секунд (рекомендуется)",
+    "minute1": "1 минута",
+    "disabled": "Отключено",
+    "sessionThreshold": "Порог использования сессии",
+    "sessionThresholdDescription": "Переключаться при достижении этого уровня использования сессии (рекомендуется: 95%)",
+    "weeklyThreshold": "Порог недельного использования",
+    "weeklyThresholdDescription": "Переключаться при достижении этого уровня недельного использования (рекомендуется: 99%)",
+    "reactiveRecovery": "Реактивное восстановление",
+    "reactiveDescription": "Автопереключение при неожиданном достижении лимита",
+    "apiKeys": "API-ключи",
+    "apiKeysInfo": "Ключи, установленные здесь, используются по умолчанию. Отдельные проекты могут переопределить их в своих настройках.",
+    "openaiKey": "API-ключ OpenAI",
+    "openaiKeyDescription": "Требуется для бэкенда памяти Graphiti (эмбеддинги)",
+    "toast": {
+      "authSuccess": "Профиль авторизован",
+      "authSuccessWithEmail": "Подключено как {{email}}",
+      "authSuccessGeneric": "Авторизация завершена. Теперь вы можете использовать этот профиль.",
+      "authStartFailed": "Авторизация не удалась",
+      "addProfileFailed": "Не удалось добавить профиль",
+      "loadProfilesFailed": "Не удалось загрузить профили",
+      "deleteProfileFailed": "Не удалось удалить профиль",
+      "renameProfileFailed": "Не удалось переименовать профиль",
+      "setActiveProfileFailed": "Не удалось установить активный профиль",
+      "profileCreatedAuthFailed": "Профиль создан - требуется авторизация",
+      "profileCreatedAuthFailedDescription": "Профиль добавлен, но авторизация не могла быть запущена. Нажмите кнопку входа для авторизации.",
+      "tokenSaved": "Токен сохранён",
+      "tokenSavedDescription": "Ваш токен успешно сохранён.",
+      "tokenSaveFailed": "Не удалось сохранить токен",
+      "settingsUpdateFailed": "Не удалось обновить настройки",
+      "tryAgain": "Попробуйте снова.",
+      "terminalCreationFailed": "Не удалось создать терминал авторизации",
+      "terminalCreationFailedDescription": "Невозможно запустить процесс авторизации. {{error}}",
+      "maxTerminalsReached": "Достигнут лимит терминалов",
+      "maxTerminalsReachedDescription": "Закройте некоторые терминалы и попробуйте снова. Максимум 12 терминалов.",
+      "terminalError": "Ошибка терминала",
+      "terminalErrorDescription": "Не удалось создать терминал: {{error}}",
+      "authProcessFailed": "Процесс авторизации не удалось запустить",
+      "authProcessFailedDescription": "Терминал авторизации не удалось создать. Попробуйте снова или проверьте логи."
+    },
+    "alerts": {
+      "profileCreatedAuthFailed": "Профиль создан, но не удалось подготовить авторизацию: {{error}}",
+      "authPrepareFailed": "Не удалось подготовить авторизацию: {{error}}",
+      "authStartFailedMessage": "Не удалось начать авторизацию. Попробуйте снова."
+    }
+  },
+  "debug": {
+    "title": "Отладка и логи",
+    "description": "Доступ к логам и отладочной информации для диагностики",
+    "errorReporting": {
+      "label": "Анонимные отчёты об ошибках",
+      "description": "Отправлять отчёты о сбоях для улучшения Auto Claude. Личные данные и код не собираются."
+    },
+    "openLogsFolder": "Открыть папку логов",
+    "copyDebugInfo": "Копировать отладочную информацию",
+    "copied": "Скопировано!",
+    "loadInfo": "Загрузить отладочную информацию",
+    "systemInfo": "Системная информация",
+    "logsLocation": "Расположение логов",
+    "recentErrors": "Недавние ошибки",
+    "noRecentErrors": "Нет недавних ошибок",
+    "helpTitle": "Сообщение о проблемах",
+    "helpText": "При сообщении о багах нажмите \"Копировать отладочную информацию\" для получения системной информации и недавних ошибок, которые помогут нам диагностировать проблему."
+  },
+  "projectSettings": {
+    "noProjectSelected": {
+      "title": "Проект не выбран",
+      "description": "Выберите проект в боковой панели для настройки его параметров."
+    }
+  },
+  "mcp": {
+    "title": "Обзор MCP-серверов",
+    "titleWithProject": "Обзор MCP-серверов для {{projectName}}",
+    "description": "Настройте доступные MCP-серверы для агентов в этом проекте",
+    "descriptionNoProject": "Выберите проект для настройки MCP-серверов",
+    "serversEnabled": "{{count}} серверов включено",
+    "configuration": "Настройка MCP-серверов",
+    "configurationHint": "Отключённые серверы уменьшают использование контекста и время запуска",
+    "noProjectSelected": "Проект не выбран",
+    "noProjectSelectedDescription": "Выберите проект из выпадающего списка для просмотра и настройки MCP-серверов.",
+    "projectNotInitialized": "Проект не инициализирован",
+    "projectNotInitializedDescription": "Инициализируйте Auto Claude для этого проекта для настройки MCP-серверов.",
+    "browserAutomation": "Автоматизация браузера (только QA-агенты)",
+    "alwaysEnabled": "всегда включено",
+    "addServer": "Добавить сервер",
+    "addMcpTo": "Добавить MCP-сервер к {{agent}}",
+    "addMcpDescription": "Выберите MCP-сервер для добавления к этому агенту",
+    "allMcpsAdded": "Все доступные MCP-серверы уже добавлены",
+    "added": "добавлен",
+    "removed": "удалён",
+    "remove": "Удалить",
+    "restore": "Восстановить",
+    "noMcpServers": "Нет MCP-серверов",
+    "cannotRemove": "Нельзя удалить (обязательный)",
+    "servers": {
+      "context7": {
+        "name": "Context7",
+        "description": "Поиск документации для библиотек"
+      },
+      "graphiti": {
+        "name": "Graphiti Memory",
+        "description": "Граф знаний для межсессионного контекста",
+        "notConfigured": "Требуется настройка памяти (см. настройки Памяти)"
+      },
+      "linear": {
+        "name": "Linear",
+        "description": "Интеграция управления проектами",
+        "notConfigured": "Требуется интеграция Linear (см. настройки Linear)"
+      },
+      "electron": {
+        "name": "Electron",
+        "description": "Автоматизация десктопных приложений через Chrome DevTools"
+      },
+      "puppeteer": {
+        "name": "Puppeteer",
+        "description": "Автоматизация веб-браузера для тестирования"
+      },
+      "autoClaude": {
+        "name": "Auto-Claude Tools",
+        "description": "Отслеживание прогресса сборки"
+      }
+    },
+    "customServers": "Пользовательские серверы",
+    "addCustomServer": "Добавить пользовательский сервер",
+    "editCustomServer": "Редактировать пользовательский сервер",
+    "customServerDescription": "Добавьте MCP-сервер на основе команды или HTTP",
+    "serverType": "Тип сервера",
+    "typeCommand": "Команда (npx/npm)",
+    "typeHttp": "HTTP",
+    "serverName": "Имя",
+    "serverNamePlaceholder": "Мой MCP-сервер",
+    "serverDescription": "Описание",
+    "serverDescriptionPlaceholder": "Что делает этот сервер",
+    "command": "Команда",
+    "args": "Аргументы",
+    "argsHint": "Аргументы через пробел",
+    "url": "URL",
+    "headers": "Заголовки",
+    "headerName": "Имя заголовка",
+    "headerValue": "Значение заголовка",
+    "noCustomServers": "Пользовательские серверы не настроены. Добавьте один для использования с вашими агентами.",
+    "errorNameRequired": "Имя сервера обязательно",
+    "errorIdExists": "Сервер с таким ID уже существует",
+    "errorCommandRequired": "Команда обязательна для серверов на основе команд",
+    "errorUrlRequired": "URL обязателен для HTTP-серверов",
+    "testConnection": "Тест",
+    "testing": "Тестирование...",
+    "authToken": "Токен авторизации",
+    "authTokenPlaceholder": "Вставьте ваш API-токен или PAT здесь",
+    "authTokenHint": "Используется как Bearer-токен в заголовке Authorization",
+    "advancedHeaders": "Дополнительные заголовки",
+    "status": {
+      "healthy": "Сервер отвечает",
+      "unhealthy": "Сервер не отвечает",
+      "needsAuth": "Требуется авторизация",
+      "checking": "Проверка...",
+      "unknown": "Статус неизвестен"
+    },
+    "hints": {
+      "github": "Похоже на MCP-сервер GitHub. Вам понадобится Personal Access Token с соответствующими правами.",
+      "createGithubPat": "Создать GitHub PAT",
+      "google": "Похоже на Google API. Вам понадобится OAuth-токен или API-ключ.",
+      "createGoogleToken": "Создать учётные данные Google",
+      "anthropic": "Похоже на Anthropic API. Вам понадобится API-ключ.",
+      "createAnthropicKey": "Создать API-ключ Anthropic",
+      "openai": "Похоже на OpenAI API. Вам понадобится API-ключ.",
+      "createOpenaiKey": "Создать API-ключ OpenAI"
+    }
+  }
+}

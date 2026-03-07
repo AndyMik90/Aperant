@@ -1,0 +1,9 @@
+{
+  "task": {
+    "parseImplementationPlan": "Не удалось разобрать implementation_plan.json для {{specId}}: {{error}}",
+    "jsonError": {
+      "titleSuffix": "(Ошибка JSON)",
+      "description": "Ошибка разбора JSON: {{error}}\n\nФайл implementation_plan.json повреждён. Запустите автоисправление бэкенда или исправьте файл вручную."
+    }
+  }
+}

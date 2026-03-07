@@ -1,0 +1,83 @@
+{
+  "terminal": {
+    "openTerminal": "Открыть терминал",
+    "openInbuilt": "Открыть во встроенном терминале",
+    "openExternal": "Открыть во внешнем терминале"
+  },
+  "merge": {
+    "branchHasNewCommits": "Ветка {{branch}} имеет {{count}} новый коммит.",
+    "branchHasNewCommits_other": "Ветка {{branch}} имеет {{count}} новых коммитов.",
+    "branchHasNewCommitsSinceWorktree": "Ветка {{branch}} имеет {{count}} новый коммит с момента создания этого рабочего дерева.",
+    "branchHasNewCommitsSinceWorktree_other": "Ветка {{branch}} имеет {{count}} новых коммитов с момента создания этого рабочего дерева.",
+    "filesNeedMerging": "{{count}} файл требует слияния.",
+    "filesNeedMerging_other": "{{count}} файлов требуют слияния.",
+    "filesNeedIntelligentMerging": "{{count}} файл потребует интеллектуального слияния:",
+    "filesNeedIntelligentMerging_other": "{{count}} файлов потребуют интеллектуального слияния:",
+    "branchHasNewCommitsSinceBuild": "Ветка {{branch}} имеет {{count}} новый коммит с начала этой сборки.",
+    "branchHasNewCommitsSinceBuild_other": "Ветка {{branch}} имеет {{count}} новых коммитов с начала этой сборки.",
+    "filesNeedAIMergeDueToRenames": "{{count}} файл требует AI-слияния из-за {{renameCount}} переименования.",
+    "filesNeedAIMergeDueToRenames_other": "{{count}} файлов требуют AI-слияния из-за {{renameCount}} переименований.",
+    "filesNeedAIMergeDueToRenamesPlural": "{{count}} файл требует AI-слияния из-за {{renameCount}} переименований.",
+    "filesNeedAIMergeDueToRenamesPlural_other": "{{count}} файлов требуют AI-слияния из-за {{renameCount}} переименований.",
+    "fileRenamesDetected": "Обнаружено {{count}} переименование файла - AI выполнит слияние.",
+    "fileRenamesDetected_other": "Обнаружено {{count}} переименований файлов - AI выполнит слияние.",
+    "filesRenamedOrMoved": "Файлы могли быть переименованы или перемещены - AI выполнит слияние.",
+    "buttons": {
+      "stageWithAIMerge": "Подготовить с AI-слиянием",
+      "mergeWithAI": "Слить с AI",
+      "stageTo": "Подготовить в {{branch}}",
+      "mergeTo": "Слить в {{branch}}",
+      "resolving": "Разрешение...",
+      "staging": "Подготовка...",
+      "merging": "Слияние..."
+    }
+  },
+  "pr": {
+    "title": "Создать Pull Request",
+    "description": "Отправить ветку и создать pull request для \"{{taskTitle}}\"",
+    "errors": {
+      "unknown": "Произошла неизвестная ошибка при создании pull request",
+      "invalidBranchName": "Имя ветки содержит недопустимые символы. Используйте только буквы, цифры, дефисы (-), подчёркивания (_) и косые черты (/).",
+      "emptyTitle": "Название pull request не может быть пустым."
+    },
+    "success": {
+      "created": "Pull request успешно создан!",
+      "alreadyExists": "Pull request для этой ветки уже существует"
+    },
+    "actions": {
+      "retry": "Повторить",
+      "creating": "Создание PR...",
+      "create": "Создать Pull Request"
+    },
+    "labels": {
+      "sourceBranch": "Исходная ветка",
+      "targetBranch": "Целевая ветка",
+      "commits": "Коммиты",
+      "changes": "Изменения",
+      "prTitle": "Название PR (необязательно)",
+      "draftPR": "Создать как черновик PR",
+      "unknown": "Неизвестно"
+    },
+    "hints": {
+      "targetBranch": "Оставьте пустым для использования ветки по умолчанию",
+      "prTitle": "Оставьте пустым для использования названия задачи"
+    }
+  },
+  "bulkPR": {
+    "title": "Создать Pull Requests",
+    "description": "Создать pull requests для {{count}} выбранных задач",
+    "creating": "Создание PR {{current}} из {{total}}...",
+    "creatingPR": "Создание PR {{current}} из {{total}}",
+    "resultsDescription": "{{success}} успешно, {{failed}} неудачно",
+    "tasksToProcess": "Задачи для обработки",
+    "targetBranchHint": "Оставьте пустым для использования ветки по умолчанию каждой задачи. Это будет применено ко всем PR.",
+    "createAll": "Создать {{count}} PR",
+    "completed": "завершено",
+    "succeeded": "успешно",
+    "failed": "неудачно",
+    "skipped": "пропущено",
+    "alreadyExisted": "уже существует",
+    "noWorktree": "Рабочее дерево для этой задачи не найдено",
+    "resultsDescriptionWithSkipped": "{{success}} успешно, {{skipped}} пропущено, {{failed}} неудачно"
+  }
+}

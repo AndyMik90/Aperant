@@ -1,0 +1,83 @@
+{
+  "sections": {
+    "project": "Проект",
+    "tools": "Инструменты"
+  },
+  "items": {
+    "kanban": "Канбан-доска",
+    "terminals": "Терминалы агентов",
+    "insights": "Аналитика",
+    "roadmap": "Дорожная карта",
+    "ideation": "Идеи",
+    "changelog": "История изменений",
+    "context": "Контекст",
+    "githubIssues": "GitHub Issues",
+    "githubPRs": "GitHub PRs",
+    "gitlabIssues": "GitLab Issues",
+    "gitlabMRs": "GitLab MRs",
+    "worktrees": "Рабочие деревья",
+    "agentTools": "Обзор MCP"
+  },
+  "actions": {
+    "settings": "Настройки",
+    "help": "Помощь и обратная связь",
+    "newTask": "Новая задача"
+  },
+  "tooltips": {
+    "settings": "Настройки приложения",
+    "help": "Помощь и обратная связь"
+  },
+  "messages": {
+    "initializeToCreateTasks": "Инициализируйте Auto Claude для создания задач"
+  },
+  "updateBanner": {
+    "title": "Доступно обновление",
+    "version": "Версия {{version}} готова",
+    "updateAndRestart": "Обновить и перезапустить",
+    "installAndRestart": "Установить и перезапустить",
+    "downloading": "Загрузка...",
+    "dismiss": "Закрыть",
+    "downloadError": "Не удалось загрузить обновление"
+  },
+  "claudeCode": {
+    "checking": "Проверка Claude Code...",
+    "upToDate": "Claude Code обновлён",
+    "updateAvailable": "Доступно обновление Claude Code",
+    "notInstalled": "Claude Code не установлен",
+    "error": "Ошибка проверки Claude Code",
+    "installed": "Установлен",
+    "outdated": "Доступно обновление",
+    "missing": "Не установлен",
+    "current": "Текущая",
+    "latest": "Последняя",
+    "path": "Путь",
+    "lastChecked": "Последняя проверка",
+    "learnMore": "Узнать больше о Claude Code",
+    "learnMoreAriaLabel": "Узнать больше о Claude Code (откроется в новом окне)",
+    "viewChangelog": "Посмотреть историю изменений Claude Code",
+    "viewChangelogAriaLabel": "Посмотреть историю изменений Claude Code (откроется в новом окне)",
+    "updateWarningTitle": "Обновить Claude Code?",
+    "updateWarningDescription": "Обновление закроет все запущенные сессии Claude Code. Несохранённая работа в этих сессиях может быть потеряна. Сохраните работу перед продолжением.",
+    "updateWarningTerminalNote": "Откроется окно терминала для запуска команды установки. Дождитесь завершения установки.",
+    "updateAnyway": "Открыть терминал и обновить",
+    "switchVersion": "Сменить версию",
+    "selectVersion": "Выберите версию",
+    "loadingVersions": "Загрузка версий...",
+    "failedToLoadVersions": "Не удалось загрузить версии",
+    "installingVersion": "Установка версии {{version}}...",
+    "rollbackWarningTitle": "Переключиться на версию {{version}}?",
+    "rollbackWarningDescription": "Смена версии закроет все запущенные сессии Claude Code. Несохранённая работа может быть потеряна. Сохраните работу перед продолжением.",
+    "rollbackWarningTerminalNote": "Откроется окно терминала для запуска команды установки. Дождитесь завершения.",
+    "switchAnyway": "Открыть терминал и переключить",
+    "currentVersion": "Текущая",
+    "switchInstallation": "Сменить установку",
+    "selectInstallation": "Выберите установку",
+    "loadingInstallations": "Загрузка установок...",
+    "failedToLoadInstallations": "Не удалось загрузить установки",
+    "activeInstallation": "Активная",
+    "pathChangeWarningTitle": "Сменить установку CLI?",
+    "pathChangeWarningDescription": "Смена установки CLI будет использовать другой бинарник Claude Code. Запущенные сессии продолжат использовать предыдущую установку до перезапуска.",
+    "switchInstallationConfirm": "Переключить",
+    "versionUnknown": "версия неизвестна"
+  }
+}
