@@ -20,8 +20,10 @@ import type {
   ClaudeProfileSettings,
   ClaudeUsageData,
   ClaudeRateLimitEvent,
-  ClaudeAutoSwitchSettings
+  ClaudeAutoSwitchSettings,
+  APIProfile
 } from '../shared/types';
+import type { UnifiedAccount } from '../shared/types/unified-account';
 
 // Module imports
 import { encryptToken, decryptToken } from './claude-profile/token-encryption';
@@ -32,7 +34,6 @@ import {
   clearRateLimitEvents as clearRateLimitEventsImpl
 } from './claude-profile/rate-limit-manager';
 import {
-  loadProfileStore,
   loadProfileStoreAsync,
   saveProfileStore,
   ProfileStoreData,
@@ -41,9 +42,11 @@ import {
 import {
   getBestAvailableProfile,
   shouldProactivelySwitch as shouldProactivelySwitchImpl,
-  getProfilesSortedByAvailability as getProfilesSortedByAvailabilityImpl
+  getProfilesSortedByAvailability as getProfilesSortedByAvailabilityImpl,
+  getBestAvailableUnifiedAccount
 } from './claude-profile/profile-scorer';
-import { getCredentialsFromKeychain } from './claude-profile/credential-utils';
+import { getCredentialsFromKeychain, normalizeWindowsPath, updateProfileSubscriptionMetadata } from './claude-profile/credential-utils';
+import { loadProfilesFile } from './services/profile/profile-manager';
 import {
   CLAUDE_PROFILES_DIR,
   generateProfileId as generateProfileIdImpl,
@@ -53,6 +56,7 @@ import {
   expandHomePath,
   getEmailFromConfigDir
 } from './claude-profile/profile-utils';
+import { debugLog } from '../shared/utils/debug-logger';
 
 /**
  * Manages Claude Code profiles for multi-account support.
@@ -83,6 +87,8 @@ export class ClaudeProfileManager {
       return;
     }
 
+    console.log('[ClaudeProfileManager] Starting initialization...');
+
     // Ensure directory exists (async) - mkdir with recursive:true is idempotent
     await mkdir(this.configDir, { recursive: true });
 
@@ -90,13 +96,21 @@ export class ClaudeProfileManager {
     const loadedData = await loadProfileStoreAsync(this.storePath);
     if (loadedData) {
       this.data = loadedData;
+      debugLog('[ClaudeProfileManager] Loaded profile store with', this.data.profiles.length, 'profiles');
+    } else {
+      debugLog('[ClaudeProfileManager] No existing profile store found, using defaults');
     }
 
     // Run one-time migration to fix corrupted emails
     // This repairs emails that were truncated due to ANSI escape codes in terminal output
     this.migrateCorruptedEmails();
 
+    // Populate missing subscription metadata for existing profiles
+    // This reads subscriptionType and rateLimitTier from Keychain credentials
+    this.populateSubscriptionMetadata();
+
     this.initialized = true;
+    console.log('[ClaudeProfileManager] Initialization complete');
   }
 
   /**
@@ -134,35 +148,69 @@ export class ClaudeProfileManager {
   }
 
   /**
+   * Populate missing subscription metadata (subscriptionType, rateLimitTier) for existing profiles.
+   *
+   * This reads from Keychain credentials and updates profiles that don't have this metadata.
+   * Runs on initialization to ensure existing profiles get the subscription info for UI display.
+   */
+  private populateSubscriptionMetadata(): void {
+    let needsSave = false;
+
+    debugLog('[ClaudeProfileManager] populateSubscriptionMetadata: checking', this.data.profiles.length, 'profiles');
+
+    for (const profile of this.data.profiles) {
+      if (!profile.configDir) {
+        debugLog('[ClaudeProfileManager] populateSubscriptionMetadata: skipping profile', profile.id, '(no configDir)');
+        continue;
+      }
+
+      // Skip if profile already has subscription metadata
+      if (profile.subscriptionType && profile.rateLimitTier) {
+        debugLog('[ClaudeProfileManager] populateSubscriptionMetadata: profile', profile.id, 'already has metadata:', {
+          subscriptionType: profile.subscriptionType,
+          rateLimitTier: profile.rateLimitTier
+        });
+        continue;
+      }
+
+      // Expand ~ to home directory
+      const expandedConfigDir = normalizeWindowsPath(
+        profile.configDir.startsWith('~')
+          ? profile.configDir.replace(/^~/, homedir())
+          : profile.configDir
+      );
+
+      // Use helper with onlyIfMissing option to preserve existing values
+      const result = updateProfileSubscriptionMetadata(profile, expandedConfigDir, { onlyIfMissing: true });
+
+      if (result.subscriptionTypeUpdated) {
+        needsSave = true;
+        console.warn('[ClaudeProfileManager] Populated subscriptionType for profile:', {
+          profileId: profile.id,
+          subscriptionType: result.subscriptionType
+        });
+      }
+
+      if (result.rateLimitTierUpdated) {
+        needsSave = true;
+        console.warn('[ClaudeProfileManager] Populated rateLimitTier for profile:', {
+          profileId: profile.id,
+          rateLimitTier: result.rateLimitTier
+        });
+      }
+    }
+
+    if (needsSave) {
+      this.save();
+      console.warn('[ClaudeProfileManager] Subscription metadata population complete');
+    }
+  }
+
+  /**
    * Check if the profile manager has been initialized
    */
   isInitialized(): boolean {
     return this.initialized;
-  }
-
-  /**
-   * Load profiles from disk
-   */
-  private load(): ProfileStoreData {
-    const loadedData = loadProfileStore(this.storePath);
-    if (loadedData) {
-      if (process.env.DEBUG === 'true') {
-        console.warn('[ClaudeProfileManager] Loaded profiles:', {
-          count: loadedData.profiles.length,
-          activeProfileId: loadedData.activeProfileId,
-          profiles: loadedData.profiles.map(p => ({
-            id: p.id,
-            name: p.name,
-            email: p.email,
-            isDefault: p.isDefault
-          }))
-        });
-      }
-      return loadedData;
-    }
-
-    // Return default with a single "Default" profile
-    return this.createDefaultData();
   }
 
   /**
@@ -498,15 +546,37 @@ export class ClaudeProfileManager {
     // This prevents interference with external Claude Code CLI usage
     if (profile?.configDir) {
       // Expand ~ to home directory for the environment variable
-      const expandedConfigDir = profile.configDir.startsWith('~')
-        ? profile.configDir.replace(/^~/, homedir())
-        : profile.configDir;
+      const expandedConfigDir = normalizeWindowsPath(
+        profile.configDir.startsWith('~')
+          ? profile.configDir.replace(/^~/, homedir())
+          : profile.configDir
+      );
+
       env.CLAUDE_CONFIG_DIR = expandedConfigDir;
       if (process.env.DEBUG === 'true') {
         console.warn('[ClaudeProfileManager] Using CLAUDE_CONFIG_DIR for profile:', profile.name, expandedConfigDir);
       }
-    } else {
-      console.warn('[ClaudeProfileManager] Profile has no configDir configured:', profile?.name);
+    } else if (profile) {
+      // Fallback: retrieve OAuth token directly from Keychain when configDir is missing.
+      // Without configDir, Claude CLI cannot resolve credentials automatically,
+      // so we inject CLAUDE_CODE_OAUTH_TOKEN as a direct override.
+      debugLog(
+        '[ClaudeProfileManager] Profile has no configDir configured:',
+        profile.name,
+        '- falling back to Keychain token lookup. Subscription display may be degraded.'
+      );
+
+      const credentials = getCredentialsFromKeychain(undefined, true);
+      if (credentials.token) {
+        env.CLAUDE_CODE_OAUTH_TOKEN = credentials.token;
+        debugLog('[ClaudeProfileManager] Injected CLAUDE_CODE_OAUTH_TOKEN from Keychain for profile:', profile.name);
+      } else {
+        debugLog(
+          '[ClaudeProfileManager] No token found in Keychain for profile without configDir:',
+          profile.name,
+          credentials.error ? `(error: ${credentials.error})` : ''
+        );
+      }
     }
 
     return env;
@@ -634,6 +704,57 @@ export class ClaudeProfileManager {
   }
 
   /**
+   * Load API profiles from profiles.json with error handling
+   * Shared helper to avoid duplication across methods
+   */
+  private async loadProfilesFileSafe(): Promise<{ profiles: APIProfile[]; activeProfileId?: string }> {
+    try {
+      const file = await loadProfilesFile();
+      return { profiles: file.profiles, activeProfileId: file.activeProfileId ?? undefined };
+    } catch (error) {
+      console.error('[ClaudeProfileManager] Failed to load profiles file:', error);
+      return { profiles: [] };
+    }
+  }
+
+  /**
+   * Load API profiles from profiles.json
+   * Used by the unified account selection to consider API profiles as fallback
+   */
+  async loadAPIProfiles(): Promise<APIProfile[]> {
+    const { profiles } = await this.loadProfilesFileSafe();
+    return profiles;
+  }
+
+  /**
+   * Get the best available unified account from both OAuth and API profiles
+   * This enables cross-type account switching when OAuth profiles are exhausted
+   *
+   * @param excludeAccountId - Unified account ID to exclude (e.g., 'oauth-profile1')
+   * @returns The best available UnifiedAccount, or null if none available
+   */
+  async getBestAvailableUnifiedAccount(excludeAccountId?: string): Promise<UnifiedAccount | null> {
+    const settings = this.getAutoSwitchSettings();
+    const priorityOrder = this.getAccountPriorityOrder();
+    const activeOAuthId = this.data.activeProfileId;
+
+    // Load API profiles and active API profile ID from profiles.json
+    const { profiles: apiProfiles, activeProfileId: activeAPIId } = await this.loadProfilesFileSafe();
+
+    return getBestAvailableUnifiedAccount(
+      this.data.profiles,
+      apiProfiles,
+      settings,
+      {
+        excludeAccountId,
+        priorityOrder,
+        activeOAuthId,
+        activeAPIId
+      }
+    );
+  }
+
+  /**
    * Determine if we should proactively switch profiles based on current usage
    */
   shouldProactivelySwitch(profileId: string): { shouldSwitch: boolean; reason?: string; suggestedProfile?: ClaudeProfile } {
@@ -713,15 +834,35 @@ export class ClaudeProfileManager {
       return {};
     }
 
-    // If no configDir is defined, fall back to default
     if (!profile.configDir) {
+      // Fallback: retrieve OAuth token directly from Keychain when configDir is missing.
+      // Without configDir, Claude CLI cannot resolve credentials automatically,
+      // so we inject CLAUDE_CODE_OAUTH_TOKEN as a direct override.
+      // This mirrors the fallback in getActiveProfileEnv().
+      debugLog(
+        '[ClaudeProfileManager] getProfileEnv: profile has no configDir:',
+        profile.name,
+        '- falling back to Keychain token lookup.'
+      );
+
+      const credentials = getCredentialsFromKeychain(undefined, true);
+      if (credentials.token) {
+        debugLog('[ClaudeProfileManager] getProfileEnv: injected CLAUDE_CODE_OAUTH_TOKEN from Keychain for profile:', profile.name);
+        return { CLAUDE_CODE_OAUTH_TOKEN: credentials.token };
+      }
+      debugLog(
+        '[ClaudeProfileManager] getProfileEnv: no token found in Keychain for profile without configDir:',
+        profile.name
+      );
       return {};
     }
 
     // Expand ~ to home directory for the environment variable
-    const expandedConfigDir = profile.configDir.startsWith('~')
-      ? profile.configDir.replace(/^~/, require('os').homedir())
-      : profile.configDir;
+    const expandedConfigDir = normalizeWindowsPath(
+      profile.configDir.startsWith('~')
+        ? profile.configDir.replace(/^~/, require('os').homedir())
+        : profile.configDir
+    );
 
     if (process.env.DEBUG === 'true') {
       console.warn('[ClaudeProfileManager] getProfileEnv:', {

@@ -40,6 +40,8 @@ class ServiceAnalyzer(BaseAnalyzer):
         self._find_key_directories()
         self._find_entry_points()
         self._detect_dependencies()
+        self._detect_dependency_locations()
+        self._detect_package_manager()
         self._detect_testing()
         self._find_dockerfile()
 
@@ -208,6 +210,121 @@ class ServiceAnalyzer(BaseAnalyzer):
                     if match:
                         deps.append(match.group(1))
             self.analysis["dependencies"] = deps[:20]
+
+    def _detect_dependency_locations(self) -> None:
+        """Detect where dependencies live on disk for this service."""
+        locations: list[dict[str, Any]] = []
+
+        # Node.js: node_modules (only if package.json exists)
+        if self._exists("package.json"):
+            node_modules = self.path / "node_modules"
+            locations.append(
+                {
+                    "type": "node_modules",
+                    "path": "node_modules",
+                    "exists": node_modules.exists() and node_modules.is_dir(),
+                }
+            )
+
+        # Python: .venv or venv
+        for venv_dir in [".venv", "venv"]:
+            venv_path = self.path / venv_dir
+            if venv_path.exists() and venv_path.is_dir():
+                entry: dict[str, Any] = {
+                    "type": "venv",
+                    "path": venv_dir,
+                    "exists": True,
+                }
+                # Find requirements file
+                for req_file in ["requirements.txt", "pyproject.toml", "Pipfile"]:
+                    if self._exists(req_file):
+                        entry["requirements_file"] = req_file
+                        break
+                locations.append(entry)
+                break
+        else:
+            # No venv found, still record requirements file if present
+            for req_file in ["requirements.txt", "pyproject.toml", "Pipfile"]:
+                if self._exists(req_file):
+                    locations.append(
+                        {
+                            "type": "venv",
+                            "path": ".venv",
+                            "exists": False,
+                            "requirements_file": req_file,
+                        }
+                    )
+                    break
+
+        # PHP: vendor
+        vendor_path = self.path / "vendor"
+        if vendor_path.exists() and vendor_path.is_dir():
+            locations.append(
+                {
+                    "type": "vendor_php",
+                    "path": "vendor",
+                    "exists": True,
+                }
+            )
+
+        # Rust: target
+        target_path = self.path / "target"
+        if target_path.exists() and target_path.is_dir():
+            locations.append(
+                {
+                    "type": "cargo_target",
+                    "path": "target",
+                    "exists": True,
+                }
+            )
+
+        # Ruby: vendor/bundle
+        bundle_path = self.path / "vendor" / "bundle"
+        if bundle_path.exists() and bundle_path.is_dir():
+            locations.append(
+                {
+                    "type": "vendor_bundle",
+                    "path": "vendor/bundle",
+                    "exists": True,
+                }
+            )
+
+        self.analysis["dependency_locations"] = locations
+
+    def _detect_package_manager(self) -> None:
+        """Detect the package manager used by this service."""
+        # Node.js package managers
+        if self._exists("package-lock.json"):
+            self.analysis["package_manager"] = "npm"
+        elif self._exists("yarn.lock"):
+            self.analysis["package_manager"] = "yarn"
+        elif self._exists("pnpm-lock.yaml"):
+            self.analysis["package_manager"] = "pnpm"
+        elif self._exists("bun.lockb") or self._exists("bun.lock"):
+            self.analysis["package_manager"] = "bun"
+        # Python package managers
+        elif self._exists("Pipfile"):
+            self.analysis["package_manager"] = "pipenv"
+        elif self._exists("pyproject.toml"):
+            if self._exists("uv.lock"):
+                self.analysis["package_manager"] = "uv"
+            elif self._exists("poetry.lock"):
+                self.analysis["package_manager"] = "poetry"
+            else:
+                self.analysis["package_manager"] = "pip"
+        elif self._exists("requirements.txt"):
+            self.analysis["package_manager"] = "pip"
+        # Other
+        elif self._exists("Cargo.toml"):
+            self.analysis["package_manager"] = "cargo"
+        elif self._exists("go.mod"):
+            self.analysis["package_manager"] = "go_mod"
+        elif self._exists("Gemfile"):
+            self.analysis["package_manager"] = "gem"
+        elif self._exists("composer.json"):
+            self.analysis["package_manager"] = "composer"
+        else:
+            self.analysis["package_manager"] = None
 
     def _detect_testing(self) -> None:
         """Detect testing framework and configuration."""

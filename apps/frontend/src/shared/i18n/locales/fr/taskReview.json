@@ -22,6 +22,29 @@
     "fileRenamesDetected": "{{count}} renommage de fichier détecté - l'IA gérera la fusion.",
     "fileRenamesDetected_other": "{{count}} renommages de fichiers détectés - l'IA gérera la fusion.",
     "filesRenamedOrMoved": "Des fichiers ont peut-être été renommés ou déplacés - l'IA gérera la fusion.",
+    "alreadyMergedTitle": "Modifications déjà dans votre branche",
+    "alreadyMergedDescription": "Ces modifications semblent déjà exister dans votre branche actuelle. Vous pouvez marquer cette tâche comme terminée en toute sécurité.",
+    "alreadyMergedTooltip": "Les modifications de la tâche sont déjà présentes dans votre branche. Marquer comme terminé nettoiera le worktree sans fusionner.",
+    "matchingFiles": "Fichiers correspondants",
+    "supersededTitle": "Modifications remplacées",
+    "supersededDescription": "Votre branche actuelle a une version plus récente de ces modifications. Envisagez de supprimer cette tâche ou de voir la comparaison.",
+    "supersededCompareTooltip": "Voir une comparaison détaillée pour voir comment la branche actuelle diffère des modifications de cette tâche.",
+    "supersededDiscardTooltip": "Supprimer le worktree de cette tâche puisque les modifications ne sont plus nécessaires.",
+    "status": {
+      "branchDiverged": "Branche divergée",
+      "aiWillResolve": "L'IA résoudra",
+      "filesRenamed": "Fichiers renommés",
+      "branchBehind": "Branche en retard",
+      "readyToMerge": "Prêt à fusionner",
+      "files": "fichiers",
+      "file": "fichier",
+      "conflict": "conflit",
+      "conflicts": "conflits",
+      "details": "Détails",
+      "refresh": "Actualiser",
+      "stageOnly": "Préparer seulement (réviser dans l'IDE avant de commiter)",
+      "discardBuild": "Supprimer le build"
+    },
     "buttons": {
       "stageWithAIMerge": "Préparer avec fusion IA",
       "mergeWithAI": "Fusionner avec IA",
@@ -29,7 +52,13 @@
       "mergeTo": "Fusionner vers {{branch}}",
       "resolving": "Résolution...",
       "staging": "Préparation...",
-      "merging": "Fusion..."
+      "merging": "Fusion...",
+      "completing": "Finalisation..."
+    },
+    "actions": {
+      "markAsDone": "Marquer comme terminé",
+      "discardTask": "Supprimer la tâche",
+      "viewComparison": "Voir la comparaison"
     }
   },
   "pr": {
@@ -62,6 +91,30 @@
       "targetBranch": "Laissez vide pour utiliser la branche par défaut",
       "prTitle": "Laissez vide pour utiliser le titre de la tâche"
     }
+  },
+  "mergeProgress": {
+    "stages": {
+      "analyzing": "Analyse des modifications",
+      "detectingConflicts": "Détection des conflits",
+      "resolving": "Résolution des conflits",
+      "validating": "Validation de la fusion",
+      "complete": "Fusion terminée",
+      "error": "Échec de la fusion",
+      "stalled": "Fusion bloquée"
+    },
+    "conflictCounter": "{{found}} trouvés, {{resolved}} résolus",
+    "currentFile": "Fichier actuel",
+    "viewLogs": "Voir les logs",
+    "hideLogs": "Masquer les logs",
+    "logTypes": {
+      "info": "Info",
+      "warning": "Avertissement",
+      "error": "Erreur",
+      "conflict": "Conflit",
+      "resolution": "Résolution"
+    },
+    "completionMessage": "Toutes les modifications ont été fusionnées avec succès.",
+    "errorMessage": "Une erreur s'est produite pendant le processus de fusion."
   },
   "bulkPR": {
     "title": "Créer des Pull Requests",

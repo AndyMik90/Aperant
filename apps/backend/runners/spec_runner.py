@@ -46,6 +46,7 @@ if sys.version_info < (3, 10):  # noqa: UP036
 
 import asyncio
 import io
+import json
 import os
 import subprocess
 from pathlib import Path
@@ -107,7 +108,7 @@ init_sentry(component="spec-runner")
 
 from core.platform import is_windows
 from debug import debug, debug_error, debug_section, debug_success
-from phase_config import resolve_model_id
+from phase_config import resolve_model_id, sanitize_thinking_level
 from review import ReviewState
 from spec import SpecOrchestrator
 from ui import Icons, highlight, muted, print_section, print_status
@@ -135,7 +136,7 @@ Examples:
   python spec_runner.py --task "Update text" --complexity simple
 
   # Complex integration (auto-detected)
-  python spec_runner.py --task "Add Graphiti memory integration with FalkorDB"
+  python spec_runner.py --task "Add Graphiti memory integration with LadybugDB"
 
   # Interactive mode
   python spec_runner.py --interactive
@@ -184,8 +185,7 @@ Examples:
         "--thinking-level",
         type=str,
         default="medium",
-        choices=["none", "low", "medium", "high", "ultrathink"],
-        help="Thinking level for extended thinking (none, low, medium, high, ultrathink)",
+        help="Thinking level for extended thinking (low, medium, high)",
     )
     parser.add_argument(
         "--no-ai-assessment",
@@ -221,6 +221,9 @@ Examples:
 
     args = parser.parse_args()
 
+    # Validate and sanitize thinking level (handles legacy values like 'ultrathink')
+    args.thinking_level = sanitize_thinking_level(args.thinking_level)
+
     # Warn user about direct mode risks
     if args.direct:
         print_status(
@@ -252,9 +255,17 @@ Examples:
     # Find project root (look for auto-claude folder)
     project_dir = args.project_dir
 
-    # Auto-detect if running from within auto-claude directory (the source code)
-    if project_dir.name == "auto-claude" and (project_dir / "run.py").exists():
-        # Running from within auto-claude/ source directory, go up 1 level
+    # Auto-detect if running from within auto-claude/apps/backend/ source directory.
+    # This must be specific: check for run.py FILE (not dir) AND core/client.py to confirm
+    # we're in the actual backend source tree, not just a project named "auto-claude".
+    run_py_path = project_dir / "run.py"
+    if (
+        project_dir.name == "auto-claude"
+        and run_py_path.exists()
+        and run_py_path.is_file()
+        and (project_dir / "core" / "client.py").exists()
+    ):
+        # Running from within auto-claude/apps/backend/ source directory, go up 1 level
         project_dir = project_dir.parent
     elif not (project_dir / ".auto-claude").exists():
         # No .auto-claude folder found - try to find project root
@@ -350,6 +361,36 @@ Examples:
                 str(orchestrator.project_dir),
                 "--auto-continue",  # Non-interactive mode for chained execution
             ]
+
+            # Bypass approval re-validation when all conditions are met:
+            # 1. Spec was auto-approved (no human review required)
+            # 2. Spec creation succeeded (we're past the success check above)
+            # 3. No review-before-coding gate was requested
+            # This prevents hash mismatch failures when spec files are
+            # touched between auto-approval and run.py startup.
+            if args.auto_approve:
+                # Default to requiring review (fail-closed) - only skip if explicitly disabled
+                require_review = True
+                task_meta_path = orchestrator.spec_dir / "task_metadata.json"
+                if task_meta_path.exists():
+                    try:
+                        with open(task_meta_path, encoding="utf-8") as f:
+                            task_meta = json.load(f)
+                        require_review = task_meta.get(
+                            "requireReviewBeforeCoding", False
+                        )
+                    except (json.JSONDecodeError, OSError) as e:
+                        # On parse error, keep require_review=True (fail-closed)
+                        debug(
+                            "spec_runner",
+                            f"Failed to parse task_metadata.json, not adding --force: {e}",
+                        )
+                if not require_review:
+                    run_cmd.append("--force")
+                    debug(
+                        "spec_runner",
+                        "Adding --force: auto-approved, no review required, spec completed",
+                    )
 
             # Pass base branch if specified (for worktree creation)
             if args.base_branch:

@@ -158,10 +158,10 @@ export interface ColorThemeDefinition {
 }
 
 // Thinking level for Claude model (budget token allocation)
-export type ThinkingLevel = 'none' | 'low' | 'medium' | 'high' | 'ultrathink';
+export type ThinkingLevel = 'low' | 'medium' | 'high';
 
 // Model type shorthand
-export type ModelTypeShort = 'haiku' | 'sonnet' | 'opus';
+export type ModelTypeShort = 'haiku' | 'sonnet' | 'opus' | 'opus-1m' | 'opus-4.5';
 
 // Phase-based model configuration for Auto profile
 // Each phase can use a different model optimized for that task type
@@ -224,6 +224,7 @@ export interface AppSettings {
   pythonPath?: string;
   gitPath?: string;
   githubCLIPath?: string;
+  gitlabCLIPath?: string;
   claudePath?: string;
   autoBuildPath?: string;
   autoUpdateAutoBuild: boolean;
@@ -268,11 +269,14 @@ export interface AppSettings {
   changelogEmojiLevel?: ChangelogEmojiLevel;
   // UI Scale setting (75-200%, default 100)
   uiScale?: number;
+  // Log order setting for task detail view
+  logOrder?: 'chronological' | 'reverse-chronological';
   // Beta updates opt-in (receive pre-release updates)
   betaUpdates?: boolean;
   // Migration flags (internal use)
   _migratedAgentProfileToAuto?: boolean;
   _migratedDefaultModelSync?: boolean;
+  _migratedUltrathinkToHigh?: boolean;
   // Language preference for UI (i18n)
   language?: SupportedLanguage;
   // Developer tools preferences
@@ -290,7 +294,12 @@ export interface AppSettings {
   seenVersionWarnings?: string[];
   // Sidebar collapsed state (icons only when true)
   sidebarCollapsed?: boolean;
+  // GPU acceleration for terminal rendering (WebGL)
+  gpuAcceleration?: GpuAcceleration;
 }
+
+// GPU acceleration mode for terminal WebGL rendering
+export type GpuAcceleration = 'auto' | 'on' | 'off';
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)
 export interface SourceEnvConfig {

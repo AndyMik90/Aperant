@@ -51,6 +51,10 @@ function sendAuthChangedToRenderer(oldUsername: string | null, newUsername: stri
   for (const win of windows) {
     win.webContents.send(IPC_CHANNELS.GITHUB_AUTH_CHANGED, payload);
   }
+  // Uses EventEmitter.emit (not IPC send) so main-process listeners can react.
+  // The listener (PRReviewStateManager) intentionally ignores all args — it only
+  // needs the event signal, not the payload.
+  ipcMain.emit(IPC_CHANNELS.GITHUB_AUTH_CHANGED, payload);
 }
 
 /**
@@ -117,7 +121,7 @@ const GITHUB_DEVICE_URL = 'https://github.com/login/device';
  */
 function parseDeviceCode(output: string): string | null {
   const match = output.match(DEVICE_CODE_PATTERN);
-  if (match && match[1]) {
+  if (match?.[1]) {
     // Normalize: replace space with hyphen (GitHub expects XXXX-XXXX format)
     const normalizedCode = match[1].replace(' ', '-');
     debugLog('Device code extracted successfully (code redacted for security)');

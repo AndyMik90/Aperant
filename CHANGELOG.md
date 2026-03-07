@@ -1,3 +1,234 @@
+## 2.7.6 - Stability & Feature Enhancements
+
+### ✨ New Features
+
+- **Multi-profile account management** — Unified profile swapping with automatic token refresh and rate limit recovery for both OAuth and API-compatible providers
+
+- **Enhanced terminal experience** — Customizable terminal fonts with OS-specific defaults, Claude Code CLI settings injection, and improved worktree integration
+
+- **Advanced roadmap management** — Expand/collapse functionality for phase features and real-time sync with task lifecycle
+
+- **Queue System v2** — Smart task prioritization with auto-promotion and intelligent rate limit recovery
+
+- **GitHub integration enhancements** — AI-powered PR template generation, user-friendly API error handling, and improved review visibility
+
+- **UI/UX improvements** — Spell check support for text inputs, collapsible sidebar toggle, task screenshot capture, expandable task descriptions, and bulk worktree operations
+
+- **Evidence-based PR validation** — Advanced review system with trigger-driven exploration and enhanced recovery mechanisms
+
+### 🛠️ Improvements
+
+- **Performance optimizations** — Async parallel worktree listing prevents UI freezes and improves responsiveness
+
+- **Robustness enhancements** — Atomic file writes, better error detection in AI responses, and improved OOM/orphaned agent management for overnight builds
+
+- **Terminal stability** — Fixed GPU context exhaustion from large pastes, SIGABRT crashes on macOS shutdown, and session restoration on app restart
+
+- **Build & packaging** — XState bundling for packaged apps, aligned Linux package builds, and improved auto-updater for beta releases and DMG installations
+
+- **Diagnostic improvements** — Sentry instrumentation for Python subprocesses and better error tracking across the system
+
+### 🐛 Bug Fixes
+
+- **Terminal & PTY** — Fixed paste size limits, race conditions, rendering issues, text alignment, worktree crashes, and terminal content resizing on expansion
+
+- **PR review system** — Resolved error visibility in bundled apps, improved structured output validation with three-tier recovery, preserved findings during crashes, and fixed UTC timestamp detection for comment tracking
+
+- **Planning & task execution** — Fixed handling of empty/greenfield projects, atomic writes to prevent 0-byte file corruption, planning phase crashes, and implementation plan file watching
+
+- **Authentication & profiles** — Resolved OAuth token revocation loops, API profile mode support without OAuth requirement, subscription type preservation during token refresh, and Linux credential file detection
+
+- **Windows/cross-platform** — Complete System32 executable path fixes for where.exe and taskkill.exe, Windows credential normalization, and proper shell detection for Windows terminals
+
+- **Agent management** — Fixed infinite retry loops for tool concurrency errors, auth error detection, and title generator production path resolution
+
+- **UI/UX fixes** — Resolved Insights scroll-to-blank-space issues, infinite re-render loops in terminal font settings, kanban board scaling collisions, ideation stuck states, and panel constraint errors during terminal exit
+
+- **Worktree & Git** — Improved branch pattern validation, removed auto-commit on deletion, support for detached HEAD state during PR creation, and better merge conflict resolution with progress tracking
+
+- **Integrations** — Fixed Ollama infinite subprocess spawning, Graphiti import paths, OpenRouter API URL suffix, and GitLab authentication bugs
+
+- **Settings & configuration** — Corrected .auto-claude path discovery timeout, z.AI China preset URL, log order sorting, and onboarding completion state persistence
+
+### 📚 Documentation
+
+- Added Awesome Claude Code badge to README
+
+- Added instructions for resetting PR review state in CLAUDE.md
+
+---
+
+## What's Changed
+
+- fix: handle unknown SDK message types (rate_limit_event) to prevent session crashes by @AndyMik90 in 4a75ea9f9
+- fix: PR review error visibility and gh CLI resolution in bundled apps by @AndyMik90 in 732fc1cd3
+- fix: handle empty/greenfield projects in spec creation (#1426) (#1841) by @Andy in 819f98d9f
+- fix: clear terminalEventSeen on task restart to prevent stuck-after-planning (#1828) (#1840) by @Andy in 28a620079
+- fix: watch worktree path for implementation_plan.json changes (#1805) (#1842) by @Andy in fb3a3fbda
+- fix: resolve Claude CLI not found on Windows - PATH, prompt size, cwd (#1661) (#1843) by @Andy in 76d1d3b03
+- fix: handle planning phase crash and resume recovery (#1562) (#1844) by @Andy in 3cb05781f
+- fix: show dismissed PR review findings in UI instead of silently dropping them (#1852) by @Andy in d98ff7d19
+- fix: preserve file/line info in PR review extraction recovery (#1857) by @Andy in 635b53eea
+- docs: add Awesome Claude Code badge to README (#1838) by @Andy in 2e4b5ac65
+- test: achieve 100% test coverage for backend CLI commands (#1772) by @StillKnotKnown in 385f04414
+- fix: cap terminal paste size to 1MB to prevent GPU context exhaustion by @AndyMik90 in 7b0f3a2c0
+- fix: prevent OOM, orphaned agents, and unbounded growth during overnight builds (#1813) by @Andy in 4091d1d4b
+- docs: add instructions for resetting PR review state in CLAUDE.md by @AndyMik90 in ecb615802
+- auto-claude: 217-investigate-symlink-issues-in-work-tree-creation-f (#1808) by @Andy in ae13ce14c
+- auto-claude: 218-enable-claude-code-features-in-worktree-terminals (#1809) by @Andy in e3b219288
+- auto-claude: 219-investigate-and-fix-authentication-subscription-sy (#1810) by @Andy in 6204d5fc2
+- feat(roadmap): add expand/collapse functionality for phase features (#1796) by @Burak in f735f0b49
+- auto-claude: 216-display-ongoing-pr-review-logs-in-progress (#1807) by @Andy in a4870fa0c
+- fix(pr-review): reduce structured output failures and preserve findings in recovery (#1806) by @Andy in f1b8cd3a7
+- fix(sentry): enable Sentry for Python subprocesses and add diagnostic instrumentation (#1804) by @Andy in 4d4234378
+- fix(pr-review): add three-tier recovery for structured output validation failure (#1797) by @Andy in d1fbccde3
+- test: improve backend agent test coverage to 94% (#1779) by @StillKnotKnown in ed93df698
+- fix(github): use UTC timestamps for reviewed_at to fix comment detection (#1795) by @Andy in 8872d33e3
+- feat: add user-friendly GitHub API error handling (#1790) by @StillKnotKnown in 8ece0009e
+- fix(roadmap): sync roadmap features with task lifecycle (#1791) by @Andy in 115576e85
+- fix(github): resolve PR review hanging in bundled app (#1793) by @Andy in 3791b37bb
+- feat(profiles): implement unified profile swapping across OAuth and API accounts (#1794) by @StillKnotKnown in 282387356
+- test: improve backend memory system test coverage to 100% (#1780) by @StillKnotKnown in 4f1b7b2a9
+- fix(ideation): guard against non-string properties in IdeaCard badges by @AndyMik90 in 5e78d748e
+- fix(updater): convert HTML release notes to markdown before rendering by @AndyMik90 in aa5fc7f95
+- fix(pr-review): simplify structured output schema to reduce validation failures (#1787) by @Andy in cd8914700
+- fix(qa): enforce visual verification for UI changes and inject startup commands (#1784) by @Andy in f149a7fbd
+- fix(plan-files): use atomic writes to prevent 0-byte corruption (#1785) by @Andy in c2245b812
+- fix(terminal): make worktree dropdown scrollable and show all items by @AndyMik90 in 950da45e4
+- auto-claude: subtask-1-1 - Add adaptive thinking badge to thinking level label (#1782) by @Andy in 25acf2826
+- auto-claude: subtask-1-1 - Add overflow-hidden and break-words to subtask cards by @AndyMik90 in 39aa08872
+- refactor(app-updater): disable automatic downloads and allow intentional downgrades by @AndyMik90 in 8de8039db
+- fix(auth): detect auth errors in AI response text and prevent retry loops (#1776) by @Andy in f4788e4af
+- test: achieve 100% coverage for backend core workspace module (#1774) by @StillKnotKnown in 3f95765cf
+- fix(title-generator): add production path resolution for backend source (#1778) by @Andy in 923880f5b
+- fix(fast-mode): use setting_sources instead of env var for CLI fast mode (#1771) by @Andy in 390ba6a58
+- fix(windows): complete System32 executable path fixes for where.exe and taskkill.exe (#1715) by @VDT-91 in aa7f56e5d
+- fix(worktree): remove auto-commit on deletion and add uncommitted changes warning by @AndyMik90 in cec8e65ee
+- Smart PR Status Polling System (#1766) by @Andy in 48d5f7a32
+- feat: simplify thinking system and remove opus-1m model variant (#1760) by @Andy in bb7e18937
+- auto-claude: 203-fix-pr-review-ui-update-issue (#1732) by @Andy in 7589f8e4f
+- auto-claude: subtask-2-1 - Create isAPIProfileAuthenticated() function to val (#1745) by @Andy in 57e38a692
+- auto-claude: 202-fix-kanban-board-scaling-collisions (#1731) by @Andy in d09ebb850
+- auto-claude: 204-fix-pr-review-ui-not-updating-without-manual-navig (#1734) by @Andy in 087091cef
+- auto-claude: 203-fix-ui-not-updating-during-pr-review-operations (#1733) by @Andy in f085c08bd
+- auto-claude: 205-fix-insights-chat-only-shows-last-task-suggestion- (#1735) by @Andy in f121f9cdd
+- auto-claude: 197-roadmap-generation-stuck-at-50-file-locking-race-c (#1746) by @Andy in f41f15e59
+- auto-claude: 193-fix-update-context7-mcp-tool-name-from-get-library (#1744) by @Andy in bdff9141a
+- auto-claude: 192-changelog-generation-multiple-critical-bugs-tasks- (#1725) by @Andy in 8c9a504df
+- auto-claude: 194-bug-rate-limit-during-task-execution-causes-subtas (#1726) by @Andy in 8a7443d24
+- auto-claude: 201-bug-pr-review-logs-and-analysis (#1730) by @Andy in e0d53adb4
+- auto-claude: 196-fix-worktrees-dialog-auto-close-race-condition-and (#1727) by @Andy in 323b0d3be
+- auto-claude: 199-bug-logs-disappear-after-restart (#1728) by @Andy in d639f6ef8
+- auto-claude: 198-critical-oauth-token-revocation-causes-infinite-40 (#1747) by @Andy in 4438c0b10
+- Fix Panel Constraints Error During Terminal Exit (#1757) by @Andy in 32bf353da
+- auto-claude: 190-bug-context-page-crash-multiple-root-causes-when-v (#1724) by @Andy in 2db36982f
+- feat: add search/filter to WorktreeSelector dropdown (#1754) by @Andy in 09f059ca3
+- fix(terminal): push worktree branch to remote with tracking on creation (#1753) by @Andy in b5de0d9ff
+- auto-claude: 189-subtask-execution-stuck-in-infinite-retry-loop-whe (#1723) by @Andy in 445da186c
+- auto-claude: 188-terminal-claude-sessions-require-manual-click-to-r (#1743) by @Andy in f8499e965
+- auto-claude: 200-bug-changelog-and-release-generation (#1729) by @Andy in 826583b82
+- fix(terminal): use each terminal's cwd for invoke Claude all button (#1756) by @Andy in ac4fe4f42
+- feat(terminal): read Claude Code CLI settings and inject env vars into PTY sessions (#1750) by @Andy in 152e54093
+- fix: correct .auto-claude path mismatch causing discovery phase timeout (#1748) by @VDT-91 in 2c2a8a754
+- fix: remove incorrect /v1 suffix from OpenRouter API URL (#1749) by @StillKnotKnown in 7e799ee57
+- fix: prevent terminal worktree crash with race condition fixes (#1586) (#1658) by @VDT-91 in 216b58bcf
+- fix: correct log order sorting and add configurable log order setting (#1720) by @Burak in 2e2b82365
+- fix(ollama): stop infinite subprocess spawning from useEffect re-render loop (#1716) by @Quentin Veys in acb131b72
+- fix(graphiti): migrate graphiti_memory imports to canonical paths (#1714) by @Quentin Veys in df528f065
+- fix: improve auto-updater for beta releases and DMG installs (#1681) by @Andy in ff91a1af0
+- feat: unified operation registry for intelligent auth/rate limit recovery (#1698) by @Andy in 6d0222fa9
+- fix: Prevent stale worktree data from overriding correct task status (#1710) by @Burak in fe08c644c
+- feat: add subscriptionType and rateLimitTier to ClaudeProfile (#1688) by @Andy in a5e3cc9a2
+- auto-claude: subtask-1-1 - Add useTaskStore import and update task state after successful PR creation (#1683) by @Andy in 4587162e4
+- auto-claude: 182-implement-pagination-and-filtering-for-github-pr-l (#1654) by @Andy in b4e6b2fe4
+- auto-claude: 181-add-expand-button-for-long-task-descriptions (#1653) by @Andy in d9cd300fe
+- fix(terminal): resolve text alignment issues on expand/minimize (#1650) by @VDT-91 in f5a7e26d9
+- fix(windows): use full path to where.exe for reliable executable lookup (#1659) by @VDT-91 in 5f63daa3c
+- fix: resolve ideation stuck at 3/6 types bug (#1660) by @VDT-91 in e6e8da17c
+- Clarify Local and Origin Branch Distinction (#1652) by @Andy in 9317148b6
+- auto-claude: 186-set-default-dark-mode-on-startup (#1656) by @Andy in 473020621
+- auto-claude: subtask-1-1 - Add min-h-0 to enable scrolling in Roadmap tabs (#1655) by @Andy in ae703be9f
+- fix: XState status lifecycle & cross-project contamination fixes (#1647) by @kaigler in 5293fb399
+- refactor(frontend): complete XState task state machine migration (#1338) (#1575) by @kaigler in e2f9abadb
+- Merge conflict resolution progress bar and log viewer (#1620) by @Andy in d16be3077
+- fix: align Linux package builds (AppImage/deb/Flatpak) with target-specific extraResources (#1623) by @StillKnotKnown in bad1a9b2c
+- Fix/gitlab bugs (#1519 and #1521) (#1544) by @bu5hm4nn in cd423c65c
+- feat(kanban): add bulk task delete and worktree cleanup improvements (#1588) by @kaigler in 02ed91c91
+- fix: add worktree isolation warning to prevent agent escape (#1528) by @kaigler in fe5cc582b
+- feat(ui): add spell check support for text inputs (#1304) by @kaigler in 8f02a5129
+- fix(windows): complete Windows credential fixes with path normalization (#1585) by @kaigler in 1e1997167
+- AI-Powered GitHub PR Template Generation (#1618) by @Andy in 900dd4360
+- Fix pty.node SIGABRT crash on macOS shutdown (#1619) by @Andy in f355e09d7
+- fix(merge): use git merge for diverged branches with progress tracking (#1605) by @Andy in bde2ca4b2
+- Surface Billing/Credit Exhaustion Errors to UI (Issue #1580) (#1617) by @Andy in 7bf12e856
+- auto-claude: subtask-1-1 - Change $teamId type from ID! to String! in the team query (#1627) by @Andy in 54d0cd2f4
+- fix(auth): support API profile mode without OAuth requirement (#1616) by @StillKnotKnown in f8cc63af4
+- fix: agent retry loop for tool concurrency errors (#1546) [v3] (#1606) by @Michael Ludlow in 0aea4fb5e
+- fix(queue): enforce max parallel tasks and auto-refresh UI (#1594) by @Andy in 4070a4c29
+- Persist Kanban column collapse state per project via main process (#1579) by @Andy in a1114664e
+- feat(pr-review): evidence-based validation and trigger-driven exploration (#1593) by @Andy in bfc232825
+- fix(ui): smart auto-scroll for Insights streaming responses (#1591) by @kaigler in eee97e7ea
+- fix(changelog): validate Claude CLI exists before generation (#1305) by @kaigler in c1f24c07f
+- auto-claude: subtask-1-1 - Add min-w-0 class to subtask title row flex container (#1578) by @Andy in 286591c02
+- auto-claude: subtask-1-1 - Remove Popover wrapper and related functionality from ClaudeCodeStatusBadge (#1566) by @Andy in 8d18cc81a
+- fix(claude-profile): preserve subscriptionType and rateLimitTier during token refresh (#1556) by @Andy in 52e426a48
+- auto-claude: subtask-1-1 - Update cancelReview callback to handle both success and failure cases (#1551) by @Andy in d8f00fe5a
+- fix(backend): prioritize git remote detection over env var for repo (#1555) by @Andy in 9b07ed464
+- fix(backend): handle detached HEAD state when pushing branch for PR creation (#1560) by @Andy in 2b72694d0
+- fix: add explicit UTF-8 encoding across all Electron main process I/O (#1554) by @Andy in 4243530e9
+- fix(backend): pass OAuth token to Python subprocess for authentication by @AndyMik90 in 6f1002dd7
+- perf(frontend): async parallel worktree listing to prevent UI freezes (#1553) by @Andy in 399a7e736
+- auto-claude: subtask-1-1 - Remove amber lock indicator line from kanban resize handle (#1557) by @Andy in 83a64b88e
+- fix(frontend): resolve TerminalFontSettings infinite re-render loop (#1536) by @StillKnotKnown in 1c6266025
+- fix(frontend): respect hasCompletedOnboarding from ~/.claude.json (#1537) by @StillKnotKnown in 1860c2c43
+- fix: prevent planner from generating invalid verification types (#1388) (#1529) by @kaigler in 94d941333
+- fix(frontend): resolve Insights scroll-to-blank-space issue on macOS (ACS-382) (#1535) by @StillKnotKnown in 496b2b96a
+- feat: add customizable terminal fonts with OS-specific defaults (#1412) by @StillKnotKnown in f289107b8
+- Add dev mode screenshot capture warning (#1516) by @Andy in 16eeb301a
+- fix: add worktree isolation warnings to prevent agent escape (ACS-394) (#1495) by @StillKnotKnown in 1e453653b
+- fix: resolve flaky subprocess-spawn test on Windows CI (ACS-392) (#1494) by @StillKnotKnown in f6b264d56
+- feat(task-logger): strip ANSI escape codes from logs and extend coverage (#1411) by @StillKnotKnown in 988ec0c25
+- fix(frontend): use spawn() instead of exec() for Windows terminal launching (#1498) by @StillKnotKnown in 26c9083d3
+- fix(api-profiles): correct z.AI China preset URL and rename provider presets (#1500) by @StillKnotKnown in 05cf0a516
+- fix: validate branch pattern before worktree cleanup to prevent deleting wrong branch (#1493) by @StillKnotKnown in 8576754a1
+- Real-Time Updates for Insights Chat (#1511) by @Andy in d940b6ade
+- Fix Terminal UI Rendering Issues (#1514) by @Andy in 8d8306b8e
+- Fix terminal content resizing on expansion (#1512) by @Andy in 9f6c0026b
+- Restore Terminal Session History on App Restart (#1515) by @Andy in 63e2847fc
+- Move Reference Images Above Task Title & Fix Image Display Issues (#1513) by @Andy in b269ac305
+- auto-claude: 143-fix-github-integration-ui-refresh-issues (#1467) by @Andy in aa2cb4fa6
+- feat: Multi-profile account swapping with token refresh and queue routing (#1496) by @Andy in 1e72c8d77
+- Simplified Testing Strategy for Regression Prevention (#1379) by @Andy in ae4e48e8b
+- auto-claude: 152-persist-tasks-during-roadmap-regeneration (#1463) by @Andy in 9bd3d7e3b
+- Debug Kanban Memory & Add Sentry Monitoring (#1380) by @Andy in bc5f550ee
+- auto-claude: 147-remove-outdated-compatibility-shims (#1465) by @Andy in 53111dbb9
+- auto-claude: 162-fix-worktree-error-on-repeated-task-starts (#1453) by @Andy in b955badf7
+- auto-claude: 155-fix-pr-list-diff-display-metrics (#1458) by @Andy in 31f116db5
+- auto-claude: 151-fix-pr-review-agent-token-refresh-on-account-swap (#1456) by @Andy in d081af042
+- auto-claude: 148-add-progress-persistence-and-status-indicators (#1464) by @Andy in 4937d5745
+- auto-claude: 154-fix-task-modal-conflict-check-status-refresh (#1462) by @Andy in 0299009df
+- auto-claude: 153-widen-kanban-columns-and-add-collapse-feature (#1457) by @Andy in d65973075
+- auto-claude: subtask-1-1 - Add filter after map operation to remove empty str (#1466) by @Andy in 783f0fe0e
+- fix: add formatReleaseNotes helper for markdown changelog rendering (#1468) by @Andy in 43a97e1b3
+- feat(sidebar): add collapsible sidebar toggle (#1501) by @Michael Ludlow in d17c17887
+- fix(auth): check .credentials.json for Linux profile authentication (#1492) by @StillKnotKnown in 8d2f66291
+- auto-claude: subtask-1-1 - Replace ReleaseNotesRenderer with ReactMarkdown (#1454) by @Andy in 1185a558c
+- auto-claude: 156-fix-electron-app-version-detection-bug (#1459) by @Andy in 9a3b48c25
+- auto-claude: subtask-1-1 - Add --no-track flag to git worktree add command (#1455) by @Andy in 0c2990815
+- auto-claude: subtask-1-1 - Change task.specId to taskId in 3 startSpecCreation calls (#1461) by @Andy in 91edc0e14
+- fix(onboarding): align MemoryStep layout with Settings MemoryBackendSection (#1445) by @Michael Ludlow in e9de26d59
+- auto-claude: subtask-1-1 - Add metadata?.requireReviewBeforeCoding check (#1460) by @Andy in 426d56571
+- fix: use API profile environment variables for task title generation (#1471) by @JoshuaRileyDev in c5a0f042d
+- fix(auth): Long-lived OAuth authentication with multi-profile usage display (#1443) by @Andy in 12e788417
+- feat: Add screenshot capture to task creation modal (#1429) by @JoshuaRileyDev in 1a2a1b1fc
+- fix: prevent queue settings modal from disappearing when tasks change (#1430) by @JoshuaRileyDev in 33acc1430
+- feat: Queue System v2 with Auto-Promotion and Smart Task Management (#1203) by @JoshuaRileyDev in 3b87e24d7
+- feat: Add API profile providers usage endpoints support (#1279) by @StillKnotKnown in cfe7dedd0
+
+## Thanks to all contributors
+
+@AndyMik90, @Andy, @Burak, @StillKnotKnown, @VDT-91, @kaigler, @Michael Ludlow, @JoshuaRileyDev, @Quentin Veys, @bu5hm4nn
+
 ## 2.7.5 - Security & Platform Improvements
 
 ### ✨ New Features
@@ -73,6 +304,8 @@
 - Model versions updated to Claude 4.5 with connected insights to frontend settings
 
 ### 🐛 Bug Fixes
+
+- Fixed task logs disappearing after app restart in development mode (issue #1657)
 
 - Fixed Kanban board status flip-flopping and multi-location task deletion
 

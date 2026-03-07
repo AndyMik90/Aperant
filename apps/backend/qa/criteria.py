@@ -8,7 +8,7 @@ Manages acceptance criteria validation and status tracking.
 import json
 from pathlib import Path
 
-from progress import is_build_complete
+from progress import is_build_ready_for_qa
 
 # =============================================================================
 # IMPLEMENTATION PLAN I/O
@@ -95,10 +95,10 @@ def should_run_qa(spec_dir: Path) -> bool:
     Determine if QA validation should run.
 
     QA should run when:
-    - All subtasks are completed
+    - All subtasks have reached a terminal state (completed, failed, or stuck)
     - QA has not yet approved
     """
-    if not is_build_complete(spec_dir):
+    if not is_build_ready_for_qa(spec_dir):
         return False
 
     if is_qa_approved(spec_dir):

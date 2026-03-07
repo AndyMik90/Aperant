@@ -41,7 +41,10 @@ export const SortableTaskCard = memo(function SortableTaskCard({ task, onClick, 
     transition,
     isDragging,
     isOver
-  } = useSortable({ id: task.id });
+  } = useSortable({
+    id: task.id,
+    disabled: task.status === 'in_progress' // Prevent dragging tasks that are currently running or stuck
+  });
 
   const style = {
     transform: CSS.Transform.toString(transform),

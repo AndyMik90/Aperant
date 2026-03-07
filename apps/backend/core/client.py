@@ -21,12 +21,96 @@ import time
 from pathlib import Path
 from typing import Any
 
+from core.fast_mode import ensure_fast_mode_in_user_settings
 from core.platform import (
     is_windows,
     validate_cli_path,
 )
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# SDK Message Parser Patch
+# =============================================================================
+# The Claude Agent SDK's message_parser raises MessageParseError for unknown
+# message types (e.g., "rate_limit_event"). Since parse_message runs inside an
+# async generator, the exception kills the entire agent session stream.
+# Patch to log a warning and return a SystemMessage instead of crashing.
+# This is needed until the SDK natively handles all CLI message types.
+
+
+def _patch_sdk_message_parser() -> None:
+    """Patch the SDK's parse_message to handle unknown message types gracefully.
+
+    The Claude CLI may emit message types that the installed SDK version doesn't
+    recognize (e.g., rate_limit_event, usage_event). Without this patch, any
+    unrecognized type raises MessageParseError inside the SDK's async generator,
+    which terminates the entire response stream and kills the agent session.
+
+    The patch converts unknown types into SystemMessage objects with a
+    'unknown_<type>' subtype, which all message consumers silently skip.
+    """
+    try:
+        import claude_agent_sdk._internal.message_parser as _parser
+        from claude_agent_sdk._errors import MessageParseError
+        from claude_agent_sdk.types import SystemMessage
+
+        _original_parse = _parser.parse_message
+
+        def _patched_parse(data):
+            try:
+                return _original_parse(data)
+            except MessageParseError as e:
+                msg = str(e)
+                if "Unknown message type" in msg:
+                    msg_type = (
+                        data.get("type", "unknown")
+                        if isinstance(data, dict)
+                        else "unknown"
+                    )
+                    # Rate limit events deserve a visible warning; others just debug-level
+                    if "rate_limit" in msg_type:
+                        retry_after = (
+                            data.get("retry_after")
+                            or data.get("data", {}).get("retry_after")
+                            if isinstance(data, dict)
+                            else None
+                        )
+                        retry_info = (
+                            f" (retry_after={retry_after}s)" if retry_after else ""
+                        )
+                        logger.warning(
+                            f"Rate limit event received from CLI{retry_info} — "
+                            f"the SDK will handle backoff automatically"
+                        )
+                    else:
+                        logger.debug(
+                            f"SDK received unhandled message type '{msg_type}', skipping"
+                        )
+                    return SystemMessage(
+                        subtype=f"unknown_{msg_type}",
+                        data=data if isinstance(data, dict) else {},
+                    )
+                raise
+
+        _parser.parse_message = _patched_parse
+    except Exception as e:
+        logger.warning(f"Failed to patch SDK message parser: {e}")
+
+
+_patch_sdk_message_parser()
+
+# =============================================================================
+# Windows System Prompt Limits
+# =============================================================================
+# Windows CreateProcessW has a 32,768 character limit for the entire command line.
+# When CLAUDE.md is very large and passed as --system-prompt, the command can exceed
+# this limit, causing ERROR_FILE_NOT_FOUND. We cap CLAUDE.md content to stay safe.
+# 20,000 chars leaves ~12KB headroom for CLI overhead (model, tools, MCP config, etc.)
+WINDOWS_MAX_SYSTEM_PROMPT_CHARS = 20000
+WINDOWS_TRUNCATION_MESSAGE = (
+    "\n\n[... CLAUDE.md truncated due to Windows command-line length limit ...]"
+)
 
 # =============================================================================
 # Project Index Cache
@@ -139,9 +223,8 @@ from agents.tools_pkg import (
 from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
 from claude_agent_sdk.types import HookMatcher
 from core.auth import (
+    configure_sdk_authentication,
     get_sdk_env_vars,
-    require_auth_token,
-    validate_token_not_encrypted,
 )
 from linear_updater import is_linear_enabled
 from prompts_pkg.project_context import detect_project_capabilities, load_project_index
@@ -450,6 +533,9 @@ def create_client(
     max_thinking_tokens: int | None = None,
     output_format: dict | None = None,
     agents: dict | None = None,
+    betas: list[str] | None = None,
+    effort_level: str | None = None,
+    fast_mode: bool = False,
 ) -> ClaudeSDKClient:
     """
     Create a Claude Agent SDK client with multi-layered security.
@@ -465,10 +551,9 @@ def create_client(
         agent_type: Agent type identifier from AGENT_CONFIGS
                    (e.g., 'coder', 'planner', 'qa_reviewer', 'spec_gatherer')
         max_thinking_tokens: Token budget for extended thinking (None = disabled)
-                            - ultrathink: 16000 (spec creation)
-                            - high: 10000 (QA review)
-                            - medium: 5000 (planning, validation)
-                            - None: disabled (coding)
+                            - high: 16384 (spec creation, QA review)
+                            - medium: 4096 (planning, validation)
+                            - low: 1024 (coding)
         output_format: Optional structured output format for validated JSON responses.
                       Use {"type": "json_schema", "schema": Model.model_json_schema()}
                       See: https://platform.claude.com/docs/en/agent-sdk/structured-outputs
@@ -476,6 +561,16 @@ def create_client(
                Format: {"agent-name": {"description": "...", "prompt": "...",
                         "tools": [...], "model": "inherit"}}
                See: https://platform.claude.com/docs/en/agent-sdk/subagents
+        betas: Optional list of SDK beta header strings (e.g., ["context-1m-2025-08-07"]
+               for 1M context window). Use get_phase_model_betas() to compute from config.
+        effort_level: Optional effort level for adaptive thinking models (e.g., "low",
+                     "medium", "high"). When set, injected as CLAUDE_CODE_EFFORT_LEVEL
+                     env var for the SDK subprocess. Only meaningful for models that
+                     support adaptive thinking (e.g., Opus 4.6).
+        fast_mode: Enable Fast Mode for faster Opus 4.6 output. When True, enables
+                  the "user" setting source so the CLI reads fastMode from
+                  ~/.claude/settings.json. Requires extra usage enabled on Claude
+                  subscription; falls back to standard speed automatically.
 
     Returns:
         Configured ClaudeSDKClient
@@ -490,19 +585,36 @@ def create_client(
        (see security.py for ALLOWED_COMMANDS)
     4. Tool filtering - Each agent type only sees relevant tools (prevents misuse)
     """
-    # Get OAuth token - Claude CLI handles token lifecycle internally
-    oauth_token = require_auth_token()
-
-    # Validate token is not encrypted before passing to SDK
-    # Encrypted tokens (enc:...) should have been decrypted by require_auth_token()
-    # If we still have an encrypted token here, it means decryption failed or was skipped
-    validate_token_not_encrypted(oauth_token)
-
-    # Ensure SDK can access it via its expected env var
-    os.environ["CLAUDE_CODE_OAUTH_TOKEN"] = oauth_token
-
-    # Collect env vars to pass to SDK (ANTHROPIC_BASE_URL, etc.)
+    # Collect env vars to pass to SDK (ANTHROPIC_BASE_URL, CLAUDE_CONFIG_DIR, etc.)
     sdk_env = get_sdk_env_vars()
+
+    # Get the config dir for profile-specific credential lookup
+    # CLAUDE_CONFIG_DIR enables per-profile Keychain entries with SHA256-hashed service names
+    config_dir = sdk_env.get("CLAUDE_CONFIG_DIR")
+
+    # Configure SDK authentication (OAuth or API profile mode)
+    configure_sdk_authentication(config_dir)
+
+    if config_dir:
+        logger.info(f"Using CLAUDE_CONFIG_DIR for profile: {config_dir}")
+
+    # Inject effort level for adaptive thinking models (e.g., Opus 4.6)
+    if effort_level:
+        sdk_env["CLAUDE_CODE_EFFORT_LEVEL"] = effort_level
+
+    # Fast mode requires the CLI to read "fastMode" from user settings.
+    # The SDK default (setting_sources=None) passes --setting-sources "" which
+    # blocks ALL filesystem settings. We must explicitly enable "user" source
+    # so the CLI reads ~/.claude/settings.json where fastMode: true lives.
+    # See: https://code.claude.com/docs/en/fast-mode
+    if fast_mode:
+        ensure_fast_mode_in_user_settings()
+        logger.info("[Fast Mode] ACTIVE — will enable user setting source for fastMode")
+        print(
+            "[Fast Mode] ACTIVE — enabling user settings source for CLI to read fastMode"
+        )
+    else:
+        logger.info("[Fast Mode] inactive — not requested for this client")
 
     # Debug: Log git-bash path detection on Windows
     if "CLAUDE_CODE_GIT_BASH_PATH" in sdk_env:
@@ -667,7 +779,12 @@ def create_client(
         print("   - Worktree permissions: granted for original project directories")
     print("   - Bash commands restricted to allowlist")
     if max_thinking_tokens:
-        print(f"   - Extended thinking: {max_thinking_tokens:,} tokens")
+        thinking_info = f"{max_thinking_tokens:,} tokens"
+        if effort_level:
+            thinking_info += f" + effort={effort_level}"
+        if fast_mode:
+            thinking_info += " + fast mode"
+        print(f"   - Extended thinking: {thinking_info}")
     else:
         print("   - Extended thinking: disabled")
 
@@ -787,8 +904,31 @@ def create_client(
     if should_use_claude_md():
         claude_md_content = load_claude_md(project_dir)
         if claude_md_content:
+            # On Windows, the SDK passes system_prompt as a --system-prompt CLI argument.
+            # Windows CreateProcessW has a 32,768 character limit for the entire command line.
+            # When CLAUDE.md is very large, the command can exceed this limit, causing Windows
+            # to return ERROR_FILE_NOT_FOUND which the SDK misreports as "Claude Code not found".
+            # Cap CLAUDE.md content to keep total command line under the limit. (#1661)
+            was_truncated = False
+            if is_windows():
+                max_claude_md_chars = (
+                    WINDOWS_MAX_SYSTEM_PROMPT_CHARS
+                    - len(base_prompt)
+                    - len(WINDOWS_TRUNCATION_MESSAGE)
+                    - len("\n\n# Project Instructions (from CLAUDE.md)\n\n")
+                )
+                if len(claude_md_content) > max_claude_md_chars > 0:
+                    claude_md_content = (
+                        claude_md_content[:max_claude_md_chars]
+                        + WINDOWS_TRUNCATION_MESSAGE
+                    )
+                    print(
+                        "   - CLAUDE.md: truncated (exceeded Windows command-line limit)"
+                    )
+                    was_truncated = True
             base_prompt = f"{base_prompt}\n\n# Project Instructions (from CLAUDE.md)\n\n{claude_md_content}"
-            print("   - CLAUDE.md: included in system prompt")
+            if not was_truncated:
+                print("   - CLAUDE.md: included in system prompt")
         else:
             print("   - CLAUDE.md: not found in project root")
     else:
@@ -819,6 +959,12 @@ def create_client(
         "enable_file_checkpointing": True,
     }
 
+    # Fast mode: enable user setting source so CLI reads fastMode from
+    # ~/.claude/settings.json. Without this, the SDK's default --setting-sources ""
+    # blocks all filesystem settings and the CLI never sees fastMode: true.
+    if fast_mode:
+        options_kwargs["setting_sources"] = ["user"]
+
     # Optional: Allow CLI path override via environment variable
     # The SDK bundles its own CLI, but users can override if needed
     env_cli_path = os.environ.get("CLAUDE_CLI_PATH")
@@ -835,5 +981,9 @@ def create_client(
     # See: https://platform.claude.com/docs/en/agent-sdk/subagents
     if agents:
         options_kwargs["agents"] = agents
+
+    # Add beta headers if specified (e.g., for 1M context window)
+    if betas:
+        options_kwargs["betas"] = betas
 
     return ClaudeSDKClient(options=ClaudeAgentOptions(**options_kwargs))

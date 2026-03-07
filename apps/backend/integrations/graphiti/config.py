@@ -145,7 +145,7 @@ class GraphitiConfig:
 
     # OpenRouter settings (multi-provider aggregator)
     openrouter_api_key: str = ""
-    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    openrouter_base_url: str = "https://openrouter.ai/api"
     openrouter_llm_model: str = "anthropic/claude-sonnet-4"
     openrouter_embedding_model: str = "openai/text-embedding-3-small"
 
@@ -207,7 +207,7 @@ class GraphitiConfig:
         # OpenRouter settings
         openrouter_api_key = os.environ.get("OPENROUTER_API_KEY", "")
         openrouter_base_url = os.environ.get(
-            "OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"
+            "OPENROUTER_BASE_URL", "https://openrouter.ai/api"
         )
         openrouter_llm_model = os.environ.get(
             "OPENROUTER_LLM_MODEL", "anthropic/claude-sonnet-4"
@@ -624,7 +624,10 @@ def get_graphiti_status() -> dict:
 
     # CRITICAL FIX: Actually verify packages are importable before reporting available
     # Don't just check config.is_valid() - actually try to import the module
-    if not config.is_valid():
+    # Note: This branch is currently unreachable because is_valid() returns True
+    # whenever enabled is True. Kept for defensive purposes in case is_valid()
+    # logic changes in the future.
+    if not config.is_valid():  # pragma: no cover
         status["reason"] = errors[0] if errors else "Configuration invalid"
         return status
 
@@ -632,9 +635,19 @@ def get_graphiti_status() -> dict:
     try:
         # Attempt to import the main graphiti_memory module
         import graphiti_core  # noqa: F401
-        from graphiti_core.driver.falkordb_driver import FalkorDriver  # noqa: F401
 
-        # If we got here, packages are importable
+        # Try LadybugDB first (preferred for Python 3.12+), fall back to kuzu
+        try:
+            import real_ladybug  # noqa: F401
+        except ImportError:
+            try:
+                import kuzu  # noqa: F401
+            except ImportError:
+                status["available"] = False
+                status["reason"] = (
+                    "Graph database backend not installed (need real_ladybug or kuzu)"
+                )
+                return status
         status["available"] = True
     except ImportError as e:
         status["available"] = False

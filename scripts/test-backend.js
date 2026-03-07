@@ -4,7 +4,7 @@
  * Runs pytest using the correct virtual environment path for Windows/Mac/Linux
  */
 
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -39,15 +39,30 @@ if (!fs.existsSync(pytestPath)) {
 }
 
 // Get any additional args passed to the script
+// Process args to properly handle -m flag with spaces
 const args = process.argv.slice(2);
-const testArgs = args.length > 0 ? args.join(' ') : '-v';
+const testArgs = [];
 
-// Run pytest
-const cmd = `"${pytestPath}" "${testsDir}" ${testArgs}`;
-console.log(`> ${cmd}\n`);
+if (args.length > 0) {
+  // Reconstruct args, joining -m with its value if separated
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '-m' && i + 1 < args.length) {
+      // Pass -m and its value as separate args (no shell quoting needed with execFileSync)
+      testArgs.push('-m', args[i + 1]);
+      i++; // Skip next arg since we consumed it
+    } else {
+      testArgs.push(args[i]);
+    }
+  }
+} else {
+  testArgs.push('-v');
+}
+
+// Run pytest using execFileSync to avoid shell interpretation
+console.log(`> ${pytestPath} "${testsDir}" ${testArgs.join(' ')}\n`);
 
 try {
-  execSync(cmd, { stdio: 'inherit', cwd: rootDir });
+  execFileSync(pytestPath, [testsDir, ...testArgs], { stdio: 'inherit', cwd: rootDir });
 } catch (error) {
   process.exit(error.status || 1);
 }

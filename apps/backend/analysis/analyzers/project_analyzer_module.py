@@ -31,6 +31,7 @@ class ProjectAnalyzer:
         """Run full project analysis."""
         self._detect_project_type()
         self._find_and_analyze_services()
+        self._aggregate_dependency_locations()
         self._analyze_infrastructure()
         self._detect_conventions()
         self._map_dependencies()
@@ -123,6 +124,63 @@ class ProjectAnalyzer:
                 services["main"] = service_info
 
         self.index["services"] = services
+
+    def _aggregate_dependency_locations(self) -> None:
+        """Aggregate dependency location metadata from all services.
+
+        Collects dependency_locations from each service and stores them as
+        paths relative to the project root (e.g., 'apps/backend/.venv'
+        instead of just '.venv').
+        """
+        aggregated: list[dict[str, Any]] = []
+
+        for service_name, service_info in self.index.get("services", {}).items():
+            service_deps = service_info.get("dependency_locations", [])
+            service_path = service_info.get("path", "")
+
+            # Compute service-relative prefix once per service
+            service_rel: Path | None = None
+            if service_path:
+                try:
+                    service_rel = Path(service_path).relative_to(self.project_dir)
+                except ValueError:
+                    # Service path is outside the project root — skip its deps
+                    # to avoid producing absolute paths that bypass containment
+                    continue
+
+            for dep in service_deps:
+                dep_path = dep.get("path")
+                if not dep_path:
+                    continue
+
+                # Build project-relative path from service path + dep path
+                if service_rel is not None:
+                    project_relative = str(service_rel / dep_path)
+                else:
+                    project_relative = dep_path
+
+                entry: dict[str, Any] = {
+                    "type": dep.get("type", "unknown"),
+                    "path": project_relative,
+                    "exists": dep.get("exists", False),
+                    "service": service_name,
+                }
+                if dep.get("requirements_file"):
+                    # Convert to project-relative path like we do for "path"
+                    if service_rel is not None:
+                        entry["requirements_file"] = str(
+                            service_rel / dep["requirements_file"]
+                        )
+                    else:
+                        entry["requirements_file"] = dep["requirements_file"]
+                pkg_mgr = dep.get("package_manager") or service_info.get(
+                    "package_manager"
+                )
+                if pkg_mgr:
+                    entry["package_manager"] = pkg_mgr
+                aggregated.append(entry)
+
+        self.index["dependency_locations"] = aggregated
 
     def _analyze_infrastructure(self) -> None:
         """Analyze infrastructure configuration."""

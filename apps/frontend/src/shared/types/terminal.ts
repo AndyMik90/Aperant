@@ -158,6 +158,29 @@ export interface AuthFailureInfo {
 }
 
 /**
+ * Billing/credit exhaustion failure information for SDK/CLI operations.
+ * Emitted when Claude API returns billing-related errors (HTTP 400 with
+ * invalid_request_error), indicating the account has insufficient credits,
+ * exceeded usage limits, or has a billing configuration issue.
+ */
+export interface BillingFailureInfo {
+  /** The profile ID that has billing issues */
+  profileId: string;
+  /** The profile name for display */
+  profileName?: string;
+  /** Type of billing failure */
+  failureType: 'insufficient_credits' | 'payment_required' | 'subscription_inactive' | 'unknown';
+  /** User-friendly message describing the failure */
+  message: string;
+  /** Original error message from the process output */
+  originalError?: string;
+  /** Task ID if applicable (for task-related billing failures) */
+  taskId?: string;
+  /** When detected (Note: serialized as ISO string over IPC) */
+  detectedAt: Date;
+}
+
+/**
  * Request to retry a rate-limited operation with a different profile
  */
 export interface RetryWithProfileRequest {
@@ -196,6 +219,8 @@ export interface TerminalWorktreeConfig {
   createdAt: string;
   /** Terminal ID this worktree is associated with */
   terminalId: string;
+  /** Whether the branch was pushed to remote with tracking set up */
+  remoteTrackingSetUp?: boolean;
 }
 
 /**
@@ -214,6 +239,12 @@ export interface CreateTerminalWorktreeRequest {
   projectPath: string;
   /** Optional base branch to create worktree from (defaults to project default) */
   baseBranch?: string;
+  /**
+   * When true, use the local branch directly without auto-switching to remote.
+   * This preserves gitignored files (.env, configs) that may not exist on remote.
+   * When false or undefined, the default behavior prefers origin/branch if it exists.
+   */
+  useLocalBranch?: boolean;
 }
 
 /**
@@ -223,6 +254,8 @@ export interface TerminalWorktreeResult {
   success: boolean;
   config?: TerminalWorktreeConfig;
   error?: string;
+  /** Warning when worktree was created but remote push failed */
+  warning?: string;
 }
 
 /**

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 
@@ -20,6 +20,11 @@ try:
     from .file_lock import locked_json_update, locked_json_write
 except (ImportError, ValueError, SystemError):
     from file_lock import locked_json_update, locked_json_write
+
+
+def _utc_now_iso() -> str:
+    """Return current UTC time as ISO 8601 string with timezone info."""
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 class ReviewSeverity(str, Enum):
@@ -521,7 +526,7 @@ class PRReviewResult:
     summary: str = ""
     overall_status: str = "comment"  # approve, request_changes, comment
     review_id: int | None = None
-    reviewed_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    reviewed_at: str = field(default_factory=lambda: _utc_now_iso())
     error: str | None = None
 
     # NEW: Enhanced verdict system
@@ -567,6 +572,9 @@ class PRReviewResult:
     )  # IDs of posted findings
     posted_at: str | None = None  # Timestamp when findings were posted
 
+    # In-progress review tracking
+    in_progress_since: str | None = None  # ISO timestamp when active review started
+
     def to_dict(self) -> dict:
         return {
             "pr_number": self.pr_number,
@@ -598,6 +606,8 @@ class PRReviewResult:
             "has_posted_findings": self.has_posted_findings,
             "posted_finding_ids": self.posted_finding_ids,
             "posted_at": self.posted_at,
+            # In-progress review tracking
+            "in_progress_since": self.in_progress_since,
         }
 
     @classmethod
@@ -610,7 +620,7 @@ class PRReviewResult:
             summary=data.get("summary", ""),
             overall_status=data.get("overall_status", "comment"),
             review_id=data.get("review_id"),
-            reviewed_at=data.get("reviewed_at", datetime.now().isoformat()),
+            reviewed_at=data.get("reviewed_at", _utc_now_iso()),
             error=data.get("error"),
             # NEW fields
             verdict=MergeVerdict(data.get("verdict", "ready_to_merge")),
@@ -645,6 +655,8 @@ class PRReviewResult:
             has_posted_findings=data.get("has_posted_findings", False),
             posted_finding_ids=data.get("posted_finding_ids", []),
             posted_at=data.get("posted_at"),
+            # In-progress review tracking
+            in_progress_since=data.get("in_progress_since"),
         )
 
     async def save(self, github_dir: Path) -> None:
@@ -691,7 +703,7 @@ class PRReviewResult:
                 reviews.append(entry)
 
             current_data["reviews"] = reviews
-            current_data["last_updated"] = datetime.now().isoformat()
+            current_data["last_updated"] = _utc_now_iso()
 
             return current_data
 
@@ -762,7 +774,7 @@ class TriageResult:
     suggested_breakdown: list[str] = field(default_factory=list)
     priority: str = "medium"  # high, medium, low
     comment: str | None = None
-    triaged_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    triaged_at: str = field(default_factory=lambda: _utc_now_iso())
 
     def to_dict(self) -> dict:
         return {
@@ -798,7 +810,7 @@ class TriageResult:
             suggested_breakdown=data.get("suggested_breakdown", []),
             priority=data.get("priority", "medium"),
             comment=data.get("comment"),
-            triaged_at=data.get("triaged_at", datetime.now().isoformat()),
+            triaged_at=data.get("triaged_at", _utc_now_iso()),
         )
 
     async def save(self, github_dir: Path) -> None:
@@ -836,8 +848,8 @@ class AutoFixState:
     pr_url: str | None = None
     bot_comments: list[str] = field(default_factory=list)
     error: str | None = None
-    created_at: str = field(default_factory=lambda: datetime.now().isoformat())
-    updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    created_at: str = field(default_factory=lambda: _utc_now_iso())
+    updated_at: str = field(default_factory=lambda: _utc_now_iso())
 
     def to_dict(self) -> dict:
         return {
@@ -875,8 +887,8 @@ class AutoFixState:
             pr_url=data.get("pr_url"),
             bot_comments=data.get("bot_comments", []),
             error=data.get("error"),
-            created_at=data.get("created_at", datetime.now().isoformat()),
-            updated_at=data.get("updated_at", datetime.now().isoformat()),
+            created_at=data.get("created_at", _utc_now_iso()),
+            updated_at=data.get("updated_at", _utc_now_iso()),
         )
 
     def update_status(self, status: AutoFixStatus) -> None:
@@ -886,7 +898,7 @@ class AutoFixState:
                 f"Invalid state transition: {self.status.value} -> {status.value}"
             )
         self.status = status
-        self.updated_at = datetime.now().isoformat()
+        self.updated_at = _utc_now_iso()
 
     async def save(self, github_dir: Path) -> None:
         """Save auto-fix state to .auto-claude/github/issues/ with file locking."""
@@ -938,7 +950,7 @@ class AutoFixState:
                 queue.append(entry)
 
             current_data["auto_fix_queue"] = queue
-            current_data["last_updated"] = datetime.now().isoformat()
+            current_data["last_updated"] = _utc_now_iso()
 
             return current_data
 
@@ -997,6 +1009,7 @@ class GitHubRunnerConfig:
     # to respect environment variable overrides (e.g., ANTHROPIC_DEFAULT_SONNET_MODEL)
     model: str = "sonnet"
     thinking_level: str = "medium"
+    fast_mode: bool = False
 
     def to_dict(self) -> dict:
         return {
@@ -1019,6 +1032,7 @@ class GitHubRunnerConfig:
             "allow_fix_commits": self.allow_fix_commits,
             "model": self.model,
             "thinking_level": self.thinking_level,
+            "fast_mode": self.fast_mode,
         }
 
     def save_settings(self, github_dir: Path) -> None:

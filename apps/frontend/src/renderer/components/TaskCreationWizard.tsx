@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { Loader2, ChevronDown, ChevronUp, RotateCcw, FolderTree, GitBranch, Info } from 'lucide-react';
 import { Button } from './ui/button';
 import { Label } from './ui/label';
-import { Combobox, type ComboboxOption } from './ui/combobox';
+import { Combobox } from './ui/combobox';
 import { TaskModalLayout } from './task-form/TaskModalLayout';
 import { TaskFormFields } from './task-form/TaskFormFields';
 import { type FileReferenceData } from './task-form/useImageUpload';
@@ -23,13 +23,16 @@ import { TaskFileExplorerDrawer } from './TaskFileExplorerDrawer';
 import { FileAutocomplete } from './FileAutocomplete';
 import { createTask, saveDraft, loadDraft, clearDraft, isDraftEmpty } from '../stores/task-store';
 import { useProjectStore } from '../stores/project-store';
+import { buildBranchOptions } from '../lib/branch-utils';
 import { cn } from '../lib/utils';
-import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata, ImageAttachment, TaskDraft, ModelType, ThinkingLevel, ReferencedFile } from '../../shared/types';
+import type { TaskCategory, TaskPriority, TaskComplexity, TaskImpact, TaskMetadata, ImageAttachment, TaskDraft, ModelType, ThinkingLevel, ReferencedFile, GitBranchDetail } from '../../shared/types';
 import type { PhaseModelConfig, PhaseThinkingConfig } from '../../shared/types/settings';
 import {
   DEFAULT_AGENT_PROFILES,
   DEFAULT_PHASE_MODELS,
-  DEFAULT_PHASE_THINKING
+  DEFAULT_PHASE_THINKING,
+  FAST_MODE_MODELS,
+  PHASE_KEYS
 } from '../../shared/constants';
 import { useSettingsStore } from '../stores/settings-store';
 
@@ -62,8 +65,8 @@ export function TaskCreationWizard({
   const [showFileExplorer, setShowFileExplorer] = useState(false);
   const [showGitOptions, setShowGitOptions] = useState(false);
 
-  // Git options state
-  const [branches, setBranches] = useState<string[]>([]);
+  // Git options state - using structured GitBranchDetail for type indicators
+  const [branches, setBranches] = useState<GitBranchDetail[]>([]);
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
   const [baseBranch, setBaseBranch] = useState<string>(PROJECT_DEFAULT_BRANCH);
   const [projectDefaultBranch, setProjectDefaultBranch] = useState<string>('');
@@ -77,21 +80,26 @@ export function TaskCreationWizard({
     return project?.path ?? null;
   }, [projects, projectId]);
 
-  // Convert branches to ComboboxOption[] format for searchable dropdown
-  const branchOptions: ComboboxOption[] = useMemo(() => {
-    const options: ComboboxOption[] = [
-      {
+  // Build branch options using shared utility - groups by local/remote with type indicators
+  const branchOptions = useMemo(() => {
+    return buildBranchOptions(branches, {
+      t,
+      includeProjectDefault: {
         value: PROJECT_DEFAULT_BRANCH,
-        label: projectDefaultBranch
-          ? t('tasks:wizard.gitOptions.useProjectDefaultWithBranch', { branch: projectDefaultBranch })
-          : t('tasks:wizard.gitOptions.useProjectDefault')
-      }
-    ];
-    branches.forEach((branch) => {
-      options.push({ value: branch, label: branch });
+        branchName: projectDefaultBranch,
+        labelKey: projectDefaultBranch
+          ? 'tasks:wizard.gitOptions.useProjectDefaultWithBranch'
+          : 'tasks:wizard.gitOptions.useProjectDefault',
+      },
     });
-    return options;
   }, [branches, projectDefaultBranch, t]);
+
+  // Determine if the selected branch is local (for useLocalBranch flag)
+  const isSelectedBranchLocal = useMemo(() => {
+    if (baseBranch === PROJECT_DEFAULT_BRANCH) return false;
+    const selectedGitBranchDetail = branches.find((b) => b.name === baseBranch);
+    return selectedGitBranchDetail?.type === 'local';
+  }, [baseBranch, branches]);
 
   // Classification fields
   const [category, setCategory] = useState<TaskCategory | ''>('');
@@ -116,6 +124,15 @@ export function TaskCreationWizard({
 
   // Review setting
   const [requireReviewBeforeCoding, setRequireReviewBeforeCoding] = useState(false);
+
+  // Fast mode
+  const [fastMode, setFastMode] = useState(false);
+
+  // Show Fast Mode toggle when any phase uses an Opus model
+  const showFastModeToggle = useMemo(() => {
+    if (!phaseModels) return false;
+    return PHASE_KEYS.some(phase => FAST_MODE_MODELS.includes(phaseModels[phase]));
+  }, [phaseModels]);
 
   // Draft state
   const [isDraftRestored, setIsDraftRestored] = useState(false);
@@ -155,6 +172,7 @@ export function TaskCreationWizard({
         setImages(draft.images);
         setReferencedFiles(draft.referencedFiles ?? []);
         setRequireReviewBeforeCoding(draft.requireReviewBeforeCoding ?? false);
+        setFastMode(draft.fastMode ?? false);
         setIsDraftRestored(true);
 
         if (draft.category || draft.priority || draft.complexity || draft.impact) {
@@ -177,6 +195,7 @@ export function TaskCreationWizard({
         setImages([]);
         setReferencedFiles([]);
         setRequireReviewBeforeCoding(false);
+        setFastMode(false);
         setBaseBranch(PROJECT_DEFAULT_BRANCH);
         setUseWorktree(true);
         setIsDraftRestored(false);
@@ -187,7 +206,7 @@ export function TaskCreationWizard({
     }
   }, [open, projectId, settings.selectedAgentProfile, settings.customPhaseModels, settings.customPhaseThinking, selectedProfile.model, selectedProfile.thinkingLevel, selectedProfile.phaseModels, selectedProfile.phaseThinking]);
 
-  // Fetch branches when dialog opens
+  // Fetch branches when dialog opens - using structured branch data with type indicators
   useEffect(() => {
     let isMounted = true;
 
@@ -195,7 +214,8 @@ export function TaskCreationWizard({
       if (!projectPath) return;
       if (isMounted) setIsLoadingBranches(true);
       try {
-        const result = await window.electronAPI.getGitBranches(projectPath);
+        // Use structured branch data with type indicators
+        const result = await window.electronAPI.getGitBranchesWithInfo(projectPath);
         if (isMounted && result.success && result.data) {
           setBranches(result.data);
         }
@@ -252,8 +272,9 @@ export function TaskCreationWizard({
     images,
     referencedFiles,
     requireReviewBeforeCoding,
+    fastMode,
     savedAt: new Date()
-  }), [projectId, title, description, category, priority, complexity, impact, profileId, model, thinkingLevel, phaseModels, phaseThinking, images, referencedFiles, requireReviewBeforeCoding]);
+  }), [projectId, title, description, category, priority, complexity, impact, profileId, model, thinkingLevel, phaseModels, phaseThinking, images, referencedFiles, requireReviewBeforeCoding, fastMode]);
 
   /**
    * Detect @ mention being typed and show autocomplete
@@ -432,6 +453,10 @@ export function TaskCreationWizard({
       }
       // Pass worktree preference - false means use --direct mode
       if (!useWorktree) metadata.useWorktree = false;
+      // Set useLocalBranch when user explicitly selects a local branch
+      // This preserves gitignored files (.env, configs) by not switching to origin
+      if (isSelectedBranchLocal) metadata.useLocalBranch = true;
+      metadata.fastMode = fastMode;
 
       const task = await createTask(projectId, title.trim(), description.trim(), metadata);
       if (task) {
@@ -463,6 +488,7 @@ export function TaskCreationWizard({
     setImages([]);
     setReferencedFiles([]);
     setRequireReviewBeforeCoding(false);
+    setFastMode(false);
     setBaseBranch(PROJECT_DEFAULT_BRANCH);
     setUseWorktree(true);
     setError(null);
@@ -645,6 +671,9 @@ export function TaskCreationWizard({
           onImagesChange={setImages}
           requireReviewBeforeCoding={requireReviewBeforeCoding}
           onRequireReviewChange={setRequireReviewBeforeCoding}
+          fastMode={fastMode}
+          onFastModeChange={setFastMode}
+          showFastModeToggle={showFastModeToggle}
           disabled={isCreating}
           error={error}
           onError={setError}

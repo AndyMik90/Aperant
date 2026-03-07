@@ -47,7 +47,9 @@ from ideation import (
     IdeationOrchestrator,
     IdeationPhaseResult,
 )
+from core.language import LANGUAGE_NAMES
 from ideation.generator import IDEATION_TYPE_LABELS, IDEATION_TYPES
+from phase_config import sanitize_thinking_level
 
 # Re-export for backward compatibility
 __all__ = [
@@ -109,8 +111,7 @@ def main():
         "--thinking-level",
         type=str,
         default="medium",
-        choices=["none", "low", "medium", "high", "ultrathink"],
-        help="Thinking level for extended reasoning (default: medium)",
+        help="Thinking level for extended reasoning (low, medium, high)",
     )
     parser.add_argument(
         "--refresh",
@@ -126,10 +127,19 @@ def main():
         "--language",
         type=str,
         default="en",
+        choices=sorted(LANGUAGE_NAMES.keys()),
         help="Output language for generated content (en, zh-CN, fr, etc.)",
+    )
+    parser.add_argument(
+        "--fast-mode",
+        action="store_true",
+        help="Enable Fast Mode for faster Opus 4.6 output",
     )
 
     args = parser.parse_args()
+
+    # Validate and sanitize thinking level (handles legacy values like 'ultrathink')
+    args.thinking_level = sanitize_thinking_level(args.thinking_level)
 
     # Validate project directory
     project_dir = args.project.resolve()
@@ -159,6 +169,7 @@ def main():
         refresh=args.refresh,
         append=args.append,
         language=args.language,
+        fast_mode=args.fast_mode,
     )
 
     try:

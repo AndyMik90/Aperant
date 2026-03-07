@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { DEFAULT_AGENT_PROFILES, DEFAULT_PHASE_MODELS, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING } from '../../../shared/constants/models';
-import { resolveAgentSettings, type AgentSettingsSource } from '../../hooks';
+import { resolveAgentSettings, } from '../../hooks';
 
 // Mock electronAPI
 global.window.electronAPI = {
@@ -69,7 +69,7 @@ describe('AgentTools - Agent Profile Resolution', () => {
       const phaseThinking = profile?.phaseThinking;
 
       expect(phaseThinking).toBeDefined();
-      expect(phaseThinking?.spec).toBe('ultrathink');
+      expect(phaseThinking?.spec).toBe('high');
       expect(phaseThinking?.planning).toBe('high');
       expect(phaseThinking?.coding).toBe('low');
       expect(phaseThinking?.qa).toBe('low');
@@ -174,7 +174,7 @@ describe('AgentTools - Agent Profile Resolution', () => {
         resolvedSettings
       );
       expect(specAgent.model).toBe('opus');
-      expect(specAgent.thinking).toBe('ultrathink');
+      expect(specAgent.thinking).toBe('high');
 
       // Planning phase agent
       const planningAgent = resolveAgentSettings(

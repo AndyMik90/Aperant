@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import { GitPullRequest, RefreshCw, ExternalLink, Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useProjectStore } from "../../stores/project-store";
@@ -58,6 +58,7 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
   const {
     prs,
     isLoading,
+    isLoadingMore,
     isLoadingPRDetails,
     error,
     selectedPRNumber,
@@ -65,7 +66,9 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
     reviewProgress,
     startedAt,
     isReviewing,
+    isExternalReview,
     previousReviewResult,
+    reviewError,
     hasMore,
     selectPR,
     runReview,
@@ -78,6 +81,7 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
     assignPR,
     markReviewPosted,
     refresh,
+    loadMore,
     isConnected,
     repoFullName,
     getReviewStateForPR,
@@ -96,9 +100,24 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
     setSearchQuery,
     setContributors,
     setStatuses,
+    setSortBy,
     clearFilters,
     hasActiveFilters,
   } = usePRFiltering(prs, getReviewStateForPR);
+
+  // Sync UI state when PR list updates (e.g., after auto-refresh from review completion)
+  // Following pattern from PRDetail.tsx for state syncing
+  useEffect(() => {
+    // Ensure selected PR is still valid after list updates
+    // This prevents stale state if a PR was closed/merged while selected
+    if (selectedPRNumber && prs.length > 0) {
+      const selectedStillExists = prs.some(pr => pr.number === selectedPRNumber);
+      if (!selectedStillExists) {
+        // Selected PR was removed/closed, clear selection to prevent stale state
+        selectPR(null);
+      }
+    }
+  }, [prs, selectedPRNumber, selectPR]);
 
   const handleRunReview = useCallback(() => {
     if (selectedPRNumber) {
@@ -226,6 +245,7 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
               onSearchChange={setSearchQuery}
               onContributorsChange={setContributors}
               onStatusesChange={setStatuses}
+              onSortChange={setSortBy}
               onClearFilters={clearFilters}
             />
             <PRList
@@ -236,6 +256,8 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
               error={error}
               getReviewStateForPR={getReviewStateForPR}
               onSelectPR={selectPR}
+              onLoadMore={loadMore}
+              isLoadingMore={isLoadingMore}
             />
           </div>
         }
@@ -249,6 +271,8 @@ export function GitHubPRs({ onOpenSettings, isActive = false }: GitHubPRsProps) 
               reviewProgress={reviewProgress}
               startedAt={startedAt}
               isReviewing={isReviewing}
+              isExternalReview={isExternalReview}
+              reviewError={reviewError}
               initialNewCommitsCheck={storedNewCommitsCheck}
               isActive={isActive}
               isLoadingFiles={isLoadingPRDetails}

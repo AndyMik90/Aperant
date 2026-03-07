@@ -10,6 +10,13 @@ import logging
 from pathlib import Path
 
 from claude_agent_sdk import ClaudeSDKClient
+from core.error_utils import (
+    is_authentication_error,
+    is_rate_limit_error,
+    is_tool_concurrency_error,
+    safe_receive_messages,
+)
+from core.file_utils import write_json_atomic
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
 from insight_extractor import extract_session_insights
 from linear_updater import (
@@ -20,7 +27,7 @@ from progress import (
     count_subtasks_detailed,
     is_build_complete,
 )
-from recovery import RecoveryManager
+from recovery import RecoveryManager, check_and_recover, reset_subtask
 from security.tool_input_validator import get_safe_tool_input
 from task_logger import (
     LogEntryType,
@@ -34,6 +41,7 @@ from ui import (
     print_status,
 )
 
+from .base import sanitize_error_message
 from .memory_manager import save_session_memory
 from .utils import (
     find_subtask_in_plan,
@@ -44,6 +52,38 @@ from .utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _execute_recovery_action(
+    recovery_action,
+    recovery_manager: RecoveryManager,
+    spec_dir: Path,
+    project_dir: Path,
+    subtask_id: str,
+) -> None:
+    """Execute a recovery action (rollback/retry/skip/escalate)."""
+    if not recovery_action:
+        return
+
+    print_status(f"Recovery action: {recovery_action.action}", "info")
+    print_status(f"Reason: {recovery_action.reason}", "info")
+
+    if recovery_action.action == "rollback":
+        print_status(f"Rolling back to {recovery_action.target[:8]}", "warning")
+        if recovery_manager.rollback_to_commit(recovery_action.target):
+            print_status("Rollback successful", "success")
+        else:
+            print_status("Rollback failed", "error")
+
+    elif recovery_action.action == "retry":
+        print_status(f"Resetting subtask {subtask_id} for retry", "info")
+        reset_subtask(spec_dir, project_dir, subtask_id)
+        print_status("Subtask reset - will retry with different approach", "success")
+
+    elif recovery_action.action in ("skip", "escalate"):
+        print_status(f"Marking subtask {subtask_id} as stuck", "warning")
+        recovery_manager.mark_subtask_stuck(subtask_id, recovery_action.reason)
+        print_status("Subtask marked for human intervention", "warning")
 
 
 async def post_session_processing(
@@ -57,6 +97,7 @@ async def post_session_processing(
     linear_enabled: bool = False,
     status_manager: StatusManager | None = None,
     source_spec_dir: Path | None = None,
+    error_info: dict | None = None,
 ) -> bool:
     """
     Process session results and update memory automatically.
@@ -74,6 +115,7 @@ async def post_session_processing(
         linear_enabled: Whether Linear integration is enabled
         status_manager: Optional status manager for ccstatusline
         source_spec_dir: Original spec directory (for syncing back from worktree)
+        error_info: Error information from run_agent_session (for rate limit detection)
 
     Returns:
         True if subtask was completed successfully
@@ -205,6 +247,77 @@ async def post_session_processing(
             error="Subtask not marked as completed",
         )
 
+        # Check if this was a concurrency error - if so, reset subtask to pending for retry
+        is_concurrency_error = (
+            error_info and error_info.get("type") == "tool_concurrency"
+        )
+
+        if is_concurrency_error:
+            print_status(
+                f"Rate limit detected - resetting subtask {subtask_id} to pending for retry",
+                "info",
+            )
+
+            # Use recovery system's reset_subtask for consistency
+            reset_subtask(spec_dir, project_dir, subtask_id)
+
+            # Also reset in implementation plan
+            plan = load_implementation_plan(spec_dir)
+            if plan:
+                # Find and reset the subtask
+                subtask_found = False
+                for phase in plan.get("phases", []):
+                    for subtask in phase.get("subtasks", []):
+                        if subtask.get("id") == subtask_id:
+                            # Reset subtask to pending state
+                            subtask["status"] = "pending"
+                            subtask["started_at"] = None
+                            subtask["completed_at"] = None
+                            subtask_found = True
+                            break
+                    if subtask_found:
+                        break
+
+                if subtask_found:
+                    # Save plan atomically to prevent corruption
+                    try:
+                        plan_path = spec_dir / "implementation_plan.json"
+                        write_json_atomic(plan_path, plan, indent=2)
+                        print_status(
+                            f"Subtask {subtask_id} reset to pending status", "success"
+                        )
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to save implementation plan after reset: {e}"
+                        )
+                        print_status("Failed to save plan after reset", "error")
+                else:
+                    print_status(
+                        f"Warning: Could not find subtask {subtask_id} in plan",
+                        "warning",
+                    )
+            else:
+                print_status(
+                    "Warning: Could not load implementation plan for reset", "warning"
+                )
+        else:
+            # Non-rate-limit error - use automatic recovery flow
+            error_message = (
+                error_info.get("message", "Subtask not marked as completed")
+                if error_info
+                else "Subtask not marked as completed"
+            )
+
+            recovery_action = check_and_recover(
+                spec_dir=spec_dir,
+                project_dir=project_dir,
+                subtask_id=subtask_id,
+                error=error_message,
+            )
+            _execute_recovery_action(
+                recovery_action, recovery_manager, spec_dir, project_dir, subtask_id
+            )
+
         # Still record commit if one was made (partial progress)
         if commit_after and commit_after != commit_before:
             recovery_manager.record_good_commit(commit_after, subtask_id)
@@ -268,6 +381,21 @@ async def post_session_processing(
             error=f"Subtask status is {subtask_status}",
         )
 
+        # Automatic recovery flow - determine and execute recovery action
+        error_message = f"Subtask status is {subtask_status}"
+        if error_info:
+            error_message = error_info.get("message", error_message)
+
+        recovery_action = check_and_recover(
+            spec_dir=spec_dir,
+            project_dir=project_dir,
+            subtask_id=subtask_id,
+            error=error_message,
+        )
+        _execute_recovery_action(
+            recovery_action, recovery_manager, spec_dir, project_dir, subtask_id
+        )
+
         # Record Linear session result (if enabled)
         if linear_enabled:
             attempt_count = recovery_manager.get_attempt_count(subtask_id)
@@ -317,7 +445,7 @@ async def run_agent_session(
     spec_dir: Path,
     verbose: bool = False,
     phase: LogPhase = LogPhase.CODING,
-) -> tuple[str, str]:
+) -> tuple[str, str, dict]:
     """
     Run a single agent session using Claude Agent SDK.
 
@@ -329,10 +457,13 @@ async def run_agent_session(
         phase: Current execution phase for logging
 
     Returns:
-        (status, response_text) where status is:
-        - "continue" if agent should continue working
-        - "complete" if all subtasks complete
-        - "error" if an error occurred
+        (status, response_text, error_info) where:
+        - status: "continue", "complete", or "error"
+        - response_text: Agent's response text
+        - error_info: Dict with error details (empty if no error):
+            - "type": "tool_concurrency" or "other"
+            - "message": Error message string
+            - "exception_type": Exception class name string
     """
     debug_section("session", f"Agent Session - {phase.value}")
     debug(
@@ -360,7 +491,7 @@ async def run_agent_session(
         # Collect response text and show tool use
         response_text = ""
         debug("session", "Starting to receive response stream...")
-        async for msg in client.receive_response():
+        async for msg in safe_receive_messages(client, caller="session"):
             msg_type = type(msg).__name__
             message_count += 1
             debug_detailed(
@@ -529,7 +660,7 @@ async def run_agent_session(
                 tool_count=tool_count,
                 response_length=len(response_text),
             )
-            return "complete", response_text
+            return "complete", response_text, {}
 
         debug_success(
             "session",
@@ -538,17 +669,59 @@ async def run_agent_session(
             tool_count=tool_count,
             response_length=len(response_text),
         )
-        return "continue", response_text
+        return "continue", response_text, {}
 
     except Exception as e:
+        # Detect specific error types for better retry handling
+        is_concurrency = is_tool_concurrency_error(e)
+        is_rate_limit = is_rate_limit_error(e)
+        is_auth = is_authentication_error(e)
+
+        # Classify error type for appropriate handling
+        if is_concurrency:
+            error_type = "tool_concurrency"
+        elif is_rate_limit:
+            error_type = "rate_limit"
+        elif is_auth:
+            error_type = "authentication"
+        else:
+            error_type = "other"
+
         debug_error(
             "session",
             f"Session error: {e}",
             exception_type=type(e).__name__,
+            error_category=error_type,
             message_count=message_count,
             tool_count=tool_count,
         )
-        print(f"Error during agent session: {e}")
+
+        # Sanitize error message to remove potentially sensitive data
+        # Must happen BEFORE printing to stdout, since stdout is captured by the frontend
+        sanitized_error = sanitize_error_message(str(e))
+
+        # Log errors prominently based on type
+        if is_concurrency:
+            print("\n⚠️  Tool concurrency limit reached (400 error)")
+            print("   Claude API limits concurrent tool use in a single request")
+            print(f"   Error: {sanitized_error[:200]}\n")
+        elif is_rate_limit:
+            print("\n⚠️  Rate limit reached")
+            print("   API usage quota exceeded - waiting for reset")
+            print(f"   Error: {sanitized_error[:200]}\n")
+        elif is_auth:
+            print("\n⚠️  Authentication error")
+            print("   OAuth token may be invalid or expired")
+            print(f"   Error: {sanitized_error[:200]}\n")
+        else:
+            print(f"Error during agent session: {sanitized_error}")
+
         if task_logger:
-            task_logger.log_error(f"Session error: {e}", phase)
-        return "error", str(e)
+            task_logger.log_error(f"Session error: {sanitized_error}", phase)
+
+        error_info = {
+            "type": error_type,
+            "message": sanitized_error,
+            "exception_type": type(e).__name__,
+        }
+        return "error", sanitized_error, error_info

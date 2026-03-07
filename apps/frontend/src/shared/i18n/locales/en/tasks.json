@@ -38,7 +38,8 @@
     "completed": "Completed",
     "hasErrors": "Has Errors",
     "qaIssues": "QA Issues",
-    "approvePlan": "Approve Plan"
+    "approvePlan": "Approve Plan",
+    "stopped": "Stopped"
   },
   "tooltips": {
     "archiveTask": "Archive task",
@@ -100,6 +101,14 @@
     "selectedCountOne": "{{count}} task selected",
     "selectedCountOther": "{{count}} tasks selected",
     "createPRs": "Create PRs",
+    "deleteSelected": "Delete",
+    "deleteConfirmTitle": "Delete Selected Tasks",
+    "deleteConfirmDescription": "Are you sure you want to permanently delete these tasks?",
+    "deleteWarning": "This action cannot be undone. All task files, including the spec, implementation plan, and any generated code will be permanently deleted from the project.",
+    "tasksToDelete": "Tasks to delete",
+    "deleteConfirmButton": "Delete {{count}} Tasks",
+    "deleteSuccess": "Successfully deleted {{count}} task(s)",
+    "deleteError": "Failed to delete some tasks",
     "clearSelection": "Clear Selection",
     "collapseColumn": "Collapse column",
     "expandColumn": "Expand column",
@@ -133,6 +142,8 @@
       "idle": "Idle",
       "planning": "Planning",
       "coding": "Coding",
+      "rate_limit_paused": "Rate Limited",
+      "auth_failure_paused": "Auth Required",
       "reviewing": "Reviewing",
       "fixing": "Fixing",
       "complete": "Complete",
@@ -164,8 +175,11 @@
     "openInIDE": "Open in IDE"
   },
   "metadata": {
+    "fastMode": "Fast",
     "severity": "severity",
-    "pullRequest": "Pull Request"
+    "pullRequest": "Pull Request",
+    "showMore": "Show more",
+    "showLess": "Show less"
   },
   "images": {
     "removeImageAriaLabel": "Remove image {{filename}}",
@@ -208,7 +222,8 @@
       "useWorktreeDescription": "Creates changes in a separate git worktree for safe review before merging. Disable to build directly in your project (faster but riskier)."
     },
     "errors": {
-      "createFailed": "Failed to create task. Please try again."
+      "createFailed": "Failed to create task. Please try again.",
+      "startFailed": "Failed to start task"
     }
   },
   "feedback": {
@@ -240,6 +255,9 @@
     "classificationOptional": "Classification (optional)",
     "requireReviewLabel": "Require human review before coding",
     "requireReviewDescription": "When enabled, you'll be prompted to review the spec and implementation plan before the coding phase begins. This allows you to approve, request changes, or provide feedback.",
+    "fastModeLabel": "Fast Mode",
+    "fastModeDescription": "Same Opus 4.6 model with faster output. Higher cost per token.",
+    "fastModeNotice": "Requires \"extra usage\" enabled on your Claude subscription.",
     "errors": {
       "descriptionRequired": "Please provide a description",
       "maxImagesReached": "Maximum of 5 images allowed",
@@ -316,6 +334,17 @@
       "description": "Screen capture is not available in development mode due to system permission restrictions.",
       "hint": "Use an external screenshot tool and paste directly into the task description with {{shortcut}}."
     }
+  },
+  "deleteDialog": {
+    "title": "Delete Task",
+    "confirmMessage": "Are you sure you want to delete",
+    "destructiveWarning": "This action cannot be undone. All task files, including the spec, implementation plan, and any generated code will be permanently deleted from the project.",
+    "checkingChanges": "Checking for uncommitted changes...",
+    "uncommittedChanges": "This task's worktree has {{count}} uncommitted file(s)",
+    "uncommittedChangesHint": "These changes have not been committed or merged. Deleting this task will permanently discard all uncommitted work in the worktree.",
+    "cancel": "Cancel",
+    "deletePermanently": "Delete Permanently",
+    "deleting": "Deleting..."
   },
   "referenceImages": {
     "title": "Reference Images (optional)",

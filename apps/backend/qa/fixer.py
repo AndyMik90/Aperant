@@ -12,8 +12,14 @@ Memory Integration:
 from pathlib import Path
 
 # Memory integration for cross-session learning
+from agents.base import sanitize_error_message
 from agents.memory_manager import get_graphiti_context, save_session_memory
 from claude_agent_sdk import ClaudeSDKClient
+from core.error_utils import (
+    is_rate_limit_error,
+    is_tool_concurrency_error,
+    safe_receive_messages,
+)
 from debug import debug, debug_detailed, debug_error, debug_section, debug_success
 from security.tool_input_validator import get_safe_tool_input
 from task_logger import (
@@ -52,7 +58,7 @@ async def run_qa_fixer_session(
     fix_session: int,
     verbose: bool = False,
     project_dir: Path | None = None,
-) -> tuple[str, str]:
+) -> tuple[str, str, dict]:
     """
     Run a QA fixer agent session.
 
@@ -64,9 +70,13 @@ async def run_qa_fixer_session(
         project_dir: Project root directory (for memory context)
 
     Returns:
-        (status, response_text) where status is:
-        - "fixed" if fixes were applied
-        - "error" if an error occurred
+        (status, response_text, error_info) where:
+        - status: "fixed" if fixes were applied, "error" if an error occurred
+        - response_text: Agent's response text
+        - error_info: Dict with error details (empty if no error):
+            - "type": "tool_concurrency" or "other"
+            - "message": Error message string
+            - "exception_type": Exception class name string
     """
     # Derive project_dir from spec_dir if not provided
     # spec_dir is typically: /project/.auto-claude/specs/001-name/
@@ -96,7 +106,12 @@ async def run_qa_fixer_session(
     fix_request_file = spec_dir / "QA_FIX_REQUEST.md"
     if not fix_request_file.exists():
         debug_error("qa_fixer", "QA_FIX_REQUEST.md not found")
-        return "error", "QA_FIX_REQUEST.md not found"
+        error_info = {
+            "type": "other",
+            "message": "QA_FIX_REQUEST.md not found",
+            "exception_type": "FileNotFoundError",
+        }
+        return "error", "QA_FIX_REQUEST.md not found", error_info
 
     # Load fixer prompt
     prompt = load_qa_fixer_prompt()
@@ -130,7 +145,7 @@ async def run_qa_fixer_session(
 
         response_text = ""
         debug("qa_fixer", "Starting to receive response stream...")
-        async for msg in client.receive_response():
+        async for msg in safe_receive_messages(client, caller="qa_fixer"):
             msg_type = type(msg).__name__
             message_count += 1
             debug_detailed(
@@ -293,7 +308,7 @@ async def run_qa_fixer_session(
                 subtasks_completed=[f"qa_fixer_{fix_session}"],
                 discoveries=fixer_discoveries,
             )
-            return "fixed", response_text
+            return "fixed", response_text, {}
         else:
             # Fixer didn't update the status properly, but we'll trust it worked
             debug_success("qa_fixer", "Fixes assumed applied (status not updated)")
@@ -307,15 +322,48 @@ async def run_qa_fixer_session(
                 subtasks_completed=[f"qa_fixer_{fix_session}"],
                 discoveries=fixer_discoveries,
             )
-            return "fixed", response_text
+            return "fixed", response_text, {}
 
     except Exception as e:
+        # Detect specific error types for better retry handling
+        is_concurrency = is_tool_concurrency_error(e)
+        is_rate_limited = is_rate_limit_error(e)
+
+        if is_concurrency:
+            error_type = "tool_concurrency"
+        elif is_rate_limited:
+            error_type = "rate_limit"
+        else:
+            error_type = "other"
+
         debug_error(
             "qa_fixer",
             f"Fixer session exception: {e}",
             exception_type=type(e).__name__,
+            error_category=error_type,
+            message_count=message_count,
+            tool_count=tool_count,
         )
-        print(f"Error during fixer session: {e}")
+
+        # Sanitize error message to remove potentially sensitive data
+        sanitized_error = sanitize_error_message(str(e))
+
+        # Log concurrency errors prominently
+        if is_concurrency:
+            print("\n⚠️  Tool concurrency limit reached (400 error)")
+            print("   Claude API limits concurrent tool use in a single request")
+            print(f"   Error: {sanitized_error[:200]}\n")
+        else:
+            print(f"Error during fixer session: {sanitized_error}")
+
         if task_logger:
-            task_logger.log_error(f"QA fixer error: {e}", LogPhase.VALIDATION)
-        return "error", str(e)
+            task_logger.log_error(
+                f"QA fixer error: {sanitized_error}", LogPhase.VALIDATION
+            )
+
+        error_info = {
+            "type": error_type,
+            "message": sanitized_error,
+            "exception_type": type(e).__name__,
+        }
+        return "error", sanitized_error, error_info

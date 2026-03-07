@@ -34,6 +34,7 @@ import {
   getKeychainServiceName,
   getWindowsCredentialTarget,
   getCredentialsFromKeychain,
+  getFullCredentialsFromKeychain,
   getCredentials,
   clearKeychainCache,
   clearCredentialCache,
@@ -358,19 +359,24 @@ describe('credential-utils', () => {
       vi.mocked(homedir).mockReturnValue('C:\\Users\\TestUser');
     });
 
-    it('should return null when PowerShell not found', () => {
+    it('should return null when PowerShell not found and no credentials file exists', () => {
+      // Neither PowerShell nor credentials file exists
       vi.mocked(existsSync).mockReturnValue(false);
 
       const result = getCredentialsFromKeychain();
 
       expect(result.token).toBeNull();
       expect(result.email).toBeNull();
-      expect(result.error).toBe('PowerShell not found');
+      // No error because file fallback returns null gracefully when file doesn't exist
     });
 
-    it('should return credentials from Windows Credential Manager', () => {
-      // Mock PowerShell path found
-      vi.mocked(existsSync).mockReturnValue(true);
+    it('should return credentials from Windows Credential Manager when file is empty', () => {
+      // Mock PowerShell path found, but credentials file doesn't exist
+      vi.mocked(existsSync).mockImplementation((path: unknown) => {
+        const pathStr = String(path);
+        // PowerShell exists, but credentials file doesn't
+        return pathStr.includes('PowerShell') || pathStr.includes('powershell');
+      });
       vi.mocked(execFileSync).mockReturnValue(JSON.stringify({
         claudeAiOauth: {
           accessToken: 'sk-ant-windows-token-789',
@@ -384,9 +390,33 @@ describe('credential-utils', () => {
       expect(result.email).toBe('windows@example.com');
     });
 
-    it('should return null when credential not found', () => {
+    it('should fall back to file when Credential Manager returns empty', () => {
+      // Mock PowerShell exists but returns empty (no credential in Credential Manager)
+      // Mock file exists with valid credentials
       vi.mocked(existsSync).mockReturnValue(true);
-      vi.mocked(execFileSync).mockReturnValue('');
+      vi.mocked(execFileSync).mockReturnValue(''); // Credential Manager empty
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
+        claudeAiOauth: {
+          accessToken: 'sk-ant-file-fallback-token',
+          email: 'file@example.com',
+        },
+      }));
+
+      const result = getCredentialsFromKeychain();
+
+      expect(result.token).toBe('sk-ant-file-fallback-token');
+      expect(result.email).toBe('file@example.com');
+    });
+
+    it('should return null when both Credential Manager and file have no credentials', () => {
+      // Mock PowerShell exists but returns empty
+      // Mock credentials file doesn't exist
+      vi.mocked(existsSync).mockImplementation((path: unknown) => {
+        const pathStr = String(path);
+        // PowerShell exists, but credentials file doesn't
+        return pathStr.includes('PowerShell') || pathStr.includes('powershell');
+      });
+      vi.mocked(execFileSync).mockReturnValue(''); // Credential Manager empty
 
       const result = getCredentialsFromKeychain();
 
@@ -394,14 +424,137 @@ describe('credential-utils', () => {
       expect(result.email).toBeNull();
     });
 
-    it('should handle invalid JSON from Credential Manager', () => {
+    it('should handle invalid JSON from Credential Manager by falling back to file', () => {
       vi.mocked(existsSync).mockReturnValue(true);
-      vi.mocked(execFileSync).mockReturnValue('invalid json');
+      vi.mocked(execFileSync).mockReturnValue('invalid json'); // Invalid JSON from Credential Manager
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
+        claudeAiOauth: {
+          accessToken: 'sk-ant-file-token-after-cm-failure',
+          email: 'fallback@example.com',
+        },
+      }));
 
       const result = getCredentialsFromKeychain();
 
+      // Should fall back to file and get valid credentials
+      expect(result.token).toBe('sk-ant-file-token-after-cm-failure');
+      expect(result.email).toBe('fallback@example.com');
+    });
+
+    it('should prefer file credentials when both sources have tokens', () => {
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
+        claudeAiOauth: {
+          accessToken: 'sk-ant-windows-file-token',
+          email: 'windowsfile@example.com',
+        },
+      }));
+      vi.mocked(execFileSync).mockReturnValue(JSON.stringify({
+        claudeAiOauth: {
+          accessToken: 'sk-ant-credman-token',
+          email: 'credman@example.com',
+        },
+      }));
+
+      const result = getCredentialsFromKeychain();
+
+      // Should prefer file since Claude CLI writes there after login
+      expect(result.token).toBe('sk-ant-windows-file-token');
+      expect(result.email).toBe('windowsfile@example.com');
+    });
+  });
+
+  describe('getFullCredentialsFromKeychain (Windows)', () => {
+    beforeEach(() => {
+      vi.mocked(isMacOS).mockReturnValue(false);
+      vi.mocked(isWindows).mockReturnValue(true);
+      vi.mocked(isLinux).mockReturnValue(false);
+      vi.mocked(homedir).mockReturnValue('C:\\Users\\TestUser');
+      clearCredentialCache();
+    });
+
+    it('should return full credentials from file when available', () => {
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
+        claudeAiOauth: {
+          accessToken: 'sk-ant-full-creds-token',
+          refreshToken: 'refresh-token-123',
+          expiresAt: 1700000000000,
+          email: 'full@example.com',
+          scopes: ['user:read', 'user:write'],
+        },
+      }));
+      vi.mocked(execFileSync).mockReturnValue(''); // Credential Manager empty
+
+      const result = getFullCredentialsFromKeychain();
+
+      expect(result.token).toBe('sk-ant-full-creds-token');
+      expect(result.refreshToken).toBe('refresh-token-123');
+      expect(result.expiresAt).toBe(1700000000000);
+      expect(result.email).toBe('full@example.com');
+      expect(result.scopes).toEqual(['user:read', 'user:write']);
+    });
+
+    it('should return credentials from Credential Manager when file is empty', () => {
+      vi.mocked(existsSync).mockImplementation((path: unknown) => {
+        const pathStr = String(path);
+        return pathStr.includes('PowerShell') || pathStr.includes('powershell');
+      });
+      vi.mocked(execFileSync).mockReturnValue(JSON.stringify({
+        claudeAiOauth: {
+          accessToken: 'sk-ant-credman-full-token',
+          refreshToken: 'credman-refresh',
+          expiresAt: 1700000000000,
+          email: 'credman@example.com',
+        },
+      }));
+
+      const result = getFullCredentialsFromKeychain();
+
+      expect(result.token).toBe('sk-ant-credman-full-token');
+      expect(result.refreshToken).toBe('credman-refresh');
+      expect(result.email).toBe('credman@example.com');
+    });
+
+    it('should prefer file credentials when both sources have tokens (consistent with basic API)', () => {
+      vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
+        claudeAiOauth: {
+          accessToken: 'sk-ant-file-full-token',
+          refreshToken: 'file-refresh',
+          expiresAt: 1700000000000,
+          email: 'file@example.com',
+        },
+      }));
+      vi.mocked(execFileSync).mockReturnValue(JSON.stringify({
+        claudeAiOauth: {
+          accessToken: 'sk-ant-credman-full-token',
+          refreshToken: 'credman-refresh',
+          expiresAt: 1800000000000, // Later expiry
+          email: 'credman@example.com',
+        },
+      }));
+
+      const result = getFullCredentialsFromKeychain();
+
+      // Should prefer file since Claude CLI writes there after login
+      // This is consistent with getCredentialsFromKeychain behavior
+      expect(result.token).toBe('sk-ant-file-full-token');
+      expect(result.refreshToken).toBe('file-refresh');
+      expect(result.email).toBe('file@example.com');
+    });
+
+    it('should return null when both sources have no credentials', () => {
+      vi.mocked(existsSync).mockImplementation((path: unknown) => {
+        const pathStr = String(path);
+        return pathStr.includes('PowerShell') || pathStr.includes('powershell');
+      });
+      vi.mocked(execFileSync).mockReturnValue('');
+
+      const result = getFullCredentialsFromKeychain();
+
       expect(result.token).toBeNull();
-      expect(result.email).toBeNull();
+      expect(result.refreshToken).toBeNull();
     });
   });
 

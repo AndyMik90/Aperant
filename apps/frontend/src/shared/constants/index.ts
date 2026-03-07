@@ -35,3 +35,6 @@ export * from './api-profiles';
 
 // Configuration and paths
 export * from './config';
+
+// Spell check configuration
+export * from './spellcheck';

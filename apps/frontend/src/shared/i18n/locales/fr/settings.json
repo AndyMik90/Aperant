@@ -107,7 +107,8 @@
       "defaultPlaceholder": "ex. : claude-sonnet-4-5-20250929",
       "haikuPlaceholder": "ex. : claude-haiku-4-5-20251001",
       "sonnetPlaceholder": "ex. : claude-sonnet-4-5-20250929",
-      "opusPlaceholder": "ex. : claude-opus-4-5-20251101"
+      "opusPlaceholder": "ex. : claude-opus-4-6",
+      "opus1mPlaceholder": "ex. : claude-opus-4-6 (contexte 1M)"
     },
     "empty": {
       "title": "Aucun profil API configuré",
@@ -185,6 +186,20 @@
     "comfortable": "Confortable",
     "large": "Grand"
   },
+  "logOrder": {
+    "label": "Ordre des journaux",
+    "description": "Choisir comment les journaux sont affichés dans la vue détaillée des tâches",
+    "chronological": "Chronologique (plus ancien en premier)",
+    "reverseChronological": "Chronologique inverse (plus récent en premier)"
+  },
+  "gpuAcceleration": {
+    "label": "Accélération GPU",
+    "description": "Utiliser WebGL pour le rendu des terminaux (expérimental, plus rapide avec plusieurs terminaux)",
+    "auto": "Auto (utiliser WebGL si supporté)",
+    "on": "Toujours activé",
+    "off": "Désactivé (par défaut)",
+    "helperText": "Les modifications s'appliquent uniquement aux nouveaux terminaux"
+  },
   "general": {
     "otherAgentSettings": "Autres paramètres de l'agent",
     "otherAgentSettingsDescription": "Options de configuration supplémentaires de l'agent",
@@ -208,6 +223,9 @@
     "githubCLIPath": "Chemin GitHub CLI",
     "githubCLIPathDescription": "Chemin vers l'exécutable GitHub CLI (gh) (laisser vide pour détection automatique)",
     "githubCLIPathPlaceholder": "gh (par défaut)",
+    "gitlabCLIPath": "Chemin GitLab CLI",
+    "gitlabCLIPathDescription": "Chemin vers l'exécutable GitLab CLI (glab) (laisser vide pour détection automatique)",
+    "gitlabCLIPathPlaceholder": "glab (par défaut)",
     "claudePath": "Chemin Claude CLI",
     "claudePathDescription": "Chemin vers l'exécutable Claude CLI (laisser vide pour détection automatique)",
     "claudePathPlaceholder": "claude (par défaut)",
@@ -299,7 +317,10 @@
     "stableDowngradeAvailable": "Version stable disponible",
     "stableDowngradeDescription": "Vous êtes actuellement sur une version bêta. Comme vous avez désactivé les mises à jour bêta, vous pouvez passer à la dernière version stable.",
     "stableVersion": "Version stable",
-    "downloadStableVersion": "Télécharger la version stable"
+    "downloadStableVersion": "Télécharger la version stable",
+    "readOnlyVolumeTitle": "Impossible d'installer depuis l'image disque",
+    "readOnlyVolumeDescription": "Auto Claude s'exécute depuis une image disque en lecture seule (DMG). Veuillez glisser l'application dans votre dossier Applications et la relancer depuis cet emplacement pour installer les mises à jour.",
+    "downloadError": "Échec du téléchargement de la mise à jour"
   },
   "notifications": {
     "title": "Notifications",
@@ -341,7 +362,15 @@
       "description": "Synchronisation issues GitHub",
       "integrationTitle": "Intégration GitHub",
       "integrationDescription": "Se connecter à GitHub pour le suivi des issues",
-      "syncDescription": "Synchroniser avec GitHub Issues"
+      "syncDescription": "Synchroniser avec GitHub Issues",
+      "defaultBranch": {
+        "label": "Branche par défaut",
+        "description": "Branche de base pour créer les worktrees de tâches",
+        "autoDetect": "Détection automatique (main/master)",
+        "searchPlaceholder": "Rechercher des branches...",
+        "noBranchesFound": "Aucune branche trouvée",
+        "selectedBranchHelp": "Toutes les nouvelles tâches partiront de {{branch}}"
+      }
     },
     "gitlab": {
       "title": "GitLab",
@@ -379,6 +408,10 @@
     "resetToProfileDefaults": "Réinitialiser aux défauts de {{profile}}",
     "customized": "Personnalisé",
     "phaseConfigNote": "Ces paramètres seront utilisés par défaut lors de la création de nouvelles tâches avec ce profil. Vous pouvez les modifier par tâche dans l'assistant de création.",
+    "adaptiveThinking": {
+      "badge": "Adaptatif",
+      "tooltip": "Opus utilise la réflexion adaptative — il décide dynamiquement de la profondeur de réflexion dans la limite du budget défini par le niveau de réflexion."
+    },
     "phases": {
       "spec": {
         "label": "Création de spec",
@@ -446,6 +479,8 @@
     "weeklyThresholdDescription": "Changer quand l'utilisation hebdomadaire atteint ce niveau (recommandé: 99%)",
     "reactiveRecovery": "Récupération réactive",
     "reactiveDescription": "Basculer automatiquement quand une limite inattendue est atteinte",
+    "autoSwitchOnAuthFailure": "Changement auto en cas d'échec d'auth",
+    "autoSwitchOnAuthFailureDescription": "Basculer automatiquement vers un autre compte authentifié en cas d'échec d'authentification",
     "apiKeys": "Clés API",
     "apiKeysInfo": "Les clés définies ici sont utilisées par défaut. Les projets individuels peuvent les remplacer dans leurs paramètres.",
     "openaiKey": "Clé API OpenAI",
@@ -549,7 +584,9 @@
       "weeklyThreshold": "Seuil d'utilisation hebdomadaire",
       "weeklyThresholdDescription": "Basculer lorsque l'utilisation hebdomadaire atteint ce niveau (recommandé: 99%)",
       "reactiveRecovery": "Récupération réactive",
-      "reactiveDescription": "Auto-basculement en cas de limite de taux inattendue"
+      "reactiveDescription": "Auto-basculement en cas de limite de taux inattendue",
+      "autoSwitchOnAuthFailure": "Changement auto en cas d'échec d'auth",
+      "autoSwitchOnAuthFailureDescription": "Basculer automatiquement vers un autre compte authentifié en cas d'échec d'authentification"
     },
     "priority": {
       "title": "Ordre de priorité des comptes",
@@ -857,6 +894,12 @@
       "decrease": "Diminuer {{label}} de {{step}}",
       "increase": "Augmenter {{label}} de {{step}}",
       "currentValue": "Valeur actuelle : {{value}}"
+    }
+  },
+  "agents": {
+    "pr_template_filler": {
+      "label": "Remplisseur de modèle PR",
+      "description": "Remplit intelligemment les modèles de PR GitHub à partir des changements de code"
     }
   }
 }

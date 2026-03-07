@@ -63,7 +63,7 @@ function getTracesSampleRate(): number {
   const envValue = buildTimeValue || process.env.SENTRY_TRACES_SAMPLE_RATE;
   if (envValue) {
     const parsed = parseFloat(envValue);
-    if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
+    if (!Number.isNaN(parsed) && parsed >= 0 && parsed <= 1) {
       return parsed;
     }
   }
@@ -83,7 +83,7 @@ function getProfilesSampleRate(): number {
   const envValue = buildTimeValue || process.env.SENTRY_PROFILES_SAMPLE_RATE;
   if (envValue) {
     const parsed = parseFloat(envValue);
-    if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
+    if (!Number.isNaN(parsed) && parsed >= 0 && parsed <= 1) {
       return parsed;
     }
   }
@@ -181,6 +181,26 @@ export function setSentryEnabled(enabled: boolean): void {
 }
 
 /**
+ * Safely add a Sentry breadcrumb, ignoring errors if Sentry is not initialized.
+ * Use this instead of raw `Sentry.addBreadcrumb()` to avoid try/catch boilerplate.
+ */
+export function safeBreadcrumb(breadcrumb: SentryBreadcrumb): void {
+  try {
+    Sentry.addBreadcrumb(breadcrumb);
+  } catch { /* Sentry not initialized */ }
+}
+
+/**
+ * Safely capture a Sentry exception, ignoring errors if Sentry is not initialized.
+ * Use this instead of raw `Sentry.captureException()` to avoid try/catch boilerplate.
+ */
+export function safeCaptureException(error: Error, context?: SentryCaptureContext): void {
+  try {
+    Sentry.captureException(error, context);
+  } catch { /* Sentry not initialized */ }
+}
+
+/**
  * Get Sentry environment variables for passing to Python subprocesses
  *
  * This returns the build-time embedded values so that Python backends
@@ -202,7 +222,5 @@ export function getSentryEnvForSubprocess(): Record<string, string> {
     SENTRY_DSN: dsn,
     SENTRY_TRACES_SAMPLE_RATE: String(getTracesSampleRate()),
     SENTRY_PROFILES_SAMPLE_RATE: String(getProfilesSampleRate()),
-    // Pass SENTRY_DEV so Python backend also enables Sentry in dev mode
-    ...(process.env.SENTRY_DEV ? { SENTRY_DEV: process.env.SENTRY_DEV } : {}),
   };
 }

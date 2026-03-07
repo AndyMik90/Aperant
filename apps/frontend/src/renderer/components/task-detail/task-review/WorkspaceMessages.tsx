@@ -1,7 +1,8 @@
-import { AlertCircle, GitMerge, Loader2, Check, RotateCcw } from 'lucide-react';
+import { AlertCircle, GitMerge, Loader2, Check, RotateCcw, Play } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '../../ui/button';
-import { persistTaskStatus } from '../../../stores/task-store';
+import { persistTaskStatus, startTaskOrQueue } from '../../../stores/task-store';
 import type { Task } from '../../../../shared/types';
 
 interface LoadingMessageProps {
@@ -31,7 +32,15 @@ interface NoWorkspaceMessageProps {
  * Displays message when no workspace is found for the task
  */
 export function NoWorkspaceMessage({ task, onClose }: NoWorkspaceMessageProps) {
+  const { t } = useTranslation(['tasks']);
   const [isMarkingDone, setIsMarkingDone] = useState(false);
+  const [isProceeding, setIsProceeding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const isPlanReview =
+    task?.status === 'human_review' &&
+    task.reviewReason === 'plan_review';
 
   const handleMarkDone = async () => {
     if (!task) return;
@@ -48,18 +57,61 @@ export function NoWorkspaceMessage({ task, onClose }: NoWorkspaceMessageProps) {
     }
   };
 
+  const handleProceedToCoding = async () => {
+    if (!task) return;
+
+    setIsProceeding(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const result = await startTaskOrQueue(task.id);
+      if (!result.success) {
+        setError(result.error || t('tasks:wizard.errors.startFailed'));
+      } else if (result.action === 'queued') {
+        setNotice(t('tasks:queue.movedToQueue'));
+      }
+    } catch (err) {
+      console.error('Error proceeding to coding:', err);
+      setError(err instanceof Error ? err.message : 'Failed to start task');
+    } finally {
+      setIsProceeding(false);
+    }
+  };
+
   return (
     <div className="rounded-xl border border-border bg-secondary/30 p-4">
       <h3 className="font-medium text-sm text-foreground mb-2 flex items-center gap-2">
         <AlertCircle className="h-4 w-4 text-muted-foreground" />
-        No Workspace Found
+        {isPlanReview ? 'Human Review Required' : 'No Workspace Found'}
       </h3>
       <p className="text-sm text-muted-foreground mb-3">
-        No isolated workspace was found for this task. The changes may have been made directly in your project.
+        {isPlanReview
+          ? 'Human review required prior to coding. Review your spec.md for any necessary changes.'
+          : 'No isolated workspace was found for this task. The changes may have been made directly in your project.'}
       </p>
 
       {/* Allow marking as done */}
-      {task && task.status === 'human_review' && (
+      {isPlanReview ? (
+        <Button
+          onClick={handleProceedToCoding}
+          disabled={isProceeding}
+          size="sm"
+          variant="default"
+          className="w-full"
+        >
+          {isProceeding ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Updating...
+            </>
+          ) : (
+            <>
+              <Play className="h-4 w-4 mr-2" />
+              Proceed to Coding
+            </>
+          )}
+        </Button>
+      ) : task && task.status === 'human_review' && (
         <Button
           onClick={handleMarkDone}
           disabled={isMarkingDone}
@@ -79,6 +131,13 @@ export function NoWorkspaceMessage({ task, onClose }: NoWorkspaceMessageProps) {
             </>
           )}
         </Button>
+      )}
+
+      {error && (
+        <p className="text-xs text-destructive mt-2">{error}</p>
+      )}
+      {notice && (
+        <p className="text-xs text-muted-foreground mt-2">{notice}</p>
       )}
     </div>
   );
@@ -139,7 +198,11 @@ export function StagedInProjectMessage({ task, projectPath, hasWorktree = false,
     setError(null);
 
     try {
-      await persistTaskStatus(task.id, 'done');
+      const result = await persistTaskStatus(task.id, 'done', { keepWorktree: true });
+      if (!result.success) {
+        setError(result.error || 'Failed to mark as done');
+        return;
+      }
       onClose?.();
     } catch (err) {
       console.error('Error marking task as done:', err);
@@ -151,14 +214,14 @@ export function StagedInProjectMessage({ task, projectPath, hasWorktree = false,
 
   const handleReviewAgain = async () => {
     if (!onReviewAgain) return;
-    
+
     setIsResetting(true);
     setError(null);
 
     try {
       // Clear the staged flag via IPC
       const result = await window.electronAPI.clearStagedState(task.id);
-      
+
       if (!result.success) {
         setError(result.error || 'Failed to reset staged state');
         return;
@@ -238,7 +301,7 @@ export function StagedInProjectMessage({ task, projectPath, hasWorktree = false,
             </Button>
           )}
         </div>
-        
+
         {/* Secondary actions row */}
         <div className="flex gap-2">
           {/* Mark Done Only (when worktree exists) - allows keeping worktree */}
@@ -263,7 +326,7 @@ export function StagedInProjectMessage({ task, projectPath, hasWorktree = false,
               )}
             </Button>
           )}
-          
+
           {/* Review Again button - only show if worktree exists and callback provided */}
           {hasWorktree && onReviewAgain && (
             <Button
@@ -287,11 +350,11 @@ export function StagedInProjectMessage({ task, projectPath, hasWorktree = false,
             </Button>
           )}
         </div>
-        
+
         {error && (
           <p className="text-xs text-destructive">{error}</p>
         )}
-        
+
         {hasWorktree && (
           <p className="text-xs text-muted-foreground">
             "Delete Worktree & Mark Done" cleans up the isolated workspace. "Mark Done Only" keeps it for reference.

@@ -1,13 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Github, RefreshCw, KeyRound, Loader2, CheckCircle2, AlertCircle, User, Lock, Globe, ChevronDown, GitBranch } from 'lucide-react';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Switch } from '../../ui/switch';
 import { Separator } from '../../ui/separator';
 import { Button } from '../../ui/button';
+import { Combobox } from '../../ui/combobox';
 import { GitHubOAuthFlow } from '../../project-settings/GitHubOAuthFlow';
 import { PasswordInput } from '../../project-settings/PasswordInput';
-import type { ProjectEnvConfig, GitHubSyncStatus, ProjectSettings } from '../../../../shared/types';
+import { buildBranchOptions } from '../../../lib/branch-utils';
+import type { ProjectEnvConfig, GitHubSyncStatus, ProjectSettings, GitBranchDetail } from '../../../../shared/types';
 
 // Debug logging
 const DEBUG = process.env.NODE_ENV === 'development' || process.env.DEBUG === 'true';
@@ -55,14 +58,15 @@ export function GitHubIntegration({
   settings,
   setSettings
 }: GitHubIntegrationProps) {
+  const { t } = useTranslation(['settings', 'common']);
   const [authMode, setAuthMode] = useState<'manual' | 'oauth' | 'oauth-success'>('manual');
   const [oauthUsername, setOauthUsername] = useState<string | null>(null);
   const [repos, setRepos] = useState<GitHubRepo[]>([]);
   const [isLoadingRepos, setIsLoadingRepos] = useState(false);
   const [reposError, setReposError] = useState<string | null>(null);
 
-  // Branch selection state
-  const [branches, setBranches] = useState<string[]>([]);
+  // Branch selection state - now uses GitBranchDetail for local/remote distinction
+  const [branches, setBranches] = useState<GitBranchDetail[]>([]);
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
   const [branchesError, setBranchesError] = useState<string | null>(null);
 
@@ -75,6 +79,7 @@ export function GitHubIntegration({
     if (authMode === 'oauth-success') {
       fetchUserRepos();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authMode]);
 
   // Fetch branches when GitHub is enabled and project path is available
@@ -118,11 +123,11 @@ export function GitHubIntegration({
     setBranchesError(null);
 
     try {
-      debugLog('fetchBranches: Calling getGitBranches...');
-      const result = await window.electronAPI.getGitBranches(projectPath);
-      debugLog('fetchBranches: getGitBranches result:', { success: result.success, dataType: typeof result.data, dataLength: Array.isArray(result.data) ? result.data.length : 'N/A', error: result.error });
+      debugLog('fetchBranches: Calling getGitBranchesWithInfo...');
+      const result = await window.electronAPI.getGitBranchesWithInfo(projectPath);
+      debugLog('fetchBranches: getGitBranchesWithInfo result:', { success: result.success, dataType: typeof result.data, dataLength: Array.isArray(result.data) ? result.data.length : 'N/A', error: result.error });
 
-      // result.data is the array directly (not { branches: [] })
+      // result.data is the GitBranchDetail[] array
       if (result.success && result.data) {
         setBranches(result.data);
         debugLog('fetchBranches: Loaded branches:', result.data.length);
@@ -173,6 +178,18 @@ export function GitHubIntegration({
     }
   };
 
+  // Build branch options for Combobox using shared utility
+  // Must be called before early return to satisfy React hooks rules
+  const branchOptions = useMemo(() => {
+    return buildBranchOptions(branches, {
+      t,
+      includeAutoDetect: {
+        value: '',
+        label: t('settings:integrations.github.defaultBranch.autoDetect'),
+      },
+    });
+  }, [branches, t]);
+
   if (!envConfig) {
     debugLog('No envConfig, returning null');
     return null;
@@ -203,6 +220,9 @@ export function GitHubIntegration({
     debugLog('Selected repo:', repoFullName);
     updateEnvConfig({ githubRepo: repoFullName });
   };
+
+  // Selected branch for Combobox value
+  const selectedBranch = settings?.mainBranch || envConfig?.defaultBranch || '';
 
   return (
     <div className="space-y-4">
@@ -336,14 +356,56 @@ export function GitHubIntegration({
 
           {/* Default Branch Selector */}
           {projectPath && (
-            <BranchSelector
-              branches={branches}
-              selectedBranch={settings?.mainBranch || envConfig.defaultBranch || ''}
-              isLoading={isLoadingBranches}
-              error={branchesError}
-              onSelect={handleBranchChange}
-              onRefresh={fetchBranches}
-            />
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <GitBranch className="h-4 w-4 text-info" />
+                    <Label className="text-sm font-medium text-foreground">
+                      {t('settings:integrations.github.defaultBranch.label')}
+                    </Label>
+                  </div>
+                  <p className="text-xs text-muted-foreground pl-6">
+                    {t('settings:integrations.github.defaultBranch.description')}
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={fetchBranches}
+                  disabled={isLoadingBranches}
+                  className="h-7 px-2"
+                >
+                  <RefreshCw className={`h-3 w-3 ${isLoadingBranches ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
+
+              {branchesError && (
+                <div className="flex items-center gap-2 text-xs text-destructive pl-6">
+                  <AlertCircle className="h-3 w-3" />
+                  {branchesError}
+                </div>
+              )}
+
+              <div className="pl-6">
+                <Combobox
+                  options={branchOptions}
+                  value={selectedBranch}
+                  onValueChange={handleBranchChange}
+                  placeholder={t('settings:integrations.github.defaultBranch.autoDetect')}
+                  searchPlaceholder={t('settings:integrations.github.defaultBranch.searchPlaceholder')}
+                  emptyMessage={t('settings:integrations.github.defaultBranch.noBranchesFound')}
+                  disabled={isLoadingBranches}
+                  className="w-full"
+                />
+              </div>
+
+              {selectedBranch && (
+                <p className="text-xs text-muted-foreground pl-6">
+                  {t('settings:integrations.github.defaultBranch.selectedBranchHelp', { branch: selectedBranch })}
+                </p>
+              )}
+            </div>
           )}
 
           <Separator />
@@ -597,150 +659,6 @@ function AutoSyncToggle({ enabled, onToggle }: AutoSyncToggleProps) {
         </p>
       </div>
       <Switch checked={enabled} onCheckedChange={onToggle} />
-    </div>
-  );
-}
-
-interface BranchSelectorProps {
-  branches: string[];
-  selectedBranch: string;
-  isLoading: boolean;
-  error: string | null;
-  onSelect: (branch: string) => void;
-  onRefresh: () => void;
-}
-
-function BranchSelector({
-  branches,
-  selectedBranch,
-  isLoading,
-  error,
-  onSelect,
-  onRefresh
-}: BranchSelectorProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [filter, setFilter] = useState('');
-
-  const filteredBranches = branches.filter(branch =>
-    branch.toLowerCase().includes(filter.toLowerCase())
-  );
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="space-y-0.5">
-          <div className="flex items-center gap-2">
-            <GitBranch className="h-4 w-4 text-info" />
-            <Label className="text-sm font-medium text-foreground">Default Branch</Label>
-          </div>
-          <p className="text-xs text-muted-foreground pl-6">
-            Base branch for creating task worktrees
-          </p>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onRefresh}
-          disabled={isLoading}
-          className="h-7 px-2"
-        >
-          <RefreshCw className={`h-3 w-3 ${isLoading ? 'animate-spin' : ''}`} />
-        </Button>
-      </div>
-
-      {error && (
-        <div className="flex items-center gap-2 text-xs text-destructive pl-6">
-          <AlertCircle className="h-3 w-3" />
-          {error}
-        </div>
-      )}
-
-      <div className="relative pl-6">
-        <button
-          type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          disabled={isLoading}
-          className="w-full flex items-center justify-between px-3 py-2 text-sm border border-input rounded-md bg-background hover:bg-accent hover:text-accent-foreground disabled:opacity-50"
-        >
-          {isLoading ? (
-            <span className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading branches...
-            </span>
-          ) : selectedBranch ? (
-            <span className="flex items-center gap-2">
-              <GitBranch className="h-3 w-3 text-muted-foreground" />
-              {selectedBranch}
-            </span>
-          ) : (
-            <span className="text-muted-foreground">Auto-detect (main/master)</span>
-          )}
-          <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-        </button>
-
-        {isOpen && !isLoading && (
-          <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-lg max-h-64 overflow-hidden">
-            {/* Search filter */}
-            <div className="p-2 border-b border-border">
-              <Input
-                placeholder="Search branches..."
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="h-8 text-sm"
-                autoFocus
-              />
-            </div>
-
-            {/* Auto-detect option */}
-            <button
-              type="button"
-              onClick={() => {
-                onSelect('');
-                setIsOpen(false);
-                setFilter('');
-              }}
-              className={`w-full px-3 py-2 text-left hover:bg-accent flex items-center gap-2 ${
-                !selectedBranch ? 'bg-accent' : ''
-              }`}
-            >
-              <span className="text-sm text-muted-foreground italic">Auto-detect (main/master)</span>
-            </button>
-
-            {/* Branch list */}
-            <div className="max-h-40 overflow-y-auto border-t border-border">
-              {filteredBranches.length === 0 ? (
-                <div className="px-3 py-4 text-sm text-muted-foreground text-center">
-                  {filter ? 'No matching branches' : 'No branches found'}
-                </div>
-              ) : (
-                filteredBranches.map((branch) => (
-                  <button
-                    key={branch}
-                    type="button"
-                    onClick={() => {
-                      onSelect(branch);
-                      setIsOpen(false);
-                      setFilter('');
-                    }}
-                    className={`w-full px-3 py-2 text-left hover:bg-accent flex items-center gap-2 ${
-                      branch === selectedBranch ? 'bg-accent' : ''
-                    }`}
-                  >
-                    <GitBranch className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-sm">{branch}</span>
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {selectedBranch && (
-        <p className="text-xs text-muted-foreground pl-6">
-          All new tasks will branch from <code className="px-1 bg-muted rounded">{selectedBranch}</code>
-        </p>
-      )}
     </div>
   );
 }

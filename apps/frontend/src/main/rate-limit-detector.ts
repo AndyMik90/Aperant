@@ -5,6 +5,7 @@
 
 import { getClaudeProfileManager } from './claude-profile-manager';
 import { getUsageMonitor } from './claude-profile/usage-monitor';
+import { debugLog } from '../shared/utils/debug-logger';
 
 /**
  * Regex pattern to detect Claude Code rate limit messages
@@ -54,6 +55,64 @@ const AUTH_FAILURE_PATTERNS = [
 ];
 
 /**
+ * Patterns that indicate billing/credit failures
+ * These patterns detect when Claude API fails due to insufficient credits or billing issues
+ */
+const BILLING_FAILURE_PATTERNS = [
+  // Credit balance patterns
+  /credit\s*balance\s*(is\s+)?(too\s+)?(insufficient|low|empty|zero|exhausted)/i,
+  /insufficient\s*credit(s)?/i,
+  /no\s*(remaining\s*)?credit(s)?/i,
+  /credit(s)?\s*(are\s*)?(exhausted|depleted|used\s*up)/i,
+  /out\s*of\s*credit(s)?/i,
+  /credit\s*limit\s*(reached|exceeded)/i,
+  // Billing error patterns
+  /billing\s*(error|issue|problem|failure)/i,
+  /payment\s*(required|failed|issue|problem)/i,
+  /subscription\s*(expired|inactive|cancelled|canceled)/i,
+  /account\s*(suspended|inactive)\s*(due\s*to\s*billing)?/i,
+  // Usage limit patterns (billing-related, not rate limits)
+  /usage\s*quota\s*(exceeded|reached)/i,
+  /monthly\s*(usage\s*)?(limit|quota)\s*(exceeded|reached)/i,
+  /plan\s*(limit|quota)\s*(exceeded|reached)/i,
+  // API error patterns for billing
+  /["']?type["']?\s*:\s*["']?billing_error["']?/i,
+  /["']?type["']?\s*:\s*["']?insufficient_credits["']?/i,
+  /["']?error["']?\s*:\s*["']?insufficient_credits["']?/i,
+  // extra_usage patterns from Claude API
+  /extra_usage\s*(exceeded|limit|error)?/i,
+  // Match HTTP 402 Payment Required (require context to avoid false positives on "line 402" etc.)
+  /(?:HTTP|status|code|error)\s*:?\s*402\b/i,
+  /\b402\s+payment\s+required/i,
+  /API\s*Error:\s*402/i,
+  // Balance/funds patterns
+  /insufficient\s*(funds|balance)/i,
+  /balance\s*(is\s*)?(zero|empty|insufficient)/i,
+  // Add funds/credits messages
+  /please\s*(add|purchase)\s*(more\s*)?(credits?|funds)/i,
+  /top\s*up\s*(your\s*)?(account|credits|balance)/i
+];
+
+/**
+ * Maximum length for error messages sent to renderer.
+ * Truncates to prevent exposing excessive internal details.
+ */
+const MAX_ERROR_LENGTH = 500;
+
+/**
+ * Sanitize error output before sending to renderer.
+ * Truncates long output to prevent exposing excessive internal details
+ * like full paths, API responses, or stack traces.
+ */
+function sanitizeErrorOutput(output: string): string {
+  // Truncate long output to limit exposure of internal details
+  if (output.length > MAX_ERROR_LENGTH) {
+    return output.substring(0, MAX_ERROR_LENGTH) + '... (truncated)';
+  }
+  return output;
+}
+
+/**
  * Result of rate limit detection
  */
 export interface RateLimitDetectionResult {
@@ -70,7 +129,7 @@ export interface RateLimitDetectionResult {
     id: string;
     name: string;
   };
-  /** Original error message */
+  /** Original error message (truncated to 500 chars for security) */
   originalError?: string;
 }
 
@@ -84,6 +143,22 @@ export interface AuthFailureDetectionResult {
   profileId?: string;
   /** The type of auth failure detected */
   failureType?: 'missing' | 'invalid' | 'expired' | 'unknown';
+  /** User-friendly message describing the failure */
+  message?: string;
+  /** Original error message from the process output */
+  originalError?: string;
+}
+
+/**
+ * Result of billing failure detection
+ */
+export interface BillingFailureDetectionResult {
+  /** Whether a billing failure was detected */
+  isBillingFailure: boolean;
+  /** The profile ID that has billing issues (if known) */
+  profileId?: string;
+  /** The type of billing failure detected */
+  failureType?: 'insufficient_credits' | 'payment_required' | 'subscription_inactive' | 'unknown';
   /** User-friendly message describing the failure */
   message?: string;
   /** Original error message from the process output */
@@ -138,7 +213,7 @@ export function detectRateLimit(
         id: bestProfile.id,
         name: bestProfile.name
       } : undefined,
-      originalError: output
+      originalError: sanitizeErrorOutput(output)
     };
   }
 
@@ -156,7 +231,7 @@ export function detectRateLimit(
           id: bestProfile.id,
           name: bestProfile.name
         } : undefined,
-        originalError: output
+        originalError: sanitizeErrorOutput(output)
       };
     }
   }
@@ -210,9 +285,45 @@ function getAuthFailureMessage(failureType: 'missing' | 'invalid' | 'expired' | 
       return 'Your Claude session has expired. Please re-authenticate in Settings > Claude Profiles.';
     case 'invalid':
       return 'Invalid Claude credentials. Please check your OAuth token or re-authenticate in Settings > Claude Profiles.';
-    case 'unknown':
     default:
       return 'Claude authentication failed. Please verify your authentication in Settings > Claude Profiles.';
+  }
+}
+
+/**
+ * Classify the type of billing failure based on the error message
+ */
+function classifyBillingFailureType(output: string): 'insufficient_credits' | 'payment_required' | 'subscription_inactive' | 'unknown' {
+  const lowerOutput = output.toLowerCase();
+
+  // Check for credit-related failures (including extra_usage which indicates usage exhaustion)
+  if (/credit\s*(balance|s)?|insufficient\s*(credit|funds|balance)|out\s*of\s*credit|no\s*(remaining\s*)?credit|extra_usage/.test(lowerOutput)) {
+    return 'insufficient_credits';
+  }
+  // Check for subscription-related failures
+  if (/subscription\s*(expired|inactive|cancelled|canceled)|account\s*(suspended|inactive)/.test(lowerOutput)) {
+    return 'subscription_inactive';
+  }
+  // Check for payment-related failures
+  if (/payment\s*(required|failed)|402|billing\s*(error|issue|problem|failure)/.test(lowerOutput)) {
+    return 'payment_required';
+  }
+  return 'unknown';
+}
+
+/**
+ * Get a user-friendly message for the billing failure
+ */
+function getBillingFailureMessage(failureType: 'insufficient_credits' | 'payment_required' | 'subscription_inactive' | 'unknown'): string {
+  switch (failureType) {
+    case 'insufficient_credits':
+      return 'Your Claude API credit balance is too low. Please add credits to your account or switch to another profile in Settings > Claude Profiles.';
+    case 'payment_required':
+      return 'A billing error occurred with your Claude API account. Please check your payment method or switch to another profile in Settings > Claude Profiles.';
+    case 'subscription_inactive':
+      return 'Your Claude API subscription is inactive or expired. Please renew your subscription or switch to another profile in Settings > Claude Profiles.';
+    default:
+      return 'A billing issue was detected with your Claude API account. Please check your account status or switch to another profile in Settings > Claude Profiles.';
   }
 }
 
@@ -240,7 +351,7 @@ export function detectAuthFailure(
         profileId: effectiveProfileId,
         failureType,
         message: getAuthFailureMessage(failureType),
-        originalError: output
+        originalError: sanitizeErrorOutput(output)
       };
     }
   }
@@ -253,6 +364,48 @@ export function detectAuthFailure(
  */
 export function isAuthFailureError(output: string): boolean {
   return detectAuthFailure(output).isAuthFailure;
+}
+
+/**
+ * Detect billing failure from output (stdout + stderr combined)
+ */
+export function detectBillingFailure(
+  output: string,
+  profileId?: string
+): BillingFailureDetectionResult {
+  // First, make sure this isn't a rate limit or auth error (those should be handled separately)
+  if (detectRateLimit(output).isRateLimited) {
+    return { isBillingFailure: false };
+  }
+  if (detectAuthFailure(output).isAuthFailure) {
+    return { isBillingFailure: false };
+  }
+
+  // Check for billing failure patterns
+  for (const pattern of BILLING_FAILURE_PATTERNS) {
+    if (pattern.test(output)) {
+      const profileManager = getClaudeProfileManager();
+      const effectiveProfileId = profileId || profileManager.getActiveProfile().id;
+      const failureType = classifyBillingFailureType(output);
+
+      return {
+        isBillingFailure: true,
+        profileId: effectiveProfileId,
+        failureType,
+        message: getBillingFailureMessage(failureType),
+        originalError: sanitizeErrorOutput(output)
+      };
+    }
+  }
+
+  return { isBillingFailure: false };
+}
+
+/**
+ * Check if output contains billing failure error
+ */
+export function isBillingFailureError(output: string): boolean {
+  return detectBillingFailure(output).isBillingFailure;
 }
 
 /**
@@ -324,6 +477,14 @@ export function getBestAvailableProfileEnv(): BestProfileEnvResult {
   const profileManager = getClaudeProfileManager();
   const activeProfile = profileManager.getActiveProfile();
 
+  debugLog('[RateLimitDetector] getBestAvailableProfileEnv() called:', {
+    activeProfileId: activeProfile.id,
+    activeProfileName: activeProfile.name,
+    hasConfigDir: !!activeProfile.configDir,
+    configDir: activeProfile.configDir,
+    weeklyUsagePercent: activeProfile.usage?.weeklyUsagePercent,
+  });
+
   // Check for explicit rate limit (from previous API errors)
   const rateLimitStatus = profileManager.isProfileRateLimited(activeProfile.id);
 
@@ -340,28 +501,24 @@ export function getBestAvailableProfileEnv(): BestProfileEnvResult {
       : undefined;
 
   if (needsSwap) {
-    if (process.env.DEBUG === 'true') {
-      console.warn('[RateLimitDetector] Active profile needs swap:', {
-        activeProfile: activeProfile.name,
-        isRateLimited: rateLimitStatus.limited,
-        isAtCapacity,
-        weeklyUsage: activeProfile.usage?.weeklyUsagePercent,
-        limitType: rateLimitStatus.type,
-        resetAt: rateLimitStatus.resetAt
-      });
-    }
+    debugLog('[RateLimitDetector] Active profile needs swap:', {
+      activeProfile: activeProfile.name,
+      isRateLimited: rateLimitStatus.limited,
+      isAtCapacity,
+      weeklyUsage: activeProfile.usage?.weeklyUsagePercent,
+      limitType: rateLimitStatus.type,
+      resetAt: rateLimitStatus.resetAt
+    });
 
     // Try to find a better profile
     const bestProfile = profileManager.getBestAvailableProfile(activeProfile.id);
 
     if (bestProfile) {
-      if (process.env.DEBUG === 'true') {
-        console.warn('[RateLimitDetector] Using alternative profile:', {
-          originalProfile: activeProfile.name,
-          alternativeProfile: bestProfile.name,
-          reason: swapReason
-        });
-      }
+      debugLog('[RateLimitDetector] Using alternative profile:', {
+        originalProfile: activeProfile.name,
+        alternativeProfile: bestProfile.name,
+        reason: swapReason
+      });
 
       // Persist the swap by updating the active profile
       // This ensures the UI reflects which account is actually being used
@@ -412,6 +569,14 @@ export function getBestAvailableProfileEnv(): BestProfileEnvResult {
 
       const profileEnv = profileManager.getProfileEnv(bestProfile.id);
 
+      debugLog('[RateLimitDetector] Profile env for swapped profile:', {
+        profileId: bestProfile.id,
+        hasClaudeConfigDir: !!profileEnv.CLAUDE_CONFIG_DIR,
+        claudeConfigDir: profileEnv.CLAUDE_CONFIG_DIR,
+        hasOAuthToken: !!profileEnv.CLAUDE_CODE_OAUTH_TOKEN,
+        envKeys: Object.keys(profileEnv),
+      });
+
       return {
         env: ensureCleanProfileEnv(profileEnv),
         profileId: bestProfile.id,
@@ -424,14 +589,21 @@ export function getBestAvailableProfileEnv(): BestProfileEnvResult {
         }
       };
     } else {
-      if (process.env.DEBUG === 'true') {
-        console.warn('[RateLimitDetector] No alternative profile available, using rate-limited/at-capacity profile');
-      }
+      debugLog('[RateLimitDetector] No alternative profile available, using rate-limited/at-capacity profile');
     }
   }
 
   // Use active profile (either it's fine, or no better alternative exists)
   const activeEnv = profileManager.getActiveProfileEnv();
+
+  debugLog('[RateLimitDetector] Using active profile env (no swap):', {
+    profileId: activeProfile.id,
+    hasClaudeConfigDir: !!activeEnv.CLAUDE_CONFIG_DIR,
+    claudeConfigDir: activeEnv.CLAUDE_CONFIG_DIR,
+    hasOAuthToken: !!activeEnv.CLAUDE_CODE_OAUTH_TOKEN,
+    envKeys: Object.keys(activeEnv),
+  });
+
   return {
     env: ensureCleanProfileEnv(activeEnv),
     profileId: activeProfile.id,
@@ -443,23 +615,55 @@ export function getBestAvailableProfileEnv(): BestProfileEnvResult {
 /**
  * Ensure the profile environment is clean for subprocess invocation.
  *
- * When CLAUDE_CONFIG_DIR is set, we MUST clear CLAUDE_CODE_OAUTH_TOKEN to prevent
- * the Claude Agent SDK from using a hardcoded/cached token (e.g., from .env file)
- * instead of reading fresh credentials from the specified config directory.
+ * When CLAUDE_CONFIG_DIR is set, we MUST clear both CLAUDE_CODE_OAUTH_TOKEN and
+ * ANTHROPIC_API_KEY to prevent the Claude Agent SDK from using hardcoded/cached
+ * tokens or API keys (e.g., from .env file or shell environment) instead of reading
+ * fresh credentials from the specified config directory.
+ *
+ * ANTHROPIC_API_KEY is cleared to prevent Claude Code from using API keys present
+ * in the shell environment, which would cause it to show "Claude API" instead of
+ * "Claude Max" and bypass the intended config dir credentials.
  *
  * This is critical for multi-account switching: when switching from a rate-limited
  * account to an available one, the subprocess must use the new account's credentials.
  *
+ * Also warns if the profile env is empty, which indicates a misconfigured profile.
+ *
  * @param env - Profile environment from getProfileEnv() or getActiveProfileEnv()
- * @returns Environment with CLAUDE_CODE_OAUTH_TOKEN cleared if CLAUDE_CONFIG_DIR is set
+ * @returns Environment with CLAUDE_CODE_OAUTH_TOKEN and ANTHROPIC_API_KEY cleared if CLAUDE_CONFIG_DIR is set
  */
-function ensureCleanProfileEnv(env: Record<string, string>): Record<string, string> {
+export function ensureCleanProfileEnv(env: Record<string, string>): Record<string, string> {
+  debugLog('[RateLimitDetector] ensureCleanProfileEnv() input:', {
+    hasClaudeConfigDir: !!env.CLAUDE_CONFIG_DIR,
+    claudeConfigDir: env.CLAUDE_CONFIG_DIR,
+    hasOAuthToken: !!env.CLAUDE_CODE_OAUTH_TOKEN,
+    willClearOAuthToken: !!env.CLAUDE_CONFIG_DIR,
+    willClearApiKey: !!env.CLAUDE_CONFIG_DIR,
+  });
+
+  // Warn if the profile environment is empty — this likely indicates a misconfigured profile
+  if (Object.keys(env).length === 0) {
+    console.warn('[RateLimitDetector] ensureCleanProfileEnv() received empty profile env — profile may be misconfigured');
+  }
+
   if (env.CLAUDE_CONFIG_DIR) {
-    // Clear CLAUDE_CODE_OAUTH_TOKEN to ensure SDK uses credentials from CLAUDE_CONFIG_DIR
-    return {
+    // Clear CLAUDE_CODE_OAUTH_TOKEN and ANTHROPIC_API_KEY to ensure SDK uses credentials from CLAUDE_CONFIG_DIR
+    // ANTHROPIC_API_KEY must also be cleared to prevent Claude Code from using
+    // API keys that may be present in the shell environment instead of the config dir credentials.
+    const cleanedEnv = {
       ...env,
-      CLAUDE_CODE_OAUTH_TOKEN: ''
+      CLAUDE_CODE_OAUTH_TOKEN: '',
+      ANTHROPIC_API_KEY: ''
     };
+
+    debugLog('[RateLimitDetector] ensureCleanProfileEnv() output:', {
+      claudeConfigDirPreserved: 'CLAUDE_CONFIG_DIR' in cleanedEnv,
+      claudeConfigDir: (cleanedEnv as Record<string, string>).CLAUDE_CONFIG_DIR,
+      oauthTokenCleared: cleanedEnv.CLAUDE_CODE_OAUTH_TOKEN === '',
+      envKeys: Object.keys(cleanedEnv),
+    });
+
+    return cleanedEnv;
   }
   return env;
 }
@@ -496,7 +700,7 @@ export interface SDKRateLimitInfo {
   };
   /** When detected */
   detectedAt: Date;
-  /** Original error message */
+  /** Original error message (truncated to 500 chars for security) */
   originalError?: string;
 
   // Auto-swap information

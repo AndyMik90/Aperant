@@ -185,6 +185,16 @@ export interface ClaudeProfile {
    * This is NOT persisted, it's computed dynamically on each getSettings() call.
    */
   isAuthenticated?: boolean;
+  /**
+   * Subscription type from OAuth credentials (e.g., "max" for Claude Max subscription).
+   * Used to display "Max" vs "Pro" in the UI. Populated from Keychain credentials.
+   */
+  subscriptionType?: string;
+  /**
+   * Rate limit tier from OAuth credentials (e.g., "default_claude_max_20x").
+   * Indicates the user's rate limit tier level. Populated from Keychain credentials.
+   */
+  rateLimitTier?: string;
 }
 
 /**
@@ -221,6 +231,9 @@ export interface ClaudeAutoSwitchSettings {
   // Reactive recovery
   /** Whether to automatically switch on unexpected rate limit (vs. prompting user) */
   autoSwitchOnRateLimit: boolean;
+
+  /** Whether to automatically switch on authentication failure (vs. prompting user) */
+  autoSwitchOnAuthFailure: boolean;
 }
 
 export interface ClaudeAuthResult {
@@ -242,6 +255,10 @@ export interface TerminalProfileChangedEvent {
     sessionId?: string;
     /** Whether the session was successfully migrated to new profile */
     sessionMigrated?: boolean;
+    /** Whether the terminal was in Claude mode (had an active Claude session) */
+    isClaudeMode?: boolean;
+    /** Whether Claude was invoked with --dangerously-skip-permissions (YOLO mode) */
+    dangerouslySkipPermissions?: boolean;
   }>;
 }
 

@@ -30,6 +30,7 @@ class IdeationConfigManager:
         refresh: bool = False,
         append: bool = False,
         language: str = "en",
+        fast_mode: bool = False,
     ):
         """Initialize configuration manager.
 
@@ -45,6 +46,7 @@ class IdeationConfigManager:
             refresh: Force regeneration of existing files
             append: Preserve existing ideas when merging
             language: Output language for generated content (en, zh-CN, fr, etc.)
+            fast_mode: Enable Fast Mode for faster Opus 4.6 output
         """
         self.project_dir = Path(project_dir)
         self.model = model
@@ -67,7 +69,8 @@ class IdeationConfigManager:
             self.model,
             self.thinking_level,
             self.max_ideas_per_type,
-            self.language,
+            fast_mode=fast_mode,
+            language=self.language,
         )
         self.analyzer = ProjectAnalyzer(
             self.project_dir,

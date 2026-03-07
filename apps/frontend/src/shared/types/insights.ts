@@ -2,7 +2,7 @@
  * Insights and ideation types
  */
 
-import type { TaskMetadata } from './task';
+import type { TaskMetadata, ImageAttachment } from './task';
 
 // ============================================
 // Ideation Types
@@ -27,7 +27,7 @@ export interface IdeationConfig {
   maxIdeasPerType: number;
   append?: boolean; // If true, append to existing ideas instead of replacing
   model?: string;          // Model shorthand (opus, sonnet, haiku)
-  thinkingLevel?: string;  // Thinking level (none, low, medium, high, ultrathink)
+  thinkingLevel?: string;  // Thinking level (low, medium, high)
   language?: string;       // Output language for generated content (en, zh-CN, fr, etc.)
 }
 
@@ -182,11 +182,13 @@ export interface InsightsChatMessage {
   content: string;
   timestamp: Date;
   // For assistant messages that suggest task creation
-  suggestedTask?: {
+  suggestedTasks?: Array<{
     title: string;
     description: string;
     metadata?: TaskMetadata;
-  };
+  }>;
+  // Image attachments (screenshots, pasted images)
+  images?: ImageAttachment[];
   // Tools used during this response (assistant messages only)
   toolsUsed?: InsightsToolUsage[];
 }
@@ -199,6 +201,7 @@ export interface InsightsSession {
   modelConfig?: InsightsModelConfig; // Per-session model configuration
   createdAt: Date;
   updatedAt: Date;
+  archivedAt?: Date;
 }
 
 // Summary of a session for the history list (without full messages)
@@ -210,6 +213,7 @@ export interface InsightsSessionSummary {
   modelConfig?: InsightsModelConfig; // For displaying model indicator in sidebar
   createdAt: Date;
   updatedAt: Date;
+  archivedAt?: Date;
 }
 
 export interface InsightsChatStatus {
@@ -221,11 +225,11 @@ export interface InsightsChatStatus {
 export interface InsightsStreamChunk {
   type: 'text' | 'task_suggestion' | 'tool_start' | 'tool_end' | 'done' | 'error';
   content?: string;
-  suggestedTask?: {
+  suggestedTasks?: Array<{
     title: string;
     description: string;
     metadata?: TaskMetadata;
-  };
+  }>;
   tool?: {
     name: string;
     input?: string;  // Brief description of what's being searched/read

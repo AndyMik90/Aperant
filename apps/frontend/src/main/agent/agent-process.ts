@@ -12,6 +12,7 @@ import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
 import { ProcessType, ExecutionProgressData } from './types';
 import type { CompletablePhase } from '../../shared/constants/phase-protocol';
+import { parseTaskEvent } from './task-event-parser';
 import { detectRateLimit, createSDKRateLimitInfo, getBestAvailableProfileEnv, detectAuthFailure } from '../rate-limit-detector';
 import { getAPIProfileEnv } from '../services/profile';
 import { projectStore } from '../project-store';
@@ -21,15 +22,16 @@ import { pythonEnvManager, getConfiguredPythonPath } from '../python-env-manager
 import { buildMemoryEnvVars } from '../memory-env-builder';
 import { readSettingsFile } from '../settings-utils';
 import type { AppSettings } from '../../shared/types/settings';
-import { getOAuthModeClearVars } from './env-utils';
+import { getOAuthModeClearVars, normalizeEnvPathKey, mergePythonEnvPath } from './env-utils';
 import { getAugmentedEnv } from '../env-utils';
 import { getToolInfo, getClaudeCliPathForSdk } from '../cli-tool-manager';
-import { killProcessGracefully, isWindows } from '../platform';
+import { killProcessGracefully, isWindows, getPathDelimiter } from '../platform';
+import { debugLog } from '../../shared/utils/debug-logger';
 
 /**
  * Type for supported CLI tools
  */
-type CliTool = 'claude' | 'gh';
+type CliTool = 'claude' | 'gh' | 'glab';
 
 /**
  * Mapping of CLI tools to their environment variable names
@@ -37,7 +39,8 @@ type CliTool = 'claude' | 'gh';
  */
 const CLI_TOOL_ENV_MAP: Readonly<Record<CliTool, string>> = {
   claude: 'CLAUDE_CLI_PATH',
-  gh: 'GITHUB_CLI_PATH'
+  gh: 'GITHUB_CLI_PATH',
+  glab: 'GITLAB_CLI_PATH'
 } as const;
 
 
@@ -176,6 +179,29 @@ export class AgentProcessManager {
     // Get best available Claude profile environment (automatically handles rate limits)
     const profileResult = getBestAvailableProfileEnv();
     const profileEnv = profileResult.env;
+
+    debugLog('[AgentProcess:setupEnv] Profile result:', {
+      profileId: profileResult.profileId,
+      hasOAuthToken: !!profileEnv.CLAUDE_CODE_OAUTH_TOKEN,
+      hasApiKey: !!profileEnv.ANTHROPIC_API_KEY,
+      hasConfigDir: !!profileEnv.CLAUDE_CONFIG_DIR,
+      configDir: profileEnv.CLAUDE_CONFIG_DIR || '(not set)',
+      oauthTokenPrefix: profileEnv.CLAUDE_CODE_OAUTH_TOKEN?.substring(0, 8) || '(not set)',
+      apiKeyPrefix: profileEnv.ANTHROPIC_API_KEY?.substring(0, 8) || '(not set)',
+    });
+
+    // Warn if profile lacks CLAUDE_CONFIG_DIR - this means the profile has no configDir
+    // and subscription metadata may not propagate correctly to the agent subprocess
+    if (!profileEnv.CLAUDE_CONFIG_DIR) {
+      console.warn('[AgentProcess:setupEnv] WARNING: Profile env lacks CLAUDE_CONFIG_DIR - profile may not have a configDir set. Subscription metadata may not reach agent subprocess.');
+    }
+
+    debugLog('[AgentProcess:setupEnv] extraEnv auth keys:', {
+      hasOAuthToken: !!extraEnv.CLAUDE_CODE_OAUTH_TOKEN,
+      hasApiKey: !!extraEnv.ANTHROPIC_API_KEY,
+      hasConfigDir: !!extraEnv.CLAUDE_CONFIG_DIR,
+    });
+
     // Use getAugmentedEnv() to ensure common tool paths (dotnet, homebrew, etc.)
     // are available even when app is launched from Finder/Dock
     const augmentedEnv = getAugmentedEnv();
@@ -201,18 +227,45 @@ export class AgentProcessManager {
     // Detect and pass CLI tool paths to Python backend
     const claudeCliEnv = this.detectAndSetCliPath('claude');
     const ghCliEnv = this.detectAndSetCliPath('gh');
+    const glabCliEnv = this.detectAndSetCliPath('glab');
 
-    return {
+    // Profile env is spread last to ensure CLAUDE_CONFIG_DIR and auth vars
+    // from the active profile always win over extraEnv or augmentedEnv.
+    const mergedEnv = {
       ...augmentedEnv,
       ...gitBashEnv,
       ...claudeCliEnv,
       ...ghCliEnv,
+      ...glabCliEnv,
       ...extraEnv,
       ...profileEnv,
       PYTHONUNBUFFERED: '1',
       PYTHONIOENCODING: 'utf-8',
       PYTHONUTF8: '1'
     } as NodeJS.ProcessEnv;
+
+    // When the active profile provides CLAUDE_CONFIG_DIR, clear CLAUDE_CODE_OAUTH_TOKEN
+    // from the spawn environment. CLAUDE_CONFIG_DIR lets Claude Code resolve its own
+    // OAuth tokens from the config directory, making an explicit token unnecessary.
+    // This matches the terminal pattern in claude-integration-handler.ts where
+    // configDir is preferred over direct token injection.
+    // We check profileEnv specifically (not mergedEnv) to avoid clearing the token
+    // when CLAUDE_CONFIG_DIR comes from the shell environment rather than the profile.
+    if (profileEnv.CLAUDE_CONFIG_DIR) {
+      mergedEnv.CLAUDE_CODE_OAUTH_TOKEN = '';
+      debugLog('[AgentProcess:setupEnv] Profile provides CLAUDE_CONFIG_DIR, cleared CLAUDE_CODE_OAUTH_TOKEN from spawn env');
+    }
+
+    debugLog('[AgentProcess:setupEnv] Final merged env auth state:', {
+      hasOAuthToken: !!mergedEnv.CLAUDE_CODE_OAUTH_TOKEN,
+      hasApiKey: !!mergedEnv.ANTHROPIC_API_KEY,
+      hasConfigDir: !!mergedEnv.CLAUDE_CONFIG_DIR,
+      configDir: mergedEnv.CLAUDE_CONFIG_DIR || '(not set)',
+      oauthTokenPrefix: mergedEnv.CLAUDE_CODE_OAUTH_TOKEN?.substring(0, 8) || '(not set)',
+      apiKeyPrefix: mergedEnv.ANTHROPIC_API_KEY?.substring(0, 8) || '(not set)',
+    });
+
+    return mergedEnv;
   }
 
   private handleProcessFailure(
@@ -277,7 +330,11 @@ export class AgentProcessManager {
     } : 'NONE');
 
     if (!bestProfile) {
-      console.log('[AgentProcess] No alternative profile available - falling back to manual modal');
+      // Single account case: let backend handle with intelligent pause
+      // Don't show manual modal - backend will pause intelligently and resume when ready
+      console.log('[AgentProcess] No alternative profile - backend will handle with intelligent pause');
+      // Return false to let handleProcessFailure emit sdk-rate-limit event
+      // The frontend can then show appropriate UI (e.g., "Paused until X time")
       return false;
     }
 
@@ -302,19 +359,84 @@ export class AgentProcessManager {
     console.log('[AgentProcess] No rate limit detected - checking for auth failure');
     const authFailureDetection = detectAuthFailure(allOutput);
 
-    if (authFailureDetection.isAuthFailure) {
-      console.log('[AgentProcess] Auth failure detected:', authFailureDetection);
+    if (!authFailureDetection.isAuthFailure) {
+      console.log('[AgentProcess] Process failed but no rate limit or auth failure detected');
+      return false;
+    }
+
+    console.log('[AgentProcess] Auth failure detected:', authFailureDetection);
+
+    // Try auto-swap if enabled
+    const wasHandled = this.handleAuthFailureWithAutoSwap(taskId, authFailureDetection);
+
+    if (!wasHandled) {
+      // Fall back to UI notification
       this.emitter.emit('auth-failure', taskId, {
         profileId: authFailureDetection.profileId,
         failureType: authFailureDetection.failureType,
         message: authFailureDetection.message,
         originalError: authFailureDetection.originalError
       });
-      return true;
     }
 
-    console.log('[AgentProcess] Process failed but no rate limit or auth failure detected');
-    return false;
+    return true;
+  }
+
+  /**
+   * Attempt to auto-swap to another profile on authentication failure.
+   * Only works when autoSwitchOnAuthFailure is enabled and an alternative
+   * authenticated profile is available.
+   */
+  private handleAuthFailureWithAutoSwap(
+    taskId: string,
+    authFailureDetection: ReturnType<typeof detectAuthFailure>
+  ): boolean {
+    const profileManager = getClaudeProfileManager();
+    const autoSwitchSettings = profileManager.getAutoSwitchSettings();
+
+    console.log('[AgentProcess] Auth failure auto-switch settings:', {
+      enabled: autoSwitchSettings.enabled,
+      autoSwitchOnAuthFailure: autoSwitchSettings.autoSwitchOnAuthFailure
+    });
+
+    // Check if auto-switch on auth failure is enabled
+    if (!autoSwitchSettings.enabled || !autoSwitchSettings.autoSwitchOnAuthFailure) {
+      console.log('[AgentProcess] Auth failure auto-switch disabled - falling back to UI');
+      return false;
+    }
+
+    const currentProfileId = authFailureDetection.profileId;
+    const bestProfile = profileManager.getBestAvailableProfile(currentProfileId);
+
+    console.log('[AgentProcess] Best available profile for auth failure swap:', bestProfile ? {
+      id: bestProfile.id,
+      name: bestProfile.name,
+      isAuthenticated: bestProfile.isAuthenticated
+    } : 'NONE');
+
+    // Verify the best profile is actually authenticated
+    if (!bestProfile || !bestProfile.isAuthenticated) {
+      console.log('[AgentProcess] No authenticated alternative profile - falling back to UI');
+      return false;
+    }
+
+    console.log('[AgentProcess] AUTH-FAILURE AUTO-SWAP:', currentProfileId, '->', bestProfile.id);
+    profileManager.setActiveProfile(bestProfile.id);
+
+    // Emit auth-failure event with swap metadata for UI notification
+    this.emitter.emit('auth-failure', taskId, {
+      profileId: authFailureDetection.profileId,
+      failureType: authFailureDetection.failureType,
+      message: authFailureDetection.message,
+      originalError: authFailureDetection.originalError,
+      wasAutoSwapped: true,
+      swappedToProfile: { id: bestProfile.id, name: bestProfile.name }
+    });
+
+    // Reuse existing restart event
+    console.log('[AgentProcess] Emitting auto-swap-restart-task event for auth failure:', taskId);
+    this.emitter.emit('auto-swap-restart-task', taskId, bestProfile.id);
+    return true;
   }
 
   /**
@@ -506,7 +628,8 @@ export class AgentProcessManager {
     cwd: string,
     args: string[],
     extraEnv: Record<string, string> = {},
-    processType: ProcessType = 'task-execution'
+    processType: ProcessType = 'task-execution',
+    projectId?: string
   ): Promise<void> {
     const isSpecRunner = processType === 'spec-creation';
     this.killProcess(taskId);
@@ -541,7 +664,32 @@ export class AgentProcessManager {
     // Get OAuth mode clearing vars (clears stale ANTHROPIC_* vars when in OAuth mode)
     const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
 
-    // Parse Python commandto handle space-separated commands like "py -3"
+    debugLog('[AgentProcess:spawnProcess] Environment merge chain for task:', taskId, {
+      baseEnv: {
+        hasOAuthToken: !!env.CLAUDE_CODE_OAUTH_TOKEN,
+        hasApiKey: !!env.ANTHROPIC_API_KEY,
+        hasConfigDir: !!env.CLAUDE_CONFIG_DIR,
+        configDir: env.CLAUDE_CONFIG_DIR || '(not set)',
+      },
+      oauthModeClearVars: Object.keys(oauthModeClearVars),
+      apiProfileEnv: {
+        hasApiKey: !!apiProfileEnv.ANTHROPIC_API_KEY,
+        hasBaseUrl: !!apiProfileEnv.ANTHROPIC_BASE_URL,
+        apiKeyPrefix: apiProfileEnv.ANTHROPIC_API_KEY?.substring(0, 8) || '(not set)',
+      },
+    });
+
+    // Merge PATH from pythonEnv with augmented PATH from env.
+    // pythonEnv may contain its own PATH (e.g., on Windows with pywin32_system32 prepended).
+    // Simply spreading pythonEnv after env would overwrite the augmented PATH (which includes
+    // npm globals, homebrew, etc.), causing "Claude code not found" on Windows (#1661).
+    // mergePythonEnvPath() normalizes PATH key casing and prepends pythonEnv-specific paths.
+    const mergedPythonEnv = { ...pythonEnv };
+    const pathSep = getPathDelimiter();
+
+    mergePythonEnvPath(env as Record<string, string | undefined>, mergedPythonEnv as Record<string, string | undefined>, pathSep);
+
+    // Parse Python command to handle space-separated commands like "py -3"
     const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.getPythonPath());
     let childProcess;
     try {
@@ -549,7 +697,7 @@ export class AgentProcessManager {
         cwd,
         env: {
           ...env, // Already includes process.env, extraEnv, profileEnv, PYTHONUNBUFFERED, PYTHONUTF8
-          ...pythonEnv, // Include Python environment (PYTHONPATH for bundled packages)
+          ...mergedPythonEnv, // Python env with merged PATH (preserves augmented PATH entries)
           ...oauthModeClearVars, // Clear stale ANTHROPIC_* vars when in OAuth mode
           ...apiProfileEnv // Include active API profile config (highest priority for ANTHROPIC_* vars)
         }
@@ -558,7 +706,7 @@ export class AgentProcessManager {
       // spawn() failed synchronously (e.g., command not found, permission denied)
       // Clean up tracking entry and propagate error
       this.state.deleteProcess(taskId);
-      this.emitter.emit('error', taskId, err instanceof Error ? err.message : String(err));
+      this.emitter.emit('error', taskId, err instanceof Error ? err.message : String(err), projectId);
       throw err;
     }
 
@@ -605,7 +753,7 @@ export class AgentProcessManager {
       message: isSpecRunner ? 'Starting spec creation...' : 'Starting build process...',
       sequenceNumber: ++sequenceNumber,
       completedPhases: [...completedPhases]
-    });
+    }, projectId);
 
     const isDebug = ['true', '1', 'yes', 'on'].includes(process.env.DEBUG?.toLowerCase() ?? '');
 
@@ -615,6 +763,17 @@ export class AgentProcessManager {
       const hasMarker = line.includes('__EXEC_PHASE__');
       if (isDebug && hasMarker) {
         console.log(`[PhaseDebug:${taskId}] Found marker in line: "${line.substring(0, 200)}"`);
+      }
+
+      // Log all task event markers for debugging
+      if (line.includes('__TASK_EVENT__')) {
+        console.log(`[AgentProcess:${taskId}] Found __TASK_EVENT__ marker in line:`, line.substring(0, 300));
+      }
+
+      const taskEvent = parseTaskEvent(line);
+      if (taskEvent) {
+        console.log(`[AgentProcess:${taskId}] Parsed task event:`, taskEvent.type, taskEvent);
+        this.emitter.emit('task-event', taskId, taskEvent, projectId);
       }
 
       const phaseUpdate = this.events.parseExecutionPhase(line, currentPhase, isSpecRunner);
@@ -674,7 +833,7 @@ export class AgentProcessManager {
           message: lastMessage,
           sequenceNumber: ++sequenceNumber,
           completedPhases: [...completedPhases]
-        });
+        }, projectId);
       }
     };
 
@@ -694,7 +853,7 @@ export class AgentProcessManager {
 
       for (const line of lines) {
         if (line.trim()) {
-          this.emitter.emit('log', taskId, line + '\n');
+          this.emitter.emit('log', taskId, line + '\n', projectId);
           processLog(line);
           if (isDebug) {
             console.log(`[Agent:${taskId}] ${line}`);
@@ -715,11 +874,11 @@ export class AgentProcessManager {
 
     childProcess.on('exit', (code: number | null) => {
       if (stdoutBuffer.trim()) {
-        this.emitter.emit('log', taskId, stdoutBuffer + '\n');
+        this.emitter.emit('log', taskId, stdoutBuffer + '\n', projectId);
         processLog(stdoutBuffer);
       }
       if (stderrBuffer.trim()) {
-        this.emitter.emit('log', taskId, stderrBuffer + '\n');
+        this.emitter.emit('log', taskId, stderrBuffer + '\n', projectId);
         processLog(stderrBuffer);
       }
 
@@ -733,24 +892,26 @@ export class AgentProcessManager {
       if (code !== 0) {
         console.log('[AgentProcess] Process failed with code:', code, 'for task:', taskId);
         const wasHandled = this.handleProcessFailure(taskId, allOutput, processType);
+
         if (wasHandled) {
-          this.emitter.emit('exit', taskId, code, processType);
+          this.emitter.emit('exit', taskId, code, processType, projectId);
           return;
+        }
+
+        // Only emit 'failed' when failure was NOT handled by auto-swap
+        if (currentPhase !== 'complete' && currentPhase !== 'failed') {
+          this.emitter.emit('execution-progress', taskId, {
+            phase: 'failed',
+            phaseProgress: 0,
+            overallProgress: this.events.calculateOverallProgress(currentPhase, phaseProgress),
+            message: `Process exited with code ${code}`,
+            sequenceNumber: ++sequenceNumber,
+            completedPhases: [...completedPhases]
+          }, projectId);
         }
       }
 
-      if (code !== 0 && currentPhase !== 'complete' && currentPhase !== 'failed') {
-        this.emitter.emit('execution-progress', taskId, {
-          phase: 'failed',
-          phaseProgress: 0,
-          overallProgress: this.events.calculateOverallProgress(currentPhase, phaseProgress),
-          message: `Process exited with code ${code}`,
-          sequenceNumber: ++sequenceNumber,
-          completedPhases: [...completedPhases]
-        });
-      }
-
-      this.emitter.emit('exit', taskId, code, processType);
+      this.emitter.emit('exit', taskId, code, processType, projectId);
     });
 
     // Handle process error
@@ -765,9 +926,9 @@ export class AgentProcessManager {
         message: `Error: ${err.message}`,
         sequenceNumber: ++sequenceNumber,
         completedPhases: [...completedPhases]
-      });
+      }, projectId);
 
-      this.emitter.emit('error', taskId, err.message);
+      this.emitter.emit('error', taskId, err.message, projectId);
     });
   }
 

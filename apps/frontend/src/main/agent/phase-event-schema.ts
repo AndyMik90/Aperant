@@ -7,7 +7,10 @@ export const PhaseEventSchema = z.object({
   phase: BackendPhaseSchema,
   message: z.string().default(''),
   progress: z.number().int().min(0).max(100).optional(),
-  subtask: z.string().optional()
+  subtask: z.string().optional(),
+  // Pause phase metadata
+  reset_timestamp: z.number().int().optional(),  // Unix timestamp for rate limit reset
+  profile_id: z.string().optional()  // Profile that hit the limit
 });
 
 export type PhaseEventPayload = z.infer<typeof PhaseEventSchema>;

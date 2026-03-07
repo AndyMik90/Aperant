@@ -33,7 +33,7 @@ export interface TerminalAPI {
   createTerminal: (options: TerminalCreateOptions) => Promise<IPCResult>;
   destroyTerminal: (id: string) => Promise<IPCResult>;
   sendTerminalInput: (id: string, data: string) => void;
-  resizeTerminal: (id: string, cols: number, rows: number) => void;
+  resizeTerminal: (id: string, cols: number, rows: number) => Promise<IPCResult<{ success: boolean }>>;
   invokeClaudeInTerminal: (id: string, cwd?: string) => void;
   generateTerminalName: (command: string, cwd?: string) => Promise<IPCResult<string>>;
   setTerminalTitle: (id: string, title: string) => void;
@@ -47,7 +47,7 @@ export interface TerminalAPI {
     rows?: number
   ) => Promise<IPCResult<import('../../shared/types').TerminalRestoreResult>>;
   clearTerminalSessions: (projectPath: string) => Promise<IPCResult>;
-  resumeClaudeInTerminal: (id: string, sessionId?: string) => void;
+  resumeClaudeInTerminal: (id: string, sessionId?: string, options?: { migratedSession?: boolean }) => void;
   activateDeferredClaudeResume: (id: string) => void;
   getTerminalSessionDates: (projectPath?: string) => Promise<IPCResult<import('../../shared/types').SessionDateInfo[]>>;
   getTerminalSessionsForDate: (
@@ -137,8 +137,8 @@ export const createTerminalAPI = (): TerminalAPI => ({
   sendTerminalInput: (id: string, data: string): void =>
     ipcRenderer.send(IPC_CHANNELS.TERMINAL_INPUT, id, data),
 
-  resizeTerminal: (id: string, cols: number, rows: number): void =>
-    ipcRenderer.send(IPC_CHANNELS.TERMINAL_RESIZE, id, cols, rows),
+  resizeTerminal: (id: string, cols: number, rows: number): Promise<IPCResult<{ success: boolean }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_RESIZE, id, cols, rows),
 
   invokeClaudeInTerminal: (id: string, cwd?: string): void =>
     ipcRenderer.send(IPC_CHANNELS.TERMINAL_INVOKE_CLAUDE, id, cwd),
@@ -166,8 +166,8 @@ export const createTerminalAPI = (): TerminalAPI => ({
   clearTerminalSessions: (projectPath: string): Promise<IPCResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_CLEAR_SESSIONS, projectPath),
 
-  resumeClaudeInTerminal: (id: string, sessionId?: string): void =>
-    ipcRenderer.send(IPC_CHANNELS.TERMINAL_RESUME_CLAUDE, id, sessionId),
+  resumeClaudeInTerminal: (id: string, sessionId?: string, options?: { migratedSession?: boolean }): void =>
+    ipcRenderer.send(IPC_CHANNELS.TERMINAL_RESUME_CLAUDE, id, sessionId, options),
 
   activateDeferredClaudeResume: (id: string): void =>
     ipcRenderer.send(IPC_CHANNELS.TERMINAL_ACTIVATE_DEFERRED_RESUME, id),

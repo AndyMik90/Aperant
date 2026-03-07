@@ -107,7 +107,8 @@
       "defaultPlaceholder": "e.g., claude-sonnet-4-5-20250929",
       "haikuPlaceholder": "e.g., claude-haiku-4-5-20251001",
       "sonnetPlaceholder": "e.g., claude-sonnet-4-5-20250929",
-      "opusPlaceholder": "e.g., claude-opus-4-5-20251101"
+      "opusPlaceholder": "e.g., claude-opus-4-6",
+      "opus1mPlaceholder": "e.g., claude-opus-4-6 (1M context)"
     },
     "empty": {
       "title": "No API profiles configured",
@@ -185,6 +186,20 @@
     "comfortable": "Comfortable",
     "large": "Large"
   },
+  "logOrder": {
+    "label": "Log Order",
+    "description": "Choose how logs are displayed in the task detail view",
+    "chronological": "Chronological (oldest first)",
+    "reverseChronological": "Reverse-chronological (newest first)"
+  },
+  "gpuAcceleration": {
+    "label": "GPU Acceleration",
+    "description": "Use WebGL for terminal rendering (experimental, faster with many terminals)",
+    "auto": "Auto (use WebGL when supported)",
+    "on": "Always on",
+    "off": "Off (default)",
+    "helperText": "Changes apply to new terminals only"
+  },
   "general": {
     "otherAgentSettings": "Other Agent Settings",
     "otherAgentSettingsDescription": "Additional agent configuration options",
@@ -208,6 +223,9 @@
     "githubCLIPath": "GitHub CLI Path",
     "githubCLIPathDescription": "Path to GitHub CLI (gh) executable (leave empty for auto-detection)",
     "githubCLIPathPlaceholder": "gh (default)",
+    "gitlabCLIPath": "GitLab CLI Path",
+    "gitlabCLIPathDescription": "Path to GitLab CLI (glab) executable (leave empty for auto-detection)",
+    "gitlabCLIPathPlaceholder": "glab (default)",
     "claudePath": "Claude CLI Path",
     "claudePathDescription": "Path to Claude CLI executable (leave empty for auto-detection)",
     "claudePathPlaceholder": "claude (default)",
@@ -299,7 +317,10 @@
     "stableDowngradeAvailable": "Stable Version Available",
     "stableDowngradeDescription": "You're currently on a beta version. Since you've disabled beta updates, you can switch to the latest stable release.",
     "stableVersion": "Stable Version",
-    "downloadStableVersion": "Download Stable Version"
+    "downloadStableVersion": "Download Stable Version",
+    "readOnlyVolumeTitle": "Cannot Install from Disk Image",
+    "readOnlyVolumeDescription": "Auto Claude is running from a read-only disk image (DMG). Please drag the app to your Applications folder and relaunch it from there to install updates.",
+    "downloadError": "Failed to download update"
   },
   "notifications": {
     "title": "Notifications",
@@ -341,7 +362,15 @@
       "description": "GitHub issues sync",
       "integrationTitle": "GitHub Integration",
       "integrationDescription": "Connect to GitHub for issue tracking",
-      "syncDescription": "Sync with GitHub Issues"
+      "syncDescription": "Sync with GitHub Issues",
+      "defaultBranch": {
+        "label": "Default Branch",
+        "description": "Base branch for creating task worktrees",
+        "autoDetect": "Auto-detect (main/master)",
+        "searchPlaceholder": "Search branches...",
+        "noBranchesFound": "No branches found",
+        "selectedBranchHelp": "All new tasks will branch from {{branch}}"
+      }
     },
     "gitlab": {
       "title": "GitLab",
@@ -379,6 +408,10 @@
     "resetToProfileDefaults": "Reset to {{profile}} defaults",
     "customized": "Customized",
     "phaseConfigNote": "These settings will be used as defaults when creating new tasks with this profile. You can override them per-task in the task creation wizard.",
+    "adaptiveThinking": {
+      "badge": "Adaptive",
+      "tooltip": "Opus uses adaptive thinking — it dynamically decides how much to think within the budget cap set by the thinking level."
+    },
     "phases": {
       "spec": {
         "label": "Spec Creation",
@@ -446,6 +479,8 @@
     "weeklyThresholdDescription": "Switch when weekly usage reaches this level (recommended: 99%)",
     "reactiveRecovery": "Reactive Recovery",
     "reactiveDescription": "Auto-swap when unexpected rate limit is hit",
+    "autoSwitchOnAuthFailure": "Auto-switch on auth failure",
+    "autoSwitchOnAuthFailureDescription": "Automatically switch to another authenticated account when authentication fails",
     "apiKeys": "API Keys",
     "apiKeysInfo": "Keys set here are used as defaults. Individual projects can override these in their settings.",
     "openaiKey": "OpenAI API Key",
@@ -549,7 +584,9 @@
       "weeklyThreshold": "Weekly usage threshold",
       "weeklyThresholdDescription": "Switch when weekly usage reaches this level (recommended: 99%)",
       "reactiveRecovery": "Reactive Recovery",
-      "reactiveDescription": "Auto-swap when unexpected rate limit is hit"
+      "reactiveDescription": "Auto-swap when unexpected rate limit is hit",
+      "autoSwitchOnAuthFailure": "Auto-switch on auth failure",
+      "autoSwitchOnAuthFailureDescription": "Automatically switch to another authenticated account when authentication fails"
     },
     "priority": {
       "title": "Account Priority Order",
@@ -857,6 +894,12 @@
       "decrease": "Decrease {{label}} by {{step}}",
       "increase": "Increase {{label}} by {{step}}",
       "currentValue": "Current value: {{value}}"
+    }
+  },
+  "agents": {
+    "pr_template_filler": {
+      "label": "PR Template Filler",
+      "description": "AI-fills GitHub PR templates from code changes"
     }
   }
 }

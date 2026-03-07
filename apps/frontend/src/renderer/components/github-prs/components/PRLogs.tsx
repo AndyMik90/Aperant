@@ -61,7 +61,7 @@ const SOURCE_COLORS: Record<string, string> = {
   'Progress': 'bg-green-500/20 text-green-400',
   'PR Review Engine': 'bg-indigo-500/20 text-indigo-400',
   'Summary': 'bg-emerald-500/20 text-emerald-400',
-  // Specialist agents (from parallel orchestrator)
+  // Specialist agents (from parallel orchestrator - old Task tool approach)
   'Agent:logic-reviewer': 'bg-blue-600/20 text-blue-400',
   'Agent:quality-reviewer': 'bg-indigo-600/20 text-indigo-400',
   'Agent:security-reviewer': 'bg-red-600/20 text-red-400',
@@ -70,6 +70,11 @@ const SOURCE_COLORS: Record<string, string> = {
   'Agent:resolution-verifier': 'bg-teal-600/20 text-teal-400',
   'Agent:new-code-reviewer': 'bg-cyan-600/20 text-cyan-400',
   'Agent:comment-analyzer': 'bg-gray-500/20 text-gray-400',
+  // Parallel SDK specialists (new approach using parallel SDK sessions)
+  'Specialist:security': 'bg-red-600/20 text-red-400',
+  'Specialist:quality': 'bg-indigo-600/20 text-indigo-400',
+  'Specialist:logic': 'bg-blue-600/20 text-blue-400',
+  'Specialist:codebase-fit': 'bg-emerald-600/20 text-emerald-400',
   'default': 'bg-muted text-muted-foreground'
 };
 
@@ -107,8 +112,8 @@ function groupEntriesByAgent(entries: PRLogEntry[]): {
   const otherEntries: PRLogEntry[] = [];
 
   for (const entry of entries) {
-    if (entry.source?.startsWith('Agent:')) {
-      // Agent results
+    if (entry.source?.startsWith('Agent:') || entry.source?.startsWith('Specialist:')) {
+      // Agent/Specialist results (both old Task tool and new parallel SDK approaches)
       const existing = agentMap.get(entry.source) || [];
       existing.push(entry);
       agentMap.set(entry.source, existing);
@@ -451,15 +456,66 @@ interface AgentLogGroupProps {
   onToggle: () => void;
 }
 
+// Patterns that are uninteresting as summary entries
+const SKIP_AS_SUMMARY_PATTERNS = [
+  /^Starting analysis\.\.\.$/,
+  /^Processing SDK stream\.\.\.$/,
+  /^Processing\.\.\./,
+  /^Awaiting response stream\.\.\.$/,
+];
+
+function isBoringSummary(content: string): boolean {
+  return SKIP_AS_SUMMARY_PATTERNS.some(pattern => pattern.test(content));
+}
+
+// Find a meaningful summary entry - skip boring entries and prefer "AI response" or "Complete"
+function findSummaryEntry(entries: PRLogEntry[]): { summaryEntry: PRLogEntry | undefined; otherEntries: PRLogEntry[] } {
+  if (entries.length === 0) return { summaryEntry: undefined, otherEntries: [] };
+
+  // Look for the most informative entry to show as summary
+  // Priority: 1) "Complete:" entry, 2) "AI response:" entry, 3) first non-boring entry
+  const completeEntry = entries.find(e => e.content.startsWith('Complete:'));
+  if (completeEntry) {
+    return {
+      summaryEntry: completeEntry,
+      otherEntries: entries.filter(e => e !== completeEntry),
+    };
+  }
+
+  const aiResponseEntry = entries.find(e => e.content.startsWith('AI response:'));
+  if (aiResponseEntry) {
+    return {
+      summaryEntry: aiResponseEntry,
+      otherEntries: entries.filter(e => e !== aiResponseEntry),
+    };
+  }
+
+  // Find first non-boring entry
+  const meaningfulEntry = entries.find(e => !isBoringSummary(e.content));
+  if (meaningfulEntry) {
+    return {
+      summaryEntry: meaningfulEntry,
+      otherEntries: entries.filter(e => e !== meaningfulEntry),
+    };
+  }
+
+  // Fallback to first entry
+  return {
+    summaryEntry: entries[0],
+    otherEntries: entries.slice(1),
+  };
+}
+
 function AgentLogGroup({ group, isExpanded, onToggle }: AgentLogGroupProps) {
   const { t } = useTranslation(['common']);
   const { agentName, entries } = group;
-  const hasMultipleEntries = entries.length > 1;
-  const firstEntry = entries[0];
-  const remainingEntries = entries.slice(1);
 
-  // Extract display name from "Agent:logic-reviewer" -> "logic-reviewer"
-  const displayName = agentName.replace('Agent:', '');
+  // Find a meaningful summary entry instead of just using the first one
+  const { summaryEntry, otherEntries } = findSummaryEntry(entries);
+  const hasMoreEntries = otherEntries.length > 0;
+
+  // Extract display name from "Agent:logic-reviewer" -> "logic-reviewer" or "Specialist:security" -> "security"
+  const displayName = agentName.replace('Agent:', '').replace('Specialist:', '');
 
   const getSourceColor = (source: string) => {
     return SOURCE_COLORS[source] || SOURCE_COLORS.default;
@@ -477,7 +533,7 @@ function AgentLogGroup({ group, isExpanded, onToggle }: AgentLogGroupProps) {
           >
             {displayName}
           </Badge>
-          {hasMultipleEntries && (
+          {hasMoreEntries && (
             <button
               onClick={onToggle}
               className={cn(
@@ -489,28 +545,28 @@ function AgentLogGroup({ group, isExpanded, onToggle }: AgentLogGroupProps) {
               {isExpanded ? (
                 <>
                   <ChevronDown className="h-3 w-3" />
-                  <span>{t('common:prReview.logs.hideMore', { count: remainingEntries.length })}</span>
+                  <span>{t('common:prReview.logs.hideMore', { count: otherEntries.length })}</span>
                 </>
               ) : (
                 <>
                   <ChevronRight className="h-3 w-3" />
-                  <span>{t('common:prReview.logs.showMore', { count: remainingEntries.length })}</span>
+                  <span>{t('common:prReview.logs.showMore', { count: otherEntries.length })}</span>
                 </>
               )}
             </button>
           )}
         </div>
 
-        {/* First entry (summary) - always visible */}
-        {firstEntry && (
-          <LogEntry entry={{ ...firstEntry, source: undefined }} />
+        {/* Summary entry - always visible (most informative entry, not necessarily first) */}
+        {summaryEntry && (
+          <LogEntry entry={{ ...summaryEntry, source: undefined }} />
         )}
       </div>
 
-      {/* Collapsible section for remaining entries */}
-      {hasMultipleEntries && isExpanded && (
+      {/* Collapsible section for other entries */}
+      {hasMoreEntries && isExpanded && (
         <div className="border-t border-border/30 bg-secondary/10 p-2 space-y-1">
-          {remainingEntries.map((entry, idx) => (
+          {otherEntries.map((entry, idx) => (
             <LogEntry key={`${entry.timestamp}-${idx}`} entry={{ ...entry, source: undefined }} />
           ))}
         </div>

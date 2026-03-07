@@ -17,6 +17,8 @@ import type {
 } from './types';
 import { isWindows } from '../platform';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
+import { safeSendToRenderer } from '../ipc-handlers/utils';
+import { getClaudeCodeEnv } from '../claude-code-settings';
 
 /**
  * Options for terminal restoration
@@ -52,12 +54,28 @@ export async function createTerminal(
     return { success: true };
   }
 
+  // Clear any pendingDelete for this terminal ID. This handles the case where
+  // a terminal is destroyed and immediately re-created with the same ID (e.g.,
+  // worktree switching, terminal restart after shell exit). Without this, the
+  // pendingDelete guard (5-second window) blocks session persistence for the
+  // new terminal, causing it to be invisible to the session store.
+  SessionHandler.clearPendingDelete(id);
+
   try {
     // For auth terminals, don't inject existing OAuth token - we want a fresh login
     const profileEnv = skipOAuthToken ? {} : PtyManager.getActiveProfileEnv();
 
-    // Merge custom environment variables (e.g., CLAUDE_CONFIG_DIR for auth terminals)
-    const mergedEnv = customEnv ? { ...profileEnv, ...customEnv } : profileEnv;
+    // Read env vars from Claude Code CLI settings files (.claude/settings.json hierarchy)
+    const claudeCodeEnv = getClaudeCodeEnv(projectPath);
+    if (Object.keys(claudeCodeEnv).length > 0) {
+      debugLog('[TerminalLifecycle] Injecting Claude Code settings env vars:', Object.keys(claudeCodeEnv));
+    }
+
+    // Merge environment variables (lowest to highest precedence):
+    // 1. Claude Code settings env (from settings.json hierarchy)
+    // 2. Profile env (CLAUDE_CONFIG_DIR, CLAUDE_CODE_OAUTH_TOKEN)
+    // 3. Custom env from TerminalCreateOptions
+    const mergedEnv = { ...claudeCodeEnv, ...profileEnv, ...(customEnv || {}) };
 
     if (mergedEnv.CLAUDE_CODE_OAUTH_TOKEN) {
       debugLog('[TerminalLifecycle] Injecting OAuth token from active profile');
@@ -90,6 +108,7 @@ export async function createTerminal(
       id,
       pty: ptyProcess,
       isClaudeMode: false,
+      hasExited: false,
       projectPath,
       cwd: terminalCwd,
       outputBuffer: '',
@@ -205,13 +224,11 @@ export async function restoreTerminal(
   }
 
   // Send title change event for all restored terminals so renderer updates
-  const win = getWindow();
-  if (win) {
-    win.webContents.send(IPC_CHANNELS.TERMINAL_TITLE_CHANGE, session.id, session.title);
-    // Always sync worktreeConfig to renderer (even if undefined) to ensure correct state
-    // This handles both: showing labels after recovery AND clearing stale labels when worktrees are deleted
-    win.webContents.send(IPC_CHANNELS.TERMINAL_WORKTREE_CONFIG_CHANGE, session.id, terminal.worktreeConfig);
-  }
+  // Use safeSendToRenderer with isDestroyed() check to prevent crashes
+  safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_TITLE_CHANGE, session.id, session.title);
+  // Always sync worktreeConfig to renderer (even if undefined) to ensure correct state
+  // This handles both: showing labels after recovery AND clearing stale labels when worktrees are deleted
+  safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_WORKTREE_CONFIG_CHANGE, session.id, terminal.worktreeConfig);
 
   // Defer Claude resume until terminal becomes active (is viewed by user)
   // This prevents all terminals from resuming Claude simultaneously on app startup,
@@ -222,6 +239,7 @@ export async function restoreTerminal(
   if (options.resumeClaudeSession && storedIsClaudeMode) {
     // Set Claude mode so it persists correctly across app restarts
     // Without this, storedIsClaudeMode would be false on next restore
+    terminal.claudeSessionId = storedClaudeSessionId;
     terminal.isClaudeMode = true;
     // Mark terminal as having a pending Claude resume
     // The actual resume will be triggered when the terminal becomes active
@@ -230,9 +248,8 @@ export async function restoreTerminal(
 
     // Notify renderer that this terminal has a pending Claude resume
     // The renderer will trigger the resume when the terminal tab becomes active
-    if (win) {
-      win.webContents.send(IPC_CHANNELS.TERMINAL_PENDING_RESUME, terminal.id, storedClaudeSessionId);
-    }
+    // Use safeSendToRenderer with isDestroyed() check to prevent crashes
+    safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_PENDING_RESUME, terminal.id, storedClaudeSessionId);
 
     // Persist the Claude mode and pending resume state
     if (terminal.projectPath) {
@@ -294,12 +311,27 @@ export async function destroyTerminal(
 }
 
 /**
- * Kill all terminal processes
+ * Global timeout for destroyAllTerminals to prevent shutdown from hanging (ms).
+ */
+const DESTROY_ALL_TIMEOUT = 3000;
+
+/**
+ * Kill all terminal processes.
+ * Sets the shutdown flag first to prevent PTY handlers from accessing destroyed
+ * resources, then waits for all PTY processes to exit (with a global timeout).
+ *
+ * This is the core fix for GitHub issue #1469: by setting the shutdown flag and
+ * awaiting PTY exit before returning, we ensure pty.node's native callbacks
+ * don't fire after the JS environment tears down (which causes SIGABRT).
  */
 export async function destroyAllTerminals(
   terminals: Map<string, TerminalProcess>,
   saveTimer: NodeJS.Timeout | null
 ): Promise<NodeJS.Timeout | null> {
+  // Set shutdown flag first — prevents PTY onData/onExit from accessing
+  // destroyed BrowserWindow.webContents (GitHub #1469 shutdown guard pattern)
+  PtyManager.setShuttingDown(true);
+
   await SessionHandler.persistAllSessionsAsync(terminals);
 
   if (saveTimer) {
@@ -307,25 +339,24 @@ export async function destroyAllTerminals(
     saveTimer = null;
   }
 
-  const promises: Promise<void>[] = [];
+  // Kill all terminals and wait for PTY exit to avoid pty.node SIGABRT on shutdown (GitHub #1469)
+  const killPromises: Promise<void>[] = [];
 
   terminals.forEach((terminal) => {
-    promises.push(
-      new Promise((resolve) => {
-        try {
-          // Note: We intentionally don't wait for PTY exit here (unlike destroyTerminal)
-          // because this function is only called during app shutdown when no terminals
-          // will be recreated. Waiting would only delay shutdown unnecessarily.
-          PtyManager.killPty(terminal);
-        } catch {
-          // Ignore errors during cleanup
-        }
-        resolve();
+    killPromises.push(
+      PtyManager.killPty(terminal, true).catch((error) => {
+        console.warn('[TerminalLifecycle] Error during PTY cleanup:', error);
       })
     );
   });
 
-  await Promise.all(promises);
+  // Wait for all PTY processes to exit, but cap with a global timeout
+  // so shutdown never hangs indefinitely
+  await Promise.race([
+    Promise.all(killPromises),
+    new Promise<void>((resolve) => setTimeout(resolve, DESTROY_ALL_TIMEOUT))
+  ]);
+
   terminals.clear();
 
   return saveTimer;

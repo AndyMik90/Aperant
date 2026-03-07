@@ -28,7 +28,7 @@ function setupTestDirs(): void {
   TEST_DIR = mkdtempSync(path.join(tmpdir(), 'project-store-test-'));
   USER_DATA_PATH = path.join(TEST_DIR, 'userData');
   TEST_PROJECT_PATH = path.join(TEST_DIR, 'test-project');
-  
+
   mkdirSync(USER_DATA_PATH, { recursive: true });
   mkdirSync(path.join(USER_DATA_PATH, 'store'), { recursive: true });
   mkdirSync(TEST_PROJECT_PATH, { recursive: true });
@@ -292,6 +292,7 @@ describe('ProjectStore', () => {
         feature: 'Test Feature',
         workflow_type: 'feature',
         services_involved: [],
+        status: 'in_progress',
         phases: [
           {
             phase: 1,
@@ -338,6 +339,7 @@ describe('ProjectStore', () => {
         feature: 'Pending Feature',
         workflow_type: 'feature',
         services_involved: [],
+        status: 'backlog',
         phases: [
           {
             phase: 1,
@@ -377,6 +379,7 @@ describe('ProjectStore', () => {
         feature: 'Complete Feature',
         workflow_type: 'feature',
         services_involved: [],
+        status: 'ai_review',
         phases: [
           {
             phase: 1,
@@ -408,7 +411,7 @@ describe('ProjectStore', () => {
       expect(tasks[0].status).toBe('ai_review');
     });
 
-    it('should determine status as human_review when QA report rejected', async () => {
+    it('should determine status as human_review when plan status is human_review', async () => {
       const specsDir = path.join(TEST_PROJECT_PATH, '.auto-claude', 'specs', '004-rejected');
       mkdirSync(specsDir, { recursive: true });
 
@@ -416,6 +419,8 @@ describe('ProjectStore', () => {
         feature: 'Rejected Feature',
         workflow_type: 'feature',
         services_involved: [],
+        status: 'human_review',
+        reviewReason: 'qa_rejected',
         phases: [
           {
             phase: 1,
@@ -435,11 +440,6 @@ describe('ProjectStore', () => {
       writeFileSync(
         path.join(specsDir, 'implementation_plan.json'),
         JSON.stringify(plan)
-      );
-
-      writeFileSync(
-        path.join(specsDir, 'qa_report.md'),
-        '# QA Report\n\nStatus: REJECTED\n'
       );
 
       const { ProjectStore } = await import('../project-store');
@@ -451,8 +451,7 @@ describe('ProjectStore', () => {
       expect(tasks[0].status).toBe('human_review');
     });
 
-    it('should determine status as human_review when QA report approved', async () => {
-      // QA approval moves task to human_review (user needs to review before marking done)
+    it('should determine reviewReason from plan when status is human_review', async () => {
       const specsDir = path.join(TEST_PROJECT_PATH, '.auto-claude', 'specs', '005-approved');
       mkdirSync(specsDir, { recursive: true });
 
@@ -460,6 +459,8 @@ describe('ProjectStore', () => {
         feature: 'Approved Feature',
         workflow_type: 'feature',
         services_involved: [],
+        status: 'human_review',
+        reviewReason: 'completed',
         phases: [
           {
             phase: 1,
@@ -479,11 +480,6 @@ describe('ProjectStore', () => {
       writeFileSync(
         path.join(specsDir, 'implementation_plan.json'),
         JSON.stringify(plan)
-      );
-
-      writeFileSync(
-        path.join(specsDir, 'qa_report.md'),
-        '# QA Report\n\nStatus: APPROVED\n'
       );
 
       const { ProjectStore } = await import('../project-store');

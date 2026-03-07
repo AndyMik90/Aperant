@@ -8,7 +8,7 @@ import { TerminalManager } from '../terminal-manager';
 import { projectStore } from '../project-store';
 import { terminalNameGenerator } from '../terminal-name-generator';
 import { readSettingsFileAsync } from '../settings-utils';
-import { debugLog, debugError } from '../../shared/utils/debug-logger';
+import { debugLog, } from '../../shared/utils/debug-logger';
 import { migrateSession } from '../claude-profile/session-utils';
 import { createProfileDirectory } from '../claude-profile/profile-utils';
 import { isValidConfigDir } from '../utils/config-path-validator';
@@ -55,10 +55,11 @@ export function registerTerminalHandlers(
     }
   );
 
-  ipcMain.on(
+  ipcMain.handle(
     IPC_CHANNELS.TERMINAL_RESIZE,
-    (_, id: string, cols: number, rows: number) => {
-      terminalManager.resize(id, cols, rows);
+    async (_, id: string, cols: number, rows: number): Promise<IPCResult<{ success: boolean }>> => {
+      const success = terminalManager.resize(id, cols, rows);
+      return { success, data: { success } };
     }
   );
 
@@ -251,6 +252,8 @@ export function registerTerminalHandlers(
             id: string;
             sessionId?: string;
             sessionMigrated?: boolean;
+            isClaudeMode?: boolean;
+            dangerouslySkipPermissions?: boolean;
           }> = [];
 
           // Process each terminal
@@ -272,7 +275,7 @@ export function registerTerminalHandlers(
                 to: targetConfigDir
               });
 
-              const migrationResult = migrateSession(
+              const migrationResult = await migrateSession(
                 sourceConfigDir,
                 targetConfigDir,
                 terminal.cwd,
@@ -283,11 +286,19 @@ export function registerTerminalHandlers(
               debugLog('[terminal-handlers:CLAUDE_PROFILE_SET_ACTIVE] Session migration result:', migrationResult);
             }
 
+            // Store YOLO mode flag server-side for migrated sessions
+            // (consumed by resumeClaudeAsync when the new terminal resumes)
+            if (sessionMigrated && terminal.claudeSessionId && terminal.dangerouslySkipPermissions) {
+              terminalManager.storeMigratedSessionFlag(terminal.claudeSessionId, terminal.dangerouslySkipPermissions);
+            }
+
             // All terminals need refresh (PTY env vars can't be updated)
             terminalsNeedingRefresh.push({
               id: terminal.id,
               sessionId: terminal.claudeSessionId,
-              sessionMigrated
+              sessionMigrated,
+              isClaudeMode: terminal.isClaudeMode,
+              dangerouslySkipPermissions: terminal.dangerouslySkipPermissions
             });
           }
 
@@ -612,9 +623,9 @@ export function registerTerminalHandlers(
 
   ipcMain.on(
     IPC_CHANNELS.TERMINAL_RESUME_CLAUDE,
-    (_, id: string, sessionId?: string) => {
+    (_, id: string, sessionId?: string, options?: { migratedSession?: boolean }) => {
       // Use async version to avoid blocking main process during CLI detection
-      terminalManager.resumeClaudeAsync(id, sessionId).catch((error) => {
+      terminalManager.resumeClaudeAsync(id, sessionId, options).catch((error) => {
         console.warn('[terminal-handlers] Failed to resume Claude:', error);
       });
     }

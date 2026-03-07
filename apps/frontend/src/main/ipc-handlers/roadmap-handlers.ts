@@ -11,7 +11,6 @@ import {
 import type {
   IPCResult,
   Roadmap,
-  RoadmapFeature,
   RoadmapFeatureStatus,
   RoadmapGenerationStatus,
   PersistedRoadmapProgress,
@@ -22,11 +21,13 @@ import type {
 } from "../../shared/types";
 import type { RoadmapConfig } from "../agent/types";
 import path from "path";
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync } from "fs";
+import { existsSync, readFileSync, mkdirSync, readdirSync, unlinkSync } from "fs";
 import { projectStore } from "../project-store";
 import { AgentManager } from "../agent";
 import { debugLog, debugError } from "../../shared/utils/debug-logger";
 import { safeSendToRenderer } from "./utils";
+import { writeFileWithRetry, readFileWithRetry } from "../utils/atomic-file";
+import { withFileLock } from "../utils/file-lock";
 
 /**
  * Read feature settings from the settings file
@@ -91,7 +92,7 @@ export function registerRoadmapHandlers(
       }
 
       try {
-        const content = readFileSync(roadmapPath, "utf-8");
+        const content = await readFileWithRetry(roadmapPath, { encoding: "utf-8" }) as string;
         const rawRoadmap = JSON.parse(content);
 
         // Load competitor analysis if available (competitor_analysis.json)
@@ -103,7 +104,7 @@ export function registerRoadmapHandlers(
         let competitorAnalysis: CompetitorAnalysis | undefined;
         if (existsSync(competitorAnalysisPath)) {
           try {
-            const competitorContent = readFileSync(competitorAnalysisPath, "utf-8");
+            const competitorContent = await readFileWithRetry(competitorAnalysisPath, { encoding: "utf-8" }) as string;
             const rawCompetitor = JSON.parse(competitorContent);
             // Transform snake_case to camelCase for frontend
             competitorAnalysis = {
@@ -128,6 +129,7 @@ export function registerRoadmapHandlers(
                 })),
                 strengths: (c.strengths as string[]) || [],
                 marketPosition: (c.market_position as string) || "",
+                source: c.source || undefined,
               })),
               marketGaps: (rawCompetitor.market_gaps || []).map((g: Record<string, unknown>) => ({
                 id: g.id,
@@ -197,6 +199,8 @@ export function registerRoadmapHandlers(
             acceptanceCriteria: feature.acceptance_criteria || [],
             userStories: feature.user_stories || [],
             linkedSpecId: feature.linked_spec_id,
+            taskOutcome: feature.task_outcome,
+            previousStatus: feature.previous_status,
             competitorInsightIds: (feature.competitor_insight_ids as string[]) || undefined,
           })),
           status: rawRoadmap.status || "draft",
@@ -383,42 +387,46 @@ export function registerRoadmapHandlers(
       );
 
       try {
-        let content: string;
-        try {
-          content = readFileSync(roadmapPath, "utf-8");
-        } catch (readErr: unknown) {
-          if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
-            return { success: false, error: "Roadmap not found" };
+        return await withFileLock(roadmapPath, async () => {
+          let content: string;
+          try {
+            content = await readFileWithRetry(roadmapPath, { encoding: "utf-8" }) as string;
+          } catch (readErr: unknown) {
+            if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
+              return { success: false, error: "Roadmap not found" };
+            }
+            throw readErr;
           }
-          throw readErr;
-        }
-        const existingRoadmap = JSON.parse(content);
+          const existingRoadmap = JSON.parse(content);
 
-        // Transform camelCase features back to snake_case for JSON file
-        existingRoadmap.features = roadmapData.features.map((feature) => ({
-          id: feature.id,
-          title: feature.title,
-          description: feature.description,
-          rationale: feature.rationale || "",
-          priority: feature.priority,
-          complexity: feature.complexity,
-          impact: feature.impact,
-          phase_id: feature.phaseId,
-          dependencies: feature.dependencies || [],
-          status: feature.status,
-          acceptance_criteria: feature.acceptanceCriteria || [],
-          user_stories: feature.userStories || [],
-          linked_spec_id: feature.linkedSpecId,
-          competitor_insight_ids: feature.competitorInsightIds,
-        }));
+          // Transform camelCase features back to snake_case for JSON file
+          existingRoadmap.features = roadmapData.features.map((feature) => ({
+            id: feature.id,
+            title: feature.title,
+            description: feature.description,
+            rationale: feature.rationale || "",
+            priority: feature.priority,
+            complexity: feature.complexity,
+            impact: feature.impact,
+            phase_id: feature.phaseId,
+            dependencies: feature.dependencies || [],
+            status: feature.status,
+            acceptance_criteria: feature.acceptanceCriteria || [],
+            user_stories: feature.userStories || [],
+            linked_spec_id: feature.linkedSpecId,
+            task_outcome: feature.taskOutcome,
+            previous_status: feature.previousStatus,
+            competitor_insight_ids: feature.competitorInsightIds,
+          }));
 
-        // Update metadata timestamp
-        existingRoadmap.metadata = existingRoadmap.metadata || {};
-        existingRoadmap.metadata.updated_at = new Date().toISOString();
+          // Update metadata timestamp
+          existingRoadmap.metadata = existingRoadmap.metadata || {};
+          existingRoadmap.metadata.updated_at = new Date().toISOString();
 
-        writeFileSync(roadmapPath, JSON.stringify(existingRoadmap, null, 2), 'utf-8');
+          await writeFileWithRetry(roadmapPath, JSON.stringify(existingRoadmap, null, 2), { encoding: 'utf-8' });
 
-        return { success: true };
+          return { success: true };
+        });
       } catch (error) {
         return {
           success: false,
@@ -448,30 +456,36 @@ export function registerRoadmapHandlers(
       );
 
       try {
-        let content: string;
-        try {
-          content = readFileSync(roadmapPath, "utf-8");
-        } catch (readErr: unknown) {
-          if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
-            return { success: false, error: "Roadmap not found" };
+        return await withFileLock(roadmapPath, async () => {
+          let content: string;
+          try {
+            content = await readFileWithRetry(roadmapPath, { encoding: "utf-8" }) as string;
+          } catch (readErr: unknown) {
+            if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
+              return { success: false, error: "Roadmap not found" };
+            }
+            throw readErr;
           }
-          throw readErr;
-        }
-        const roadmap = JSON.parse(content);
+          const roadmap = JSON.parse(content);
 
-        // Find and update the feature
-        const feature = roadmap.features?.find((f: { id: string }) => f.id === featureId);
-        if (!feature) {
-          return { success: false, error: "Feature not found" };
-        }
+          // Find and update the feature
+          const feature = roadmap.features?.find((f: { id: string }) => f.id === featureId);
+          if (!feature) {
+            return { success: false, error: "Feature not found" };
+          }
 
-        feature.status = status;
-        roadmap.metadata = roadmap.metadata || {};
-        roadmap.metadata.updated_at = new Date().toISOString();
+          feature.status = status;
+          if (status !== 'done') {
+            delete feature.task_outcome;
+            delete feature.previous_status;
+          }
+          roadmap.metadata = roadmap.metadata || {};
+          roadmap.metadata.updated_at = new Date().toISOString();
 
-        writeFileSync(roadmapPath, JSON.stringify(roadmap, null, 2), 'utf-8');
+          await writeFileWithRetry(roadmapPath, JSON.stringify(roadmap, null, 2), { encoding: 'utf-8' });
 
-        return { success: true };
+          return { success: true };
+        });
       } catch (error) {
         return {
           success: false,
@@ -496,9 +510,10 @@ export function registerRoadmapHandlers(
       );
 
       try {
+        return await withFileLock(roadmapPath, async () => {
         let content: string;
         try {
-          content = readFileSync(roadmapPath, "utf-8");
+          content = await readFileWithRetry(roadmapPath, { encoding: "utf-8" }) as string;
         } catch (readErr: unknown) {
           if ((readErr as NodeJS.ErrnoException).code === 'ENOENT') {
             return { success: false, error: "Roadmap not found" };
@@ -576,10 +591,10 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
           status: "pending",
           phases: [],
         };
-        writeFileSync(
+        await writeFileWithRetry(
           path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN),
           JSON.stringify(implementationPlan, null, 2),
-          'utf-8'
+          { encoding: 'utf-8' }
         );
 
         // Create requirements.json
@@ -587,14 +602,14 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
           task_description: taskDescription,
           workflow_type: "feature",
         };
-        writeFileSync(
+        await writeFileWithRetry(
           path.join(specDir, AUTO_BUILD_PATHS.REQUIREMENTS),
           JSON.stringify(requirements, null, 2),
-          'utf-8'
+          { encoding: 'utf-8' }
         );
 
         // Create spec.md (required by backend spec creation process)
-        writeFileSync(path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE), taskDescription, 'utf-8');
+        await writeFileWithRetry(path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE), taskDescription, { encoding: 'utf-8' });
 
         // Build metadata
         const metadata: TaskMetadata = {
@@ -602,7 +617,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
           featureId: feature.id,
           category: "feature",
         };
-        writeFileSync(path.join(specDir, "task_metadata.json"), JSON.stringify(metadata, null, 2), 'utf-8');
+        await writeFileWithRetry(path.join(specDir, "task_metadata.json"), JSON.stringify(metadata, null, 2), { encoding: 'utf-8' });
 
         // NOTE: We do NOT auto-start spec creation here - user should explicitly start the task
         // from the kanban board when they're ready
@@ -612,7 +627,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
         feature.linked_spec_id = specId;
         roadmap.metadata = roadmap.metadata || {};
         roadmap.metadata.updated_at = new Date().toISOString();
-        writeFileSync(roadmapPath, JSON.stringify(roadmap, null, 2), 'utf-8');
+        await writeFileWithRetry(roadmapPath, JSON.stringify(roadmap, null, 2), { encoding: 'utf-8' });
 
         // Create task object
         const task: Task = {
@@ -630,6 +645,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
         };
 
         return { success: true, data: task };
+        });
       } catch (error) {
         return {
           success: false,
@@ -681,7 +697,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
           is_running: isRunning,
         };
 
-        writeFileSync(progressPath, JSON.stringify(fileData, null, 2), 'utf-8');
+        await writeFileWithRetry(progressPath, JSON.stringify(fileData, null, 2), { encoding: 'utf-8' });
         debugLog("[Roadmap Handler] Saved progress checkpoint:", { projectId, phase: progressData.phase });
 
         return { success: true };
@@ -717,7 +733,7 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
       }
 
       try {
-        const content = readFileSync(progressPath, "utf-8");
+        const content = await readFileWithRetry(progressPath, { encoding: "utf-8" }) as string;
         const rawData = JSON.parse(content);
 
         // Valid phase values that the frontend expects
@@ -776,6 +792,148 @@ ${(feature.acceptance_criteria || []).map((c: string) => `- [ ] ${c}`).join("\n"
         return {
           success: false,
           error: error instanceof Error ? error.message : "Failed to clear progress",
+        };
+      }
+    }
+  );
+
+  // ============================================
+  // Competitor Analysis Save
+  // ============================================
+
+  ipcMain.handle(
+    IPC_CHANNELS.COMPETITOR_ANALYSIS_SAVE,
+    async (
+      _,
+      projectId: string,
+      competitorAnalysis: CompetitorAnalysis
+    ): Promise<IPCResult> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: "Project not found" };
+      }
+
+      const roadmapDir = path.join(project.path, AUTO_BUILD_PATHS.ROADMAP_DIR);
+      const competitorAnalysisPath = path.join(
+        roadmapDir,
+        AUTO_BUILD_PATHS.COMPETITOR_ANALYSIS
+      );
+
+      try {
+        // Ensure roadmap directory exists
+        if (!existsSync(roadmapDir)) {
+          mkdirSync(roadmapDir, { recursive: true });
+        }
+
+        await withFileLock(competitorAnalysisPath, async () => {
+          // Transform camelCase to snake_case for JSON file
+          const serialized = {
+            project_context: {
+              project_name: competitorAnalysis.projectContext.projectName,
+              project_type: competitorAnalysis.projectContext.projectType,
+              target_audience: competitorAnalysis.projectContext.targetAudience,
+            },
+            competitors: competitorAnalysis.competitors.map((c) => ({
+              id: c.id,
+              name: c.name,
+              url: c.url,
+              description: c.description,
+              relevance: c.relevance,
+              pain_points: c.painPoints.map((p) => ({
+                id: p.id,
+                description: p.description,
+                source: p.source,
+                severity: p.severity,
+                frequency: p.frequency,
+                opportunity: p.opportunity,
+              })),
+              strengths: c.strengths,
+              market_position: c.marketPosition,
+              source: c.source,
+            })),
+            market_gaps: competitorAnalysis.marketGaps.map((g) => ({
+              id: g.id,
+              description: g.description,
+              affected_competitors: g.affectedCompetitors,
+              opportunity_size: g.opportunitySize,
+              suggested_feature: g.suggestedFeature,
+            })),
+            insights_summary: {
+              top_pain_points: competitorAnalysis.insightsSummary.topPainPoints,
+              differentiator_opportunities:
+                competitorAnalysis.insightsSummary.differentiatorOpportunities,
+              market_trends: competitorAnalysis.insightsSummary.marketTrends,
+            },
+            research_metadata: {
+              search_queries_used:
+                competitorAnalysis.researchMetadata.searchQueriesUsed,
+              sources_consulted:
+                competitorAnalysis.researchMetadata.sourcesConsulted,
+              limitations: competitorAnalysis.researchMetadata.limitations,
+            },
+            metadata: {
+              created_at: competitorAnalysis.createdAt
+                ? new Date(competitorAnalysis.createdAt).toISOString()
+                : new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            },
+          };
+
+          await writeFileWithRetry(
+            competitorAnalysisPath,
+            JSON.stringify(serialized, null, 2),
+            { encoding: 'utf-8' }
+          );
+        });
+
+        // Also persist manual competitors to a separate file that the backend
+        // agent never overwrites, preventing data loss during concurrent analysis
+        const manualCompetitors = competitorAnalysis.competitors.filter(
+          (c) => c.source === "manual"
+        );
+        if (manualCompetitors.length > 0) {
+          const manualCompetitorsPath = path.join(
+            roadmapDir,
+            AUTO_BUILD_PATHS.MANUAL_COMPETITORS
+          );
+          const manualSerialized = {
+            competitors: manualCompetitors.map((c) => ({
+              id: c.id,
+              name: c.name,
+              url: c.url,
+              description: c.description,
+              relevance: c.relevance,
+              pain_points: c.painPoints.map((p) => ({
+                id: p.id,
+                description: p.description,
+                source: p.source,
+                severity: p.severity,
+                frequency: p.frequency,
+                opportunity: p.opportunity,
+              })),
+              strengths: c.strengths,
+              market_position: c.marketPosition,
+              source: c.source,
+            })),
+            updated_at: new Date().toISOString(),
+          };
+          await writeFileWithRetry(
+            manualCompetitorsPath,
+            JSON.stringify(manualSerialized, null, 2),
+            { encoding: "utf-8" }
+          );
+        }
+
+        debugLog("[Roadmap Handler] Saved competitor analysis:", { projectId });
+        return { success: true };
+      } catch (error) {
+        debugError("[Roadmap Handler] Failed to save competitor analysis:", error);
+        return {
+          success: false,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to save competitor analysis",
         };
       }
     }
