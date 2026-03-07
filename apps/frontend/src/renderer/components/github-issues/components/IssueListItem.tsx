@@ -3,8 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Badge } from '../../ui/badge';
 import { Button } from '../../ui/button';
 import {
-  GITHUB_ISSUE_STATE_COLORS,
-  GITHUB_ISSUE_STATE_LABELS
+  GITHUB_ISSUE_STATE_COLORS
 } from '../../../../shared/constants';
 import type { IssueListItemProps } from '../types';
 
@@ -26,7 +25,7 @@ export function IssueListItem({ issue, isSelected, onClick, onInvestigate }: Iss
               variant="outline"
               className={`text-xs ${GITHUB_ISSUE_STATE_COLORS[issue.state]}`}
             >
-              {issue.state === 'open' ? t('issues.stateOpen') : issue.state === 'closed' ? t('issues.stateClosed') : (GITHUB_ISSUE_STATE_LABELS[issue.state] ?? issue.state)}
+              {{ open: t('issues.stateOpen'), closed: t('issues.stateClosed') }[issue.state] ?? issue.state}
             </Badge>
             <span className="text-xs text-muted-foreground">#{issue.number}</span>
           </div>
@@ -55,7 +54,7 @@ export function IssueListItem({ issue, isSelected, onClick, onInvestigate }: Iss
         <Button
           variant="ghost"
           size="icon"
-          className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+          className="opacity-0 group-hover:opacity-100 focus:opacity-100 focus-visible:opacity-100 transition-opacity h-8 w-8"
           onClick={(e) => {
             e.stopPropagation();
             onInvestigate();

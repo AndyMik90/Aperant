@@ -506,6 +506,7 @@
   "issues": {
     "githubTitle": "GitHub 问题",
     "openCount": "{{count}} 个未关闭",
+    "openCount_plural": "{{count}} 个未关闭",
     "searchPlaceholder": "搜索问题...",
     "filterOpen": "未关闭",
     "filterClosed": "已关闭",
@@ -525,6 +526,7 @@
     "notConnectedDescription": "请在项目设置中配置 GitHub 令牌和仓库以同步问题。",
     "openSettings": "打开设置",
     "commentsCount": "{{count}} 条评论",
+    "commentsCount_plural": "{{count}} 条评论",
     "viewTask": "查看任务",
     "createTask": "创建任务",
     "taskLinked": "已关联任务",
@@ -536,6 +538,7 @@
     "investigation": {
       "title": "从问题创建任务",
       "description": "从此 GitHub 问题创建任务。任务会被添加到看板的 Backlog 列。",
+      "subtitle": "Issue #{{number}}：{{title}}",
       "failedToLoadComments": "加载评论失败",
       "selectComments": "选择要包含的评论（{{selected}}/{{total}}）",
       "deselectAll": "取消全选",

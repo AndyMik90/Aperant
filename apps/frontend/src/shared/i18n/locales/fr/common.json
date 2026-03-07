@@ -505,7 +505,8 @@
   },
   "issues": {
     "githubTitle": "Issues GitHub",
-    "openCount": "{{count}} ouvertes",
+    "openCount": "{{count}} ouverte",
+    "openCount_plural": "{{count}} ouvertes",
     "searchPlaceholder": "Rechercher des issues...",
     "filterOpen": "Ouvertes",
     "filterClosed": "Fermées",
@@ -524,7 +525,8 @@
     "notConnectedTitle": "GitHub non connecté",
     "notConnectedDescription": "Configurez votre token GitHub et le dépôt dans les paramètres du projet pour synchroniser les issues.",
     "openSettings": "Ouvrir les paramètres",
-    "commentsCount": "{{count}} commentaires",
+    "commentsCount": "{{count}} commentaire",
+    "commentsCount_plural": "{{count}} commentaires",
     "viewTask": "Voir la tâche",
     "createTask": "Créer une tâche",
     "taskLinked": "Tâche liée",
@@ -536,6 +538,7 @@
     "investigation": {
       "title": "Créer une tâche à partir de l'issue",
       "description": "Créez une tâche à partir de cette issue GitHub. La tâche sera ajoutée à votre tableau Kanban dans la colonne Backlog.",
+      "subtitle": "Issue n°{{number}} : {{title}}",
       "failedToLoadComments": "Échec du chargement des commentaires",
       "selectComments": "Sélectionner les commentaires à inclure ({{selected}}/{{total}})",
       "deselectAll": "Tout désélectionner",

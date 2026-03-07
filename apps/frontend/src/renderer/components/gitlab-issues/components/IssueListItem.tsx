@@ -41,7 +41,7 @@ export function IssueListItem({ issue, isSelected, onClick, onInvestigate }: Iss
               variant="outline"
               className={`text-xs ${GITLAB_ISSUE_STATE_COLORS[issue.state] || ''}`}
             >
-              {issue.state === 'opened' ? t('states.opened') : issue.state === 'closed' ? t('states.closed') : (GITLAB_ISSUE_STATE_LABELS[issue.state] || issue.state)}
+              {{ opened: t('states.opened'), closed: t('states.closed') }[issue.state] ?? (GITLAB_ISSUE_STATE_LABELS[issue.state] || issue.state)}
             </Badge>
             <span className="text-xs text-muted-foreground">#{issue.iid}</span>
           </div>

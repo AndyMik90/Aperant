@@ -506,6 +506,7 @@
   "issues": {
     "githubTitle": "GitHub Issues",
     "openCount": "{{count}} open",
+    "openCount_plural": "{{count}} open",
     "searchPlaceholder": "Search issues...",
     "filterOpen": "Open",
     "filterClosed": "Closed",
@@ -524,7 +525,8 @@
     "notConnectedTitle": "GitHub Not Connected",
     "notConnectedDescription": "Configure your GitHub token and repository in project settings to sync issues.",
     "openSettings": "Open Settings",
-    "commentsCount": "{{count}} comments",
+    "commentsCount": "{{count}} comment",
+    "commentsCount_plural": "{{count}} comments",
     "viewTask": "View Task",
     "createTask": "Create Task",
     "taskLinked": "Task Linked",
@@ -536,6 +538,7 @@
     "investigation": {
       "title": "Create Task from Issue",
       "description": "Create a task from this GitHub issue. The task will be added to your Kanban board in the Backlog column.",
+      "subtitle": "Issue #{{number}}: {{title}}",
       "failedToLoadComments": "Failed to load comments",
       "selectComments": "Select Comments to Include ({{selected}}/{{total}})",
       "deselectAll": "Deselect All",

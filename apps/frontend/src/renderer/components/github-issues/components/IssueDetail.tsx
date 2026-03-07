@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '../../ui/card';
 import { ScrollArea } from '../../ui/scroll-area';
 import {
   GITHUB_ISSUE_STATE_COLORS,
-  GITHUB_ISSUE_STATE_LABELS,
   GITHUB_COMPLEXITY_COLORS
 } from '../../../../shared/constants';
 import { formatDate } from '../utils';
@@ -47,7 +46,7 @@ export function IssueDetail({
                 variant="outline"
                 className={`${GITHUB_ISSUE_STATE_COLORS[issue.state]}`}
               >
-                {GITHUB_ISSUE_STATE_LABELS[issue.state]}
+                {{ open: t('issues.stateOpen'), closed: t('issues.stateClosed') }[issue.state] ?? issue.state}
               </Badge>
               <span className="text-sm text-muted-foreground">#{issue.number}</span>
             </div>

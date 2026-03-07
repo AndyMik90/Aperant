@@ -108,7 +108,7 @@ export function InvestigationDialog({
           <DialogDescription>
             {selectedIssue && (
               <span>
-                Issue #{selectedIssue.number}: {selectedIssue.title}
+                {t('issues.investigation.subtitle', { number: selectedIssue.number, title: selectedIssue.title })}
               </span>
             )}
           </DialogDescription>
