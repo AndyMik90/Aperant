@@ -75,8 +75,10 @@ export function isDev(): boolean {
     const { app } = require('electron');
     return !app.isPackaged;
   } catch {
-    // If app is not ready, check NODE_ENV
-    return process.env.NODE_ENV === 'development';
+    // If Electron app is not available (e.g., tests, pre-init on WSL2),
+    // check NODE_ENV. Default to true (dev mode) since production packaged
+    // apps always have Electron available.
+    return process.env.NODE_ENV !== 'production';
   }
 }
 
