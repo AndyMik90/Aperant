@@ -52,6 +52,11 @@ export const taskMachine = createMachine(
           PLANNING_STARTED: 'planning',
           // Fallback: if coding starts from backlog (e.g., resumed task), go to coding
           CODING_STARTED: 'coding',
+          // Fallback: resumed tasks can emit late-stage events before state restoration catches up
+          ALL_SUBTASKS_DONE: 'qa_review',
+          QA_STARTED: 'qa_review',
+          QA_FAILED: 'qa_fixing',
+          QA_PASSED: { target: 'human_review', actions: 'setReviewReasonCompleted' },
           USER_STOPPED: 'backlog'
         }
       },

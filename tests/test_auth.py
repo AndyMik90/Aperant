@@ -583,6 +583,8 @@ class TestSdkEnvVars:
         assert "ANTHROPIC_MODEL" not in env  # Empty value excluded
         assert "DISABLE_TELEMETRY" in env
         assert env["DISABLE_TELEMETRY"] == "1"
+        assert "CLAUDECODE" in env
+        assert env["CLAUDECODE"] == ""
 
     def test_includes_claude_git_bash_on_windows(self, monkeypatch):
         """Auto-detects git-bash path on Windows."""

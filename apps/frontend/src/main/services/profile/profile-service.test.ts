@@ -607,7 +607,7 @@ describe('profile-service', () => {
           {
             id: 'profile-1',
             name: 'Test Profile',
-            baseUrl: '',
+            baseUrl: 'https://api.example.com',
             apiKey: 'sk-test-key-12345678',
             models: {
               default: 'claude-sonnet-4-5-20250929',
@@ -627,13 +627,37 @@ describe('profile-service', () => {
 
       const result = await getAPIProfileEnv();
 
-      expect(result).not.toHaveProperty('ANTHROPIC_BASE_URL');
       expect(result).not.toHaveProperty('ANTHROPIC_DEFAULT_HAIKU_MODEL');
       expect(result).not.toHaveProperty('ANTHROPIC_DEFAULT_SONNET_MODEL');
       expect(result).toEqual({
+        ANTHROPIC_BASE_URL: 'https://api.example.com',
         ANTHROPIC_AUTH_TOKEN: 'sk-test-key-12345678',
         ANTHROPIC_MODEL: 'claude-sonnet-4-5-20250929'
       });
+    });
+
+    it('should return empty object when active API profile is incomplete', async () => {
+      const mockFile: ProfilesFile = {
+        profiles: [
+          {
+            id: 'profile-1',
+            name: 'Broken API Profile',
+            baseUrl: '',
+            apiKey: 'sk-test-key-12345678',
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          }
+        ],
+        activeProfileId: 'profile-1',
+        version: 1
+      };
+
+      const { loadProfilesFile } = await import('./profile-manager');
+      vi.mocked(loadProfilesFile).mockResolvedValue(mockFile);
+
+      const result = await getAPIProfileEnv();
+
+      expect(result).toEqual({});
     });
   });
 

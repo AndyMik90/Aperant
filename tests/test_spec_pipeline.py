@@ -15,7 +15,7 @@ import pytest
 import sys
 import time
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 # Add auto-claude directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
@@ -573,6 +573,35 @@ class TestSpecOrchestratorValidator:
             orchestrator = SpecOrchestrator(project_dir=temp_dir)
 
             assert orchestrator.validator is not None
+
+
+class TestSpecOrchestratorRunAgent:
+    """Tests for _run_agent wiring into AgentRunner."""
+
+    @pytest.mark.asyncio
+    async def test_run_agent_passes_phase_name_to_runner(self, temp_dir: Path):
+        """_run_agent forwards phase_name to AgentRunner.run_agent."""
+        with patch('spec.pipeline.init_auto_claude_dir') as mock_init:
+            mock_init.return_value = (temp_dir / ".auto-claude", False)
+            specs_dir = temp_dir / ".auto-claude" / "specs"
+            specs_dir.mkdir(parents=True, exist_ok=True)
+
+            orchestrator = SpecOrchestrator(project_dir=temp_dir)
+
+        mock_runner = MagicMock()
+        mock_runner.run_agent = AsyncMock(return_value=(True, "ok"))
+        orchestrator._agent_runner = mock_runner
+
+        result = await orchestrator._run_agent(
+            "spec_quick.md",
+            additional_context="ctx",
+            phase_name="quick_spec",
+        )
+
+        assert result == (True, "ok")
+        mock_runner.run_agent.assert_awaited_once()
+        _, kwargs = mock_runner.run_agent.call_args
+        assert kwargs["phase_name"] == "quick_spec"
 
 
 class TestSpecOrchestratorAssessment:

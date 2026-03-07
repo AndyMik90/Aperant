@@ -10,6 +10,7 @@ import { fileWatcher } from '../../file-watcher';
 import { findTaskAndProject } from './shared';
 import { checkGitStatus } from '../../project-initializer';
 import { initializeClaudeProfileManager, type ClaudeProfileManager } from '../../claude-profile-manager';
+import { getAPIProfileEnv } from '../../services/profile';
 import { taskStateManager } from '../../task-state-manager';
 import {
   getPlanPath,
@@ -81,6 +82,25 @@ async function ensureProfileManagerInitialized(): Promise<
       error: `Failed to initialize profile manager. Please check file permissions and disk space. (${errorMessage})`
     };
   }
+}
+
+/**
+ * Check whether any runnable auth method is available.
+ * Accepts either:
+ * - Active API profile credentials, or
+ * - Active OAuth profile credentials
+ */
+async function hasRunnableAuth(profileManager: ClaudeProfileManager): Promise<boolean> {
+  try {
+    const apiProfileEnv = await getAPIProfileEnv();
+    if (Object.keys(apiProfileEnv).length > 0) {
+      return true;
+    }
+  } catch (error) {
+    console.warn('[AuthCheck] Failed to load API profile env, falling back to OAuth auth check:', error);
+  }
+
+  return profileManager.hasValidAuth();
 }
 
 /**
@@ -172,7 +192,7 @@ export function registerTaskExecutionHandlers(
       }
 
       // Check authentication - Claude requires valid auth to run tasks
-      if (!profileManager.hasValidAuth()) {
+      if (!await hasRunnableAuth(profileManager)) {
         console.warn('[TASK_START] No valid authentication for active profile');
         mainWindow.webContents.send(
           IPC_CHANNELS.TASK_ERROR,
@@ -747,7 +767,7 @@ export function registerTaskExecutionHandlers(
             return { success: false, error: initResult.error };
           }
           const profileManager = initResult.profileManager;
-          if (!profileManager.hasValidAuth()) {
+          if (!await hasRunnableAuth(profileManager)) {
             console.warn('[TASK_UPDATE_STATUS] No valid authentication for active profile');
             if (mainWindow) {
               mainWindow.webContents.send(
@@ -977,6 +997,19 @@ export function registerTaskExecutionHandlers(
         return { success: false, error: 'Task not found' };
       }
 
+      // Helper to notify renderer of task status changes.
+      const sendStatusChange = (status: TaskStatus) => {
+        const mainWindow = getMainWindow();
+        if (mainWindow) {
+          mainWindow.webContents.send(
+            IPC_CHANNELS.TASK_STATUS_CHANGE,
+            taskId,
+            status,
+            project.id
+          );
+        }
+      };
+
       // Get the spec directory - use task.specsPath if available (handles worktree vs main)
       // This is critical: task might exist in worktree, and getTasks() prefers worktree version.
       // If we write to main project but task is in worktree, the worktree's old status takes precedence on refresh.
@@ -1092,6 +1125,7 @@ export function registerTaskExecutionHandlers(
             // CRITICAL: Invalidate cache AFTER file writes complete
             // This ensures getTasks() returns fresh data reflecting the recovery
             projectStore.invalidateTasksCache(project.id);
+            sendStatusChange('human_review');
 
             return {
               success: true,
@@ -1204,6 +1238,7 @@ export function registerTaskExecutionHandlers(
           if (!gitStatusForRestart.isGitRepo || !gitStatusForRestart.hasCommits) {
             console.warn('[Recovery] Git check failed, cannot auto-restart task');
             // Recovery succeeded but we can't restart without git
+            sendStatusChange(newStatus);
             return {
               success: true,
               data: {
@@ -1221,6 +1256,7 @@ export function registerTaskExecutionHandlers(
           const initResult = await ensureProfileManagerInitialized();
           if (!initResult.success) {
             // Recovery succeeded but we can't restart without profile manager
+            sendStatusChange(newStatus);
             return {
               success: true,
               data: {
@@ -1233,9 +1269,10 @@ export function registerTaskExecutionHandlers(
             };
           }
           const profileManager = initResult.profileManager;
-          if (!profileManager.hasValidAuth()) {
+          if (!await hasRunnableAuth(profileManager)) {
             console.warn('[Recovery] Auth check failed, cannot auto-restart task');
             // Recovery succeeded but we can't restart without auth
+            sendStatusChange(newStatus);
             return {
               success: true,
               data: {
@@ -1327,15 +1364,7 @@ export function registerTaskExecutionHandlers(
         }
 
         // Notify renderer of status change
-        const mainWindow = getMainWindow();
-        if (mainWindow) {
-          mainWindow.webContents.send(
-            IPC_CHANNELS.TASK_STATUS_CHANGE,
-            taskId,
-            newStatus,
-            project.id
-          );
-        }
+        sendStatusChange(newStatus);
 
         return {
           success: true,

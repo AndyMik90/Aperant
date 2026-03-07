@@ -31,46 +31,46 @@ That's it. No deep analysis needed.
 
 ## PHASE 2: CREATE MINIMAL SPEC
 
-Create a concise `spec.md`:
+Create a concise `spec.md` that includes the required validator sections:
 
 ```bash
 cat > spec.md << 'EOF'
-# Quick Spec: [Task Name]
+# Specification: [Task Name]
 
-## Task
-[One sentence description]
+## Overview
+[One paragraph describing what is being changed and why]
 
-## Files to Modify
+## Workflow Type
+**Type**: simple
+
+## Task Scope
+### Files to Modify
 - `[path/to/file]` - [what to change]
 
-## Change Details
+### Change Details
 [Brief description of the change - a few sentences max]
 
-## Verification
+## Success Criteria
 - [ ] [How to verify the change works]
-
-## Notes
-[Any gotchas or considerations - optional]
 EOF
 ```
 
-**Keep it short!** A simple spec should be 20-50 lines, not 200+.
+**Keep it short!** A simple spec should be concise and focused.
 
 ---
 
 ## PHASE 3: CREATE SIMPLE PLAN
 
-Create `implementation_plan.json`:
+Create `implementation_plan.json` with current schema fields:
 
 ```bash
 cat > implementation_plan.json << 'EOF'
 {
-  "spec_name": "[spec-name]",
+  "feature": "[task description]",
   "workflow_type": "simple",
-  "total_phases": 1,
-  "recommended_workers": 1,
   "phases": [
     {
+      "id": "phase-1",
       "phase": 1,
       "name": "Implementation",
       "description": "[task description]",
@@ -86,17 +86,19 @@ cat > implementation_plan.json << 'EOF'
           "patterns_from": [],
           "verification": {
             "type": "manual",
-            "run": "[verification step]"
+            "instructions": "[verification step]"
           }
         }
       ]
     }
   ],
-  "metadata": {
-    "created_at": "[timestamp]",
-    "complexity": "simple",
-    "estimated_sessions": 1
-  }
+  "summary": {
+    "total_phases": 1,
+    "total_subtasks": 1,
+    "recommended_workers": 1
+  },
+  "created_at": "[timestamp]",
+  "updated_at": "[timestamp]"
 }
 EOF
 ```
@@ -146,18 +148,22 @@ Ready for implementation.
 
 **spec.md**:
 ```markdown
-# Quick Spec: Button Color Change
+# Specification: Button Color Change
 
-## Task
+## Overview
 Update primary button color from blue (#3B82F6) to green (#22C55E).
 
-## Files to Modify
+## Workflow Type
+**Type**: simple
+
+## Task Scope
+### Files to Modify
 - `src/components/Button.tsx` - Update color constant
 
-## Change Details
+### Change Details
 Change the `primaryColor` variable from `#3B82F6` to `#22C55E`.
 
-## Verification
+## Success Criteria
 - [ ] Buttons appear green in the UI
 - [ ] No console errors
 ```
@@ -168,18 +174,22 @@ Change the `primaryColor` variable from `#3B82F6` to `#22C55E`.
 
 **spec.md**:
 ```markdown
-# Quick Spec: Fix Welcome Typo
+# Specification: Fix Welcome Typo
 
-## Task
+## Overview
 Correct spelling of "recieve" to "receive" in welcome message.
 
-## Files to Modify
+## Workflow Type
+**Type**: simple
+
+## Task Scope
+### Files to Modify
 - `src/pages/Home.tsx` - Fix typo on line 42
 
-## Change Details
+### Change Details
 Find "You will recieve" and change to "You will receive".
 
-## Verification
+## Success Criteria
 - [ ] Welcome message displays correctly
 ```
 

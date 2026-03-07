@@ -22,6 +22,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { formatTimeRemaining, localizeUsageWindowLabel, hasHardcodedText } from '../../shared/utils/format-time';
 import type { ClaudeUsageSnapshot, ProfileUsageSummary } from '../../shared/types/agent';
+import { useSettingsStore } from '@/stores/settings-store';
 import type { AppSection } from './settings/AppSettings';
 
 /**
@@ -82,6 +83,8 @@ export function UsageIndicator() {
   const [isOpen, setIsOpen] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const activeApiProfileId = useSettingsStore((state) => state.activeProfileId);
+  const isUsingApiProfile = Boolean(activeApiProfileId);
 
   /**
    * Helper function to get initials from a profile name
@@ -309,6 +312,10 @@ export function UsageIndicator() {
       (hasHardcodedText(usage?.weeklyResetTime) ? undefined : usage?.weeklyResetTime))
     : (hasHardcodedText(usage?.weeklyResetTime) ? undefined : usage?.weeklyResetTime);
 
+  // Re-authentication is only relevant for OAuth mode, never for API profiles
+  const showReauthForActiveAccount = !isUsingApiProfile && Boolean(usage?.needsReauthentication);
+  const showUnavailableReauth = !isUsingApiProfile && activeProfileNeedsReauth;
+
   useEffect(() => {
     // Listen for usage updates from main process
     const unsubscribe = window.electronAPI.onUsageUpdated((snapshot: ClaudeUsageSnapshot) => {
@@ -322,9 +329,9 @@ export function UsageIndicator() {
       // Filter out the active profile - we only want to show "other" profiles
       const nonActiveProfiles = allProfilesUsage.allProfiles.filter(p => !p.isActive);
       setOtherProfiles(nonActiveProfiles);
-      // Track if active profile needs re-auth
+      // Track if active profile needs re-auth (OAuth mode only)
       const activeProfile = allProfilesUsage.allProfiles.find(p => p.isActive);
-      setActiveProfileNeedsReauth(activeProfile?.needsReauthentication ?? false);
+      setActiveProfileNeedsReauth(!isUsingApiProfile && Boolean(activeProfile?.needsReauthentication));
     });
 
     // Request initial usage on mount
@@ -347,11 +354,9 @@ export function UsageIndicator() {
       if (result.success && result.data) {
         const nonActiveProfiles = result.data.allProfiles.filter(p => !p.isActive);
         setOtherProfiles(nonActiveProfiles);
-        // Track if active profile needs re-auth (even if main usage is unavailable)
+        // Track if active profile needs re-auth (OAuth mode only)
         const activeProfile = result.data.allProfiles.find(p => p.isActive);
-        if (activeProfile?.needsReauthentication) {
-          setActiveProfileNeedsReauth(true);
-        }
+        setActiveProfileNeedsReauth(!isUsingApiProfile && Boolean(activeProfile?.needsReauthentication));
       }
     }).catch((error) => {
       console.warn('[UsageIndicator] Failed to fetch all profiles usage:', error);
@@ -361,7 +366,7 @@ export function UsageIndicator() {
       unsubscribe();
       unsubscribeAllProfiles?.();
     };
-  }, []);
+  }, [isUsingApiProfile]);
 
   // Show loading state
   if (isLoading) {
@@ -376,7 +381,7 @@ export function UsageIndicator() {
   // Show unavailable state - with better messaging based on cause
   if (!isAvailable || !usage) {
     // Check if it's a re-auth issue (better UX than generic "not supported")
-    const needsReauth = activeProfileNeedsReauth;
+    const needsReauth = showUnavailableReauth;
 
     return (
       <TooltipProvider delayDuration={200}>
@@ -440,7 +445,7 @@ export function UsageIndicator() {
 
   // Badge color based on the limiting (higher) percentage
   // Override to red/destructive when re-auth is needed
-  const badgeColorClasses = usage.needsReauthentication
+  const badgeColorClasses = showReauthForActiveAccount
     ? 'text-red-500 bg-red-500/10 border-red-500/20'
     : getBadgeColorClasses(limitingPercent);
 
@@ -461,7 +466,7 @@ export function UsageIndicator() {
 
   const maxUsage = Math.max(usage.sessionPercent, usage.weeklyPercent);
   // Show AlertCircle when re-auth needed or high usage
-  const Icon = usage.needsReauthentication ? AlertCircle :
+  const Icon = showReauthForActiveAccount ? AlertCircle :
     maxUsage >= THRESHOLD_WARNING ? AlertCircle :
     maxUsage >= THRESHOLD_ELEVATED ? TrendingUp :
     Activity;
@@ -478,7 +483,7 @@ export function UsageIndicator() {
         >
           <Icon className="h-3.5 w-3.5 flex-shrink-0" />
           {/* Show "!" when re-auth needed, otherwise dual usage display */}
-          {usage.needsReauthentication ? (
+          {showReauthForActiveAccount ? (
             <span className="text-xs font-semibold text-red-500" title={t('common:usage.needsReauth')}>
               !
             </span>
@@ -510,7 +515,7 @@ export function UsageIndicator() {
           </div>
 
           {/* Re-auth required prompt - shown when active profile needs re-authentication */}
-          {usage.needsReauthentication ? (
+          {showReauthForActiveAccount ? (
             <div className="py-2 space-y-3">
               <div className="flex items-start gap-2.5 p-2.5 rounded-lg bg-destructive/10 border border-destructive/20">
                 <AlertCircle className="h-4 w-4 text-destructive flex-shrink-0 mt-0.5" />
@@ -615,16 +620,16 @@ export function UsageIndicator() {
             {/* Initials Avatar with warning indicator for re-auth needed */}
             <div className="relative">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                usage.needsReauthentication ? 'bg-red-500/10' : 'bg-primary/10'
+                showReauthForActiveAccount ? 'bg-red-500/10' : 'bg-primary/10'
               }`}>
                 <span className={`text-xs font-semibold ${
-                  usage.needsReauthentication ? 'text-red-500' : 'text-primary'
+                  showReauthForActiveAccount ? 'text-red-500' : 'text-primary'
                 }`}>
                   {getInitials(usage.profileName)}
                 </span>
               </div>
               {/* Status dot for re-auth needed */}
-              {usage.needsReauthentication && (
+              {showReauthForActiveAccount && (
                 <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-background" />
               )}
             </div>
@@ -635,14 +640,14 @@ export function UsageIndicator() {
                 <span className="text-[10px] text-muted-foreground font-medium">
                   {t('common:usage.activeAccount')}
                 </span>
-                {usage.needsReauthentication && (
+                {showReauthForActiveAccount && (
                   <span className="text-[9px] px-1.5 py-0.5 bg-red-500/10 text-destructive rounded font-semibold">
                     {t('common:usage.needsReauth')}
                   </span>
                 )}
               </div>
               <div className={`font-medium text-xs truncate ${
-                usage.needsReauthentication ? 'text-destructive' : 'text-primary'
+                showReauthForActiveAccount ? 'text-destructive' : 'text-primary'
               }`}>
                 {usage.profileEmail || usage.profileName}
               </div>

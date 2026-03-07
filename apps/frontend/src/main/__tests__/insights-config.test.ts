@@ -84,6 +84,18 @@ describe('InsightsConfig', () => {
     expect(env.ANTHROPIC_BASE_URL).toBe('');
   });
 
+  it('should clear CLAUDECODE to avoid nested session errors', async () => {
+    const config = new InsightsConfig();
+    process.env = {
+      ...originalEnv,
+      CLAUDECODE: '1'
+    };
+
+    const env = await config.getProcessEnv();
+
+    expect(env.CLAUDECODE).toBe('');
+  });
+
   it('should set PYTHONPATH only to auto-build path when python env has none', async () => {
     const config = new InsightsConfig();
     mockGetPythonEnv.mockReturnValue({});
