@@ -2,20 +2,41 @@
 
 Thank you for your interest in contributing to Auto Claude! This document provides guidelines and instructions for contributing to the project.
 
+## How to Contribute
+
+| What you want to do | Where to start |
+|----------------------|----------------|
+| Bug fixes & small improvements | Open a PR directly |
+| New features / architecture changes | Start a [GitHub Discussion](https://github.com/AndyMik90/Auto-Claude/discussions) or ask in [Discord](https://discord.com/channels/1448614759996854284/1451298184612548779) first |
+| Questions & setup help | [Discord #setup-help](https://discord.com/channels/1448614759996854284/1451298184612548779) |
+
+## AI-Assisted Contributions
+
+PRs built with AI tools (Claude, Codex, Copilot, etc.) are welcome here -- given what this project does, it would be odd if they weren't.
+
+That said, we've seen AI-generated PRs that introduce regressions because the contributor didn't verify what the code actually does. To keep quality high, we ask that AI-assisted PRs include the following:
+
+- **Flag it** -- mention AI assistance in the PR description (the PR template has a section for this)
+- **State your testing level** -- untested, lightly tested, or fully tested
+- **Share context if you can** -- prompts or session logs help reviewers understand intent
+- **Confirm you understand the code** -- you should be able to describe what the PR does and how the underlying code works
+
+AI-assisted PRs go through the same review process as any other contribution. Transparency just helps reviewers know where to look more carefully.
+
 ## Table of Contents
 
+- [How to Contribute](#how-to-contribute)
+- [AI-Assisted Contributions](#ai-assisted-contributions)
 - [Contributor License Agreement (CLA)](#contributor-license-agreement-cla)
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
 - [Development Setup](#development-setup)
-  - [Python Backend](#python-backend)
-  - [Electron Frontend](#electron-frontend)
-- [Running from Source](#running-from-source)
 - [Pre-commit Hooks](#pre-commit-hooks)
 - [Code Style](#code-style)
 - [Testing](#testing)
 - [Continuous Integration](#continuous-integration)
 - [Git Workflow](#git-workflow)
+  - [Working with Forks](#working-with-forks)
   - [Branch Overview](#branch-overview)
   - [Main Branches](#main-branches)
   - [Supporting Branches](#supporting-branches)
@@ -150,92 +171,40 @@ npm start
 The project consists of two main components:
 
 1. **Python Backend** (`apps/backend/`) - The core autonomous coding framework
-2. **Electron Frontend** (`apps/frontend/`) - Optional desktop UI
+2. **Electron Frontend** (`apps/frontend/`) - Desktop UI
 
-### Python Backend
-
-The recommended way is to use `npm run install:backend`, but you can also set up manually:
+From the repository root, two commands handle everything:
 
 ```bash
-# Navigate to the backend directory
-cd apps/backend
+# Install all dependencies (Python backend + Electron frontend)
+npm run install:all
 
-# Create virtual environment
-# Windows:
-py -3.12 -m venv .venv
-.venv\Scripts\activate
-
-# macOS/Linux:
-python3.12 -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Install test dependencies
-pip install -r ../../tests/requirements-test.txt
-
-# Set up environment
-cp .env.example .env
-# Edit .env and add your CLAUDE_CODE_OAUTH_TOKEN (get it via: claude setup-token)
-```
-
-### Electron Frontend
-
-```bash
-# Navigate to the frontend directory
-cd apps/frontend
-
-# Install dependencies
-npm install
-
-# Start development server
+# Start development mode (hot reload)
 npm run dev
-
-# Build for production
-npm run build
-
-# Package for distribution
-npm run package
 ```
 
-## Running from Source
+`npm run install:all` automatically:
+- Detects Python 3.12+ on your system
+- Creates a virtual environment (`apps/backend/.venv`)
+- Installs backend runtime and test dependencies
+- Copies `.env.example` to `.env` (if not already present)
+- Installs frontend npm dependencies
 
-If you want to run Auto Claude from source (for development or testing unreleased features), follow these steps:
-
-### Step 1: Clone and Set Up
-
+After install, configure your credentials in `apps/backend/.env`:
 ```bash
-git clone https://github.com/AndyMik90/Auto-Claude.git
-cd Auto-Claude/apps/backend
+# Get your Claude Code OAuth token
+claude setup-token
 
-# Using uv (recommended)
-uv venv && uv pip install -r requirements.txt
-
-# Or using standard Python
-python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-
-# Set up environment
-cd apps/backend
-cp .env.example .env
-# Edit .env and add your CLAUDE_CODE_OAUTH_TOKEN (get it via: claude setup-token)
+# Then edit apps/backend/.env with your token and any other provider keys
 ```
 
-### Step 2: Run the Desktop UI
+### Other Useful Commands
 
 ```bash
-cd ../frontend
-
-# Install dependencies
-npm install
-
-# Development mode (hot reload)
-npm run dev
-
-# Or production build
-npm run build && npm run start
+npm start              # Build and run production
+npm run build          # Build frontend for production
+npm run package        # Package for distribution
+npm run test:backend   # Run Python tests
 ```
 
 <details>
@@ -357,6 +326,64 @@ export default function(props) {
 - End files with a newline
 - Keep line length under 100 characters when practical
 
+### File Encoding (Python)
+
+**Always specify `encoding="utf-8"` for text file operations** to ensure Windows compatibility.
+
+Windows Python defaults to `cp1252` encoding instead of UTF-8, causing errors with:
+- Emoji (🚀, ✅, ❌)
+- International characters (ñ, é, 中文, العربية)
+- Special symbols (™, ©, ®)
+
+**DO:**
+
+```python
+# Reading files
+with open(path, encoding="utf-8") as f:
+    content = f.read()
+
+# Writing files
+with open(path, "w", encoding="utf-8") as f:
+    f.write(content)
+
+# Path methods
+from pathlib import Path
+content = Path(file).read_text(encoding="utf-8")
+Path(file).write_text(content, encoding="utf-8")
+
+# JSON files - reading
+import json
+with open(path, encoding="utf-8") as f:
+    data = json.load(f)
+
+# JSON files - writing
+with open(path, "w", encoding="utf-8") as f:
+    json.dump(data, f, ensure_ascii=False, indent=2)
+```
+
+**DON'T:**
+
+```python
+# Wrong - platform-dependent encoding
+with open(path) as f:
+    content = f.read()
+
+# Wrong - Path methods without encoding
+content = Path(file).read_text()
+
+# Wrong - encoding on json.dump (not open!)
+json.dump(data, f, encoding="utf-8")  # ERROR
+```
+
+**Binary files - NO encoding:**
+
+```python
+with open(path, "rb") as f:  # Correct
+    data = f.read()
+```
+
+Our pre-commit hooks automatically check for missing encoding parameters. See [PR #782](https://github.com/AndyMik90/Auto-Claude/pull/782) for the comprehensive encoding fix and [guides/windows-development.md](guides/windows-development.md) for Windows-specific development guidance.
+
 ## Testing
 
 ### Python Tests
@@ -458,6 +485,72 @@ npm run typecheck
 ## Git Workflow
 
 We use a **Git Flow** branching strategy to manage releases and parallel development.
+
+### Working with Forks
+
+When contributing to Auto Claude, you'll typically fork the repository first. Proper fork configuration is essential to avoid sync issues.
+
+#### Initial Fork Setup
+
+```bash
+# 1. Fork on GitHub (click the Fork button on the repo page)
+
+# 2. Clone YOUR fork (not the original repo)
+git clone https://github.com/YOUR-USERNAME/Auto-Claude.git
+cd Auto-Claude
+
+# 3. Verify your remotes point to YOUR fork
+git remote -v
+# Should show:
+# origin  https://github.com/YOUR-USERNAME/Auto-Claude.git (fetch)
+# origin  https://github.com/YOUR-USERNAME/Auto-Claude.git (push)
+
+# 4. Add upstream remote to sync with the original repo
+git remote add upstream https://github.com/AndyMik90/Auto-Claude.git
+```
+
+#### Keeping Your Fork Updated
+
+```bash
+# Fetch latest changes from upstream
+git fetch upstream
+
+# Sync your develop branch with upstream
+git checkout develop
+git merge upstream/develop
+git push origin develop
+```
+
+#### Converting a Fork to Standalone
+
+> ⚠️ **Common Issue:** After making a fork standalone (e.g., disconnecting from the original repo on GitHub), your local git configuration may still reference the original forked repository, causing push/pull issues.
+
+If you convert your fork to a standalone repository:
+
+```bash
+# 1. Update origin to point to your standalone repo
+git remote set-url origin https://github.com/YOUR-USERNAME/Your-Standalone-Repo.git
+
+# 2. Remove the upstream remote (no longer applicable)
+git remote remove upstream
+
+# 3. Verify your configuration
+git remote -v
+# Should only show your standalone repo as origin
+
+# 4. Update your default branch tracking if needed
+git branch --set-upstream-to=origin/main main
+git branch --set-upstream-to=origin/develop develop
+```
+
+#### Troubleshooting Fork Issues
+
+| Problem | Cause | Solution |
+|---------|-------|----------|
+| `Permission denied` on push | Origin points to upstream repo | `git remote set-url origin <your-fork-url>` |
+| `Repository not found` | Fork was deleted or made standalone | Update remote URL to current repo location |
+| Can't push to develop | Local branch tracks wrong remote | `git branch --set-upstream-to=origin/develop` |
+| Commits show wrong author | Git config not set | `git config user.email "you@example.com"` |
 
 ### Branch Overview
 

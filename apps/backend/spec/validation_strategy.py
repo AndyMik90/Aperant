@@ -11,7 +11,7 @@ The validation strategy is used by:
 - QA Agent: To determine what tests to create and run
 
 Usage:
-    from validation_strategy import ValidationStrategyBuilder
+    from spec.validation_strategy import ValidationStrategyBuilder
 
     builder = ValidationStrategyBuilder()
     strategy = builder.build_strategy(project_dir, spec_dir, "medium")
@@ -161,7 +161,7 @@ def detect_project_type(project_dir: Path) -> str:
             if "@angular/core" in all_deps:
                 return "angular_spa"
             return "nodejs"
-        except (OSError, json.JSONDecodeError):
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
             return "nodejs"
 
     # Check for Python projects
@@ -171,9 +171,9 @@ def detect_project_type(project_dir: Path) -> str:
         # Try to detect API framework
         deps_text = ""
         if requirements.exists():
-            deps_text = requirements.read_text().lower()
+            deps_text = requirements.read_text(encoding="utf-8").lower()
         if pyproject.exists():
-            deps_text += pyproject.read_text().lower()
+            deps_text += pyproject.read_text(encoding="utf-8").lower()
 
         if "fastapi" in deps_text or "flask" in deps_text or "django" in deps_text:
             return "python_api"

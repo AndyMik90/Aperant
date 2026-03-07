@@ -28,7 +28,7 @@ export function readIdeationFile(ideationPath: string): RawIdeationData | null {
  */
 export function writeIdeationFile(ideationPath: string, data: RawIdeationData): void {
   try {
-    writeFileSync(ideationPath, JSON.stringify(data, null, 2));
+    writeFileSync(ideationPath, JSON.stringify(data, null, 2), 'utf-8');
   } catch (error) {
     throw new Error(
       error instanceof Error ? error.message : 'Failed to write ideation file'

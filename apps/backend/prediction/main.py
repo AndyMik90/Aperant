@@ -52,7 +52,7 @@ def main():
             print(f"Error: No implementation_plan.json found in {spec_dir}")
             sys.exit(1)
 
-        with open(plan_file) as f:
+        with open(plan_file, encoding="utf-8") as f:
             plan = json.load(f)
 
         # Find first pending subtask

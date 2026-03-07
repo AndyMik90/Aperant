@@ -32,7 +32,7 @@ import { useSettingsStore } from '../../stores/settings-store';
 import { ModelSearchableSelect } from './ModelSearchableSelect';
 import { useToast } from '../../hooks/use-toast';
 import { isValidUrl, isValidApiKey } from '../../lib/profile-utils';
-import type { APIProfile, ProfileFormData, TestConnectionResult } from '@shared/types/profile';
+import type { APIProfile, ProfileFormData, } from '@shared/types/profile';
 import { maskApiKey } from '../../lib/profile-utils';
 import { API_PROVIDER_PRESETS } from '../../../shared/constants';
 
@@ -143,7 +143,7 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
       // Clear test result display when dialog closes
       setShowTestResult(false);
     }
-  }, [open]);
+  }, [open, isEditMode, profile]);
 
   const applyPreset = (id: string) => {
     const preset = API_PROVIDER_PRESETS.find((item) => item.id === id);

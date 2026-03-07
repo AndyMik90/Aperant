@@ -1,0 +1,52 @@
+name: 'Setup Python Backend'
+description: 'Set up Python with uv package manager and cached dependencies for the backend'
+
+inputs:
+  python-version:
+    description: 'Python version to use'
+    required: false
+    default: '3.12'
+  install-test-deps:
+    description: 'Whether to install test dependencies'
+    required: false
+    default: 'false'
+
+outputs:
+  cache-hit:
+    description: 'Whether cache was hit'
+    value: ${{ steps.cache.outputs.cache-hit }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python ${{ inputs.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install uv package manager
+      uses: astral-sh/setup-uv@v4
+      with:
+        version: "latest"
+
+    - name: Cache uv dependencies
+      id: cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/uv
+          ~/AppData/Local/uv/cache
+          ~/Library/Caches/uv
+        key: uv-${{ runner.os }}-${{ runner.arch }}-${{ inputs.python-version }}-${{ hashFiles('apps/backend/requirements.txt', 'tests/requirements-test.txt') }}
+        restore-keys: |
+          uv-${{ runner.os }}-${{ runner.arch }}-${{ inputs.python-version }}-
+
+    - name: Install dependencies
+      working-directory: apps/backend
+      shell: bash
+      run: |
+        uv venv
+        uv pip install -r requirements.txt
+        if [ "${{ inputs.install-test-deps }}" == "true" ]; then
+          uv pip install -r ../../tests/requirements-test.txt
+        fi

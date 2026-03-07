@@ -18,14 +18,15 @@ import {
   DEFAULT_FEATURE_MODELS,
   DEFAULT_FEATURE_THINKING,
 } from "../../../shared/constants";
-import { getGitHubConfig, githubFetch } from "./utils";
+import type { AuthFailureInfo } from "../../../shared/types/terminal";
+import { getGitHubConfig, githubFetch, normalizeRepoReference } from "./utils";
 import { readSettingsFile } from "../../settings-utils";
 import { getAugmentedEnv } from "../../env-utils";
 import { getMemoryService, getDefaultDbPath } from "../../memory-service";
 import type { Project, AppSettings } from "../../../shared/types";
 import { createContextLogger } from "./utils/logger";
 import { withProjectOrNull } from "./utils/project-middleware";
-import { createIPCCommunicators } from "./utils/ipc-communicator";
+import { PRReviewStateManager } from "../../pr-review-state-manager";
 import { getRunnerEnv } from "./utils/runner-env";
 import {
   runPythonSubprocess,
@@ -34,6 +35,140 @@ import {
   validateGitHubModule,
   buildRunnerArgs,
 } from "./utils/subprocess-runner";
+import { getPRStatusPoller } from "../../services/pr-status-poller";
+import { safeBreadcrumb, safeCaptureException } from "../../sentry";
+import { sanitizeForSentry } from "../../../shared/utils/sentry-privacy";
+import type {
+  StartPollingRequest,
+  StopPollingRequest,
+  PollingMetadata,
+} from "../../../shared/types/pr-status";
+
+/**
+ * GraphQL response type for PR list query
+ * Note: repository can be null if the repo doesn't exist or user lacks access
+ */
+interface GraphQLPRNode {
+  number: number;
+  title: string;
+  body: string | null;
+  state: string;
+  author: { login: string } | null;
+  headRefName: string;
+  baseRefName: string;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+  assignees: { nodes: Array<{ login: string }> };
+  createdAt: string;
+  updatedAt: string;
+  url: string;
+}
+
+interface GraphQLPRListResponse {
+  data: {
+    repository: {
+      pullRequests: {
+        pageInfo: {
+          hasNextPage: boolean;
+          endCursor: string | null;
+        };
+        nodes: GraphQLPRNode[];
+      };
+    } | null;
+  };
+  errors?: Array<{ message: string }>;
+}
+
+/**
+ * Maps a GraphQL PR node to the frontend PRData format.
+ * Shared between listPRs and listMorePRs handlers.
+ */
+function mapGraphQLPRToData(pr: GraphQLPRNode): PRData {
+  return {
+    number: pr.number,
+    title: pr.title,
+    body: pr.body ?? "",
+    state: pr.state.toLowerCase(),
+    author: { login: pr.author?.login ?? "unknown" },
+    headRefName: pr.headRefName,
+    baseRefName: pr.baseRefName,
+    additions: pr.additions,
+    deletions: pr.deletions,
+    changedFiles: pr.changedFiles,
+    assignees: pr.assignees.nodes.map((a) => ({ login: a.login })),
+    files: [],
+    createdAt: pr.createdAt,
+    updatedAt: pr.updatedAt,
+    htmlUrl: pr.url,
+  };
+}
+
+/**
+ * Make a GraphQL request to GitHub API
+ */
+async function githubGraphQL<T>(
+  token: string,
+  query: string,
+  variables: Record<string, unknown> = {}
+): Promise<T> {
+  // lgtm[js/file-access-to-http] - Official GitHub GraphQL API endpoint
+  const response = await fetch("https://api.github.com/graphql", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "User-Agent": "Auto-Claude-UI",
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+
+  if (!response.ok) {
+    // Log detailed error for debugging, throw generic message for safety
+    console.error(`GitHub GraphQL HTTP error: ${response.status} ${response.statusText}`);
+    throw new Error("Failed to connect to GitHub API");
+  }
+
+  const result = await response.json() as T & { errors?: Array<{ message: string }> };
+
+  // Check for GraphQL-level errors
+  if (result.errors && result.errors.length > 0) {
+    // Log detailed errors for debugging, throw generic message for safety
+    console.error(`GitHub GraphQL errors: ${result.errors.map(e => e.message).join(", ")}`);
+    throw new Error("GitHub API request failed");
+  }
+
+  return result;
+}
+
+/**
+ * GraphQL query to fetch PRs with diff stats
+ */
+const LIST_PRS_QUERY = `
+query($owner: String!, $repo: String!, $first: Int!, $after: String) {
+  repository(owner: $owner, name: $repo) {
+    pullRequests(states: OPEN, first: $first, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}) {
+      pageInfo { hasNextPage endCursor }
+      nodes {
+        number
+        title
+        body
+        state
+        author { login }
+        headRefName
+        baseRefName
+        additions
+        deletions
+        changedFiles
+        assignees(first: 10) { nodes { login } }
+        createdAt
+        updatedAt
+        url
+      }
+    }
+  }
+}
+`;
 
 /**
  * Sanitize network data before writing to file
@@ -133,6 +268,10 @@ export interface PRReviewFinding {
   endLine?: number;
   suggestedFix?: string;
   fixable: boolean;
+  validationStatus?: "confirmed_valid" | "dismissed_false_positive" | "needs_human_review" | null;
+  validationExplanation?: string;
+  sourceAgents?: string[];
+  crossValidated?: boolean;
 }
 
 /**
@@ -144,7 +283,7 @@ export interface PRReviewResult {
   success: boolean;
   findings: PRReviewFinding[];
   summary: string;
-  overallStatus: "approve" | "request_changes" | "comment";
+  overallStatus: "approve" | "request_changes" | "comment" | "in_progress";
   reviewId?: number;
   reviewedAt: string;
   error?: string;
@@ -160,6 +299,8 @@ export interface PRReviewResult {
   hasPostedFindings?: boolean;
   postedFindingIds?: string[];
   postedAt?: string;
+  // In-progress review tracking
+  inProgressSince?: string;
 }
 
 /**
@@ -382,6 +523,15 @@ export interface PRData {
 }
 
 /**
+ * PR list result with pagination info
+ */
+export interface PRListResult {
+  prs: PRData[];
+  hasNextPage: boolean; // True if more PRs exist beyond the 100 limit
+  endCursor?: string | null; // Cursor for fetching next page (null if no more pages)
+}
+
+/**
  * PR review progress status
  */
 export interface PRReviewProgress {
@@ -397,11 +547,11 @@ export interface PRReviewProgress {
 interface CIWaitResult {
   /** Whether we successfully waited (no timeout) */
   success: boolean;
-  /** Whether any checks are still in progress */
+  /** Whether any checks are still pending (queued or in_progress) */
   hasInProgress: boolean;
-  /** Number of checks currently in progress */
+  /** Number of checks currently pending (queued or in_progress) */
   inProgressCount: number;
-  /** Names of checks still in progress (if any) */
+  /** Names of checks still pending (if any) */
   inProgressChecks: string[];
   /** Whether we timed out waiting */
   timedOut: boolean;
@@ -412,9 +562,13 @@ interface CIWaitResult {
 /**
  * Wait for CI checks to complete before starting AI review.
  *
- * Polls GitHub API to check if any CI checks are "in_progress".
- * Only blocks on "in_progress" status - does NOT block on "queued" status
- * (which could be CLA, licensing workflows that may never run).
+ * Polls GitHub API to check if any CI checks are "queued" or "in_progress".
+ * Blocks on BOTH statuses because:
+ * - "queued" = CI has been triggered but not started yet
+ * - "in_progress" = CI is actively running
+ *
+ * We wait for all checks to reach "completed" status before reviewing,
+ * so our review doesn't report "CI is pending" when it will finish soon.
  *
  * @param token GitHub API token
  * @param repo Repository in "owner/repo" format
@@ -473,10 +627,10 @@ async function waitForCIChecks(
         }>;
       };
 
-      // Find checks that are actively running (in_progress)
-      // We do NOT block on "queued" status - those could be CLA/licensing workflows
+      // Find checks that are not yet completed (queued or in_progress)
+      // We block on BOTH statuses to ensure CI is fully done before reviewing
       const inProgressChecks = checkRuns.check_runs.filter(
-        (cr) => cr.status === "in_progress"
+        (cr) => cr.status === "queued" || cr.status === "in_progress"
       );
 
       const inProgressCount = inProgressChecks.length;
@@ -494,10 +648,10 @@ async function waitForCIChecks(
         inProgressNames,
       });
 
-      // If no checks are in_progress, we can proceed
+      // If no checks are pending (queued or in_progress), we can proceed
       if (inProgressCount === 0) {
         const waitTimeSeconds = Math.floor((Date.now() - startTime) / 1000);
-        debugLog("No CI checks in progress, proceeding with review", {
+        debugLog("All CI checks completed, proceeding with review", {
           prNumber,
           waitTimeSeconds,
         });
@@ -758,6 +912,16 @@ function parseLogLine(line: string): { source: string; content: string; isError:
     };
   }
 
+  // Check for parallel SDK specialist logs (Specialist:name format)
+  const specialistMatch = line.match(/^\[Specialist:([\w-]+)\]\s*(.*)$/);
+  if (specialistMatch) {
+    return {
+      source: `Specialist:${specialistMatch[1]}`,
+      content: specialistMatch[2],
+      isError: false,
+    };
+  }
+
   for (const pattern of patterns) {
     const match = line.match(pattern);
     if (match) {
@@ -858,8 +1022,9 @@ function getPhaseFromSource(source: string): PRLogPhase {
 
   if (contextSources.includes(source)) return "context";
   if (analysisSources.includes(source)) return "analysis";
-  // Specialist agents (Agent:xxx) are part of analysis phase
+  // Specialist agents (Agent:xxx and Specialist:xxx) are part of analysis phase
   if (source.startsWith("Agent:")) return "analysis";
+  if (source.startsWith("Specialist:")) return "analysis";
   if (synthesisSources.includes(source)) return "synthesis";
   return "synthesis"; // Default to synthesis for unknown sources
 }
@@ -893,6 +1058,9 @@ function createEmptyPRLogs(prNumber: number, repo: string, isFollowup: boolean):
 
 /**
  * Get PR logs file path
+ *
+ * Logs are stored at `.auto-claude/github/pr/logs_${prNumber}.json` within the project directory.
+ * This provides persistent storage for streaming log data during PR reviews.
  */
 function getPRLogsPath(project: Project, prNumber: number): string {
   return path.join(getGitHubDir(project), "pr", `logs_${prNumber}.json`);
@@ -900,6 +1068,14 @@ function getPRLogsPath(project: Project, prNumber: number): string {
 
 /**
  * Load PR logs from disk
+ *
+ * This function is called by:
+ * 1. The IPC handler (GITHUB_PR_GET_LOGS) when the frontend polls for log updates
+ * 2. The frontend polling mechanism (every 1.5s during active review)
+ * 3. The fallback mechanism after review completion
+ *
+ * Returns null if the logs file doesn't exist yet (review hasn't started)
+ * or if the file is corrupted/unreadable.
  */
 function loadPRLogs(project: Project, prNumber: number): PRLogs | null {
   const logsPath = getPRLogsPath(project, prNumber);
@@ -915,6 +1091,15 @@ function loadPRLogs(project: Project, prNumber: number): PRLogs | null {
 
 /**
  * Save PR logs to disk
+ *
+ * Called by PRLogCollector.save() to persist logs incrementally during review.
+ * This enables real-time streaming to the frontend via file-based polling.
+ *
+ * The logs file is written atomically and includes:
+ * - Phase status (pending/active/completed/failed)
+ * - Log entries for each phase (context, analysis, synthesis)
+ * - Timestamps for created_at and updated_at
+ * - Review metadata (PR number, repo, followup status)
  */
 function savePRLogs(project: Project, logs: PRLogs): void {
   const logsPath = getPRLogsPath(project, logs.pr_number);
@@ -950,6 +1135,25 @@ function addLogEntry(logs: PRLogs, entry: PRLogEntry): boolean {
 /**
  * PR Log Collector - collects logs during review
  * Saves incrementally to disk so frontend can stream logs in real-time
+ *
+ * Log Streaming Architecture:
+ * ===========================
+ * This class implements a hybrid push/pull approach for real-time log streaming:
+ *
+ * 1. **File-Based Storage**: Logs are saved to disk every 3 entries (saveInterval)
+ *    - Location: .auto-claude/github/pr/logs_${prNumber}.json
+ *    - Format: JSON with phase status and log entries
+ *
+ * 2. **Push-Based Updates**: Emits IPC events (GITHUB_PR_LOGS_UPDATED) after each save
+ *    - Notifies frontend immediately when new logs are available
+ *    - Includes phase status and entry count for quick UI updates
+ *
+ * 3. **Pull-Based Polling**: Frontend polls via loadPRLogs() every 1.5s as fallback
+ *    - Ensures logs are displayed even if IPC events are missed
+ *    - Provides resilience against event delivery failures
+ *
+ * This hybrid approach ensures reliable real-time updates while maintaining
+ * simplicity and debuggability (logs are always on disk for inspection).
  */
 class PRLogCollector {
   private logs: PRLogs;
@@ -957,10 +1161,29 @@ class PRLogCollector {
   private currentPhase: PRLogPhase = "context";
   private entryCount: number = 0;
   private saveInterval: number = 3; // Save every N entries for real-time streaming
+  private mainWindow: BrowserWindow | null;
 
-  constructor(project: Project, prNumber: number, repo: string, isFollowup: boolean) {
+  constructor(
+    project: Project,
+    prNumber: number,
+    repo: string,
+    isFollowup: boolean,
+    mainWindow?: BrowserWindow
+  ) {
     this.project = project;
     this.logs = createEmptyPRLogs(prNumber, repo, isFollowup);
+    this.mainWindow = mainWindow || null;
+
+    // Debug: Log collector creation
+    const logPath = getPRLogsPath(project, prNumber);
+    debugLog("PRLogCollector created", {
+      prNumber,
+      repo,
+      isFollowup,
+      logPath,
+      hasMainWindow: !!this.mainWindow
+    });
+
     // Save initial empty logs so frontend sees the structure immediately
     this.save();
   }
@@ -970,6 +1193,16 @@ class PRLogCollector {
     if (!parsed) return;
 
     const phase = getPhaseFromSource(parsed.source);
+
+    // Debug: Log line processing
+    debugLog("PRLogCollector.processLine()", {
+      prNumber: this.logs.pr_number,
+      phase,
+      currentPhase: this.currentPhase,
+      source: parsed.source,
+      isError: parsed.isError,
+      entryCount: this.entryCount
+    });
 
     // Track phase transitions - mark previous phases as complete (only if they were active)
     if (phase !== this.currentPhase) {
@@ -1015,8 +1248,60 @@ class PRLogCollector {
     this.save();
   }
 
+  /**
+   * Save logs to disk and notify frontend
+   *
+   * This method is called:
+   * 1. Every N entries (saveInterval = 3) for incremental streaming
+   * 2. When phase status changes (pending → active, active → completed)
+   * 3. On review finalization (success or failure)
+   *
+   * Two-step update mechanism:
+   * --------------------------
+   * 1. **File Write**: Persists logs to disk via savePRLogs()
+   *    - Creates/updates .auto-claude/github/pr/logs_${prNumber}.json
+   *    - Updates the `updated_at` timestamp
+   *
+   * 2. **IPC Push Event**: Sends GITHUB_PR_LOGS_UPDATED to renderer
+   *    - Contains phase status summary (pending/active/completed/failed)
+   *    - Includes entry count for detecting changes
+   *    - Enables instant UI updates without polling delay
+   *
+   * The frontend receives the IPC event and can optionally trigger an
+   * immediate poll via loadPRLogs() to fetch the latest log content.
+   * This is more efficient than polling alone, as the UI can update
+   * immediately when logs are available rather than waiting for the
+   * next poll interval (1.5s).
+   */
   save(): void {
+    const logPath = getPRLogsPath(this.project, this.logs.pr_number);
+    debugLog("PRLogCollector.save()", {
+      prNumber: this.logs.pr_number,
+      logPath,
+      entryCount: this.entryCount,
+      phases: Object.entries(this.logs.phases).map(([name, phase]) => ({
+        name,
+        status: phase.status,
+        entryCount: phase.entries.length
+      }))
+    });
+
+    // Step 1: Write logs to disk for persistence and polling-based retrieval
     savePRLogs(this.project, this.logs);
+
+    // Step 2: Emit IPC event to notify renderer of log update (push-based)
+    // Uses standard (projectId, data) pattern matching other IPC communicators
+    if (this.mainWindow && !this.mainWindow.isDestroyed()) {
+      this.mainWindow.webContents.send(IPC_CHANNELS.GITHUB_PR_LOGS_UPDATED, this.project.id, {
+        prNumber: this.logs.pr_number,
+        phaseStatus: {
+          context: this.logs.phases.context.status,
+          analysis: this.logs.phases.analysis.status,
+          synthesis: this.logs.phases.synthesis.status
+        },
+        entryCount: this.entryCount
+      });
+    }
   }
 
   finalize(success: boolean): void {
@@ -1060,6 +1345,10 @@ function getReviewResult(project: Project, prNumber: number): PRReviewResult | n
           endLine: f.end_line,
           suggestedFix: f.suggested_fix,
           fixable: f.fixable ?? false,
+          validationStatus: f.validation_status ?? null,
+          validationExplanation: f.validation_explanation ?? undefined,
+          sourceAgents: f.source_agents ?? [],
+          crossValidated: f.cross_validated ?? false,
         })) ?? [],
       summary: data.summary ?? "",
       overallStatus: data.overall_status ?? "comment",
@@ -1078,6 +1367,8 @@ function getReviewResult(project: Project, prNumber: number): PRReviewResult | n
       hasPostedFindings: data.has_posted_findings ?? false,
       postedFindingIds: data.posted_finding_ids ?? [],
       postedAt: data.posted_at,
+      // In-progress review tracking
+      inProgressSince: data.in_progress_since,
     };
   } catch {
     // File doesn't exist or couldn't be read
@@ -1085,7 +1376,34 @@ function getReviewResult(project: Project, prNumber: number): PRReviewResult | n
   }
 }
 
-// IPC communication helpers removed - using createIPCCommunicators instead
+/**
+ * Send a PR review state update event to the renderer to refresh the UI immediately.
+ * Used after operations that modify review state (post, mark posted, delete).
+ */
+function sendReviewStateUpdate(
+  project: Project,
+  prNumber: number,
+  projectId: string,
+  prReviewStateManager: PRReviewStateManager,
+  context: string
+): void {
+  try {
+    const updatedResult = getReviewResult(project, prNumber);
+    if (!updatedResult) {
+      debugLog("Could not retrieve updated review result for UI notification", { prNumber, context });
+      return;
+    }
+    // Route through state manager so the XState actor emits the state change
+    prReviewStateManager.handleComplete(projectId, prNumber, updatedResult);
+    debugLog(`Sent PR review state update ${context}`, { prNumber });
+  } catch (uiError) {
+    debugLog("Failed to send UI update (non-critical)", {
+      prNumber,
+      context,
+      error: uiError instanceof Error ? uiError.message : uiError,
+    });
+  }
+}
 
 /**
  * Get GitHub PR model and thinking settings from app settings
@@ -1117,7 +1435,8 @@ function getGitHubPRSettings(): { model: string; thinkingLevel: string } {
 async function runPRReview(
   project: Project,
   prNumber: number,
-  mainWindow: BrowserWindow
+  mainWindow: BrowserWindow,
+  prReviewStateManager: PRReviewStateManager
 ): Promise<PRReviewResult> {
   // Comprehensive validation of GitHub module
   const validation = await validateGitHubModule(project);
@@ -1128,15 +1447,9 @@ async function runPRReview(
 
   const backendPath = validation.backendPath!;
 
-  const { sendProgress } = createIPCCommunicators<PRReviewProgress, PRReviewResult>(
-    mainWindow,
-    {
-      progress: IPC_CHANNELS.GITHUB_PR_REVIEW_PROGRESS,
-      error: IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR,
-      complete: IPC_CHANNELS.GITHUB_PR_REVIEW_COMPLETE,
-    },
-    project.id
-  );
+  const sendProgress = (progress: PRReviewProgress): void => {
+    prReviewStateManager.handleProgress(project.id, prNumber, progress);
+  };
 
   const { model, thinkingLevel } = getGitHubPRSettings();
   const args = buildRunnerArgs(
@@ -1149,13 +1462,43 @@ async function runPRReview(
 
   debugLog("Spawning PR review process", { args, model, thinkingLevel });
 
+  safeBreadcrumb({
+    category: 'pr-review',
+    message: 'Spawning PR review subprocess',
+    level: 'info',
+    data: {
+      pythonPath: getPythonPath(backendPath),
+      runnerPath: getRunnerPath(backendPath),
+      cwd: backendPath,
+      model,
+      thinkingLevel,
+      prNumber,
+    },
+  });
+
   // Create log collector for this review
   const config = getGitHubConfig(project);
   const repo = config?.repo || project.name || "unknown";
-  const logCollector = new PRLogCollector(project, prNumber, repo, false);
+  const logCollector = new PRLogCollector(project, prNumber, repo, false, mainWindow);
 
   // Build environment with project settings
   const subprocessEnv = await getRunnerEnv(getClaudeMdEnv(project));
+
+  safeBreadcrumb({
+    category: 'github.pr-review',
+    message: `Subprocess env for PR #${prNumber} review`,
+    level: 'info',
+    data: {
+      prNumber,
+      hasGITHUB_CLI_PATH: !!subprocessEnv.GITHUB_CLI_PATH,
+      GITHUB_CLI_PATH: subprocessEnv.GITHUB_CLI_PATH ?? 'NOT SET',
+      hasGITHUB_TOKEN: !!subprocessEnv.GITHUB_TOKEN,
+      hasPYTHONPATH: !!subprocessEnv.PYTHONPATH,
+    },
+  });
+
+  // Create operation ID for this review
+  const reviewKey = getReviewKey(project.id, prNumber);
 
   const { process: childProcess, promise } = runPythonSubprocess<PRReviewResult>({
     pythonPath: getPythonPath(backendPath),
@@ -1177,7 +1520,37 @@ async function runPRReview(
       logCollector.processLine(line);
     },
     onStderr: (line) => debugLog("STDERR:", line),
-    onComplete: () => {
+    onAuthFailure: (authFailureInfo: AuthFailureInfo) => {
+      // Send auth failure to renderer to show modal
+      debugLog("Auth failure detected in PR review", authFailureInfo);
+      mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+    },
+    onComplete: (stdout: string) => {
+      // Check stdout for in_progress JSON marker (not saved to disk by backend)
+      const inProgressMarker = "__RESULT_JSON__:";
+      for (const line of stdout.split("\n")) {
+        if (line.startsWith(inProgressMarker)) {
+          try {
+            const data = JSON.parse(line.slice(inProgressMarker.length));
+            if (data.overall_status === "in_progress") {
+              debugLog("In-progress result parsed from stdout", { prNumber });
+              return {
+                prNumber: data.pr_number,
+                repo: data.repo,
+                success: data.success,
+                findings: [],
+                summary: data.summary ?? "",
+                overallStatus: "in_progress" as const,
+                reviewedAt: data.reviewed_at ?? new Date().toISOString(),
+                inProgressSince: data.in_progress_since,
+              };
+            }
+          } catch {
+            debugLog("Failed to parse __RESULT_JSON__ line", { line });
+          }
+        }
+      }
+
       // Load the result from disk
       const reviewResult = getReviewResult(project, prNumber);
       if (!reviewResult) {
@@ -1186,10 +1559,17 @@ async function runPRReview(
       debugLog("Review result loaded", { findingsCount: reviewResult.findings.length });
       return reviewResult;
     },
+    // Register with OperationRegistry for proactive swap support
+    operationRegistration: {
+      operationId: `pr-review:${reviewKey}`,
+      operationType: 'pr-review',
+      metadata: { projectId: project.id, prNumber, repo },
+      // PR reviews don't support restart (would need to refetch PR data)
+      // The review will complete or fail, and user can retry manually
+    },
   });
 
-  // Register the running process
-  const reviewKey = getReviewKey(project.id, prNumber);
+  // Register the running process (keep legacy registry for cancel support)
   runningReviews.set(reviewKey, childProcess);
   debugLog("Registered review process", { reviewKey, pid: childProcess.pid });
 
@@ -1197,9 +1577,22 @@ async function runPRReview(
     // Wait for the process to complete
     const result = await promise;
 
+    safeBreadcrumb({
+      category: 'pr-review',
+      message: `PR review subprocess exited`,
+      level: result.success ? 'info' : 'error',
+      data: { exitCode: result.exitCode, success: result.success, prNumber },
+    });
+
     if (!result.success) {
       // Finalize logs with failure
       logCollector.finalize(false);
+
+      safeCaptureException(
+        new Error(`PR review subprocess failed: ${result.error ?? 'unknown error'}`),
+        { extra: { exitCode: result.exitCode, prNumber, stderr: sanitizeForSentry(result.stderr.slice(0, 500)) } }
+      );
+
       throw new Error(result.error ?? "Review failed");
     }
 
@@ -1220,71 +1613,130 @@ async function runPRReview(
 }
 
 /**
+ * Shared helper to fetch PRs via GraphQL API.
+ * Used by both listPRs and listMorePRs handlers to avoid code duplication.
+ */
+async function fetchPRsFromGraphQL(
+  config: { token: string; repo: string },
+  cursor: string | null,
+  debugContext: string
+): Promise<PRListResult> {
+  // Parse owner/repo from config - must be exactly "owner/repo" format
+  const normalizedRepo = normalizeRepoReference(config.repo);
+  const repoParts = normalizedRepo.split("/");
+  if (repoParts.length !== 2 || !repoParts[0] || !repoParts[1]) {
+    debugLog("Invalid repo format - expected 'owner/repo'", {
+      repo: config.repo,
+      normalized: normalizedRepo,
+      context: debugContext,
+    });
+    return { prs: [], hasNextPage: false, endCursor: null };
+  }
+  const [owner, repo] = repoParts;
+
+  try {
+    // Use GraphQL API to get PRs with diff stats (REST list endpoint doesn't include them)
+    // Fetches up to 100 open PRs (GitHub GraphQL max per request)
+    const response = await githubGraphQL<GraphQLPRListResponse>(
+      config.token,
+      LIST_PRS_QUERY,
+      {
+        owner,
+        repo,
+        first: 100, // GitHub GraphQL max is 100
+        after: cursor,
+      }
+    );
+
+    // Handle case where repository doesn't exist or user lacks access
+    if (!response.data.repository) {
+      debugLog("Repository not found or access denied", { owner, repo, context: debugContext });
+      return { prs: [], hasNextPage: false, endCursor: null };
+    }
+
+    const { nodes: prNodes, pageInfo } = response.data.repository.pullRequests;
+
+    debugLog(`Fetched PRs via GraphQL (${debugContext})`, {
+      count: prNodes.length,
+      hasNextPage: pageInfo.hasNextPage,
+      endCursor: pageInfo.endCursor,
+    });
+    return {
+      prs: prNodes.map(mapGraphQLPRToData),
+      hasNextPage: pageInfo.hasNextPage,
+      endCursor: pageInfo.endCursor,
+    };
+  } catch (error) {
+    debugLog(`Failed to fetch PRs (${debugContext})`, {
+      error: error instanceof Error ? error.message : error,
+    });
+    return { prs: [], hasNextPage: false, endCursor: null };
+  }
+}
+
+/**
  * Register PR-related handlers
  */
 export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): void {
   debugLog("Registering PR handlers");
 
-  // List open PRs with pagination support
+  // Create the XState-based PR review state manager
+  const prReviewStateManager = new PRReviewStateManager(getMainWindow);
+
+  // Clear all PR review actors when GitHub auth changes (account swap)
+  ipcMain.on(IPC_CHANNELS.GITHUB_AUTH_CHANGED, () => {
+    // Cancel all running review subprocesses and CI wait controllers
+    for (const [reviewKey, entry] of runningReviews) {
+      if (entry === CI_WAIT_PLACEHOLDER) {
+        const abortController = ciWaitAbortControllers.get(reviewKey);
+        if (abortController) {
+          abortController.abort();
+          ciWaitAbortControllers.delete(reviewKey);
+        }
+      } else {
+        try {
+          entry.kill("SIGTERM");
+        } catch {
+          // Process may have already exited
+        }
+      }
+    }
+    runningReviews.clear();
+    ciWaitAbortControllers.clear();
+    prReviewStateManager.handleAuthChange();
+  });
+
+  // List open PRs - fetches up to 100 open PRs at once, returns hasNextPage and endCursor from API
   ipcMain.handle(
     IPC_CHANNELS.GITHUB_PR_LIST,
-    async (_, projectId: string, page: number = 1): Promise<PRData[]> => {
-      debugLog("listPRs handler called", { projectId, page });
+    async (_, projectId: string): Promise<PRListResult> => {
+      debugLog("listPRs handler called", { projectId });
       const result = await withProjectOrNull(projectId, async (project) => {
         const config = getGitHubConfig(project);
         if (!config) {
           debugLog("No GitHub config found for project");
-          return [];
+          return { prs: [], hasNextPage: false, endCursor: null };
         }
-
-        try {
-          // Use pagination: per_page=100 (GitHub max), page=1,2,3...
-          const prs = (await githubFetch(
-            config.token,
-            `/repos/${config.repo}/pulls?state=open&per_page=100&page=${page}`
-          )) as Array<{
-            number: number;
-            title: string;
-            body?: string;
-            state: string;
-            user: { login: string };
-            head: { ref: string };
-            base: { ref: string };
-            additions: number;
-            deletions: number;
-            changed_files: number;
-            assignees?: Array<{ login: string }>;
-            created_at: string;
-            updated_at: string;
-            html_url: string;
-          }>;
-
-          debugLog("Fetched PRs", { count: prs.length, page, samplePr: prs[0] });
-          return prs.map((pr) => ({
-            number: pr.number,
-            title: pr.title,
-            body: pr.body ?? "",
-            state: pr.state,
-            author: { login: pr.user.login },
-            headRefName: pr.head.ref,
-            baseRefName: pr.base.ref,
-            additions: pr.additions ?? 0,
-            deletions: pr.deletions ?? 0,
-            changedFiles: pr.changed_files ?? 0,
-            assignees: pr.assignees?.map((a: { login: string }) => ({ login: a.login })) ?? [],
-            files: [],
-            createdAt: pr.created_at,
-            updatedAt: pr.updated_at,
-            htmlUrl: pr.html_url,
-          }));
-        } catch (error) {
-          debugLog("Failed to fetch PRs", {
-            error: error instanceof Error ? error.message : error,
-          });
-          return [];
-        }
+        return fetchPRsFromGraphQL(config, null, "initial");
       });
-      return result ?? [];
+      return result ?? { prs: [], hasNextPage: false, endCursor: null };
+    }
+  );
+
+  // Load more PRs (pagination) - fetches next page of PRs using cursor
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_LIST_MORE,
+    async (_, projectId: string, cursor: string): Promise<PRListResult> => {
+      debugLog("listMorePRs handler called", { projectId, cursor });
+      const result = await withProjectOrNull(projectId, async (project) => {
+        const config = getGitHubConfig(project);
+        if (!config) {
+          debugLog("No GitHub config found for project");
+          return { prs: [], hasNextPage: false, endCursor: null };
+        }
+        return fetchPRsFromGraphQL(config, cursor, "pagination");
+      });
+      return result ?? { prs: [], hasNextPage: false, endCursor: null };
     }
   );
 
@@ -1418,7 +1870,27 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
     }
   );
 
-  // Get PR review logs
+  /**
+   * Get PR review logs (IPC Handler)
+   *
+   * This handler is called by the frontend's polling mechanism to retrieve
+   * the latest log data from disk.
+   *
+   * Polling Strategy (Frontend):
+   * ============================
+   * 1. **Initial Load**: When logs section expands, loads logs once via this handler
+   * 2. **Active Review Polling**: Every 1.5s while review is running (isReviewing = true)
+   * 3. **Final Refresh**: One final poll when review completes to capture final status
+   * 4. **Fallback Load**: 500ms delayed load after completion if polling missed final logs
+   *
+   * Why Polling + Push Hybrid?
+   * ===========================
+   * - Push (IPC events): Fast notifications when logs are saved by PRLogCollector
+   * - Pull (polling): Guarantees logs are fetched even if IPC events are missed
+   * - File-based: Simple, debuggable, survives app crashes/restarts
+   *
+   * Returns null if logs file doesn't exist yet (review hasn't started).
+   */
   ipcMain.handle(
     IPC_CHANNELS.GITHUB_PR_GET_LOGS,
     async (_, projectId: string, prNumber: number): Promise<PRLogs | null> => {
@@ -1441,24 +1913,26 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
 
     try {
       await withProjectOrNull(projectId, async (project) => {
-        const { sendProgress, sendComplete } = createIPCCommunicators<
-          PRReviewProgress,
-          PRReviewResult
-        >(
-          mainWindow,
-          {
-            progress: IPC_CHANNELS.GITHUB_PR_REVIEW_PROGRESS,
-            error: IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR,
-            complete: IPC_CHANNELS.GITHUB_PR_REVIEW_COMPLETE,
-          },
-          projectId
-        );
+        const sendProgress = (progress: PRReviewProgress): void => {
+          prReviewStateManager.handleProgress(projectId, prNumber, progress);
+        };
 
-        // Check if already running
+        // Check if already running — notify renderer so it can display ongoing logs
         if (runningReviews.has(reviewKey)) {
-          debugLog("Review already running", { reviewKey });
+          debugLog("Review already running, notifying renderer", { reviewKey });
+          const currentSnapshot = prReviewStateManager.getState(projectId, prNumber);
+          const currentProgress = currentSnapshot?.context?.progress?.progress ?? 50;
+          sendProgress({
+            phase: "analyzing",
+            prNumber,
+            progress: currentProgress,
+            message: "Review is already in progress. Reconnecting to ongoing review...",
+          });
           return;
         }
+
+        // Notify state manager that review is starting (after duplicate check)
+        prReviewStateManager.handleStartReview(projectId, prNumber);
 
         // Register as running BEFORE CI wait to prevent race conditions
         // Use CI_WAIT_PLACEHOLDER sentinel until real process is spawned
@@ -1524,17 +1998,18 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
             message: "Fetching PR data...",
           });
 
-          const result = await runPRReview(project, prNumber, mainWindow);
+          const result = await runPRReview(project, prNumber, mainWindow, prReviewStateManager);
 
           debugLog("PR review completed", { prNumber, findingsCount: result.findings.length });
           sendProgress({
             phase: "complete",
             prNumber,
             progress: 100,
-            message: "Review complete!",
+            message: result.overallStatus === "in_progress" ? "Review already in progress" : "Review complete!",
           });
 
-          sendComplete(result);
+          // Route through manager — handles external review detection internally
+          prReviewStateManager.handleComplete(projectId, prNumber, result);
         } finally {
           // Clean up in case we exit before runPRReview was called (e.g., cancelled during CI wait)
           // runPRReview also has its own cleanup, but delete is idempotent
@@ -1551,16 +2026,7 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
         prNumber,
         error: error instanceof Error ? error.message : error,
       });
-      const { sendError } = createIPCCommunicators<PRReviewProgress, PRReviewResult>(
-        mainWindow,
-        {
-          progress: IPC_CHANNELS.GITHUB_PR_REVIEW_PROGRESS,
-          error: IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR,
-          complete: IPC_CHANNELS.GITHUB_PR_REVIEW_COMPLETE,
-        },
-        projectId
-      );
-      sendError(error instanceof Error ? error.message : "Failed to run PR review");
+      prReviewStateManager.handleError(projectId, prNumber, error instanceof Error ? error.message : "Failed to run PR review");
     }
   });
 
@@ -1764,6 +2230,9 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
             debugLog("Review result file not found or unreadable, skipping update", { prNumber });
           }
 
+          // Send state update event to refresh UI immediately (non-blocking)
+          sendReviewStateUpdate(project, prNumber, projectId, prReviewStateManager, "after posting");
+
           return true;
         } catch (error) {
           debugLog("Failed to post review", {
@@ -1774,6 +2243,50 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
         }
       });
       return postResult ?? false;
+    }
+  );
+
+  // Mark review as posted (persists has_posted_findings to disk)
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_MARK_REVIEW_POSTED,
+    async (_, projectId: string, prNumber: number): Promise<boolean> => {
+      debugLog("markReviewPosted handler called", { projectId, prNumber });
+      const result = await withProjectOrNull(projectId, async (project) => {
+        try {
+          const reviewPath = path.join(getGitHubDir(project), "pr", `review_${prNumber}.json`);
+
+          // Read file directly without separate existence check to avoid TOCTOU race condition
+          // If file doesn't exist, readFileSync will throw ENOENT which we handle below
+          const rawData = fs.readFileSync(reviewPath, "utf-8");
+          // Sanitize data before parsing (review may contain data from GitHub API)
+          const sanitizedData = sanitizeNetworkData(rawData);
+          const data = JSON.parse(sanitizedData);
+
+          // Mark as posted
+          data.has_posted_findings = true;
+          data.posted_at = new Date().toISOString();
+
+          fs.writeFileSync(reviewPath, JSON.stringify(data, null, 2), "utf-8");
+          debugLog("Marked review as posted", { prNumber });
+
+          // Send state update event to refresh UI immediately (non-blocking)
+          sendReviewStateUpdate(project, prNumber, projectId, prReviewStateManager, "after marking posted");
+
+          return true;
+        } catch (error) {
+          // Handle file not found (ENOENT) separately for clearer logging
+          if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+            debugLog("Review file not found", { prNumber });
+            return false;
+          }
+          debugLog("Failed to mark review as posted", {
+            prNumber,
+            error: error instanceof Error ? error.message : error,
+          });
+          return false;
+        }
+      });
+      return result ?? false;
     }
   );
 
@@ -1873,6 +2386,9 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
             // File doesn't exist or couldn't be read - this is expected if review wasn't saved
             debugLog("Review result file not found or unreadable, skipping update", { prNumber });
           }
+
+          // Send state update event to refresh UI immediately (non-blocking)
+          sendReviewStateUpdate(project, prNumber, projectId, prReviewStateManager, "after deletion");
 
           return true;
         } catch (error) {
@@ -1984,6 +2500,8 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
           ciWaitAbortControllers.delete(reviewKey);
         }
         runningReviews.delete(reviewKey);
+        // Notify state manager of cancellation
+        prReviewStateManager.handleCancel(projectId, prNumber);
         debugLog("CI wait cancelled", { reviewKey });
         return true;
       }
@@ -2004,6 +2522,8 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
 
         // Clean up the registry
         runningReviews.delete(reviewKey);
+        // Notify state manager of cancellation
+        prReviewStateManager.handleCancel(projectId, prNumber);
         debugLog("Review process cancelled", { reviewKey });
         return true;
       } catch (error) {
@@ -2012,6 +2532,21 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
           error: error instanceof Error ? error.message : error,
         });
         return false;
+      }
+    }
+  );
+
+  // Notify main process about external review completion or timeout
+  // Called by renderer when its polling detects an external review has finished on disk
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_NOTIFY_EXTERNAL_REVIEW_COMPLETE,
+    async (_, projectId: string, prNumber: number, result: PRReviewResult | null): Promise<void> => {
+      debugLog("notifyExternalReviewComplete handler called", { projectId, prNumber, hasResult: !!result });
+      if (result) {
+        prReviewStateManager.handleComplete(projectId, prNumber, result);
+      } else {
+        // Timeout — no result found within polling window
+        prReviewStateManager.handleError(projectId, prNumber, "External review timed out after 30 minutes");
       }
     }
   );
@@ -2329,6 +2864,65 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
     }
   );
 
+  // Update PR branch (sync with base branch)
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_UPDATE_BRANCH,
+    async (_, projectId: string, prNumber: number): Promise<{ success: boolean; error?: string }> => {
+      debugLog("updateBranch handler called", { projectId, prNumber });
+
+      const updateResult = await withProjectOrNull(projectId, async (project) => {
+        try {
+          const { execFile } = await import("child_process");
+          const { promisify } = await import("util");
+          const execFileAsync = promisify(execFile);
+          debugLog("Updating PR branch", { prNumber });
+
+          // Validate prNumber to prevent command injection
+          if (!Number.isInteger(prNumber) || prNumber <= 0) {
+            throw new Error("Invalid PR number");
+          }
+
+          // Use gh pr update-branch to sync with base branch (async to avoid blocking main process)
+          // --rebase is not used to avoid force-push requirements
+          await execFileAsync("gh", ["pr", "update-branch", String(prNumber)], {
+            cwd: project.path,
+            env: getAugmentedEnv(),
+          });
+
+          debugLog("PR branch updated successfully", { prNumber });
+          return { success: true };
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          debugLog("Failed to update PR branch", { prNumber, error: errorMessage });
+
+          // Map common error patterns to user-friendly messages
+          let friendlyError = errorMessage;
+          if (errorMessage.includes("permission") || errorMessage.includes("403")) {
+            friendlyError = "You don't have permission to update this branch.";
+          } else if (errorMessage.includes("401") || errorMessage.toLowerCase().includes("auth") || errorMessage.toLowerCase().includes("token")) {
+            friendlyError = "Authentication failed. Try running 'gh auth login' to re-authenticate.";
+          } else if (errorMessage.includes("404") || errorMessage.includes("not found")) {
+            friendlyError = "Pull request not found. It may have been closed or deleted.";
+          } else if (errorMessage.includes("429") || errorMessage.toLowerCase().includes("rate limit")) {
+            friendlyError = "GitHub API rate limit exceeded. Please wait and try again.";
+          } else if (errorMessage.includes("conflict")) {
+            friendlyError = "Cannot update branch due to merge conflicts. Resolve conflicts manually.";
+          } else if (errorMessage.toLowerCase().includes("protected") || errorMessage.toLowerCase().includes("branch protection")) {
+            friendlyError = "Branch protection rules prevent this update.";
+          } else if (errorMessage.includes("ENOTFOUND") || errorMessage.includes("ECONNREFUSED") || errorMessage.includes("ETIMEDOUT")) {
+            friendlyError = "Network error. Check your internet connection and try again.";
+          } else if (errorMessage.toLowerCase().includes("already up to date")) {
+            return { success: true }; // Not an error
+          }
+
+          return { success: false, error: friendlyError };
+        }
+      });
+
+      return updateResult ?? { success: false, error: "Project not found" };
+    }
+  );
+
   // Run follow-up review
   ipcMain.on(
     IPC_CHANNELS.GITHUB_PR_FOLLOWUP_REVIEW,
@@ -2342,34 +2936,40 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
 
       try {
         await withProjectOrNull(projectId, async (project) => {
-          const { sendProgress, sendError, sendComplete } = createIPCCommunicators<
-            PRReviewProgress,
-            PRReviewResult
-          >(
-            mainWindow,
-            {
-              progress: IPC_CHANNELS.GITHUB_PR_REVIEW_PROGRESS,
-              error: IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR,
-              complete: IPC_CHANNELS.GITHUB_PR_REVIEW_COMPLETE,
-            },
-            projectId
-          );
+          const sendProgress = (progress: PRReviewProgress): void => {
+            prReviewStateManager.handleProgress(projectId, prNumber, progress);
+          };
+
+          const reviewKey = getReviewKey(projectId, prNumber);
+
+          // Check if already running — notify renderer so it can display ongoing logs
+          if (runningReviews.has(reviewKey)) {
+            debugLog("Follow-up review already running, notifying renderer", { reviewKey });
+            const currentSnapshot = prReviewStateManager.getState(projectId, prNumber);
+            const currentProgress = currentSnapshot?.context?.progress?.progress ?? 50;
+            sendProgress({
+              phase: "analyzing",
+              prNumber,
+              progress: currentProgress,
+              message: "Follow-up review is already in progress. Reconnecting to ongoing review...",
+            });
+            return;
+          }
+
+          // Get previous result for followup context
+          const previousResult = getReviewResult(project, prNumber) ?? undefined;
+
+          // Notify state manager that followup review is starting (after duplicate check)
+          prReviewStateManager.handleStartFollowupReview(projectId, prNumber, previousResult);
 
           // Comprehensive validation of GitHub module
           const validation = await validateGitHubModule(project);
           if (!validation.valid) {
-            sendError({ prNumber, error: validation.error || "GitHub module validation failed" });
+            prReviewStateManager.handleError(projectId, prNumber, validation.error || "GitHub module validation failed");
             return;
           }
 
           const backendPath = validation.backendPath!;
-          const reviewKey = getReviewKey(projectId, prNumber);
-
-          // Check if already running
-          if (runningReviews.has(reviewKey)) {
-            debugLog("Follow-up review already running", { reviewKey });
-            return;
-          }
 
           // Register as running BEFORE CI wait to prevent race conditions
           // Use CI_WAIT_PLACEHOLDER sentinel until real process is spawned
@@ -2417,12 +3017,39 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
 
           debugLog("Spawning follow-up review process", { args, model, thinkingLevel });
 
+          safeBreadcrumb({
+            category: 'pr-review',
+            message: 'Spawning follow-up PR review subprocess',
+            level: 'info',
+            data: {
+              pythonPath: getPythonPath(backendPath),
+              runnerPath: getRunnerPath(backendPath),
+              cwd: backendPath,
+              model,
+              thinkingLevel,
+              prNumber,
+            },
+          });
+
           // Create log collector for this follow-up review (config already declared above)
           const repo = config?.repo || project.name || "unknown";
-          const logCollector = new PRLogCollector(project, prNumber, repo, true);
+          const logCollector = new PRLogCollector(project, prNumber, repo, true, mainWindow);
 
           // Build environment with project settings
           const followupEnv = await getRunnerEnv(getClaudeMdEnv(project));
+
+          safeBreadcrumb({
+            category: 'github.pr-review',
+            message: `Subprocess env for PR #${prNumber} follow-up review`,
+            level: 'info',
+            data: {
+              prNumber,
+              hasGITHUB_CLI_PATH: !!followupEnv.GITHUB_CLI_PATH,
+              GITHUB_CLI_PATH: followupEnv.GITHUB_CLI_PATH ?? 'NOT SET',
+              hasGITHUB_TOKEN: !!followupEnv.GITHUB_TOKEN,
+              hasPYTHONPATH: !!followupEnv.PYTHONPATH,
+            },
+          });
 
           const { process: childProcess, promise } = runPythonSubprocess<PRReviewResult>({
             pythonPath: getPythonPath(backendPath),
@@ -2444,6 +3071,11 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
               logCollector.processLine(line);
             },
             onStderr: (line) => debugLog("STDERR:", line),
+            onAuthFailure: (authFailureInfo: AuthFailureInfo) => {
+              // Send auth failure to renderer to show modal
+              debugLog("Auth failure detected in follow-up PR review", authFailureInfo);
+              mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+            },
             onComplete: () => {
               // Load the result from disk
               const reviewResult = getReviewResult(project, prNumber);
@@ -2455,6 +3087,12 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
               });
               return reviewResult;
             },
+            // Register with OperationRegistry for proactive swap support
+            operationRegistration: {
+              operationId: `pr-followup-review:${reviewKey}`,
+              operationType: 'pr-review',
+              metadata: { projectId: project.id, prNumber, repo, isFollowup: true },
+            },
           });
 
           // Update registry with actual process (replacing placeholder)
@@ -2463,9 +3101,22 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
 
             const result = await promise;
 
+            safeBreadcrumb({
+              category: 'pr-review',
+              message: 'Follow-up PR review subprocess exited',
+              level: result.success ? 'info' : 'error',
+              data: { exitCode: result.exitCode, success: result.success, prNumber },
+            });
+
             if (!result.success) {
               // Finalize logs with failure
               logCollector.finalize(false);
+
+              safeCaptureException(
+                new Error(`Follow-up PR review subprocess failed: ${result.error ?? 'unknown error'}`),
+                { extra: { exitCode: result.exitCode, prNumber, stderr: sanitizeForSentry(result.stderr.slice(0, 500)) } }
+              );
+
               throw new Error(result.error ?? "Follow-up review failed");
             }
 
@@ -2488,7 +3139,8 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
               message: "Follow-up review complete!",
             });
 
-            sendComplete(result.data!);
+            // Route through state manager
+            prReviewStateManager.handleComplete(projectId, prNumber, result.data!);
           } finally {
             // Always clean up registry, whether we exit normally or via error
             runningReviews.delete(reviewKey);
@@ -2501,19 +3153,7 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
           prNumber,
           error: error instanceof Error ? error.message : error,
         });
-        const { sendError } = createIPCCommunicators<PRReviewProgress, PRReviewResult>(
-          mainWindow,
-          {
-            progress: IPC_CHANNELS.GITHUB_PR_REVIEW_PROGRESS,
-            error: IPC_CHANNELS.GITHUB_PR_REVIEW_ERROR,
-            complete: IPC_CHANNELS.GITHUB_PR_REVIEW_COMPLETE,
-          },
-          projectId
-        );
-        sendError({
-          prNumber,
-          error: error instanceof Error ? error.message : "Failed to run follow-up review",
-        });
+        prReviewStateManager.handleError(projectId, prNumber, error instanceof Error ? error.message : "Failed to run follow-up review");
       }
     }
   );
@@ -2767,6 +3407,92 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
         }
       });
       return result ?? [];
+    }
+  );
+
+  // ============================================================================
+  // PR Status Polling Handlers
+  // ============================================================================
+
+  // Initialize PRStatusPoller with main window getter for IPC updates
+  const prStatusPoller = getPRStatusPoller();
+  prStatusPoller.setMainWindowGetter(getMainWindow);
+
+  // Start polling PR status for a project
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_STATUS_POLL_START,
+    async (
+      _,
+      request: StartPollingRequest
+    ): Promise<{ success: boolean; error?: string }> => {
+      debugLog("startStatusPolling handler called", {
+        projectId: request.projectId,
+        prCount: request.prNumbers.length,
+      });
+
+      const result = await withProjectOrNull(request.projectId, async (project) => {
+        const config = getGitHubConfig(project);
+        if (!config) {
+          debugLog("No GitHub config found for project, cannot start polling");
+          return { success: false, error: "No GitHub configuration found" };
+        }
+
+        try {
+          await prStatusPoller.startPolling(
+            request.projectId,
+            request.prNumbers,
+            config.token
+          );
+          debugLog("Status polling started successfully", {
+            projectId: request.projectId,
+          });
+          return { success: true };
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Unknown error";
+          debugLog("Failed to start status polling", {
+            projectId: request.projectId,
+            error: message,
+          });
+          return { success: false, error: message };
+        }
+      });
+      return result ?? { success: false, error: "Project not found" };
+    }
+  );
+
+  // Stop polling PR status for a project
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_STATUS_POLL_STOP,
+    async (
+      _,
+      request: StopPollingRequest
+    ): Promise<{ success: boolean }> => {
+      debugLog("stopStatusPolling handler called", {
+        projectId: request.projectId,
+      });
+
+      try {
+        prStatusPoller.stopPolling(request.projectId);
+        debugLog("Status polling stopped successfully", {
+          projectId: request.projectId,
+        });
+        return { success: true };
+      } catch (error) {
+        debugLog("Failed to stop status polling", {
+          projectId: request.projectId,
+          error: error instanceof Error ? error.message : error,
+        });
+        return { success: false };
+      }
+    }
+  );
+
+  // Get current polling metadata for a project
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_STATUS_UPDATE,
+    async (_, projectId: string): Promise<PollingMetadata> => {
+      debugLog("getPollingMetadata handler called", { projectId });
+      return prStatusPoller.getPollingMetadata(projectId);
     }
   );
 

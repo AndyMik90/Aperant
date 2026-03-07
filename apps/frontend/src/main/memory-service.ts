@@ -19,6 +19,7 @@ const __dirname = path.dirname(__filename);
 import { findPythonCommand, parsePythonCommand } from './python-detector';
 import { getConfiguredPythonPath, pythonEnvManager } from './python-env-manager';
 import { getMemoriesDir } from './config-paths';
+import { isWindows } from './platform';
 import type { MemoryEpisode } from '../shared/types';
 
 interface MemoryServiceConfig {
@@ -141,7 +142,7 @@ function getBackendPythonPath(): string {
 
   for (const backendPath of possibleBackendPaths) {
     // Check for backend venv Python (has real_ladybug installed)
-    const venvPython = process.platform === 'win32'
+    const venvPython = isWindows()
       ? path.join(backendPath, '.venv', 'Scripts', 'python.exe')
       : path.join(backendPath, '.venv', 'bin', 'python');
 
@@ -202,6 +203,9 @@ async function executeQuery(
   const [pythonExe, baseArgs] = parsePythonCommand(pythonCmd);
 
   return new Promise((resolve) => {
+    // Promise guard flag to prevent double resolution
+    let resolved = false;
+
     const fullArgs = [...baseArgs, scriptPath, command, ...args];
 
     // Get Python environment (includes PYTHONPATH for bundled/venv packages)
@@ -219,14 +223,27 @@ async function executeQuery(
     let stderr = '';
 
     proc.stdout.on('data', (data) => {
-      stdout += data.toString();
+      stdout += data.toString('utf-8');
     });
 
     proc.stderr.on('data', (data) => {
-      stderr += data.toString();
+      stderr += data.toString('utf-8');
     });
 
+    // Single timeout mechanism to avoid race condition
+    const timeoutId = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        proc.kill();
+        resolve({ success: false, error: 'Query timed out' });
+      }
+    }, timeout);
+
     proc.on('close', (code) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(timeoutId);
+
       // The Python script outputs JSON to stdout (even for errors)
       // Always try to parse stdout first to get the actual error message
       if (stdout) {
@@ -253,14 +270,11 @@ async function executeQuery(
     });
 
     proc.on('error', (err) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(timeoutId);
       resolve({ success: false, error: err.message });
     });
-
-    // Handle timeout
-    setTimeout(() => {
-      proc.kill();
-      resolve({ success: false, error: 'Query timed out' });
-    }, timeout);
   });
 }
 
@@ -350,6 +364,9 @@ async function executeSemanticQuery(
   }
 
   return new Promise((resolve) => {
+    // Promise guard flag to prevent double resolution
+    let resolved = false;
+
     const fullArgs = [...baseArgs, scriptPath, 'semantic-search', ...args];
     const proc = spawn(pythonExe, fullArgs, {
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -361,14 +378,27 @@ async function executeSemanticQuery(
     let stderr = '';
 
     proc.stdout.on('data', (data) => {
-      stdout += data.toString();
+      stdout += data.toString('utf-8');
     });
 
     proc.stderr.on('data', (data) => {
-      stderr += data.toString();
+      stderr += data.toString('utf-8');
     });
 
+    // Single timeout mechanism to avoid race condition
+    const timeoutId = setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        proc.kill();
+        resolve({ success: false, error: 'Semantic search timed out' });
+      }
+    }, timeout);
+
     proc.on('close', (code) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(timeoutId);
+
       // The Python script outputs JSON to stdout (even for errors)
       if (stdout) {
         try {
@@ -392,13 +422,11 @@ async function executeSemanticQuery(
     });
 
     proc.on('error', (err) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(timeoutId);
       resolve({ success: false, error: err.message });
     });
-
-    setTimeout(() => {
-      proc.kill();
-      resolve({ success: false, error: 'Semantic search timed out' });
-    }, timeout);
   });
 }
 

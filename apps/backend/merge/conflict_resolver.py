@@ -17,6 +17,7 @@ import logging
 from .ai_resolver import AIResolver
 from .auto_merger import AutoMerger, MergeContext
 from .file_merger import apply_ai_merge, extract_location_content
+from .progress import MergeProgressCallback, MergeProgressStage
 from .types import (
     ConflictRegion,
     ConflictSeverity,
@@ -60,6 +61,7 @@ class ConflictResolver:
         baseline_content: str,
         task_snapshots: list[TaskSnapshot],
         conflicts: list[ConflictRegion],
+        progress_callback: MergeProgressCallback | None = None,
     ) -> MergeResult:
         """
         Resolve conflicts using AutoMerger and AIResolver.
@@ -69,6 +71,8 @@ class ConflictResolver:
             baseline_content: Original file content
             task_snapshots: Snapshots from all tasks modifying this file
             conflicts: List of detected conflicts
+            progress_callback: Optional callback for emitting per-conflict
+                resolution progress with details about current file and conflict count
 
         Returns:
             MergeResult with resolution details
@@ -78,8 +82,23 @@ class ConflictResolver:
         remaining: list[ConflictRegion] = []
         ai_calls = 0
         tokens_used = 0
+        total_conflicts = len(conflicts)
 
-        for conflict in conflicts:
+        for idx, conflict in enumerate(conflicts):
+            if progress_callback:
+                # Emit per-conflict progress within the resolving stage (50-75%)
+                # Calculate progress after processing (idx + 1) to reach 75% on last conflict
+                conflict_percent = 50 + int(((idx + 1) / max(total_conflicts, 1)) * 25)
+                progress_callback(
+                    stage=MergeProgressStage.RESOLVING,
+                    percent=conflict_percent,
+                    message=f"Resolving conflict {idx + 1}/{total_conflicts} in {file_path}",
+                    details={
+                        "current_file": file_path,
+                        "conflicts_found": total_conflicts,
+                        "conflicts_resolved": len(resolved),
+                    },
+                )
             # Try auto-merge first
             if conflict.can_auto_merge and conflict.merge_strategy:
                 context = MergeContext(

@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 
 # Add auto-claude directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 from critique import (
     generate_critique_prompt,
@@ -22,7 +22,7 @@ from critique import (
     format_critique_summary,
     CritiqueResult,
 )
-from implementation_plan import Chunk, ChunkStatus, Verification, VerificationType
+from implementation_plan import Subtask, SubtaskStatus, Verification, VerificationType
 
 
 def test_critique_data_structures():
@@ -134,14 +134,14 @@ def test_critique_response_parsing():
 
 
 def test_implementation_plan_integration():
-    """Test integration with implementation_plan.py Chunk class."""
+    """Test integration with implementation_plan.py Subtask class."""
     print("\nTesting implementation plan integration...")
 
     # Create a chunk with critique result
-    chunk = Chunk(
+    chunk = Subtask(
         id="test-chunk",
         description="Test chunk with critique",
-        status=ChunkStatus.PENDING,
+        status=SubtaskStatus.PENDING,
         service="backend",
         files_to_modify=["app/test.py"],
     )
@@ -161,7 +161,7 @@ def test_implementation_plan_integration():
     assert chunk_dict["critique_result"]["passes"] == True
 
     # Test deserialization
-    chunk2 = Chunk.from_dict(chunk_dict)
+    chunk2 = Subtask.from_dict(chunk_dict)
     assert chunk2.critique_result is not None
     assert chunk2.critique_result["passes"] == True
     assert len(chunk2.critique_result["improvements_made"]) == 1
@@ -218,7 +218,7 @@ def test_complete_workflow():
     assert "Subtask is ready to be marked complete" in summary
 
     # 7. Store in chunk
-    chunk_obj = Chunk(
+    chunk_obj = Subtask(
         id=chunk["id"],
         description=chunk["description"],
         service=chunk["service"],
@@ -286,7 +286,7 @@ def main():
         print("\nKey components:")
         print("  - critique.py: Core critique logic")
         print("  - prompts/coder.md: Updated with STEP 6.5 (mandatory critique)")
-        print("  - implementation_plan.py: Chunk.critique_result field added")
+        print("  - implementation_plan.py: Subtask.critique_result field added")
 
     except AssertionError as e:
         print(f"\n✗ Test failed: {e}")

@@ -22,4 +22,10 @@ export interface AppUpdateAvailableEvent {
 
 export interface AppUpdateDownloadedEvent {
   version: string;
+  releaseNotes?: string;
+  releaseDate?: string;
+}
+
+export interface AppUpdateErrorEvent {
+  message: string;
 }

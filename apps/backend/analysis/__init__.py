@@ -23,7 +23,8 @@ from .ci_discovery import CIDiscovery
 from .project_analyzer import ProjectAnalyzer
 from .risk_classifier import RiskClassifier
 from .security_scanner import SecurityScanner
-from .test_discovery import TestDiscovery
+
+# TestDiscovery was removed - tests are now co-located in their respective modules
 
 # insight_extractor is a module with functions, not a class, so don't import it here
 # Import it directly when needed: from analysis import insight_extractor
@@ -37,5 +38,5 @@ __all__ = [
     "RiskClassifier",
     "SecurityScanner",
     "CIDiscovery",
-    "TestDiscovery",
+    # "TestDiscovery",  # Removed - tests now co-located in their modules
 ]

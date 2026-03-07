@@ -6,13 +6,11 @@ Tests the full PR review flow with mocked external dependencies.
 These tests validate the integration between components.
 """
 
-import asyncio
 import json
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
-from dataclasses import dataclass
+from unittest.mock import patch
 
 import pytest
 
@@ -441,7 +439,8 @@ class TestReviewLifecycleE2E:
         assert loaded.has_posted_findings is True
 
         # Step 3: Contributor fixes the issue, new commit
-        followup_context = FollowupReviewContext(
+        # Note: Context shown for documentation; test validates result persistence
+        _followup_context = FollowupReviewContext(
             pr_number=42,
             previous_review=loaded,
             previous_commit_sha="commit_1",

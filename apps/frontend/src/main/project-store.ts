@@ -1,11 +1,15 @@
 import { app } from 'electron';
-import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, Dirent } from 'fs';
+import { readFileSync, existsSync, mkdirSync, readdirSync, Dirent } from 'fs';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, ImplementationPlan, ReviewReason, PlanSubtask } from '../shared/types';
-import { DEFAULT_PROJECT_SETTINGS, AUTO_BUILD_PATHS, getSpecsDir, JSON_ERROR_PREFIX, JSON_ERROR_TITLE_SUFFIX } from '../shared/constants';
+import type { Project, ProjectSettings, Task, TaskStatus, TaskMetadata, ImplementationPlan, ReviewReason, PlanSubtask, KanbanPreferences, ExecutionPhase } from '../shared/types';
+import { DEFAULT_PROJECT_SETTINGS, AUTO_BUILD_PATHS, getSpecsDir, JSON_ERROR_PREFIX, JSON_ERROR_TITLE_SUFFIX, TASK_STATUS_PRIORITY } from '../shared/constants';
 import { getAutoBuildPath, isInitialized } from './project-initializer';
 import { getTaskWorktreeDir } from './worktree-paths';
+import { findAllSpecPaths } from './utils/spec-path-helpers';
+import { ensureAbsolutePath } from './utils/path-helpers';
+import { writeFileAtomicSync } from './utils/atomic-file';
+import { updateRoadmapFeatureOutcome, revertRoadmapFeatureOutcome } from './utils/roadmap-utils';
 
 interface TabState {
   openProjectIds: string[];
@@ -17,6 +21,7 @@ interface StoreData {
   projects: Project[];
   settings: Record<string, unknown>;
   tabState?: TabState;
+  kanbanPreferences?: Record<string, KanbanPreferences>;
 }
 
 interface TasksCacheEntry {
@@ -55,9 +60,11 @@ export class ProjectStore {
       try {
         const content = readFileSync(this.storePath, 'utf-8');
         const data = JSON.parse(content);
-        // Convert date strings back to Date objects
+        // Convert date strings back to Date objects and normalize paths to absolute
         data.projects = data.projects.map((p: Project) => ({
           ...p,
+          // Ensure project.path is always absolute (critical for dev mode path resolution)
+          path: ensureAbsolutePath(p.path),
           createdAt: new Date(p.createdAt),
           updatedAt: new Date(p.updatedAt)
         }));
@@ -73,15 +80,19 @@ export class ProjectStore {
    * Save store to disk
    */
   private save(): void {
-    writeFileSync(this.storePath, JSON.stringify(this.data, null, 2));
+    writeFileAtomicSync(this.storePath, JSON.stringify(this.data, null, 2));
   }
 
   /**
    * Add a new project
    */
   addProject(projectPath: string, name?: string): Project {
-    // Check if project already exists
-    const existing = this.data.projects.find((p) => p.path === projectPath);
+    // CRITICAL: Normalize to absolute path for dev mode compatibility
+    // This prevents path resolution issues after app restart
+    const absolutePath = ensureAbsolutePath(projectPath);
+
+    // Check if project already exists (using absolute path for comparison)
+    const existing = this.data.projects.find((p) => p.path === absolutePath);
     if (existing) {
       // Validate that .auto-claude folder still exists for existing project
       // If manually deleted, reset autoBuildPath so UI prompts for reinitialization
@@ -95,15 +106,15 @@ export class ProjectStore {
     }
 
     // Derive name from path if not provided
-    const projectName = name || path.basename(projectPath);
+    const projectName = name || path.basename(absolutePath);
 
     // Determine auto-claude path (supports both 'auto-claude' and '.auto-claude')
-    const autoBuildPath = getAutoBuildPath(projectPath) || '';
+    const autoBuildPath = getAutoBuildPath(absolutePath) || '';
 
     const project: Project = {
       id: uuidv4(),
       name: projectName,
-      path: projectPath,
+      path: absolutePath, // Store absolute path
       autoBuildPath,
       settings: { ...DEFAULT_PROJECT_SETTINGS },
       createdAt: new Date(),
@@ -136,6 +147,10 @@ export class ProjectStore {
     const index = this.data.projects.findIndex((p) => p.id === projectId);
     if (index !== -1) {
       this.data.projects.splice(index, 1);
+      // Clean up kanban preferences to avoid orphaned data
+      if (this.data.kanbanPreferences?.[projectId]) {
+        delete this.data.kanbanPreferences[projectId];
+      }
       this.save();
       return true;
     }
@@ -173,7 +188,24 @@ export class ProjectStore {
         : null,
       tabOrder: tabState.tabOrder.filter(id => validProjectIds.includes(id))
     };
-    console.log('[ProjectStore] Saving tab state:', this.data.tabState);
+    this.save();
+  }
+
+  /**
+   * Get kanban column preferences for a specific project
+   */
+  getKanbanPreferences(projectId: string): KanbanPreferences | null {
+    return this.data.kanbanPreferences?.[projectId] ?? null;
+  }
+
+  /**
+   * Save kanban column preferences for a specific project
+   */
+  saveKanbanPreferences(projectId: string, preferences: KanbanPreferences): void {
+    if (!this.data.kanbanPreferences) {
+      this.data.kanbanPreferences = {};
+    }
+    this.data.kanbanPreferences[projectId] = preferences;
     this.save();
   }
 
@@ -251,21 +283,13 @@ export class ProjectStore {
     const now = Date.now();
 
     if (cached && (now - cached.timestamp) < this.CACHE_TTL_MS) {
-      console.debug('[ProjectStore] Returning cached tasks for project:', projectId, '(age:', now - cached.timestamp, 'ms)');
       return cached.tasks;
     }
 
-    console.warn('[ProjectStore] getTasks called - will load from disk', {
-      projectId,
-      reason: cached ? 'cache expired' : 'cache miss',
-      cacheAge: cached ? now - cached.timestamp : 'N/A'
-    });
     const project = this.getProject(projectId);
     if (!project) {
-      console.warn('[ProjectStore] Project not found for id:', projectId);
       return [];
     }
-    console.warn('[ProjectStore] Found project:', project.name, 'autoBuildPath:', project.autoBuildPath, 'path:', project.path);
 
     const allTasks: Task[] = [];
     const specsBaseDir = getSpecsDir(project.autoBuildPath);
@@ -273,13 +297,11 @@ export class ProjectStore {
     // 1. Scan main project specs directory (source of truth for task existence)
     const mainSpecsDir = path.join(project.path, specsBaseDir);
     const mainSpecIds = new Set<string>();
-    console.warn('[ProjectStore] Main specsDir:', mainSpecsDir, 'exists:', existsSync(mainSpecsDir));
     if (existsSync(mainSpecsDir)) {
       const mainTasks = this.loadTasksFromSpecsDir(mainSpecsDir, project.path, 'main', projectId, specsBaseDir);
       allTasks.push(...mainTasks);
       // Track which specs exist in main project
       mainTasks.forEach(t => mainSpecIds.add(t.specId));
-      console.warn('[ProjectStore] Loaded', mainTasks.length, 'tasks from main project');
     }
 
     // 2. Scan worktree specs directories
@@ -304,8 +326,6 @@ export class ProjectStore {
             // Only include worktree tasks if the spec exists in main project
             const validWorktreeTasks = worktreeTasks.filter(t => mainSpecIds.has(t.specId));
             allTasks.push(...validWorktreeTasks);
-            const skipped = worktreeTasks.length - validWorktreeTasks.length;
-            console.debug('[ProjectStore] Loaded', validWorktreeTasks.length, 'tasks from worktree:', worktree.name, skipped > 0 ? `(skipped ${skipped} orphaned)` : '');
           }
         }
       } catch (error) {
@@ -313,21 +333,41 @@ export class ProjectStore {
       }
     }
 
-    // 3. Deduplicate tasks by ID (prefer worktree version if exists in both)
+    // 3. Deduplicate tasks by ID
+    // CRITICAL FIX: Don't blindly prefer worktree - it may be stale!
+    // If main project task is "done", it should win over worktree's "in_progress".
+    // Worktrees can linger after completion, containing outdated task data.
     const taskMap = new Map<string, Task>();
     for (const task of allTasks) {
       const existing = taskMap.get(task.id);
-      if (!existing || task.location === 'worktree') {
+      if (!existing) {
+        // First occurrence wins
         taskMap.set(task.id, task);
+      } else {
+        // PREFER MAIN PROJECT over worktree - main has current user changes
+        // Only use status priority when both are from same location
+        const existingIsMain = existing.location === 'main';
+        const newIsMain = task.location === 'main';
+
+        if (existingIsMain && !newIsMain) {
+        } else if (!existingIsMain && newIsMain) {
+          // New is main, replace existing worktree
+          taskMap.set(task.id, task);
+        } else {
+          // Same location - use status priority to determine which is more complete
+          const existingPriority = TASK_STATUS_PRIORITY[existing.status] || 0;
+          const newPriority = TASK_STATUS_PRIORITY[task.status] || 0;
+
+          if (newPriority > existingPriority) {
+            // New version has higher priority (more complete status)
+            taskMap.set(task.id, task);
+          }
+          // Otherwise keep existing version
+        }
       }
     }
 
     const tasks = Array.from(taskMap.values());
-    console.warn('[ProjectStore] Scan complete - found', tasks.length, 'unique tasks', {
-      mainTasks: allTasks.filter(t => t.location === 'main').length,
-      worktreeTasks: allTasks.filter(t => t.location === 'worktree').length,
-      deduplicated: allTasks.length - tasks.length
-    });
 
     // Update cache
     this.tasksCache.set(projectId, { tasks, timestamp: now });
@@ -341,7 +381,6 @@ export class ProjectStore {
    */
   invalidateTasksCache(projectId: string): void {
     this.tasksCache.delete(projectId);
-    console.debug('[ProjectStore] Invalidated tasks cache for project:', projectId);
   }
 
   /**
@@ -350,7 +389,6 @@ export class ProjectStore {
    */
   clearTasksCache(): void {
     this.tasksCache.clear();
-    console.debug('[ProjectStore] Cleared all tasks cache');
   }
 
   /**
@@ -358,10 +396,10 @@ export class ProjectStore {
    */
   private loadTasksFromSpecsDir(
     specsDir: string,
-    basePath: string,
+    _basePath: string,
     location: 'main' | 'worktree',
     projectId: string,
-    specsBaseDir: string
+    _specsBaseDir: string
   ): Task[] {
     const tasks: Task[] = [];
     let specDirs: Dirent[] = [];
@@ -387,25 +425,15 @@ export class ProjectStore {
         let hasJsonError = false;
         let jsonErrorMessage = '';
         if (existsSync(planPath)) {
-          console.warn(`[ProjectStore] Loading implementation_plan.json for spec: ${dir.name} from ${location}`);
           try {
             const content = readFileSync(planPath, 'utf-8');
             plan = JSON.parse(content);
-            console.warn(`[ProjectStore] Loaded plan for ${dir.name}:`, {
-              hasDescription: !!plan?.description,
-              hasFeature: !!plan?.feature,
-              status: plan?.status,
-              phaseCount: plan?.phases?.length || 0,
-              subtaskCount: plan?.phases?.flatMap(p => p.subtasks || []).length || 0
-            });
           } catch (err) {
             // Don't skip - create task with error indicator so user knows it exists
             hasJsonError = true;
             jsonErrorMessage = err instanceof Error ? err.message : String(err);
             console.error(`[ProjectStore] JSON parse error for spec ${dir.name}:`, jsonErrorMessage);
           }
-        } else {
-          console.warn(`[ProjectStore] No implementation_plan.json found for spec: ${dir.name} at ${planPath}`);
         }
 
         // PRIORITY 1: Read description from implementation_plan.json (user's original)
@@ -467,7 +495,7 @@ export class ProjectStore {
         // Tasks with JSON errors go to human_review with errors reason
         const { status: finalStatus, reviewReason: finalReviewReason } = hasJsonError
           ? { status: 'human_review' as TaskStatus, reviewReason: 'errors' as ReviewReason }
-          : this.determineTaskStatusAndReason(plan, specPath, metadata);
+          : this.determineTaskStatusAndReason(plan);
 
         // Extract subtasks from plan (handle both 'subtasks' and 'chunks' naming)
         const subtasks = plan?.phases?.flatMap((phase) => {
@@ -480,6 +508,13 @@ export class ProjectStore {
             files: []
           }));
         }) || [];
+
+        // Auto-correct status to human_review if all subtasks are completed
+        // This handles cases where task completed but app restarted before XState persisted the status
+        // (e.g., QA_PASSED event emitted but not processed before shutdown)
+        const { status: correctedStatus, reviewReason: correctedReviewReason } = this.correctStaleTaskStatus(
+          subtasks, hasJsonError, finalStatus, finalReviewReason, plan, planPath, dir.name
+        );
 
         // Extract staged status from plan (set when changes are merged with --no-commit)
         const planWithStaged = plan as unknown as { stagedInMainProject?: boolean; stagedAt?: string } | null;
@@ -498,7 +533,7 @@ export class ProjectStore {
             // "# Specification: Title" -> "Title"
             // "# Title" -> "Title"
             const titleMatch = specContent.match(/^#\s+(?:Quick Spec:|Specification:)?\s*(.+)$/m);
-            if (titleMatch && titleMatch[1]) {
+            if (titleMatch?.[1]) {
               title = titleMatch[1].trim();
             }
           } catch {
@@ -506,17 +541,28 @@ export class ProjectStore {
           }
         }
 
+        // Use persisted executionPhase (from text parser) or xstateState for exact restoration
+        // Priority: executionPhase > xstateState > inferred from status
+        const persistedPhase = (plan as { executionPhase?: string } | null)?.executionPhase as ExecutionPhase | undefined;
+        const xstateState = (plan as { xstateState?: string } | null)?.xstateState;
+        const executionProgress = persistedPhase
+          ? { phase: persistedPhase, phaseProgress: 50, overallProgress: 50 }
+          : xstateState
+            ? this.inferExecutionProgressFromXState(xstateState)
+            : this.inferExecutionProgress(plan?.status);
+
         tasks.push({
           id: dir.name, // Use spec directory name as ID
           specId: dir.name,
           projectId,
           title,
           description: finalDescription,
-          status: finalStatus,
+          status: correctedStatus,
           subtasks,
           logs: [],
           metadata,
-          ...(finalReviewReason !== undefined && { reviewReason: finalReviewReason }),
+          ...(correctedReviewReason !== undefined && { reviewReason: correctedReviewReason }),
+          ...(executionProgress && { executionProgress }),
           stagedInMainProject,
           stagedAt,
           location, // Add location metadata (main vs worktree)
@@ -534,194 +580,177 @@ export class ProjectStore {
   }
 
   /**
-   * Determine task status and review reason based on plan and files.
+   * Correct stale task status when all subtasks are completed but status wasn't persisted.
+   * Extracted from loadTasksFromSpecsDir to keep read/write separation clear.
    *
-   * This method calculates the correct status from subtask progress and QA state,
-   * providing backwards compatibility for existing tasks with incorrect status.
+   * NOTE: This method intentionally writes to implementation_plan.json to persist the
+   * correction and prevent repeated auto-corrections on every getTasks() call. The plan
+   * object is NOT mutated unless the write succeeds, preserving memory/disk consistency.
+   */
+  private correctStaleTaskStatus(
+    subtasks: { status: string }[],
+    hasJsonError: boolean,
+    finalStatus: TaskStatus,
+    finalReviewReason: ReviewReason | undefined,
+    plan: ImplementationPlan | null,
+    planPath: string,
+    taskName: string
+  ): { status: TaskStatus; reviewReason: ReviewReason | undefined } {
+    if (subtasks.length === 0 || hasJsonError) {
+      return { status: finalStatus, reviewReason: finalReviewReason };
+    }
+
+    const completedCount = subtasks.filter(s => s.status === 'completed').length;
+    const allCompleted = completedCount === subtasks.length;
+
+    // Only auto-correct if all subtasks are done and status is in an incomplete coding state.
+    // Preserve ai_review (QA in progress), error (needs investigation), human_review, done, pr_created.
+    if (!allCompleted || finalStatus === 'human_review' || finalStatus === 'done' || finalStatus === 'pr_created' || finalStatus === 'ai_review' || finalStatus === 'error') {
+      return { status: finalStatus, reviewReason: finalReviewReason };
+    }
+
+    // Skip auto-correction if plan was recently updated (backend may still be writing)
+    if (plan?.updated_at) {
+      const updatedAt = new Date(plan.updated_at).getTime();
+      const ageMs = Date.now() - updatedAt;
+      if (ageMs < 30_000) {
+        return { status: finalStatus, reviewReason: finalReviewReason };
+      }
+    }
+
+    console.warn(`[ProjectStore] Auto-correcting task ${taskName}: all ${subtasks.length} subtasks completed but status was ${finalStatus}. Setting to human_review.`);
+
+    if (plan) {
+      // Clone before mutation — only apply to the original plan object if the write succeeds
+      const correctedPlan = {
+        ...plan,
+        status: 'human_review' as const,
+        planStatus: 'review',
+        reviewReason: 'completed' as ReviewReason,
+        updated_at: new Date().toISOString(),
+        xstateState: 'human_review',
+        executionPhase: 'complete'
+      };
+      try {
+        // Atomic write to prevent 0-byte corruption on crash
+        writeFileAtomicSync(planPath, JSON.stringify(correctedPlan, null, 2));
+        // Write succeeded — apply mutations to the in-memory plan so the rest of
+        // loadTasksFromSpecsDir sees the corrected values (e.g., executionProgress)
+        Object.assign(plan, correctedPlan);
+        console.warn(`[ProjectStore] Persisted corrected status for task ${taskName}`);
+      } catch (writeError) {
+        // Write failed — leave the plan object unchanged and return the original status
+        // so there's no memory/disk inconsistency
+        console.error(`[ProjectStore] Failed to persist corrected status for task ${taskName}:`, writeError);
+        return { status: finalStatus, reviewReason: finalReviewReason };
+      }
+    }
+
+    return { status: 'human_review', reviewReason: 'completed' };
+  }
+
+  /**
+   * Determine task status and review reason from the plan file.
    *
-   * Review reasons:
-   * - 'completed': All subtasks done, QA passed - ready for merge
-   * - 'errors': Subtasks failed during execution - needs attention
-   * - 'qa_rejected': QA found issues that need fixing
+   * With the XState refactor, status and reviewReason are authoritative fields
+   * written by the TaskStateManager. The renderer should not recompute status
+   * from subtasks or QA files.
    */
   private determineTaskStatusAndReason(
-    plan: ImplementationPlan | null,
-    specPath: string,
-    metadata?: TaskMetadata
+    plan: ImplementationPlan | null
   ): { status: TaskStatus; reviewReason?: ReviewReason } {
-    // Handle both 'subtasks' and 'chunks' naming conventions, filter out undefined
-    const allSubtasks = plan?.phases?.flatMap((p) => p.subtasks || (p as { chunks?: PlanSubtask[] }).chunks || []).filter(Boolean) || [];
-
-    let calculatedStatus: TaskStatus = 'backlog';
-    let reviewReason: ReviewReason | undefined;
-
-    if (allSubtasks.length > 0) {
-      const completed = allSubtasks.filter((s) => s.status === 'completed').length;
-      const inProgress = allSubtasks.filter((s) => s.status === 'in_progress').length;
-      const failed = allSubtasks.filter((s) => s.status === 'failed').length;
-
-      if (completed === allSubtasks.length) {
-        // All subtasks completed - check QA status
-        const qaSignoff = (plan as unknown as Record<string, unknown>)?.qa_signoff as { status?: string } | undefined;
-        if (qaSignoff?.status === 'approved') {
-          calculatedStatus = 'human_review';
-          reviewReason = 'completed';
-        } else {
-          // Manual tasks skip AI review and go directly to human review
-          calculatedStatus = metadata?.sourceType === 'manual' ? 'human_review' : 'ai_review';
-          if (metadata?.sourceType === 'manual') {
-            reviewReason = 'completed';
-          }
-        }
-      } else if (failed > 0) {
-        // Some subtasks failed - needs human attention
-        calculatedStatus = 'human_review';
-        reviewReason = 'errors';
-      } else if (inProgress > 0 || completed > 0) {
-        calculatedStatus = 'in_progress';
-      }
+    if (!plan?.status) {
+      return { status: 'backlog' };
     }
 
-    // FIRST: Check for explicit user-set status from plan (takes highest priority)
-    // This allows users to manually mark tasks as 'done' via drag-and-drop
-    if (plan?.status) {
-      const statusMap: Record<string, TaskStatus> = {
-        'pending': 'backlog',
-        'planning': 'in_progress', // Task is in planning phase (spec creation running)
-        'in_progress': 'in_progress',
-        'coding': 'in_progress', // Task is in coding phase
-        'review': 'ai_review',
-        'completed': 'done',
-        'done': 'done',
-        'human_review': 'human_review',
-        'ai_review': 'ai_review',
-        'pr_created': 'pr_created', // PR has been created for this task
-        'backlog': 'backlog'
-      };
-      const storedStatus = statusMap[plan.status];
+    const statusMap: Record<string, TaskStatus> = {
+      'pending': 'backlog',
+      'planning': 'in_progress',
+      'in_progress': 'in_progress',
+      'coding': 'in_progress',
+      'review': 'ai_review',
+      'completed': 'done',
+      'done': 'done',
+      'human_review': 'human_review',
+      'ai_review': 'ai_review',
+      'pr_created': 'pr_created',
+      'backlog': 'backlog',
+      'error': 'error',
+      'queue': 'queue',
+      'queued': 'queue'
+    };
 
-      // If user explicitly marked as 'done', always respect that
-      if (storedStatus === 'done') {
-        return { status: 'done' };
-      }
+    const storedStatus = statusMap[plan.status] || 'backlog';
+    const reviewReason = storedStatus === 'human_review' ? plan.reviewReason : undefined;
 
-      // If task has a PR created, always respect that status
-      if (storedStatus === 'pr_created') {
-        return { status: 'pr_created' };
-      }
-
-      // For other stored statuses, validate against calculated status
-      if (storedStatus) {
-        // Planning/coding status from the backend should be respected even if subtasks aren't in progress yet
-        // This happens when a task is in planning phase (creating spec) but no subtasks have been started
-        const isActiveProcessStatus = (plan.status as string) === 'planning' || (plan.status as string) === 'coding' || (plan.status as string) === 'in_progress';
-
-        // Check if this is a plan review (spec approval stage before coding starts)
-        // planStatus: "review" indicates spec creation is complete and awaiting user approval
-        const isPlanReviewStage = (plan as unknown as { planStatus?: string })?.planStatus === 'review';
-
-        // Determine if there is remaining work to do
-        // True if: no subtasks exist yet (planning in progress) OR some subtasks are incomplete
-        // This prevents 'in_progress' from overriding 'human_review' when all work is done
-        const hasRemainingWork = allSubtasks.length === 0 || allSubtasks.some((s) => s.status !== 'completed');
-
-        const isStoredStatusValid =
-          (storedStatus === calculatedStatus) || // Matches calculated
-          (storedStatus === 'human_review' && (calculatedStatus === 'ai_review' || calculatedStatus === 'in_progress')) || // Human review is more advanced than ai_review or in_progress (fixes status loop bug)
-          (storedStatus === 'human_review' && isPlanReviewStage) || // Plan review stage (awaiting spec approval)
-          (isActiveProcessStatus && storedStatus === 'in_progress' && hasRemainingWork); // Planning/coding phases should show as in_progress ONLY when there's remaining work
-
-        if (isStoredStatusValid) {
-          // Preserve reviewReason for human_review status
-          if (storedStatus === 'human_review' && !reviewReason) {
-            // Infer reason from subtask states or plan review stage
-            const hasFailedSubtasks = allSubtasks.some((s) => s.status === 'failed');
-            const allCompleted = allSubtasks.length > 0 && allSubtasks.every((s) => s.status === 'completed');
-            if (hasFailedSubtasks) {
-              reviewReason = 'errors';
-            } else if (allCompleted) {
-              reviewReason = 'completed';
-            } else if (isPlanReviewStage) {
-              reviewReason = 'plan_review';
-            }
-          }
-          return { status: storedStatus, reviewReason: storedStatus === 'human_review' ? reviewReason : undefined };
-        }
-      }
-    }
-
-    // SECOND: Check QA report file for additional status info
-    const qaReportPath = path.join(specPath, AUTO_BUILD_PATHS.QA_REPORT);
-    if (existsSync(qaReportPath)) {
-      try {
-        const content = readFileSync(qaReportPath, 'utf-8');
-        if (content.includes('REJECTED') || content.includes('FAILED')) {
-          return { status: 'human_review', reviewReason: 'qa_rejected' };
-        }
-        if (content.includes('PASSED') || content.includes('APPROVED')) {
-          // QA passed - if all subtasks done, move to human_review
-          if (allSubtasks.length > 0 && allSubtasks.every((s) => s.status === 'completed')) {
-            return { status: 'human_review', reviewReason: 'completed' };
-          }
-        }
-      } catch {
-        // Ignore read errors
-      }
-    }
-
-    return { status: calculatedStatus, reviewReason: calculatedStatus === 'human_review' ? reviewReason : undefined };
+    return { status: storedStatus, reviewReason };
   }
 
   /**
-   * Validate taskId to prevent path traversal attacks
-   * Returns true if taskId is safe to use in path operations
+   * Infer execution progress from plan status for XState snapshot restoration.
+   * Maps plan status values to ExecutionPhase so buildSnapshotFromTask can
+   * correctly determine the XState state (planning vs coding vs qa_review, etc.).
    */
-  private isValidTaskId(taskId: string): boolean {
-    // Reject empty, null/undefined, or strings with path traversal characters
-    if (!taskId || typeof taskId !== 'string') return false;
-    if (taskId.includes('/') || taskId.includes('\\')) return false;
-    if (taskId === '.' || taskId === '..') return false;
-    if (taskId.includes('\0')) return false; // Null byte injection
-    return true;
+  private inferExecutionProgress(planStatus: string | undefined): { phase: ExecutionPhase; phaseProgress: number; overallProgress: number } | undefined {
+    if (!planStatus) return undefined;
+
+    // Map plan status to execution phase
+    const phaseMap: Record<string, ExecutionPhase> = {
+      'pending': 'idle',
+      'backlog': 'idle',
+      'queue': 'idle',
+      'queued': 'idle',
+      'planning': 'planning',
+      'coding': 'coding',
+      'in_progress': 'coding', // Default in_progress to coding
+      'review': 'qa_review',
+      'ai_review': 'qa_review',
+      'qa_review': 'qa_review',
+      'qa_fixing': 'qa_fixing',
+      'human_review': 'complete',
+      'completed': 'complete',
+      'done': 'complete',
+      'error': 'failed'
+    };
+
+    const phase = phaseMap[planStatus];
+    if (!phase) return undefined;
+
+    return {
+      phase,
+      phaseProgress: 50,
+      overallProgress: 50
+    };
   }
 
   /**
-   * Find ALL spec paths for a task, checking main directory and worktrees
-   * A task can exist in multiple locations (main + worktree), so return all paths
+   * Infer execution progress from persisted XState state.
+   * This is more precise than inferring from plan status since it uses the exact machine state.
    */
-  private findAllSpecPaths(projectPath: string, specsBaseDir: string, taskId: string): string[] {
-    // Validate taskId to prevent path traversal
-    if (!this.isValidTaskId(taskId)) {
-      console.error(`[ProjectStore] findAllSpecPaths: Invalid taskId rejected: ${taskId}`);
-      return [];
-    }
+  private inferExecutionProgressFromXState(xstateState: string): { phase: ExecutionPhase; phaseProgress: number; overallProgress: number } | undefined {
+    // Map XState state directly to execution phase
+    const phaseMap: Record<string, ExecutionPhase> = {
+      'backlog': 'idle',
+      'planning': 'planning',
+      'plan_review': 'planning',
+      'coding': 'coding',
+      'qa_review': 'qa_review',
+      'qa_fixing': 'qa_fixing',
+      'human_review': 'complete',
+      'error': 'failed',
+      'creating_pr': 'complete',
+      'pr_created': 'complete',
+      'done': 'complete'
+    };
 
-    const paths: string[] = [];
+    const phase = phaseMap[xstateState];
+    if (!phase) return undefined;
 
-    // 1. Check main specs directory
-    const mainSpecPath = path.join(projectPath, specsBaseDir, taskId);
-    if (existsSync(mainSpecPath)) {
-      paths.push(mainSpecPath);
-    }
-
-    // 2. Check worktrees
-    const worktreesDir = getTaskWorktreeDir(projectPath);
-    if (existsSync(worktreesDir)) {
-      try {
-        const worktrees = readdirSync(worktreesDir, { withFileTypes: true });
-        for (const worktree of worktrees) {
-          if (!worktree.isDirectory()) continue;
-          const worktreeSpecPath = path.join(worktreesDir, worktree.name, specsBaseDir, taskId);
-          if (existsSync(worktreeSpecPath)) {
-            paths.push(worktreeSpecPath);
-          }
-        }
-      } catch {
-        // Ignore errors reading worktrees
-      }
-    }
-
-    return paths;
+    return {
+      phase,
+      phaseProgress: phase === 'complete' ? 100 : 50,
+      overallProgress: phase === 'complete' ? 100 : 50
+    };
   }
 
   /**
@@ -743,11 +772,10 @@ export class ProjectStore {
 
     for (const taskId of taskIds) {
       // Find ALL locations where this task exists (main + worktrees)
-      const specPaths = this.findAllSpecPaths(project.path, specsBaseDir, taskId);
+      const specPaths = findAllSpecPaths(project.path, specsBaseDir, taskId);
 
       // If spec directory doesn't exist anywhere, skip gracefully
       if (specPaths.length === 0) {
-        console.log(`[ProjectStore] archiveTasks: Spec directory not found for ${taskId}, skipping (already removed)`);
         continue;
       }
 
@@ -773,8 +801,7 @@ export class ProjectStore {
             metadata.archivedInVersion = version;
           }
 
-          writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
-          console.log(`[ProjectStore] archiveTasks: Successfully archived task ${taskId} at ${specPath}`);
+          writeFileAtomicSync(metadataPath, JSON.stringify(metadata, null, 2));
         } catch (error) {
           console.error(`[ProjectStore] archiveTasks: Failed to archive task ${taskId} at ${specPath}:`, error);
           hasErrors = true;
@@ -783,10 +810,23 @@ export class ProjectStore {
       }
     }
 
+    // Update linked roadmap features for archived tasks
+    this.updateRoadmapForArchivedTasks(project, taskIds);
+
     // Invalidate cache since task metadata changed
     this.invalidateTasksCache(projectId);
 
     return !hasErrors;
+  }
+
+  /**
+   * Update roadmap features linked to archived tasks
+   */
+  private updateRoadmapForArchivedTasks(project: Project, taskIds: string[]): void {
+    const roadmapFile = path.join(project.path, AUTO_BUILD_PATHS.ROADMAP_DIR, AUTO_BUILD_PATHS.ROADMAP_FILE);
+    updateRoadmapFeatureOutcome(roadmapFile, taskIds, 'archived', '[ProjectStore]').catch((err) => {
+      console.warn('[ProjectStore] Failed to update roadmap for archived tasks:', err);
+    });
   }
 
   /**
@@ -806,7 +846,7 @@ export class ProjectStore {
 
     for (const taskId of taskIds) {
       // Find ALL locations where this task exists (main + worktrees)
-      const specPaths = this.findAllSpecPaths(project.path, specsBaseDir, taskId);
+      const specPaths = findAllSpecPaths(project.path, specsBaseDir, taskId);
 
       if (specPaths.length === 0) {
         console.warn(`[ProjectStore] unarchiveTasks: Spec directory not found for task ${taskId}`);
@@ -832,8 +872,7 @@ export class ProjectStore {
 
           delete metadata.archivedAt;
           delete metadata.archivedInVersion;
-          writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
-          console.log(`[ProjectStore] unarchiveTasks: Successfully unarchived task ${taskId} at ${specPath}`);
+          writeFileAtomicSync(metadataPath, JSON.stringify(metadata, null, 2));
         } catch (error) {
           console.error(`[ProjectStore] unarchiveTasks: Failed to unarchive task ${taskId} at ${specPath}:`, error);
           hasErrors = true;
@@ -841,6 +880,12 @@ export class ProjectStore {
         }
       }
     }
+
+    // Revert linked roadmap features from 'archived' back to 'in_progress'
+    const roadmapFile = path.join(project.path, AUTO_BUILD_PATHS.ROADMAP_DIR, AUTO_BUILD_PATHS.ROADMAP_FILE);
+    revertRoadmapFeatureOutcome(roadmapFile, taskIds, '[ProjectStore]').catch((err) => {
+      console.warn('[ProjectStore] Failed to revert roadmap for unarchived tasks:', err);
+    });
 
     // Invalidate cache since task metadata changed
     this.invalidateTasksCache(projectId);

@@ -126,41 +126,86 @@ E2E TESTS:
 
 ---
 
-## PHASE 4: BROWSER VERIFICATION (If Frontend)
+## PHASE 4: VISUAL / UI VERIFICATION
 
-For each page/component in the QA Acceptance Criteria:
+### 4.0: Determine Verification Scope (MANDATORY — DO NOT SKIP)
 
-### 4.1: Navigate and Screenshot
+Review the file list from your Phase 0 git diff. Classify each changed file:
+
+**UI files** (require visual verification):
+- Component files: .tsx, .jsx, .vue, .svelte, .astro
+- Style files: .css, .scss, .less, .sass
+- Files containing Tailwind classes, CSS-in-JS, or inline style changes
+- Files in directories: components/, pages/, views/, layouts/, styles/, renderer/
+
+**Non-UI files** (do not require visual verification):
+- Backend logic: .py, .go, .rs, .java (without template rendering)
+- Configuration: .json, .yaml, .toml, .env (unless theme/style config)
+- Tests: *.test.*, *.spec.*
+- Documentation: .md, .txt
+
+**Decision**:
+- If ANY changed file is a UI file → visual verification is REQUIRED below
+- If the spec describes visual/layout/CSS/styling changes → visual verification is REQUIRED
+- If NEITHER applies → document "Phase 4: N/A — no visual changes detected in diff" and proceed to Phase 5
+
+**CRITICAL**: For UI changes, code review alone is NEVER sufficient verification. CSS properties interact with layout context, parent constraints, and specificity in ways that cannot be reliably verified by reading code alone. You MUST see the rendered result.
+
+### 4.1: Start the Application
+
+Check the PROJECT CAPABILITIES section above for available startup commands.
+
+**For Electron apps** (if Electron MCP tools are available):
+1. Check if app is already running:
+   ```
+   Tool: mcp__electron__get_electron_window_info
+   ```
+2. If not running, look for a debug/MCP script in the startup commands above and run it:
+   ```bash
+   cd [frontend-path] && npm run dev:debug
+   ```
+   Wait 15 seconds, then retry `get_electron_window_info`.
+
+**For web frontends** (if Puppeteer tools are available):
+1. Start dev server using the dev_command from the startup commands above
+2. Wait for the server to be listening on the expected port
+3. Navigate with Puppeteer:
+   ```
+   Tool: mcp__puppeteer__puppeteer_navigate
+   Args: {"url": "http://localhost:[port]"}
+   ```
+
+### 4.2: Capture and Verify Screenshots
+
+For EACH visual success criterion in the spec:
+1. Navigate to the affected screen/component
+2. Set up test conditions (e.g., create long text to test overflow)
+3. Take a screenshot:
+   - Electron: `mcp__electron__take_screenshot`
+   - Web: `mcp__puppeteer__puppeteer_screenshot`
+4. Examine the screenshot and verify the criterion is met
+5. Document: "[Criterion]: VERIFIED via screenshot" or "FAILED: [what you observed]"
+
+### 4.3: Check Console for Errors
+
+- Electron: `mcp__electron__read_electron_logs` with `{"logType": "console", "lines": 50}`
+- Web: `mcp__puppeteer__puppeteer_evaluate` with `{"script": "window.__consoleErrors || []"}`
+
+### 4.4: Document Findings
 
 ```
-# Use browser automation tools
-1. Navigate to URL
-2. Take screenshot
-3. Check for console errors
-4. Verify visual elements
-5. Test interactions
+VISUAL VERIFICATION:
+- Verification required: YES/NO (reason: [which UI files changed or "no UI files in diff"])
+- Application started: YES/NO (method: [Electron MCP / Puppeteer / N/A])
+- Screenshots captured: [count]
+- Visual criteria verified:
+  - "[criterion 1]": PASS/FAIL
+  - "[criterion 2]": PASS/FAIL
+- Console errors: [list or "None"]
+- Issues found: [list or "None"]
 ```
 
-### 4.2: Console Error Check
-
-**CRITICAL**: Check for JavaScript errors in the browser console.
-
-```
-# Check browser console for:
-- Errors (red)
-- Warnings (yellow)
-- Failed network requests
-```
-
-### 4.3: Document Findings
-
-```
-BROWSER VERIFICATION:
-- [Page/Component]: PASS/FAIL
-  - Console errors: [list or "None"]
-  - Visual check: PASS/FAIL
-  - Interactions: PASS/FAIL
-```
+**If you cannot start the application for visual verification of UI changes**: This is a BLOCKING issue. Do NOT silently skip — document it as a critical issue and REJECT, requesting startup instructions be fixed.
 
 ---
 
@@ -239,7 +284,7 @@ Input: { "libraryName": "[library name]" }
 
 **Step 3: Verify API usage matches documentation**
 ```
-Tool: mcp__context7__get-library-docs
+Tool: mcp__context7__query-docs
 Input: {
   "context7CompatibleLibraryID": "[library-id]",
   "topic": "[relevant topic - e.g., the function being used]",
@@ -354,13 +399,21 @@ Create a comprehensive QA report:
 | Unit Tests | ✓/✗ | X/Y passing |
 | Integration Tests | ✓/✗ | X/Y passing |
 | E2E Tests | ✓/✗ | X/Y passing |
-| Browser Verification | ✓/✗ | [summary] |
+| Visual Verification | ✓/✗/N/A | [Screenshot count] or "No UI changes" |
 | Project-Specific Validation | ✓/✗ | [summary based on project type] |
 | Database Verification | ✓/✗ | [summary] |
 | Third-Party API Validation | ✓/✗ | [Context7 verification summary] |
 | Security Review | ✓/✗ | [summary] |
 | Pattern Compliance | ✓/✗ | [summary] |
 | Regression Check | ✓/✗ | [summary] |
+
+## Visual Verification Evidence
+
+If UI files were changed:
+- Screenshots taken: [count and description of each]
+- Console log check: [error count or "Clean"]
+
+If skipped: [Explicit justification — must reference git diff showing no UI files changed]
 
 ## Issues Found
 
@@ -505,7 +558,7 @@ All acceptance criteria verified:
 - Unit tests: PASS
 - Integration tests: PASS
 - E2E tests: PASS
-- Browser verification: PASS
+- Visual verification: PASS
 - Project-specific validation: PASS (or N/A)
 - Database verification: PASS
 - Security review: PASS

@@ -110,7 +110,7 @@ def _write_log(message: str, to_file: bool = True) -> None:
                 import re
 
                 clean_message = re.sub(r"\033\[[0-9;]*m", "", message)
-                with open(log_file, "a") as f:
+                with open(log_file, "a", encoding="utf-8") as f:
                     f.write(clean_message + "\n")
             except Exception:
                 pass  # Silently fail file logging

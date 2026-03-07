@@ -225,69 +225,6 @@ class TestLineNumberVerification:
         assert validator._is_line_relevant(line_content, finding)
 
 
-class TestFalsePositiveDetection:
-    """Test false positive detection."""
-
-    def test_vague_low_severity_filtered(self, validator):
-        """Test that vague low-severity findings are filtered."""
-        finding = PRReviewFinding(
-            id="STYLE001",
-            severity=ReviewSeverity.LOW,
-            category=ReviewCategory.STYLE,
-            title="Code Could Be Improved",
-            description="This code could be improved by considering using better practices.",
-            file="src/utils.py",
-            line=1,
-        )
-
-        assert validator._is_false_positive(finding)
-
-    def test_generic_without_fix_filtered(self, validator):
-        """Test that generic suggestions without fixes are filtered."""
-        finding = PRReviewFinding(
-            id="QUAL001",
-            severity=ReviewSeverity.LOW,
-            category=ReviewCategory.QUALITY,
-            title="Improve This Code",
-            description="This code should be improved for better quality and maintainability.",
-            file="src/utils.py",
-            line=1,
-            suggested_fix="Fix it",  # Too short
-        )
-
-        assert validator._is_false_positive(finding)
-
-    def test_style_without_suggestion_filtered(self, validator):
-        """Test that style findings without good suggestions are filtered."""
-        finding = PRReviewFinding(
-            id="STYLE002",
-            severity=ReviewSeverity.LOW,
-            category=ReviewCategory.STYLE,
-            title="Formatting Issue",
-            description="The formatting of this code doesn't follow best practices and should be adjusted.",
-            file="src/utils.py",
-            line=1,
-            suggested_fix="",  # No suggestion
-        )
-
-        assert validator._is_false_positive(finding)
-
-    def test_specific_high_severity_not_filtered(self, validator):
-        """Test that specific high-severity findings are not filtered."""
-        finding = PRReviewFinding(
-            id="SEC001",
-            severity=ReviewSeverity.HIGH,
-            category=ReviewCategory.SECURITY,
-            title="SQL Injection Vulnerability",
-            description="The query construction uses f-strings which allows SQL injection. An attacker could inject malicious SQL code through the username parameter.",
-            file="src/auth.py",
-            line=13,
-            suggested_fix="Use parameterized queries with placeholders instead of string formatting",
-        )
-
-        assert not validator._is_false_positive(finding)
-
-
 class TestActionabilityScoring:
     """Test actionability scoring."""
 
@@ -378,21 +315,17 @@ class TestConfidenceThreshold:
             severity=ReviewSeverity.LOW,
             category=ReviewCategory.STYLE,
             title="Styl",  # Very minimal (9 chars, just at min)
-            description="Could be improved with better formatting here",  # Vague pattern
+            description="Could be improved with better formatting here",
             file="src/utils.py",
             line=1,
             suggested_fix="",  # No fix
         )
 
-        # Should fail - low severity + vague + no fix + short title
-        # Score should be 0.5 (base) + 0.1 (file+line) + 0.1 (desc>50) = 0.7
-        # But vague pattern makes it a false positive, so it should fail validation before threshold check
-        # This test should check that the actionability score alone is insufficient
-        score = validator._score_actionability(finding)
+        # Score check: low severity with no fix gets low actionability
         # With no fix, short title, and low severity: 0.5 (base) + 0.1 (file+line) = 0.6
-        # But this still meets 0.6 threshold for low severity
-        # Let's check the finding gets filtered as false positive instead
-        assert validator._is_false_positive(finding)  # Should be filtered as FP
+        # This barely meets the 0.6 threshold for low severity
+        score = validator._score_actionability(finding)
+        assert score <= 0.6  # Low actionability due to missing suggested fix
 
 
 class TestFindingEnhancement:

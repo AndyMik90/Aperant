@@ -39,7 +39,7 @@ class IdeationFormatter:
         existing_session = None
         if append and ideation_file.exists():
             try:
-                with open(ideation_file) as f:
+                with open(ideation_file, encoding="utf-8") as f:
                     existing_session = json.load(f)
                     existing_ideas = existing_session.get("ideas", [])
                     print_status(
@@ -56,7 +56,7 @@ class IdeationFormatter:
             type_file = self.output_dir / f"{ideation_type}_ideas.json"
             if type_file.exists():
                 try:
-                    with open(type_file) as f:
+                    with open(type_file, encoding="utf-8") as f:
                         data = json.load(f)
                         ideas = data.get(ideation_type, [])
                         new_ideas.extend(ideas)
@@ -123,7 +123,7 @@ class IdeationFormatter:
                 ideation_session["summary"]["by_status"].get(idea_status, 0) + 1
             )
 
-        with open(ideation_file, "w") as f:
+        with open(ideation_file, "w", encoding="utf-8") as f:
             json.dump(ideation_session, f, indent=2)
 
         action = "Updated" if append else "Created"
@@ -139,7 +139,7 @@ class IdeationFormatter:
         context_data = {}
         if context_file.exists():
             try:
-                with open(context_file) as f:
+                with open(context_file, encoding="utf-8") as f:
                     context_data = json.load(f)
             except json.JSONDecodeError:
                 pass

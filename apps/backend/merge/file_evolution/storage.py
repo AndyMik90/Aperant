@@ -61,7 +61,7 @@ class EvolutionStorage:
             return {}
 
         try:
-            with open(self.evolution_file) as f:
+            with open(self.evolution_file, encoding="utf-8") as f:
                 data = json.load(f)
 
             evolutions = {}
@@ -88,7 +88,7 @@ class EvolutionStorage:
                 for file_path, evolution in evolutions.items()
             }
 
-            with open(self.evolution_file, "w") as f:
+            with open(self.evolution_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, indent=2)
 
             logger.debug(f"Saved evolution data for {len(evolutions)} files")

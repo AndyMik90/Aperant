@@ -18,7 +18,6 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
-from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -26,6 +25,8 @@ if TYPE_CHECKING:
     from ..models import FollowupReviewContext, GitHubRunnerConfig
 
 try:
+    from ...core.client import create_client
+    from ...phase_config import resolve_model_id
     from ..gh_client import GHClient
     from ..models import (
         MergeVerdict,
@@ -33,12 +34,16 @@ try:
         PRReviewResult,
         ReviewCategory,
         ReviewSeverity,
+        _utc_now_iso,
     )
     from .category_utils import map_category
     from .io_utils import safe_print
     from .prompt_manager import PromptManager
-    from .pydantic_models import FollowupReviewResponse
+    from .pydantic_models import FollowupExtractionResponse, FollowupReviewResponse
+    from .recovery_utils import create_finding_from_summary
+    from .sdk_utils import process_sdk_stream
 except (ImportError, ValueError, SystemError):
+    from core.client import create_client
     from gh_client import GHClient
     from models import (
         MergeVerdict,
@@ -46,11 +51,18 @@ except (ImportError, ValueError, SystemError):
         PRReviewResult,
         ReviewCategory,
         ReviewSeverity,
+        _utc_now_iso,
     )
+    from phase_config import resolve_model_id
     from services.category_utils import map_category
     from services.io_utils import safe_print
     from services.prompt_manager import PromptManager
-    from services.pydantic_models import FollowupReviewResponse
+    from services.pydantic_models import (
+        FollowupExtractionResponse,
+        FollowupReviewResponse,
+    )
+    from services.recovery_utils import create_finding_from_summary
+    from services.sdk_utils import process_sdk_stream
 
 logger = logging.getLogger(__name__)
 
@@ -265,7 +277,7 @@ class FollowupReviewer:
             verdict=verdict,
             verdict_reasoning=verdict_reasoning,
             blockers=blockers,
-            reviewed_at=datetime.now().isoformat(),
+            reviewed_at=_utc_now_iso(),
             # Follow-up specific fields
             reviewed_commit_sha=context.current_commit_sha,
             reviewed_file_blobs=file_blobs,
@@ -697,6 +709,9 @@ Analyze this follow-up review context and provide your structured response.
             )
             safe_print(f"[Followup] SDK query with output_format, model={model}")
 
+            # Capture assistant text for extraction fallback
+            captured_text = ""
+
             # Iterate through messages from the query
             # Note: max_turns=2 because structured output uses a tool call + response
             async for message in query(
@@ -721,7 +736,9 @@ Analyze this follow-up review context and provide your structured response.
                     content = getattr(message, "content", [])
                     for block in content:
                         block_type = type(block).__name__
-                        if block_type == "ToolUseBlock":
+                        if block_type == "TextBlock":
+                            captured_text += getattr(block, "text", "")
+                        elif block_type == "ToolUseBlock":
                             tool_name = getattr(block, "name", "")
                             if tool_name == "StructuredOutput":
                                 # Extract structured data from tool input
@@ -764,9 +781,31 @@ Analyze this follow-up review context and provide your structured response.
                         logger.warning(
                             "Claude could not produce valid structured output after retries"
                         )
+                        # Attempt extraction call recovery before giving up
+                        if captured_text:
+                            safe_print(
+                                "[Followup] Attempting extraction call recovery...",
+                                flush=True,
+                            )
+                            extraction_result = await self._attempt_extraction_call(
+                                captured_text, context
+                            )
+                            if extraction_result is not None:
+                                return extraction_result
                         return None
 
             logger.warning("No structured output received from AI")
+            # Attempt extraction call recovery before giving up
+            if captured_text:
+                safe_print(
+                    "[Followup] No structured output — attempting extraction call recovery...",
+                    flush=True,
+                )
+                extraction_result = await self._attempt_extraction_call(
+                    captured_text, context
+                )
+                if extraction_result is not None:
+                    return extraction_result
             return None
 
         except ValueError as e:
@@ -838,6 +877,124 @@ Analyze this follow-up review context and provide your structured response.
             "verdict": result.verdict,
             "verdict_reasoning": result.verdict_reasoning,
         }
+
+    async def _attempt_extraction_call(
+        self,
+        text: str,
+        context: FollowupReviewContext,
+    ) -> dict[str, Any] | None:
+        """Attempt a short SDK call with minimal schema to recover review data.
+
+        This is the extraction recovery step when full structured output validation fails.
+        Uses FollowupExtractionResponse (small schema with ExtractedFindingSummary nesting)
+        which has near-100% success rate.
+
+        Uses create_client() + process_sdk_stream() for proper OAuth handling,
+        matching the pattern in parallel_followup_reviewer.py.
+
+        Returns parsed result dict on success, None on failure.
+        """
+        if not text or not text.strip():
+            return None
+
+        try:
+            extraction_prompt = (
+                "Extract the key review data from the following AI analysis output. "
+                "Return the verdict, reasoning, resolved finding IDs, unresolved finding IDs, "
+                "structured summaries of any new findings (including severity, description, file path, and line number), "
+                "and counts of confirmed/dismissed findings.\n\n"
+                f"--- AI ANALYSIS OUTPUT ---\n{text[:8000]}\n--- END ---"
+            )
+
+            model_shorthand = self.config.model or "sonnet"
+            model = resolve_model_id(model_shorthand)
+
+            extraction_client = create_client(
+                project_dir=self.project_dir,
+                spec_dir=self.github_dir,
+                model=model,
+                agent_type="pr_followup_extraction",
+                output_format={
+                    "type": "json_schema",
+                    "schema": FollowupExtractionResponse.model_json_schema(),
+                },
+            )
+
+            async with extraction_client:
+                await extraction_client.query(extraction_prompt)
+
+                stream_result = await process_sdk_stream(
+                    client=extraction_client,
+                    context_name="FollowupExtraction",
+                    model=model,
+                    system_prompt=extraction_prompt,
+                    max_messages=20,
+                )
+
+            if stream_result.get("error"):
+                logger.warning(
+                    f"[Followup] Extraction call also failed: {stream_result['error']}"
+                )
+                return None
+
+            extraction_output = stream_result.get("structured_output")
+            if not extraction_output:
+                logger.warning(
+                    "[Followup] Extraction call returned no structured output"
+                )
+                return None
+
+            extracted = FollowupExtractionResponse.model_validate(extraction_output)
+
+            # Convert extraction to internal format with reconstructed findings
+            new_findings = []
+            for i, summary_obj in enumerate(extracted.new_finding_summaries):
+                new_findings.append(
+                    create_finding_from_summary(
+                        summary=summary_obj.description,
+                        index=i,
+                        id_prefix="FR",
+                        severity_override=summary_obj.severity,
+                        file=summary_obj.file,
+                        line=summary_obj.line,
+                    )
+                )
+
+            # Build finding_resolutions from extraction data for _apply_ai_resolutions
+            # (unresolved findings are handled via finding_resolutions + _apply_ai_resolutions)
+            finding_resolutions = []
+            for fid in extracted.resolved_finding_ids:
+                finding_resolutions.append(
+                    {"finding_id": fid, "status": "resolved", "resolution_notes": None}
+                )
+            for fid in extracted.unresolved_finding_ids:
+                finding_resolutions.append(
+                    {
+                        "finding_id": fid,
+                        "status": "unresolved",
+                        "resolution_notes": None,
+                    }
+                )
+
+            safe_print(
+                f"[Followup] Extraction recovered: verdict={extracted.verdict}, "
+                f"{len(extracted.resolved_finding_ids)} resolved, "
+                f"{len(extracted.unresolved_finding_ids)} unresolved, "
+                f"{len(new_findings)} new findings",
+                flush=True,
+            )
+
+            return {
+                "finding_resolutions": finding_resolutions,
+                "new_findings": new_findings,
+                "comment_findings": [],
+                "verdict": extracted.verdict,
+                "verdict_reasoning": f"[Recovered via extraction] {extracted.verdict_reasoning}",
+            }
+
+        except Exception as e:
+            logger.warning(f"[Followup] Extraction call failed: {e}")
+            return None
 
     def _apply_ai_resolutions(
         self,

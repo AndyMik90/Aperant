@@ -1,4 +1,22 @@
 {
+  "competitorAnalysis": {
+    "addCompetitor": "Ajouter un concurrent",
+    "manualBadge": "Manuel",
+    "noCompetitorsYet": "Aucun concurrent ajouté pour l'instant",
+    "addCompetitorToStart": "Ajoutez un concurrent pour commencer",
+    "analysisResults": "Résultats de l'analyse concurrentielle",
+    "analysisDescription": "{{count}} concurrents analysés pour identifier les opportunités et lacunes du marché",
+    "visit": "Visiter",
+    "identifiedPainPoints": "Points de douleur identifiés ({{count}})",
+    "noPainPointsIdentified": "Aucun point de douleur identifié",
+    "source": "Source :",
+    "frequency": "Fréquence :",
+    "opportunity": "Opportunité :",
+    "marketInsightsSummary": "Résumé des perspectives du marché",
+    "topPainPoints": "Principaux points de douleur :",
+    "differentiatorOpportunities": "Opportunités de différenciation :",
+    "marketTrends": "Tendances du marché :"
+  },
   "projectTab": {
     "settings": "Paramètres du projet",
     "showArchived": "Afficher archivés",
@@ -11,6 +29,7 @@
   },
   "accessibility": {
     "deleteFeatureAriaLabel": "Supprimer la fonctionnalité",
+    "archiveFeatureAriaLabel": "Archiver la fonctionnalité",
     "closeFeatureDetailsAriaLabel": "Fermer les détails de la fonctionnalité",
     "regenerateRoadmapAriaLabel": "Régénérer la feuille de route",
     "repositoryOwnerAriaLabel": "Propriétaire du dépôt",
@@ -77,9 +96,23 @@
     "discard": "Abandonner",
     "switch": "Changer",
     "add": "Ajouter",
+    "apply": "Appliquer",
     "gotIt": "Compris",
     "continue": "Continuer",
-    "saving": "Enregistrement..."
+    "saving": "Enregistrement...",
+    "deleting": "Suppression..."
+  },
+  "actions": {
+    "save": "Enregistrer",
+    "apply": "Appliquer",
+    "delete": "Supprimer",
+    "settings": "Paramètres"
+  },
+  "os": {
+    "windows": "Windows",
+    "macos": "macOS",
+    "linux": "Linux",
+    "unknown": "Inconnu"
   },
   "labels": {
     "loading": "Chargement...",
@@ -91,7 +124,19 @@
     "noData": "Aucune donnée",
     "optional": "Optionnel",
     "required": "Requis",
-    "dismiss": "Ignorer"
+    "dismiss": "Ignorer",
+    "important": "Important",
+    "orphaned": "(orphelin)"
+  },
+  "selection": {
+    "select": "Sélectionner",
+    "done": "Terminé",
+    "selected": "{{count}} sélectionné(s)",
+    "selectAll": "Tout sélectionner",
+    "clearSelection": "Effacer la sélection",
+    "deleteSelected": "Supprimer la sélection",
+    "archiveSelected": "Archiver la sélection",
+    "selectedOfTotal": "{{selected}} sur {{total}} sélectionné(s)"
   },
   "time": {
     "justNow": "À l'instant",
@@ -105,7 +150,17 @@
     "operationFailed": "Opération échouée",
     "networkError": "Erreur réseau",
     "notFound": "Non trouvé",
-    "unauthorized": "Non autorisé"
+    "unauthorized": "Non autorisé",
+    "bulkDeletePartialFailure": "Certains worktrees n'ont pas pu être supprimés :",
+    "taskNotFoundForWorktree": "Tâche introuvable pour le worktree : {{specName}}",
+    "failedToDeleteTaskWorktree": "Échec de la suppression du worktree de tâche : {{specName}}",
+    "terminalWorktreeNotFound": "Worktree terminal introuvable : {{name}}",
+    "failedToDeleteTerminalWorktree": "Échec de la suppression du worktree terminal : {{name}}"
+  },
+  "worktrees": {
+    "deleteSuccess": "Worktree '{{branch}}' supprimé avec succès",
+    "bulkDeleteSuccess": "{{count}} worktree supprimé avec succès",
+    "bulkDeleteSuccess_plural": "{{count}} worktrees supprimés avec succès"
   },
   "notification": {
     "accountSwitched": "Compte changé",
@@ -208,6 +263,12 @@
     "selectedCount": "{{count}} sélectionné(s)",
     "noResultsFound": "Aucun résultat trouvé",
     "reset": "Réinitialiser",
+    "sort": {
+      "label": "Trier",
+      "newest": "Plus récent",
+      "oldest": "Plus ancien",
+      "largest": "Plus grand"
+    },
     "pullRequests": "Pull Requests",
     "open": "ouvert",
     "selectPRToView": "Sélectionnez une pull request pour voir les détails",
@@ -251,6 +312,8 @@
     "newIssue": "{{count}} nouveau problème",
     "newIssue_plural": "{{count}} nouveaux problèmes",
     "reviewFailed": "Révision échouée",
+    "externalReviewDetected": "Révision externe détectée",
+    "reviewStartedExternally": "Cette révision a été lancée depuis une autre session",
     "description": "Description",
     "noDescription": "Aucune description fournie.",
     "followupReviewDetails": "Détails de la révision de suivi",
@@ -328,10 +391,16 @@
     "followup": "Suivi",
     "initial": "Initial",
     "rerunFollowup": "Relancer la revue de suivi",
+    "retryReview": "Réessayer la revue",
     "rerunReview": "Relancer la revue",
-    "loadingMore": "Chargement des PRs...",
-    "scrollForMore": "Défiler pour plus",
+    "updateBranch": "Mettre à jour la branche",
+    "updatingBranch": "Mise à jour...",
+    "branchUpdated": "Branche mise à jour",
+    "branchUpdateFailed": "Échec de la mise à jour de la branche",
     "allPRsLoaded": "Tous les PRs chargés",
+    "maxPRsShown": "Affichage des 100 premières PRs",
+    "loadMore": "Charger plus",
+    "loadingMore": "Chargement...",
     "workflowsAwaitingApproval": "{{count}} workflow en attente d'approbation",
     "workflowsAwaitingApproval_plural": "{{count}} workflows en attente d'approbation",
     "blockedByWorkflows": "Bloqué",
@@ -354,6 +423,10 @@
     "blockedStatusMessageTitle": "## 🤖 Auto Claude PR Review",
     "blockedStatusMessageFooter": "*This review identified blockers that must be resolved before merge. Generated by Auto Claude.*",
     "failedPostBlockedStatus": "Échec de la publication du statut",
+    "disputed": "Contesté",
+    "disputedByValidator": "Contesté par le validateur ({{count}})",
+    "crossValidatedBy": "Confirmé par {{count}} agents",
+    "disputedSectionHint": "Ces résultats ont été signalés par les spécialistes mais contestés par le validateur. Vous pouvez toujours les sélectionner et les publier.",
     "logs": {
       "agentActivity": "Activité des agents",
       "showMore": "Afficher {{count}} de plus",
@@ -373,6 +446,51 @@
     "failedLabel": "Échoué",
     "starting": "Démarrage..."
   },
+  "insights": {
+    "suggestedTask": "Tâche suggérée",
+    "creating": "Création...",
+    "taskCreated": "Tâche créée",
+    "createTask": "Créer une tâche",
+    "chatHistory": "Historique des conversations",
+    "archive": "Archiver",
+    "unarchive": "Désarchiver",
+    "archiveSelected": "Archiver la sélection",
+    "showArchived": "Afficher les archivées",
+    "hideArchived": "Masquer les archivées",
+    "bulkDeleteTitle": "Supprimer les conversations",
+    "bulkDeleteDescription": "Êtes-vous sûr de vouloir supprimer {{count}} conversation(s) ? Cette action est irréversible.",
+    "bulkDeleteConfirm": "Supprimer {{count}} conversation(s)",
+    "noConversations": "Aucune conversation",
+    "archived": "Archivée",
+    "conversationsToDelete": "Conversations à supprimer",
+    "archiveConfirmDescription": "Êtes-vous sûr de vouloir archiver les conversations sélectionnées ?",
+    "archiveConfirmTitle": "Archiver les conversations",
+    "archiveConfirmButton": "Archiver {{count}} conversation(s)",
+    "deleteTitle": "Supprimer la conversation",
+    "deleteDescription": "Êtes-vous sûr de vouloir supprimer cette conversation ? Cette action est irréversible.",
+    "selectMode": "Sélectionner",
+    "exitSelectMode": "Terminé",
+    "today": "Aujourd'hui",
+    "yesterday": "Hier",
+    "daysAgo": "Il y a {{count}} jours",
+    "messageCount": "{{count}} message",
+    "messageCount_other": "{{count}} messages",
+    "images": {
+      "pasteHint": "Coller une image ou une capture d'écran",
+      "dropHint": "Déposer l'image ici",
+      "screenshotButton": "Joindre une capture d'écran",
+      "removeImage": "Supprimer l'image",
+      "imageCount": "{{count}} image jointe",
+      "imageCount_plural": "{{count}} images jointes",
+      "maxImagesReached": "Nombre maximum d'images atteint",
+      "invalidType": "Type de fichier invalide. Veuillez utiliser PNG, JPEG, GIF ou WebP.",
+      "processFailed": "Échec du traitement de l'image",
+      "dragOver": "Déposer l'image pour joindre",
+      "analysisUnsupported": "Note : L'analyse d'images n'est pas encore prise en charge. Les images sont stockées pour référence mais ne peuvent pas être analysées par le modèle.",
+      "screenshotTooLarge": "La capture d'écran est trop volumineuse ({{size}}Mo). La taille maximale est de {{max}}Mo. Essayez de capturer une zone plus petite.",
+      "notAnalyzed": "Les images ont été stockées pour référence mais n'ont pas été analysées par le modèle."
+    }
+  },
   "ideation": {
     "converting": "Conversion...",
     "convertToTask": "Convertir en tâche Auto-Build",
@@ -389,5 +507,321 @@
     "loadingMore": "Chargement...",
     "scrollForMore": "Défiler pour plus",
     "allLoaded": "Toutes les issues chargées"
+  },
+  "usage": {
+    "dataUnavailable": "Données d'utilisation non disponibles",
+    "dataUnavailableDescription": "Le point de terminaison de surveillance d'utilisation pour ce fournisseur n'est pas disponible ou n'est pas pris en charge.",
+    "activeAccount": "Compte actif",
+    "usageAlert": "Alerte d'utilisation",
+    "accountExceedsThreshold": "L'utilisation du compte dépasse le seuil de 90 %",
+    "authentication": "Authentification",
+    "authenticationAriaLabel": "Authentification : {{provider}}",
+    "authenticationDetails": "Détails de l'authentification",
+    "apiProfile": "Profil API",
+    "apiKey": "Clé API",
+    "oauth": "OAuth",
+    "claudeCode": "Claude Code",
+    "claudeCodeSubscription": "Abonnement Claude Code",
+    "subscription": "Abonnement",
+    "provider": "Fournisseur",
+    "providerAnthropic": "Anthropic",
+    "providerZai": "z.ai",
+    "providerZhipu": "ZHIPU AI",
+    "providerUnknown": "Inconnu",
+    "profile": "Profil",
+    "id": "ID",
+    "created": "Créé",
+    "apiEndpoint": "Point de terminaison API",
+    "sessionQuota": "Quota de session",
+    "notAvailable": "N/A",
+    "usageStatusAriaLabel": "Statut d'utilisation",
+    "usageBreakdown": "Répartition de l'utilisation",
+    "used": "utilisé",
+    "loading": "Chargement...",
+    "sessionDefault": "Session",
+    "weeklyDefault": "Hebdomadaire",
+    "resetsInHours": "Réinitialisation dans {{hours}}h {{minutes}}m",
+    "resetsInDays": "Réinitialisation dans {{days}}j {{hours}}h",
+    "window5Hour": "Fenêtre de 5 heures",
+    "window7Day": "Fenêtre de 7 jours",
+    "window5HoursQuota": "Quota de 5 heures",
+    "windowMonthlyToolsQuota": "Quota mensuel d'outils",
+    "otherAccounts": "Autres comptes",
+    "next": "Suivant",
+    "weeklyLimitReached": "Limite hebdomadaire atteinte",
+    "sessionLimitReached": "Limite de session atteinte",
+    "notAuthenticated": "Non authentifié",
+    "needsReauth": "Réauth requise",
+    "reauthRequired": "Ré-authentification requise",
+    "reauthRequiredDescription": "Votre session a expiré. Ré-authentifiez-vous pour voir l'utilisation et continuer à utiliser ce compte.",
+    "reauthButton": "Ré-authentifier",
+    "clickToOpenSettings": "Cliquez pour ouvrir les Paramètres →",
+    "sessionShort": "Utilisation session 5 heures",
+    "weeklyShort": "Utilisation hebdomadaire 7 jours",
+    "swap": "Changer"
+  },
+  "oauth": {
+    "enterCode": "Saisie manuelle du code (secours)",
+    "enterCodeDescription": "Ce dialogue n'est nécessaire que si le navigateur n'a pas redirigé automatiquement. Si l'authentification est déjà terminée dans votre navigateur, vous pouvez fermer ce dialogue.",
+    "fallbackNote": "N'utilisez ceci que si vous voyez une page « Collez ceci dans Claude Code » dans votre navigateur.",
+    "step1": "Complétez l'autorisation dans votre navigateur",
+    "step2": "Si vous voyez une page de code, copiez le code affiché",
+    "step3": "Collez le code ci-dessous et cliquez sur Soumettre",
+    "codeLabel": "Code d'autorisation",
+    "codePlaceholder": "Collez votre code ici (seulement si nécessaire)...",
+    "codeHint": "Le code est une longue chaîne affichée uniquement si la redirection automatique a échoué",
+    "submit": "Soumettre",
+    "submitting": "Soumission...",
+    "codeSubmitted": "Code soumis",
+    "codeSubmittedDescription": "L'authentification devrait se terminer bientôt. Vérifiez le terminal pour confirmation.",
+    "codeSubmitFailed": "Échec de la soumission du code",
+    "codeSubmitFailedDescription": "Veuillez réessayer ou copier le code manuellement dans le terminal.",
+    "authenticateTitle": "S'authentifier avec Claude",
+    "authenticateDescription": "Auto Claude nécessite l'authentification Claude AI pour les fonctionnalités basées sur l'IA comme la génération de feuille de route, l'automatisation des tâches et l'idéation.",
+    "authenticateTerminalInfo": "Cela ouvrira un terminal avec Claude CLI où vous pourrez vous authentifier. Vos identifiants sont stockés de manière sécurisée et sont valides pendant 1 an.",
+    "completeAuthTitle": "Terminer l'authentification",
+    "terminalOpened": "Une fenêtre de terminal s'est ouverte avec Claude CLI.",
+    "completeStepsTitle": "Complétez ces étapes dans le terminal :",
+    "stepTypeLogin": "Tapez <code>/login</code> et appuyez sur Entrée",
+    "stepBrowserOpen": "Votre navigateur s'ouvrira pour l'authentification Claude",
+    "stepCompleteOAuth": "Complétez le flux OAuth dans votre navigateur",
+    "stepReturnAndVerify": "Revenez ici et cliquez sur <strong>Vérifier l'authentification</strong>",
+    "verifyAuth": "Vérifier l'authentification",
+    "verifyingAuth": "Vérification de l'authentification...",
+    "checkingCredentials": "Vérification de vos identifiants Claude.",
+    "successTitle": "Authentification réussie !",
+    "connectedAs": "Connecté en tant que {{email}}",
+    "credentialsSaved": "Vos identifiants Claude ont été sauvegardés",
+    "canUseFeatures": "Vous pouvez maintenant utiliser toutes les fonctionnalités IA d'Auto Claude",
+    "authFailed": "Échec de l'authentification",
+    "skipForNow": "Passer pour l'instant",
+    "manualTokenEntry": "Saisie manuelle du jeton",
+    "tokenCommandHint": "Exécutez <code>claude setup-token</code> pour obtenir votre jeton",
+    "emailOptionalPlaceholder": "Email (optionnel, pour affichage)",
+    "saveToken": "Enregistrer le jeton",
+    "accountNamePlaceholder": "Nom du compte (ex. Travail, Personnel)",
+    "hasAuthenticatedAccount": "Vous avez au moins un compte Claude authentifié. Vous pouvez passer à l'étape suivante.",
+    "authNotDetected": "Authentification non détectée. Veuillez d'abord compléter /login dans le terminal.",
+    "noProfileSelected": "Aucun profil sélectionné pour la vérification",
+    "alerts": {
+      "profileCreatedAuthFailed": "Profil créé, mais échec du démarrage de l'authentification : {{error}}",
+      "authPrepareFailed": "Échec de la préparation de l'authentification : {{error}}",
+      "authStartFailedMessage": "Échec du démarrage de l'authentification. Veuillez réessayer."
+    },
+    "badges": {
+      "default": "Par défaut",
+      "active": "Actif",
+      "authenticated": "Authentifié",
+      "needsAuth": "Auth requise"
+    },
+    "buttons": {
+      "authenticate": "Authentifier",
+      "setActive": "Définir comme actif",
+      "back": "Retour",
+      "skip": "Passer",
+      "continue": "Continuer"
+    },
+    "toast": {
+      "tokenSaved": "Jeton enregistré",
+      "tokenSavedDescription": "Votre jeton Claude a été enregistré de manière sécurisée.",
+      "tokenSaveFailed": "Échec de l'enregistrement du jeton",
+      "addProfileFailed": "Échec de l'ajout du profil",
+      "tryAgain": "Veuillez réessayer."
+    },
+    "configureTitle": "Configurer les comptes Claude",
+    "addAccountsDesc": "Ajoutez et authentifiez vos comptes Claude pour utiliser les fonctionnalités IA.",
+    "multiAccountInfo": "Vous pouvez ajouter plusieurs comptes Claude. Le compte actif sera utilisé pour les fonctionnalités IA. Vous pouvez changer de compte à tout moment.",
+    "keychainTitle": "Stockage sécurisé",
+    "keychainDescription": "Vos jetons d'authentification sont stockés de manière sécurisée dans le trousseau macOS.",
+    "noAccountsYet": "Aucun compte ajouté. Ajoutez votre premier compte Claude ci-dessous."
+  },
+  "authTerminal": {
+    "failedToCreate": "Échec de la création du terminal",
+    "unknownError": "Erreur inconnue",
+    "instructionTitle": "Authentification Claude",
+    "step1": "Appuyez sur Entrée pour démarrer l'authentification",
+    "step2": "Complétez l'authentification dans votre navigateur",
+    "step3": "Revenez ici - l'authentification sera détectée automatiquement",
+    "authFailed": "Échec de l'authentification",
+    "connecting": "Connexion...",
+    "authenticate": "Authentifier : {{profileName}}",
+    "completeSetup": "Terminer la configuration : {{profileName}}",
+    "authenticatedAs": "Authentifié en tant que {{email}}",
+    "authenticated": "Authentifié !",
+    "authError": "Erreur d'authentification",
+    "onboardingMessage": "Jeton reçu ! Terminez la configuration de Claude Code ci-dessous - cette fenêtre se fermera automatiquement une fois terminé.",
+    "successMessage": "Authentification réussie ! Fermeture..."
+  },
+  "profileCreated": {
+    "title": "Le profil « {{profileName}} » a été créé.",
+    "instructions": "Pour authentifier ce profil :",
+    "step1": "Allez dans Paramètres > Intégrations",
+    "step2": "Trouvez le profil dans la section Comptes Claude",
+    "step3": "Cliquez sur « Authentifier » pour terminer la connexion",
+    "footer": "Le compte sera disponible une fois l'authentification terminée."
+  },
+  "roadmap": {
+    "taskCompleted": "Terminé",
+    "taskDeleted": "Supprimé",
+    "taskArchived": "Archivé",
+    "showMoreFeatures": "Afficher {{count}} fonctionnalité supplémentaire",
+    "showMoreFeatures_plural": "Afficher {{count}} fonctionnalités supplémentaires",
+    "showLessFeatures": "Afficher moins",
+    "archiveFeature": "Archiver",
+    "archiveFeatureConfirmTitle": "Archiver la fonctionnalité ?",
+    "archiveFeatureConfirmDescription": "Cela supprimera \"{{title}}\" de votre feuille de route.",
+    "goToTask": "Aller à la tâche",
+    "convertToTask": "Convertir en tâche Auto-Build",
+    "build": "Construire",
+    "task": "Tâche",
+    "viewTask": "Voir la tâche"
+  },
+  "roadmapGeneration": {
+    "progress": "Progression",
+    "elapsed": "Écoulé : {{time}}",
+    "stillWorking": "Toujours en cours...",
+    "stopping": "Arrêt...",
+    "stop": "Arrêter",
+    "stopTooltip": "Arrêter la génération",
+    "phases": {
+      "analyzing": {
+        "label": "Analyse",
+        "description": "Analyse de la structure et du code du projet..."
+      },
+      "discovering": {
+        "label": "Découverte",
+        "description": "Découverte du public cible et des besoins des utilisateurs..."
+      },
+      "generating": {
+        "label": "Génération",
+        "description": "Génération de la feuille de route des fonctionnalités..."
+      },
+      "complete": {
+        "label": "Terminé",
+        "description": "Génération de la feuille de route terminée !"
+      },
+      "error": {
+        "label": "Erreur",
+        "description": "La génération a échoué"
+      }
+    },
+    "steps": {
+      "analyze": "Analyser",
+      "discover": "Découvrir",
+      "generate": "Générer"
+    }
+  },
+  "auth": {
+    "failure": {
+      "title": "Authentification requise",
+      "profileLabel": "Profil",
+      "unknownProfile": "Profil inconnu",
+      "tokenExpired": "Votre jeton d'authentification a expiré.",
+      "tokenInvalid": "Votre jeton d'authentification est invalide.",
+      "tokenMissing": "Aucun jeton d'authentification trouvé.",
+      "authFailed": "Échec de l'authentification.",
+      "description": "Veuillez vous ré-authentifier pour continuer à utiliser Auto Claude.",
+      "taskAffected": "Tâche affectée",
+      "technicalDetails": "Détails techniques",
+      "goToSettings": "Aller aux paramètres"
+    }
+  },
+  "git": {
+    "branchGroups": {
+      "local": "Branches Locales",
+      "remote": "Branches Distantes"
+    },
+    "branchType": {
+      "local": "Locale",
+      "remote": "Distante"
+    }
+  },
+  "githubErrors": {
+    "rateLimitTitle": "Limite de débit GitHub atteinte",
+    "authTitle": "Authentification GitHub requise",
+    "permissionTitle": "Permission GitHub refusée",
+    "notFoundTitle": "Ressource GitHub introuvable",
+    "networkTitle": "Erreur de connexion GitHub",
+    "unknownTitle": "Erreur GitHub",
+    "rateLimitMessage": "Limite de débit de l'API GitHub atteinte. Veuillez patienter un moment avant de réessayer.",
+    "rateLimitMessageMinutes": "Limite de débit de l'API GitHub atteinte. Veuillez attendre {{minutes}} minute(s) avant de réessayer.",
+    "rateLimitMessageHours": "Limite de débit de l'API GitHub atteinte. La limite se réinitialise dans environ {{hours}} heure(s).",
+    "authMessage": "Échec de l'authentification GitHub. Veuillez vérifier votre jeton GitHub dans les Paramètres et réessayer.",
+    "permissionMessage": "Permission GitHub refusée. Votre jeton n'a peut-être pas les accès requis. Veuillez vérifier les permissions de votre jeton dans les Paramètres.",
+    "permissionMessageScopes": "Permission GitHub refusée. Votre jeton manque de permissions requises : {{scopes}}. Veuillez mettre à jour votre jeton GitHub dans les Paramètres.",
+    "notFoundMessage": "La ressource GitHub demandée est introuvable. Veuillez vérifier que le dépôt existe et que vous y avez accès.",
+    "networkMessage": "Impossible de se connecter à GitHub. Veuillez vérifier votre connexion Internet et réessayer.",
+    "unknownMessage": "Une erreur inattendue s'est produite lors de la communication avec GitHub. Veuillez réessayer.",
+    "resetsIn": "Réinitialisation dans {{time}}",
+    "countdownHoursMinutes": "{{hours}}h {{minutes}}m",
+    "countdownMinutesSeconds": "{{minutes}}m {{seconds}}s",
+    "rateLimitExpired": "La limite de débit a été réinitialisée. Vous pouvez réessayer maintenant.",
+    "requiredScopes": "Permissions requises"
+  },
+  "roadmapProgress": {
+    "elapsedTime": "Écoulé",
+    "lastActivity": "Dernière activité",
+    "staleWarning": "Aucune activité depuis un moment",
+    "staleWarningTooltip": "Cette tâche n'a eu aucune activité depuis {{minutes}} minutes",
+    "phases": {
+      "analyzing": {
+        "label": "Analyse",
+        "description": "Analyse de la structure du projet et du code..."
+      },
+      "discovering": {
+        "label": "Découverte",
+        "description": "Découverte du public cible et des besoins utilisateurs..."
+      },
+      "generating": {
+        "label": "Génération",
+        "description": "Génération de la feuille de route..."
+      },
+      "complete": {
+        "label": "Terminé",
+        "description": "Génération de la feuille de route terminée !"
+      },
+      "error": {
+        "label": "Erreur",
+        "description": "La génération a échoué"
+      }
+    },
+    "steps": {
+      "analyze": "Analyser",
+      "discover": "Découvrir",
+      "generate": "Générer"
+    },
+    "processing": "En cours",
+    "processActiveTooltip": "Le processus est en cours d'exécution",
+    "stopGeneration": "Arrêter la génération",
+    "stopping": "Arrêt...",
+    "progress": "Progression",
+    "lastActivityPrefix": "dernière activité",
+    "lastProgressUpdateTooltip": "Dernière mise à jour de progression reçue"
+  },
+  "prStatus": {
+    "ci": {
+      "success": "CI réussie",
+      "pending": "CI en attente",
+      "failure": "CI échouée",
+      "successTooltip": "Toutes les vérifications CI ont réussi",
+      "pendingTooltip": "Les vérifications CI sont en cours",
+      "failureTooltip": "Une ou plusieurs vérifications CI ont échoué"
+    },
+    "review": {
+      "approved": "Approuvée",
+      "changesRequested": "Modifications demandées",
+      "pending": "Révision en attente",
+      "approvedTooltip": "Cette PR a été approuvée",
+      "changesRequestedTooltip": "Des modifications ont été demandées sur cette PR",
+      "pendingTooltip": "En attente de révision"
+    },
+    "merge": {
+      "ready": "Prête à fusionner",
+      "blocked": "Fusion bloquée",
+      "conflict": "Conflits détectés",
+      "readyTooltip": "Cette PR est prête à être fusionnée",
+      "blockedTooltip": "Cette PR ne peut pas être fusionnée en raison de conditions bloquantes",
+      "conflictTooltip": "Cette PR a des conflits de fusion qui doivent être résolus"
+    }
   }
 }

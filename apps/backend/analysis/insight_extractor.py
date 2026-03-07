@@ -237,7 +237,7 @@ def _get_subtask_description(spec_dir: Path, subtask_id: str) -> str:
         return f"Subtask: {subtask_id}"
 
     try:
-        with open(plan_file) as f:
+        with open(plan_file, encoding="utf-8") as f:
             plan = json.load(f)
 
         # Search through phases for the subtask
@@ -280,7 +280,7 @@ def _build_extraction_prompt(inputs: dict) -> str:
     prompt_file = Path(__file__).parent / "prompts" / "insight_extractor.md"
 
     if prompt_file.exists():
-        base_prompt = prompt_file.read_text()
+        base_prompt = prompt_file.read_text(encoding="utf-8")
     else:
         # Fallback if prompt file missing
         base_prompt = """Extract structured insights from this coding session.

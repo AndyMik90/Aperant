@@ -53,7 +53,7 @@ class ServiceContextGenerator:
         """Load project index from file (.auto-claude is the installed instance)."""
         index_file = self.project_dir / ".auto-claude" / "project_index.json"
         if index_file.exists():
-            with open(index_file) as f:
+            with open(index_file, encoding="utf-8") as f:
                 return json.load(f)
         return {"services": {}}
 
@@ -132,7 +132,7 @@ class ServiceContextGenerator:
         requirements = service_path / "requirements.txt"
         if requirements.exists():
             try:
-                content = requirements.read_text()
+                content = requirements.read_text(encoding="utf-8")
                 for line in content.split("\n")[:20]:  # Top 20 deps
                     line = line.strip()
                     if line and not line.startswith("#"):
@@ -147,13 +147,13 @@ class ServiceContextGenerator:
         package_json = service_path / "package.json"
         if package_json.exists():
             try:
-                with open(package_json) as f:
+                with open(package_json, encoding="utf-8") as f:
                     pkg = json.load(f)
                     deps = list(pkg.get("dependencies", {}).keys())[:15]
                     context.dependencies.extend(
                         [d for d in deps if d not in context.dependencies]
                     )
-            except (OSError, json.JSONDecodeError):
+            except (OSError, json.JSONDecodeError, UnicodeDecodeError):
                 pass
 
     def _discover_api_patterns(self, service_path: Path, context: ServiceContext):
@@ -170,7 +170,7 @@ class ServiceContextGenerator:
 
         for route_file in route_files[:5]:  # Check first 5
             try:
-                content = route_file.read_text()
+                content = route_file.read_text(encoding="utf-8")
                 # Look for common route patterns
                 if "@app.route" in content or "@router." in content:
                     context.api_patterns.append(
@@ -187,20 +187,20 @@ class ServiceContextGenerator:
         package_json = service_path / "package.json"
         if package_json.exists():
             try:
-                with open(package_json) as f:
+                with open(package_json, encoding="utf-8") as f:
                     pkg = json.load(f)
                     scripts = pkg.get("scripts", {})
                     for name in ["dev", "start", "build", "test", "lint"]:
                         if name in scripts:
                             context.common_commands[name] = f"npm run {name}"
-            except (OSError, json.JSONDecodeError):
+            except (OSError, json.JSONDecodeError, UnicodeDecodeError):
                 pass
 
         # From Makefile
         makefile = service_path / "Makefile"
         if makefile.exists():
             try:
-                content = makefile.read_text()
+                content = makefile.read_text(encoding="utf-8")
                 for line in content.split("\n"):
                     if line and not line.startswith("\t") and ":" in line:
                         target = line.split(":")[0].strip()
@@ -236,7 +236,7 @@ class ServiceContextGenerator:
             env_path = service_path / env_file
             if env_path.exists():
                 try:
-                    content = env_path.read_text()
+                    content = env_path.read_text(encoding="utf-8")
                     for line in content.split("\n"):
                         line = line.strip()
                         if line and not line.startswith("#") and "=" in line:
@@ -381,7 +381,7 @@ class ServiceContextGenerator:
             output_path = service_path / "SERVICE_CONTEXT.md"
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(markdown)
+        output_path.write_text(markdown, encoding="utf-8")
 
         print(f"Generated SERVICE_CONTEXT.md for {service_name}: {output_path}")
         return output_path
@@ -446,7 +446,7 @@ def main():
     # Load project index if specified
     project_index = None
     if args.index and args.index.exists():
-        with open(args.index) as f:
+        with open(args.index, encoding="utf-8") as f:
             project_index = json.load(f)
 
     if args.all:

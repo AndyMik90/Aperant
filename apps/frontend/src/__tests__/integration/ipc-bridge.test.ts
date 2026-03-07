@@ -108,7 +108,8 @@ describe('IPC Bridge Integration', () => {
         const getTasks = electronAPI['getTasks'] as (projectId: string) => Promise<unknown>;
         await getTasks('project-id');
 
-        expect(mockIpcRenderer.invoke).toHaveBeenCalledWith('task:list', 'project-id');
+        // Second argument is optional options (undefined when not provided)
+        expect(mockIpcRenderer.invoke).toHaveBeenCalledWith('task:list', 'project-id', undefined);
       });
 
       it('should have createTask method', async () => {

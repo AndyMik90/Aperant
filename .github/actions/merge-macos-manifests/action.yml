@@ -33,49 +33,71 @@ runs:
     - name: Merge macOS manifests
       id: merge
       shell: bash
+      env:
+        # yq SHA256 checksum for v4.44.3 linux_amd64
+        # When updating yq-version, update this checksum and the one in validate step
+        YQ_SHA256: "a2c097180dd884a8d50c956ee16a9cec070f30a7947cf4ebf87d5f36213e9ed7"
       run: |
         echo "=== Merging macOS update manifests ==="
 
         # Find all latest-mac.yml files from different build artifacts
-        intel_manifest=$(find ${{ inputs.dist-path }} -path "*/macos-intel-builds/latest-mac.yml" -type f 2>/dev/null | head -1)
-        arm64_manifest=$(find ${{ inputs.dist-path }} -path "*/macos-arm64-builds/latest-mac.yml" -type f 2>/dev/null | head -1)
+        intel_manifest=$(find "${{ inputs.dist-path }}" -path "*/macos-intel-builds/latest-mac.yml" -type f 2>/dev/null | head -1)
+        arm64_manifest=$(find "${{ inputs.dist-path }}" -path "*/macos-arm64-builds/latest-mac.yml" -type f 2>/dev/null | head -1)
 
         echo "Intel manifest: ${intel_manifest:-not found}"
         echo "ARM64 manifest: ${arm64_manifest:-not found}"
 
-        mkdir -p ${{ inputs.output-path }}
+        mkdir -p "${{ inputs.output-path }}"
 
         if [ -n "$intel_manifest" ] && [ -n "$arm64_manifest" ]; then
           echo "Both architectures found - merging manifests..."
           echo "merged=true" >> "$GITHUB_OUTPUT"
 
-          # Install yq for YAML merging (pinned version)
+          # Install yq for YAML merging (pinned version with checksum verification)
           YQ_VERSION="${{ inputs.yq-version }}"
-          if ! sudo wget -qO /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"; then
+          YQ_URL="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
+
+          echo "Downloading yq ${YQ_VERSION}..."
+          if ! wget -qO /tmp/yq "$YQ_URL"; then
             echo "::error::Failed to download yq ${YQ_VERSION}"
             exit 1
           fi
+
+          # Verify checksum
+          echo "Verifying yq checksum..."
+          ACTUAL_SHA256=$(sha256sum /tmp/yq | cut -d' ' -f1)
+          if [ "$ACTUAL_SHA256" != "$YQ_SHA256" ]; then
+            echo "::error::yq checksum verification failed!"
+            echo "Expected: $YQ_SHA256"
+            echo "Actual:   $ACTUAL_SHA256"
+            rm -f /tmp/yq
+            exit 1
+          fi
+          echo "Checksum verified successfully"
+
+          sudo mv /tmp/yq /usr/local/bin/yq
           sudo chmod +x /usr/local/bin/yq
           echo "Installed yq version:"
           yq --version
 
-          # Merge the files arrays from both manifests using eval-all
-          # This avoids shell expansion issues with multiline YAML
-          yq eval-all '
-            select(fileIndex == 0) * {"files": ([.[].files] | add)}
-          ' "$intel_manifest" "$arm64_manifest" > ${{ inputs.output-path }}/latest-mac.yml
+          # Merge the files arrays from both manifests using two-step approach
+          # Step 1: Collect all files from both manifests into a temp file
+          yq eval-all '[.files] | flatten' "$intel_manifest" "$arm64_manifest" > /tmp/merged-files.yml
+
+          # Step 2: Replace files array in first manifest with merged files
+          yq eval '.files = load("/tmp/merged-files.yml")' "$intel_manifest" > "${{ inputs.output-path }}/latest-mac.yml"
 
           echo "Merged manifest contents:"
-          cat ${{ inputs.output-path }}/latest-mac.yml
+          cat "${{ inputs.output-path }}/latest-mac.yml"
 
         elif [ -n "$intel_manifest" ]; then
           echo "Only Intel manifest found - using as-is"
           echo "merged=false" >> "$GITHUB_OUTPUT"
-          cp "$intel_manifest" ${{ inputs.output-path }}/latest-mac.yml
+          cp "$intel_manifest" "${{ inputs.output-path }}/latest-mac.yml"
         elif [ -n "$arm64_manifest" ]; then
           echo "Only ARM64 manifest found - using as-is"
           echo "merged=false" >> "$GITHUB_OUTPUT"
-          cp "$arm64_manifest" ${{ inputs.output-path }}/latest-mac.yml
+          cp "$arm64_manifest" "${{ inputs.output-path }}/latest-mac.yml"
         else
           echo "::error::No macOS manifests found - this will cause auto-update to fail"
           exit 1
@@ -84,6 +106,9 @@ runs:
     - name: Validate merged manifest
       id: validate
       shell: bash
+      env:
+        # Single source of truth for yq checksum - must match merge step
+        YQ_SHA256: "a2c097180dd884a8d50c956ee16a9cec070f30a7947cf4ebf87d5f36213e9ed7"
       run: |
         manifest_file="${{ inputs.output-path }}/latest-mac.yml"
 
@@ -98,7 +123,21 @@ runs:
         # Install yq if not already installed (for single-arch case)
         if ! command -v yq &> /dev/null; then
           YQ_VERSION="${{ inputs.yq-version }}"
-          sudo wget -qO /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
+          YQ_URL="https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64"
+
+          echo "Downloading yq ${YQ_VERSION}..."
+          wget -qO /tmp/yq "$YQ_URL"
+
+          # Verify checksum (YQ_SHA256 from env)
+          ACTUAL_SHA256=$(sha256sum /tmp/yq | cut -d' ' -f1)
+          if [ "$ACTUAL_SHA256" != "$YQ_SHA256" ]; then
+            echo "::error::yq checksum verification failed!"
+            echo "Expected: $YQ_SHA256"
+            echo "Actual:   $ACTUAL_SHA256"
+            exit 1
+          fi
+
+          sudo mv /tmp/yq /usr/local/bin/yq
           sudo chmod +x /usr/local/bin/yq
         fi
 
@@ -143,13 +182,13 @@ runs:
 
         # Copy other manifests (Windows, Linux) - these don't have the duplicate issue
         for manifest in latest.yml latest-linux.yml latest-linux-arm64.yml; do
-          found=$(find ${{ inputs.dist-path }} -name "$manifest" -type f 2>/dev/null | head -1)
+          found=$(find "${{ inputs.dist-path }}" -name "$manifest" -type f 2>/dev/null | head -1)
           if [ -n "$found" ]; then
             echo "Copying $manifest"
-            cp "$found" ${{ inputs.output-path }}/
+            cp "$found" "${{ inputs.output-path }}/"
           fi
         done
 
         echo ""
         echo "=== Manifest files in ${{ inputs.output-path }} ==="
-        ls -la ${{ inputs.output-path }}/*.yml 2>/dev/null || echo "No manifest files found"
+        ls -la "${{ inputs.output-path }}"/*.yml 2>/dev/null || echo "No manifest files found"

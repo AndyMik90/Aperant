@@ -3,9 +3,22 @@
     "expand": "Expand terminal",
     "collapse": "Collapse terminal"
   },
+  "resume": {
+    "pending": "Resume Available",
+    "pendingTooltip": "Click to resume previous Claude session",
+    "resumeAllSessions": "Resume All"
+  },
   "auth": {
     "terminalTitle": "Auth: {{profileName}}",
     "maxTerminalsReached": "Cannot open auth terminal: maximum terminals reached. Close a terminal first."
+  },
+  "swap": {
+    "inProgress": "Switching profile...",
+    "resumingSession": "Resuming Claude session...",
+    "sessionResumed": "Session resumed under new profile",
+    "resumeFailed": "Could not resume session. You can start a new session.",
+    "noSession": "Profile switched. No active session to resume.",
+    "migrationFailed": "Profile switched, but session migration failed. Starting fresh terminal."
   },
   "worktree": {
     "create": "Worktree",
@@ -34,8 +47,12 @@
     "openInIDE": "Open in IDE",
     "maxReached": "Maximum of 12 terminal worktrees reached",
     "alreadyExists": "A worktree with this name already exists",
+    "searchPlaceholder": "Search worktrees...",
+    "noResults": "No worktrees found",
     "deleteTitle": "Delete Worktree?",
     "deleteDescription": "This will permanently delete the worktree and its branch. Any uncommitted changes will be lost.",
-    "detached": "(detached)"
+    "detached": "(detached)",
+    "remotePushFailed": "Remote Tracking Not Set Up",
+    "remotePushFailedDescription": "Worktree created but the branch could not be pushed to remote. You may need to run git push -u manually."
   }
 }

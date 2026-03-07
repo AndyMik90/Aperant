@@ -66,7 +66,6 @@ export function findHomebrewPython(
         } catch (error) {
           // Version check failed (e.g., timeout, permission issue), try next candidate
           console.warn(`${logPrefix} Failed to validate ${pythonPath}: ${error}`);
-          continue;
         }
       }
     }

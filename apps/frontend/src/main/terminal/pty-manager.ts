@@ -9,12 +9,39 @@ import { existsSync } from 'fs';
 import type { TerminalProcess, WindowGetter, WindowsShellType } from './types';
 import { isWindows, getWindowsShellPaths } from '../platform';
 import { IPC_CHANNELS } from '../../shared/constants';
+import { safeSendToRenderer } from '../ipc-handlers/utils';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { readSettingsFile } from '../settings-utils';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 import type { SupportedTerminal } from '../../shared/types/settings';
 
 // Windows shell paths are now imported from the platform module via getWindowsShellPaths()
+
+/**
+ * Shutdown flag to prevent PTY handlers from accessing destroyed resources
+ * (e.g., BrowserWindow.webContents) during app shutdown.
+ * Follows the same pattern as isShuttingDown in pty-daemon-client.ts.
+ *
+ * Part of the shutdown guard pattern for GitHub issue #1469: without this flag,
+ * PTY onData/onExit callbacks can fire after BrowserWindow is destroyed,
+ * causing pty.node's native ThreadSafeFunction to SIGABRT.
+ */
+let isShuttingDown = false;
+
+/**
+ * Set the shutting down flag. Call this during app quit/before-quit
+ * to prevent PTY handlers from accessing destroyed resources.
+ */
+export function setShuttingDown(value: boolean): void {
+  isShuttingDown = value;
+}
+
+/**
+ * Check if the PTY manager is in shutting down state.
+ */
+export function getIsShuttingDown(): boolean {
+  return isShuttingDown;
+}
 
 /**
  * Result of spawning a PTY process
@@ -142,6 +169,7 @@ export function spawnPtyProcess(
   const shellArgs = isWindows() ? [] : ['-l'];
 
   debugLog('[PtyManager] Spawning shell:', shell, shellArgs, '(preferred:', preferredTerminal || 'system', ', shellType:', shellType, ')');
+  debugLog('[PtyManager] PTY dimensions requested - cols:', cols, 'rows:', rows, 'cwd:', cwd || os.homedir());
 
   // Create a clean environment without DEBUG to prevent Claude Code from
   // enabling debug mode when the Electron app is run in development mode.
@@ -161,6 +189,9 @@ export function spawnPtyProcess(
       ...profileEnv,
       TERM: 'xterm-256color',
       COLORTERM: 'truecolor',
+      // Suppress zsh's partial line indicator (%) that appears when output
+      // doesn't end with a newline. This prevents rendering artifacts in the terminal.
+      PROMPT_EOL_MARK: '',
     },
   });
 
@@ -178,27 +209,40 @@ export function setupPtyHandlers(
   onExitCallback: (terminal: TerminalProcess) => void
 ): void {
   const { id, pty: ptyProcess } = terminal;
+  terminal.hasExited = false;
 
   // Handle data from terminal
   ptyProcess.onData((data) => {
+    // Shutdown guard (GitHub #1469): skip processing to avoid accessing
+    // destroyed BrowserWindow.webContents, which triggers pty.node SIGABRT
+    if (isShuttingDown) return;
+    if (terminal.hasExited) return;
+
     // Append to output buffer (limit to 100KB)
     terminal.outputBuffer = (terminal.outputBuffer + data).slice(-100000);
 
-    // Call custom data handler
-    onDataCallback(terminal, data);
-
-    // Send to renderer
-    const win = getWindow();
-    if (win) {
-      win.webContents.send(IPC_CHANNELS.TERMINAL_OUTPUT, id, data);
+    // Call custom data handler. This must never crash the main process:
+    // parser logic in higher layers can throw on unexpected output.
+    try {
+      onDataCallback(terminal, data);
+    } catch (error) {
+      debugError('[PtyManager] onData callback failed for terminal:', id, 'error:', error);
     }
+
+    // Send to renderer with isDestroyed() check to prevent crashes
+    // when the window is closed during terminal activity
+    safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_OUTPUT, id, data);
   });
 
   // Handle terminal exit
   ptyProcess.onExit(({ exitCode }) => {
+    terminal.hasExited = true;
+    // Drop any queued writes for this terminal to avoid writing to dead PTYs.
+    pendingWrites.delete(id);
     debugLog('[PtyManager] Terminal exited:', id, 'code:', exitCode);
 
-    // Resolve any pending exit promise FIRST (before other cleanup)
+    // Always resolve pending exit promises, even during shutdown
+    // (needed for waitForPtyExit callers to complete)
     const pendingExit = pendingExitPromises.get(id);
     if (pendingExit) {
       clearTimeout(pendingExit.timeoutId);
@@ -206,13 +250,21 @@ export function setupPtyHandlers(
       pendingExit.resolve();
     }
 
-    const win = getWindow();
-    if (win) {
-      win.webContents.send(IPC_CHANNELS.TERMINAL_EXIT, id, exitCode);
-    }
+    // Shutdown guard (GitHub #1469): skip accessing win.webContents and callbacks
+    // to avoid pty.node SIGABRT from destroyed BrowserWindow resources
+    if (isShuttingDown) return;
 
-    // Call custom exit handler
-    onExitCallback(terminal);
+    // Send to renderer with isDestroyed() check to prevent crashes
+    // when the window is closed during terminal exit
+    safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_EXIT, id, exitCode);
+
+    // Call custom exit handler. Guard against unexpected exceptions so PTY exit
+    // handling remains robust and doesn't take down the main process.
+    try {
+      onExitCallback(terminal);
+    } catch (error) {
+      debugError('[PtyManager] onExit callback failed for terminal:', id, 'error:', error);
+    }
 
     // Only delete if this is the SAME terminal object (not a newly created one with same ID).
     // This prevents a race where destroyTerminal() awaits PTY exit, a new terminal is created
@@ -225,11 +277,16 @@ export function setupPtyHandlers(
 
 /**
  * Constants for chunked write behavior
- * CHUNKED_WRITE_THRESHOLD: Data larger than this (bytes) will be written in chunks
- * CHUNK_SIZE: Size of each chunk - smaller chunks yield to event loop more frequently
+ * CHUNKED_WRITE_THRESHOLD: Data larger than this (bytes) will be written in chunks.
+ *   Set high enough that typical pastes go through as a single synchronous write.
+ * CHUNK_SIZE: Size of each chunk. Larger chunks = fewer event-loop yields = less
+ *   GPU pressure when many terminals are rendering simultaneously.
+ *   Previous values (1000/100) caused GPU context exhaustion: a 9KB paste produced
+ *   ~91 setImmediate yields, letting GPU rendering tasks from 8+ terminals pile up
+ *   until ContextResult::kTransientFailure crashed the app.
  */
-const CHUNKED_WRITE_THRESHOLD = 1000;
-const CHUNK_SIZE = 100;
+const CHUNKED_WRITE_THRESHOLD = 16_384;
+const CHUNK_SIZE = 8_192;
 
 /**
  * Write queue per terminal to prevent interleaving of concurrent writes.
@@ -243,6 +300,11 @@ const pendingWrites = new Map<string, Promise<void>>();
  */
 function performWrite(terminal: TerminalProcess, data: string): Promise<void> {
   return new Promise((resolve) => {
+    if (terminal.hasExited) {
+      resolve();
+      return;
+    }
+
     // For large commands, write in chunks to prevent blocking
     if (data.length > CHUNKED_WRITE_THRESHOLD) {
       debugLog('[PtyManager:writeToPty] Large write detected, using chunked write');
@@ -251,7 +313,7 @@ function performWrite(terminal: TerminalProcess, data: string): Promise<void> {
 
       const writeChunk = () => {
         // Check if terminal is still valid before writing
-        if (!terminal.pty) {
+        if (!terminal.pty || terminal.hasExited) {
           debugError('[PtyManager:writeToPty] Terminal PTY no longer valid, aborting chunked write');
           resolve();
           return;
@@ -297,6 +359,10 @@ function performWrite(terminal: TerminalProcess, data: string): Promise<void> {
  */
 export function writeToPty(terminal: TerminalProcess, data: string): void {
   debugLog('[PtyManager:writeToPty] About to write to pty, data length:', data.length);
+  if (terminal.hasExited) {
+    debugError('[PtyManager:writeToPty] Skipping write to exited terminal:', terminal.id);
+    return;
+  }
 
   // Get the previous write Promise for this terminal (if any)
   const previousWrite = pendingWrites.get(terminal.id) || Promise.resolve();
@@ -317,10 +383,46 @@ export function writeToPty(terminal: TerminalProcess, data: string): void {
 }
 
 /**
- * Resize a PTY process
+ * Resize a PTY process with validation and error handling.
+ * @param terminal The terminal process to resize
+ * @param cols New column count
+ * @param rows New row count
+ * @returns true if resize was successful, false otherwise
  */
-export function resizePty(terminal: TerminalProcess, cols: number, rows: number): void {
-  terminal.pty.resize(cols, rows);
+export function resizePty(terminal: TerminalProcess, cols: number, rows: number): boolean {
+  if (terminal.hasExited) {
+    debugError('[PtyManager] Resize skipped for exited terminal:', terminal.id);
+    return false;
+  }
+
+  // Validate dimensions
+  if (cols <= 0 || rows <= 0 || !Number.isFinite(cols) || !Number.isFinite(rows)) {
+    debugError('[PtyManager] Invalid resize dimensions - terminal:', terminal.id, 'cols:', cols, 'rows:', rows);
+    return false;
+  }
+
+  try {
+    const prevCols = terminal.pty.cols;
+    const prevRows = terminal.pty.rows;
+
+    // If dimensions are unchanged, force SIGWINCH via a resize cycle.
+    // On macOS/Linux, ioctl(TIOCSWINSZ) only sends SIGWINCH when size actually
+    // changes. This matters after project switch: PTY persists with old dimensions,
+    // terminal remounts at same size, TUI apps (Claude Code) never get SIGWINCH
+    // and never redraw — leaving the terminal blank.
+    if (prevCols === cols && prevRows === rows) {
+      debugLog('[PtyManager] Same-dimension resize detected, forcing SIGWINCH cycle for terminal:', terminal.id);
+      terminal.pty.resize(Math.max(1, cols - 1), rows);
+    }
+
+    debugLog('[PtyManager] Resizing PTY - terminal:', terminal.id, 'from:', prevCols, 'x', prevRows, 'to:', cols, 'x', rows);
+    terminal.pty.resize(cols, rows);
+    debugLog('[PtyManager] PTY resized - actual dimensions now:', terminal.pty.cols, 'x', terminal.pty.rows);
+    return true;
+  } catch (error) {
+    debugError('[PtyManager] Resize failed for terminal:', terminal.id, 'error:', error);
+    return false;
+  }
 }
 
 /**
@@ -332,6 +434,10 @@ export function resizePty(terminal: TerminalProcess, cols: number, rows: number)
 export function killPty(terminal: TerminalProcess, waitForExit: true): Promise<void>;
 export function killPty(terminal: TerminalProcess, waitForExit?: false): void;
 export function killPty(terminal: TerminalProcess, waitForExit?: boolean): Promise<void> | void {
+  if (terminal.hasExited) {
+    return waitForExit ? Promise.resolve() : undefined;
+  }
+
   if (waitForExit) {
     const exitPromise = waitForPtyExit(terminal.id);
     try {

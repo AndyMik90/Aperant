@@ -26,7 +26,7 @@
  * />
  * ```
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
@@ -34,11 +34,14 @@ import { TaskModalLayout } from './task-form/TaskModalLayout';
 import { TaskFormFields } from './task-form/TaskFormFields';
 import { type FileReferenceData } from './task-form/useImageUpload';
 import { persistUpdateTask } from '../stores/task-store';
+import { useProjectStore } from '../stores/project-store';
 import type { Task, ImageAttachment, TaskCategory, TaskPriority, TaskComplexity, TaskImpact, ModelType, ThinkingLevel } from '../../shared/types';
 import {
   DEFAULT_AGENT_PROFILES,
   DEFAULT_PHASE_MODELS,
-  DEFAULT_PHASE_THINKING
+  DEFAULT_PHASE_THINKING,
+  FAST_MODE_MODELS,
+  PHASE_KEYS
 } from '../../shared/constants';
 import type { PhaseModelConfig, PhaseThinkingConfig } from '../../shared/types/settings';
 import { useSettingsStore } from '../stores/settings-store';
@@ -64,6 +67,13 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
   const selectedProfile = DEFAULT_AGENT_PROFILES.find(
     p => p.id === settings.selectedAgentProfile
   ) || DEFAULT_AGENT_PROFILES.find(p => p.id === 'auto')!;
+
+  // Get project path for loading image thumbnails from disk
+  const projects = useProjectStore((state) => state.projects);
+  const projectPath = useMemo(() => {
+    const project = projects.find(p => p.id === task.projectId);
+    return project?.path;
+  }, [projects, task.projectId]);
 
   // Form state
   const [title, setTitle] = useState(task.title);
@@ -112,6 +122,18 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
     task.metadata?.requireReviewBeforeCoding ?? false
   );
 
+  // Fast mode
+  const [fastMode, setFastMode] = useState(task.metadata?.fastMode ?? false);
+
+  // Show Fast Mode toggle when any phase uses an Opus model
+  const showFastModeToggle = useMemo(() => {
+    if (!phaseModels) return false;
+    return PHASE_KEYS.some(phase => FAST_MODE_MODELS.includes(phaseModels[phase]));
+  }, [phaseModels]);
+
+  // Disable fast mode toggle for tasks that have moved past backlog
+  const isFastModeEditable = task.status === 'backlog';
+
   // Reset form when task changes or dialog opens
   useEffect(() => {
     if (open) {
@@ -152,6 +174,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
 
       setImages(task.metadata?.attachedImages || []);
       setRequireReviewBeforeCoding(task.metadata?.requireReviewBeforeCoding ?? false);
+      setFastMode(task.metadata?.fastMode ?? false);
       setError(null);
 
       // Auto-expand classification if it has content
@@ -196,6 +219,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       model !== (task.metadata?.model || '') ||
       thinkingLevel !== (task.metadata?.thinkingLevel || '') ||
       requireReviewBeforeCoding !== (task.metadata?.requireReviewBeforeCoding ?? false) ||
+      fastMode !== (task.metadata?.fastMode ?? false) ||
       JSON.stringify(images) !== JSON.stringify(task.metadata?.attachedImages || []) ||
       JSON.stringify(phaseModels) !== JSON.stringify(task.metadata?.phaseModels || DEFAULT_PHASE_MODELS) ||
       JSON.stringify(phaseThinking) !== JSON.stringify(task.metadata?.phaseThinking || DEFAULT_PHASE_THINKING);
@@ -224,6 +248,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
     // Always set attachedImages to persist removal when all images are deleted
     metadataUpdates.attachedImages = images.length > 0 ? images : [];
     metadataUpdates.requireReviewBeforeCoding = requireReviewBeforeCoding;
+    metadataUpdates.fastMode = fastMode;
 
     const success = await persistUpdateTask(task.id, {
       title: trimmedTitle,
@@ -269,6 +294,8 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       }
     >
       <TaskFormFields
+        projectPath={projectPath}
+        specId={task.specId}
         description={description}
         onDescriptionChange={setDescription}
         title={title}
@@ -301,6 +328,9 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
         onImagesChange={setImages}
         requireReviewBeforeCoding={requireReviewBeforeCoding}
         onRequireReviewChange={setRequireReviewBeforeCoding}
+        fastMode={fastMode}
+        onFastModeChange={setFastMode}
+        showFastModeToggle={showFastModeToggle && isFastModeEditable}
         disabled={isSaving}
         error={error}
         onError={setError}

@@ -93,7 +93,7 @@ class MergeLock:
                 os.close(fd)
 
                 # Write our PID to the lock file
-                self.lock_file.write_text(str(os.getpid()))
+                self.lock_file.write_text(str(os.getpid()), encoding="utf-8")
                 self.acquired = True
                 return self
 
@@ -101,7 +101,7 @@ class MergeLock:
                 # Lock file exists - check if process is still running
                 if self.lock_file.exists():
                     try:
-                        pid = int(self.lock_file.read_text().strip())
+                        pid = int(self.lock_file.read_text(encoding="utf-8").strip())
                         # Import locally to avoid circular dependency
                         import os as _os
 
@@ -183,7 +183,7 @@ class SpecNumberLock:
                 os.close(fd)
 
                 # Write our PID to the lock file
-                self.lock_file.write_text(str(os.getpid()))
+                self.lock_file.write_text(str(os.getpid()), encoding="utf-8")
                 self.acquired = True
                 return self
 
@@ -191,7 +191,7 @@ class SpecNumberLock:
                 # Lock file exists - check if process is still running
                 if self.lock_file.exists():
                     try:
-                        pid = int(self.lock_file.read_text().strip())
+                        pid = int(self.lock_file.read_text(encoding="utf-8").strip())
                         import os as _os
 
                         try:
@@ -273,3 +273,30 @@ class SpecNumberLock:
                 pass
 
         return max_num
+
+
+class DependencyStrategy(Enum):
+    """Strategy for sharing dependency directories across worktrees.
+
+    SYMLINK is fast and now safe for Python venvs with runtime health checks.
+    A post-symlink health check validates the venv is usable, automatically
+    falling back to RECREATE if the symlink is broken. This works around
+    CPython's pyvenv.cfg discovery issue (CPython bug #106045) while maintaining
+    fast worktree creation in the common case where symlinking succeeds.
+    """
+
+    SYMLINK = "symlink"  # Create a symlink to the source (fast, works for node_modules)
+    RECREATE = "recreate"  # Re-run the package manager to create a fresh copy
+    COPY = "copy"  # Deep-copy the directory (slow but always correct)
+    SKIP = "skip"  # Do nothing; let the agent handle it
+
+
+@dataclass
+class DependencyShareConfig:
+    """Configuration for how a specific dependency type should be shared."""
+
+    dep_type: str  # e.g. "node_modules", "venv", ".venv"
+    strategy: DependencyStrategy
+    source_rel_path: str  # Relative path from project root, e.g. "node_modules"
+    requirements_file: str | None = None  # e.g. "requirements.txt", "pyproject.toml"
+    package_manager: str | None = None  # e.g. "npm", "uv", "pip"

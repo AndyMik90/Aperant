@@ -16,7 +16,7 @@ export const insightsMock = {
     } : null
   }),
 
-  listInsightsSessions: async () => ({
+  listInsightsSessions: async (_projectId?: string, _includeArchived?: boolean) => ({
     success: true,
     data: mockInsightsSessions
   }),
@@ -69,6 +69,28 @@ export const insightsMock = {
     return { success: true };
   },
 
+  deleteInsightsSessions: async (_projectId: string, sessionIds: string[]) => {
+    for (const sessionId of sessionIds) {
+      const index = mockInsightsSessions.findIndex(s => s.id === sessionId);
+      if (index !== -1) {
+        mockInsightsSessions.splice(index, 1);
+      }
+    }
+    return { success: true, data: { deletedIds: sessionIds, failedIds: [] } };
+  },
+
+  archiveInsightsSession: async (_projectId: string, _sessionId: string) => {
+    return { success: true };
+  },
+
+  archiveInsightsSessions: async (_projectId: string, sessionIds: string[]) => {
+    return { success: true, data: { archivedIds: sessionIds, failedIds: [] } };
+  },
+
+  unarchiveInsightsSession: async (_projectId: string, _sessionId: string) => {
+    return { success: true };
+  },
+
   renameInsightsSession: async (_projectId: string, sessionId: string, newTitle: string) => {
     const session = mockInsightsSessions.find(s => s.id === sessionId);
     if (session) {
@@ -107,5 +129,6 @@ export const insightsMock = {
 
   onInsightsStreamChunk: () => () => {},
   onInsightsStatus: () => () => {},
-  onInsightsError: () => () => {}
+  onInsightsError: () => () => {},
+  onInsightsSessionUpdated: () => () => {}
 };

@@ -1,6 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { Download, RefreshCw, CheckCircle2, AlertCircle, ExternalLink } from "lucide-react";
+import { Download, RefreshCw, CheckCircle2, AlertCircle, AlertTriangle, ExternalLink } from "lucide-react";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
+import rehypeSanitize from "rehype-sanitize";
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
 import {
@@ -16,64 +20,67 @@ import type { AppUpdateAvailableEvent, AppUpdateProgress } from "../../shared/ty
 const CLAUDE_CODE_CHANGELOG_URL =
   "https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md";
 
-/**
- * Simple markdown renderer for release notes
- * Handles: headers, bold, lists, line breaks
- */
-function ReleaseNotesRenderer({ markdown }: { markdown: string }) {
-  const html = useMemo(() => {
-    const result = markdown
-      // Escape HTML
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      // Headers (### Header -> <h3>)
-      .replace(
-        /^### (.+)$/gm,
-        '<h4 class="text-sm font-semibold text-foreground mt-3 mb-1.5 first:mt-0">$1</h4>'
-      )
-      .replace(
-        /^## (.+)$/gm,
-        '<h3 class="text-sm font-semibold text-foreground mt-3 mb-1.5 first:mt-0">$1</h3>'
-      )
-      // Bold (**text** -> <strong>)
-      .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-foreground font-medium">$1</strong>')
-      // Inline code (`code` -> <code>)
-      .replace(/`([^`]+)`/g, '<code class="px-1 py-0.5 bg-muted rounded text-xs">$1</code>')
-      // List items (- item -> <li>)
-      .replace(
-        /^- (.+)$/gm,
-        "<li class=\"ml-4 text-muted-foreground before:content-['•'] before:mr-2 before:text-muted-foreground/60\">$1</li>"
-      )
-      // Wrap consecutive list items
-      .replace(/(<li[^>]*>.*?<\/li>\n?)+/g, '<ul class="space-y-1 my-2">$&</ul>')
-      // Line breaks for remaining lines
-      .replace(/\n\n/g, '<div class="h-2"></div>')
-      .replace(/\n/g, "<br/>");
+// createSafeLink - factory function that creates a SafeLink component with i18n support
+const createSafeLink = (opensInNewWindowText: string) => {
+  return function SafeLink({
+    href,
+    children,
+    ...props
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement>) {
+    // Validate URL - only allow http, https, and relative links
+    const isValidUrl =
+      href &&
+      (href.startsWith("http://") ||
+        href.startsWith("https://") ||
+        href.startsWith("/") ||
+        href.startsWith("#"));
 
-    return result;
-  }, [markdown]);
+    if (!isValidUrl) {
+      // For invalid or potentially malicious URLs, render as plain text
+      return <span className="text-muted-foreground">{children}</span>;
+    }
 
-  return (
-    <div
-      className="text-sm text-muted-foreground leading-relaxed"
-      dangerouslySetInnerHTML={{ __html: html }}
-    />
-  );
-}
+    // External links get security attributes and accessibility indicator
+    const isExternal = href?.startsWith("http://") || href?.startsWith("https://");
+
+    return (
+      <a
+        href={href}
+        {...props}
+        {...(isExternal && {
+          target: "_blank",
+          rel: "noopener noreferrer",
+        })}
+        className="text-primary hover:underline"
+      >
+        {children}
+        {isExternal && <span className="sr-only"> {opensInNewWindowText}</span>}
+      </a>
+    );
+  };
+};
 
 /**
  * App Update Notification Dialog
  * Shows when a new app version is available and handles download/install workflow
  */
 export function AppUpdateNotification() {
-  const { t } = useTranslation(["dialogs"]);
+  const { t } = useTranslation(["dialogs", "common"]);
   const [isOpen, setIsOpen] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<AppUpdateAvailableEvent | null>(null);
   const [downloadProgress, setDownloadProgress] = useState<AppUpdateProgress | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isDownloaded, setIsDownloaded] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [showReadOnlyWarning, setShowReadOnlyWarning] = useState(false);
+
+  // Create markdown components with translated accessibility text
+  const markdownComponents: Components = useMemo(
+    () => ({
+      a: createSafeLink(t("common:accessibility.opensInNewWindow")),
+    }),
+    [t]
+  );
 
   // Listen for update available event
   useEffect(() => {
@@ -84,6 +91,7 @@ export function AppUpdateNotification() {
       setIsDownloaded(false);
       setDownloadProgress(null);
       setDownloadError(null);
+      setShowReadOnlyWarning(false);
     });
 
     return cleanup;
@@ -95,6 +103,8 @@ export function AppUpdateNotification() {
       setIsDownloading(false);
       setIsDownloaded(true);
       setDownloadProgress(null);
+      setDownloadError(null);
+      setShowReadOnlyWarning(false);
     });
 
     return cleanup;
@@ -104,6 +114,26 @@ export function AppUpdateNotification() {
   useEffect(() => {
     const cleanup = window.electronAPI.onAppUpdateProgress((progress) => {
       setDownloadProgress(progress);
+    });
+
+    return cleanup;
+  }, []);
+
+  // Listen for update errors (e.g., install failures)
+  useEffect(() => {
+    const cleanup = window.electronAPI.onAppUpdateError((error) => {
+      setDownloadError(error.message);
+      setIsDownloading(false);
+      setDownloadProgress(null);
+    });
+
+    return cleanup;
+  }, []);
+
+  // Listen for read-only volume warning (when trying to install from DMG on macOS)
+  useEffect(() => {
+    const cleanup = window.electronAPI.onAppUpdateReadOnlyVolume(() => {
+      setShowReadOnlyWarning(true);
     });
 
     return cleanup;
@@ -184,7 +214,15 @@ export function AppUpdateNotification() {
           {/* Release Notes */}
           {updateInfo.releaseNotes && (
             <div className="bg-background rounded-lg p-4 max-h-64 overflow-y-auto border border-border/50">
-              <ReleaseNotesRenderer markdown={updateInfo.releaseNotes} />
+              <div className="prose prose-sm dark:prose-invert max-w-none">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  rehypePlugins={[rehypeRaw, rehypeSanitize]}
+                  components={markdownComponents}
+                >
+                  {updateInfo.releaseNotes}
+                </ReactMarkdown>
+              </div>
             </div>
           )}
 
@@ -193,7 +231,7 @@ export function AppUpdateNotification() {
             variant="link"
             size="sm"
             className="w-full text-xs text-muted-foreground gap-1"
-            onClick={() => window.electronAPI?.openExternal?.(CLAUDE_CODE_CHANGELOG_URL)}
+            onClick={() => window.electronAPI.openExternal(CLAUDE_CODE_CHANGELOG_URL)}
             aria-label={t(
               "dialogs:appUpdate.claudeCodeChangelogAriaLabel",
               "View Claude Code Changelog (opens in new window)"
@@ -230,8 +268,23 @@ export function AppUpdateNotification() {
             </div>
           )}
 
+          {/* Read-Only Volume Warning (DMG install on macOS) */}
+          {showReadOnlyWarning && (
+            <div className="flex items-start gap-3 text-sm text-warning bg-warning/10 border border-warning/30 rounded-lg p-3">
+              <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-medium">
+                  {t("dialogs:appUpdate.readOnlyVolumeTitle", "Cannot install from disk image")}
+                </p>
+                <p className="text-muted-foreground">
+                  {t("dialogs:appUpdate.readOnlyVolumeDescription", "Please move Auto Claude to your Applications folder before updating.")}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Downloaded Success */}
-          {isDownloaded && (
+          {isDownloaded && !showReadOnlyWarning && (
             <div className="flex items-center gap-3 text-sm text-success bg-success/10 border border-success/30 rounded-lg p-3">
               <CheckCircle2 className="h-5 w-5 shrink-0" />
               <span>
@@ -252,7 +305,7 @@ export function AppUpdateNotification() {
           </Button>
 
           {isDownloaded ? (
-            <Button onClick={handleInstall}>
+            <Button onClick={handleInstall} disabled={showReadOnlyWarning}>
               <RefreshCw className="mr-2 h-4 w-4" />
               {t("dialogs:appUpdate.installAndRestart", "Install and Restart")}
             </Button>

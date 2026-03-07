@@ -253,7 +253,7 @@ def load_gitlab_config(project_dir: Path) -> GitLabConfig | None:
         return None
 
     try:
-        with open(config_path) as f:
+        with open(config_path, encoding="utf-8") as f:
             data = json.load(f)
 
         token = data.get("token")

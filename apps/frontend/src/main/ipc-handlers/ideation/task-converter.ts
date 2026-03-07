@@ -155,7 +155,8 @@ function createSpecFiles(
   };
   writeFileSync(
     path.join(specDir, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN),
-    JSON.stringify(initialPlan, null, 2)
+    JSON.stringify(initialPlan, null, 2),
+    'utf-8'
   );
 
   // Create initial spec.md
@@ -172,7 +173,7 @@ ${idea.rationale}
 ---
 *This spec was created from ideation and is pending detailed specification.*
 `;
-  writeFileSync(path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE), specContent);
+  writeFileSync(path.join(specDir, AUTO_BUILD_PATHS.SPEC_FILE), specContent, 'utf-8');
 }
 
 /**
@@ -249,7 +250,7 @@ export async function convertIdeaToTask(
 
       // Save metadata
       const metadataPath = path.join(specDir, 'task_metadata.json');
-      writeFileSync(metadataPath, JSON.stringify(metadata, null, 2));
+      writeFileSync(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
 
       // Update idea status to archived (converted ideas are archived)
       idea.status = 'archived';

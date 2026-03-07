@@ -11,7 +11,9 @@ import type {
   InfrastructureStatus,
   GraphitiValidationResult,
   GraphitiConnectionTestResult,
-  GitStatus
+  GitStatus,
+  KanbanPreferences,
+  GitBranchDetail
 } from '../../shared/types';
 
 // Tab state interface (persisted in main process)
@@ -36,6 +38,10 @@ export interface ProjectAPI {
   // Tab State (persisted in main process for reliability)
   getTabState: () => Promise<IPCResult<TabState>>;
   saveTabState: (tabState: TabState) => Promise<IPCResult>;
+
+  // Kanban Preferences (persisted in main process per project)
+  getKanbanPreferences: (projectId: string) => Promise<IPCResult<KanbanPreferences | null>>;
+  saveKanbanPreferences: (projectId: string, preferences: KanbanPreferences) => Promise<IPCResult>;
 
   // Context Operations
   getProjectContext: (projectId: string) => Promise<IPCResult<unknown>>;
@@ -92,7 +98,10 @@ export interface ProjectAPI {
    }) => void) => () => void;
 
    // Git Operations
+  /** @deprecated Use getGitBranchesWithInfo for structured branch data with type indicators */
   getGitBranches: (projectPath: string) => Promise<IPCResult<string[]>>;
+  /** Get branches with structured type information (local vs remote) */
+  getGitBranchesWithInfo: (projectPath: string) => Promise<IPCResult<GitBranchDetail[]>>;
   getCurrentGitBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
   detectMainBranch: (projectPath: string) => Promise<IPCResult<string | null>>;
   checkGitStatus: (projectPath: string) => Promise<IPCResult<GitStatus>>;
@@ -169,6 +178,13 @@ export const createProjectAPI = (): ProjectAPI => ({
 
   saveTabState: (tabState: TabState): Promise<IPCResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.TAB_STATE_SAVE, tabState),
+
+  // Kanban Preferences (persisted in main process per project)
+  getKanbanPreferences: (projectId: string): Promise<IPCResult<KanbanPreferences | null>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.KANBAN_PREFS_GET, projectId),
+
+  saveKanbanPreferences: (projectId: string, preferences: KanbanPreferences): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.KANBAN_PREFS_SAVE, projectId, preferences),
 
   // Context Operations
   getProjectContext: (projectId: string) =>
@@ -264,6 +280,9 @@ export const createProjectAPI = (): ProjectAPI => ({
   // Git Operations
   getGitBranches: (projectPath: string): Promise<IPCResult<string[]>> =>
     ipcRenderer.invoke(IPC_CHANNELS.GIT_GET_BRANCHES, projectPath),
+
+  getGitBranchesWithInfo: (projectPath: string): Promise<IPCResult<GitBranchDetail[]>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.GIT_GET_BRANCHES_WITH_INFO, projectPath),
 
   getCurrentGitBranch: (projectPath: string): Promise<IPCResult<string | null>> =>
     ipcRenderer.invoke(IPC_CHANNELS.GIT_GET_CURRENT_BRANCH, projectPath),

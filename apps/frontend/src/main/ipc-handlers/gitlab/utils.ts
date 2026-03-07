@@ -3,14 +3,28 @@
  */
 
 import { readFile, access } from 'fs/promises';
-import { execSync, execFileSync } from 'child_process';
+import { execFileSync } from 'child_process';
 import path from 'path';
 import type { Project } from '../../../shared/types';
 import { parseEnvFile } from '../utils';
 import type { GitLabConfig } from './types';
 import { getAugmentedEnv } from '../../env-utils';
+import { getIsolatedGitEnv } from '../../utils/git-isolation';
 
 const DEFAULT_GITLAB_URL = 'https://gitlab.com';
+
+/**
+ * Custom error class for GitLab API errors with structured status code
+ */
+export class GitLabAPIError extends Error {
+  public readonly statusCode: number;
+
+  constructor(message: string, statusCode: number) {
+    super(message);
+    this.name = 'GitLabAPIError';
+    this.statusCode = statusCode;
+  }
+}
 
 function parseInstanceUrl(value: string): string | null {
   const candidate = value.trim();
@@ -260,13 +274,16 @@ export async function gitlabFetch(
 
     if (!response.ok) {
       const errorBody = await response.text();
-      throw new Error(`GitLab API error: ${response.status} ${response.statusText} - ${errorBody}`);
+      throw new GitLabAPIError(
+        `GitLab API error: ${response.status} ${response.statusText} - ${errorBody}`,
+        response.status
+      );
     }
 
     return response.json();
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`GitLab API timeout after ${GITLAB_API_TIMEOUT_MS / 1000}s: ${url}`);
+      throw new GitLabAPIError(`GitLab API timeout after ${GITLAB_API_TIMEOUT_MS / 1000}s: ${url}`, 0);
     }
     throw error;
   } finally {
@@ -315,7 +332,10 @@ export async function gitlabFetchWithCount(
 
     if (!response.ok) {
       const errorBody = await response.text();
-      throw new Error(`GitLab API error: ${response.status} ${response.statusText} - ${errorBody}`);
+      throw new GitLabAPIError(
+        `GitLab API error: ${response.status} ${response.statusText} - ${errorBody}`,
+        response.status
+      );
     }
 
     // Get total count from X-Total header (GitLab's pagination header)
@@ -326,7 +346,7 @@ export async function gitlabFetchWithCount(
     return { data, totalCount };
   } catch (error) {
     if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`GitLab API timeout after ${GITLAB_API_TIMEOUT_MS / 1000}s: ${url}`);
+      throw new GitLabAPIError(`GitLab API timeout after ${GITLAB_API_TIMEOUT_MS / 1000}s: ${url}`, 0);
     }
     throw error;
   } finally {
@@ -357,7 +377,7 @@ export function detectGitLabProjectFromRemote(projectPath: string): { project: s
       cwd: projectPath,
       encoding: 'utf-8',
       stdio: 'pipe',
-      env: getAugmentedEnv()
+      env: getIsolatedGitEnv()
     }).trim();
 
     if (!remoteUrl) return null;

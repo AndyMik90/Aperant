@@ -28,7 +28,6 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
   const tasks = useTaskStore((state) => state.tasks);
 
   const {
-    issues,
     syncStatus,
     isLoading,
     isLoadingMore,
@@ -175,6 +174,8 @@ export function GitHubIssues({ onOpenSettings, onNavigateToTask }: GitHubIssuesP
             onSelectIssue={selectIssue}
             onInvestigate={handleInvestigate}
             onLoadMore={!isSearchActive ? handleLoadMore : undefined}
+            onRetry={handleRefresh}
+            onOpenSettings={onOpenSettings}
           />
         </div>
 

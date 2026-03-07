@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { AppSettings } from '../../shared/types';
-import type { APIProfile, ProfileFormData, TestConnectionResult, DiscoverModelsResult, ModelInfo } from '@shared/types/profile';
+import type { APIProfile, ProfileFormData, TestConnectionResult, ModelInfo } from '@shared/types/profile';
 import { DEFAULT_APP_SETTINGS } from '../../shared/constants';
 import { toast } from '../hooks/use-toast';
 import { markSettingsLoaded } from '../lib/sentry';
@@ -133,7 +133,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       if (result.success && result.data) {
         set((state) => ({
           profiles: state.profiles.map((p) =>
-            p.id === result.data!.id ? result.data! : p
+            p.id === result.data?.id ? result.data! : p
           ),
           profilesLoading: false
         }));
@@ -311,11 +311,27 @@ function migrateLanguageCode(settings: AppSettings): AppSettings {
  * Check if settings need migration for onboardingCompleted flag.
  * Existing users (with tokens or projects configured) should have
  * onboardingCompleted set to true to skip the onboarding wizard.
+ *
+ * This function now also checks Claude Code's ~/.claude.json for
+ * hasCompletedOnboarding to respect Claude Code's onboarding status.
  */
-function migrateOnboardingCompleted(settings: AppSettings): AppSettings {
+async function migrateOnboardingCompleted(settings: AppSettings): Promise<AppSettings> {
   // Only migrate if onboardingCompleted is undefined (not explicitly set)
   if (settings.onboardingCompleted !== undefined) {
     return settings;
+  }
+
+  // NEW: Check ~/.claude.json for hasCompletedOnboarding
+  // This allows Auto-Claude to respect Claude Code's onboarding status
+  try {
+    const claudeCodeResult = await window.electronAPI.getClaudeCodeOnboardingStatus();
+    if (claudeCodeResult.success && claudeCodeResult.data?.hasCompletedOnboarding) {
+      // Claude Code says onboarding is complete, respect that
+      return { ...settings, onboardingCompleted: true };
+    }
+  } catch (error) {
+    // If checking Claude Code onboarding fails, log and continue with existing logic
+    console.warn('[settings-store] Failed to check Claude Code onboarding status:', error);
   }
 
   // Check for signs of an existing user:
@@ -346,7 +362,10 @@ export async function loadSettings(): Promise<void> {
     const result = await window.electronAPI.getSettings();
     if (result.success && result.data) {
       // Apply migrations
-      const migratedSettings = migrateLanguageCode(migrateOnboardingCompleted(result.data));
+      // Onboarding migration is async since it may read Claude Code's ~/.claude.json
+      const migratedSettings = migrateLanguageCode(
+        await migrateOnboardingCompleted(result.data)
+      );
       store.setSettings(migratedSettings);
 
       // If migrations changed the settings, persist them
@@ -358,7 +377,14 @@ export async function loadSettings(): Promise<void> {
         updates.language = migratedSettings.language;
       }
       if (Object.keys(updates).length > 0) {
-        await window.electronAPI.saveSettings(updates);
+        try {
+          const saveResult = await window.electronAPI.saveSettings(updates);
+          if (!saveResult.success) {
+            console.warn('[settings-store] Failed to persist migrated settings', saveResult.error);
+          }
+        } catch (error) {
+          console.warn('[settings-store] Failed to persist migrated settings', error);
+        }
       }
 
       // Only mark settings as loaded on SUCCESS

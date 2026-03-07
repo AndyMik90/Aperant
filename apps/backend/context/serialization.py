@@ -41,7 +41,7 @@ def save_context(context: TaskContext, output_file: Path) -> None:
         output_file: Path to output JSON file
     """
     output_file.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_file, "w") as f:
+    with open(output_file, "w", encoding="utf-8") as f:
         json.dump(serialize_context(context), f, indent=2)
 
 
@@ -55,5 +55,5 @@ def load_context(input_file: Path) -> dict:
     Returns:
         Context dictionary
     """
-    with open(input_file) as f:
+    with open(input_file, encoding="utf-8") as f:
         return json.load(f)

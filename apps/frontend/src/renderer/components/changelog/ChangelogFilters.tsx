@@ -218,7 +218,7 @@ export function ChangelogFilters({
                     min={1}
                     max={500}
                     value={gitHistoryCount}
-                    onChange={(e) => onGitHistoryCountChange(parseInt(e.target.value) || 25)}
+                    onChange={(e) => onGitHistoryCountChange(parseInt(e.target.value, 10) || 25)}
                   />
                 </div>
               )}

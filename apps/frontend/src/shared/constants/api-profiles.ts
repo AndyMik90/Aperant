@@ -12,7 +12,7 @@ export const API_PROVIDER_PRESETS: readonly ApiProviderPreset[] = [
   },
   {
     id: 'openrouter',
-    baseUrl: 'https://openrouter.ai/api/v1',
+    baseUrl: 'https://openrouter.ai/api',
     labelKey: 'settings:apiProfiles.presets.openrouter'
   },
   {
@@ -21,13 +21,13 @@ export const API_PROVIDER_PRESETS: readonly ApiProviderPreset[] = [
     labelKey: 'settings:apiProfiles.presets.groq'
   },
   {
-    id: 'glm-global',
+    id: 'zai-global',
     baseUrl: 'https://api.z.ai/api/anthropic',
-    labelKey: 'settings:apiProfiles.presets.glmGlobal'
+    labelKey: 'settings:apiProfiles.presets.zaiGlobal'
   },
   {
-    id: 'glm-cn',
-    baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
-    labelKey: 'settings:apiProfiles.presets.glmChina'
+    id: 'zai-cn',
+    baseUrl: 'https://open.bigmodel.cn/api/anthropic',
+    labelKey: 'settings:apiProfiles.presets.zaiChina'
   }
 ];

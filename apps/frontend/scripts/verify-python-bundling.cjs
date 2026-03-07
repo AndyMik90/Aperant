@@ -62,7 +62,7 @@ if (pythonResource) {
 console.log('\n3. Checking venv creation capability...');
 try {
   // Find system Python for testing
-  let pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+  const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
 
   const result = spawnSync(pythonCmd, ['-m', 'venv', '--help'], { encoding: 'utf8' });
   if (result.status === 0) {

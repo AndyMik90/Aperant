@@ -1,5 +1,4 @@
 // Export all custom hooks
-export { useClaudeLoginTerminal } from './useClaudeLoginTerminal';
 export { useIpcListeners } from './useIpc';
 export {
   useResolvedAgentSettings,
@@ -8,3 +7,4 @@ export {
   type AgentSettingsSource,
 } from './useResolvedAgentSettings';
 export { useVirtualizedTree } from './useVirtualizedTree';
+export { useTerminalProfileChange } from './useTerminalProfileChange';

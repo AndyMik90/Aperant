@@ -368,7 +368,7 @@ class IssueBatch:
         if not batch_file.exists():
             return None
 
-        with open(batch_file) as f:
+        with open(batch_file, encoding="utf-8") as f:
             data = json.load(f)
         return cls.from_dict(data)
 
@@ -448,7 +448,7 @@ class IssueBatcher:
         """Load batch index from disk."""
         index_file = self.github_dir / "batches" / "index.json"
         if index_file.exists():
-            with open(index_file) as f:
+            with open(index_file, encoding="utf-8") as f:
                 data = json.load(f)
             self._batch_index = {
                 int(k): v for k, v in data.get("issue_to_batch", {}).items()
@@ -460,7 +460,7 @@ class IssueBatcher:
         batches_dir.mkdir(parents=True, exist_ok=True)
 
         index_file = batches_dir / "index.json"
-        with open(index_file, "w") as f:
+        with open(index_file, "w", encoding="utf-8") as f:
             json.dump(
                 {
                     "issue_to_batch": self._batch_index,
@@ -1107,7 +1107,7 @@ class IssueBatcher:
         batches = []
         for batch_file in batches_dir.glob("batch_*.json"):
             try:
-                with open(batch_file) as f:
+                with open(batch_file, encoding="utf-8") as f:
                     data = json.load(f)
                 batches.append(IssueBatch.from_dict(data))
             except Exception as e:

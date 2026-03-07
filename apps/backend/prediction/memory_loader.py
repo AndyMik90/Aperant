@@ -33,7 +33,7 @@ class MemoryLoader:
             return []
 
         gotchas = []
-        content = self.gotchas_file.read_text()
+        content = self.gotchas_file.read_text(encoding="utf-8")
 
         # Parse markdown list items
         for line in content.split("\n"):
@@ -56,7 +56,7 @@ class MemoryLoader:
             return []
 
         patterns = []
-        content = self.patterns_file.read_text()
+        content = self.patterns_file.read_text(encoding="utf-8")
 
         # Parse markdown sections
         current_pattern = None
@@ -89,8 +89,8 @@ class MemoryLoader:
             return []
 
         try:
-            with open(self.history_file) as f:
+            with open(self.history_file, encoding="utf-8") as f:
                 history = json.load(f)
                 return history.get("attempts", [])
-        except (OSError, json.JSONDecodeError):
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
             return []

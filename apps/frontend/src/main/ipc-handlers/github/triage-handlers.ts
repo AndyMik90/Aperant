@@ -12,6 +12,7 @@ import type { BrowserWindow } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { IPC_CHANNELS, MODEL_ID_MAP, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING } from '../../../shared/constants';
+import type { AuthFailureInfo } from '../../../shared/types/terminal';
 import { getGitHubConfig } from './utils';
 import { readSettingsFile } from '../../settings-utils';
 import { getAugmentedEnv } from '../../env-utils';
@@ -139,7 +140,7 @@ function saveTriageConfig(project: Project, config: TriageConfig): void {
     enable_triage_comments: config.enableComments,
   };
 
-  fs.writeFileSync(configPath, JSON.stringify(updatedConfig, null, 2));
+  fs.writeFileSync(configPath, JSON.stringify(updatedConfig, null, 2), 'utf-8');
 }
 
 /**
@@ -274,6 +275,10 @@ async function runTriage(
     },
     onStdout: (line) => debugLog('STDOUT:', line),
     onStderr: (line) => debugLog('STDERR:', line),
+    onAuthFailure: (authFailureInfo: AuthFailureInfo) => {
+      debugLog('Auth failure detected in triage', authFailureInfo);
+      mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+    },
     onComplete: () => {
       // Load results from disk
       const results = getTriageResults(project);

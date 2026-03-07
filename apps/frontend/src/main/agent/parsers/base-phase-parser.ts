@@ -14,6 +14,9 @@ export interface PhaseParseResult<TPhase extends string = string> {
   message?: string;
   currentSubtask?: string;
   progress?: number;
+  // Pause phase metadata
+  resetTimestamp?: number;  // Unix timestamp for rate limit reset
+  profileId?: string;  // Profile that hit the limit
 }
 
 /**

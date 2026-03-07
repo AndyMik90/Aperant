@@ -420,9 +420,13 @@ class TrustManager:
 
         state_file = self._get_state_file(repo)
         if state_file.exists():
-            with open(state_file) as f:
-                data = json.load(f)
-                state = TrustState.from_dict(data)
+            try:
+                with open(state_file, encoding="utf-8") as f:
+                    data = json.load(f)
+                    state = TrustState.from_dict(data)
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                # Return default state if file is corrupted
+                state = TrustState(repo=repo)
         else:
             state = TrustState(repo=repo)
 
@@ -438,12 +442,9 @@ class TrustManager:
 
         # Write with restrictive permissions (0o600 = owner read/write only)
         fd = os.open(str(state_file), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        try:
-            with os.fdopen(fd, "w") as f:
-                json.dump(state.to_dict(), f, indent=2)
-        except Exception:
-            os.close(fd)
-            raise
+        # os.fdopen takes ownership of fd and will close it when the with block exits
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(state.to_dict(), f, indent=2)
 
     def get_trust_level(self, repo: str) -> TrustLevel:
         """Get current trust level for a repository."""
@@ -514,9 +515,13 @@ class TrustManager:
         """Get trust states for all repos."""
         states = []
         for file in self.trust_dir.glob("*.json"):
-            with open(file) as f:
-                data = json.load(f)
-                states.append(TrustState.from_dict(data))
+            try:
+                with open(file, encoding="utf-8") as f:
+                    data = json.load(f)
+                    states.append(TrustState.from_dict(data))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                # Skip corrupted state files
+                continue
         return states
 
     def get_summary(self) -> dict[str, Any]:

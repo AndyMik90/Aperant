@@ -62,6 +62,10 @@ const browserMockAPI: ElectronAPI = {
     success: true
   }),
 
+  saveCompetitorAnalysis: async () => ({
+    success: true
+  }),
+
   generateRoadmap: (_projectId: string, _enableCompetitorAnalysis?: boolean, _refreshCompetitorAnalysis?: boolean) => {
     console.warn('[Browser Mock] generateRoadmap called');
   },
@@ -89,6 +93,11 @@ const browserMockAPI: ElectronAPI = {
   }),
 
   stopRoadmap: async () => ({ success: true }),
+
+  // Roadmap Progress Persistence
+  saveRoadmapProgress: async () => ({ success: true }),
+  loadRoadmapProgress: async () => ({ success: true, data: null }),
+  clearRoadmapProgress: async () => ({ success: true }),
 
   // Roadmap Event Listeners
   onRoadmapProgress: () => () => {},
@@ -184,6 +193,7 @@ const browserMockAPI: ElectronAPI = {
     addGitRemote: async () => ({ success: true, data: { remoteUrl: '' } }),
     listGitHubOrgs: async () => ({ success: true, data: { orgs: [] } }),
     onGitHubAuthDeviceCode: () => () => {},
+    onGitHubAuthChanged: () => () => {},
     onGitHubInvestigationProgress: () => () => {},
     onGitHubInvestigationComplete: () => () => {},
     onGitHubInvestigationError: () => () => {},
@@ -196,7 +206,8 @@ const browserMockAPI: ElectronAPI = {
     onAutoFixProgress: () => () => {},
     onAutoFixComplete: () => () => {},
     onAutoFixError: () => () => {},
-    listPRs: async () => [],
+    listPRs: async () => ({ prs: [], hasNextPage: false }),
+    listMorePRs: async () => ({ prs: [], hasNextPage: false }),
     getPR: async () => null,
     runPRReview: () => {},
     cancelPRReview: async () => true,
@@ -204,11 +215,14 @@ const browserMockAPI: ElectronAPI = {
     postPRComment: async () => true,
     mergePR: async () => true,
     assignPR: async () => true,
+    markReviewPosted: async () => true,
     getPRReview: async () => null,
     getPRReviewsBatch: async () => ({}),
+    notifyExternalReviewComplete: async () => {},
     deletePRReview: async () => true,
     checkNewCommits: async () => ({ hasNewCommits: false, newCommitCount: 0 }),
     checkMergeReadiness: async () => ({ isDraft: false, mergeable: 'UNKNOWN' as const, isBehind: false, ciStatus: 'none' as const, blockers: [] }),
+    updatePRBranch: async () => ({ success: true }),
     runFollowupReview: () => {},
     getPRLogs: async () => null,
     getWorkflowsAwaitingApproval: async () => ({ awaiting_approval: 0, workflow_runs: [], can_approve: false }),
@@ -216,6 +230,8 @@ const browserMockAPI: ElectronAPI = {
     onPRReviewProgress: () => () => {},
     onPRReviewComplete: () => () => {},
     onPRReviewError: () => () => {},
+    onPRReviewStateChange: () => () => {},
+    onPRLogsUpdated: () => () => {},
     batchAutoFix: () => {},
     getBatches: async () => [],
     onBatchProgress: () => () => {},
@@ -226,7 +242,25 @@ const browserMockAPI: ElectronAPI = {
     approveBatches: async () => ({ success: true, batches: [] }),
     onAnalyzePreviewProgress: () => () => {},
     onAnalyzePreviewComplete: () => () => {},
-    onAnalyzePreviewError: () => () => {}
+    onAnalyzePreviewError: () => () => {},
+    // PR status polling
+    startStatusPolling: async () => true,
+    stopStatusPolling: async () => true,
+    getPollingMetadata: async () => null,
+    onPRStatusUpdate: () => () => {}
+  },
+
+  // Queue Routing API (rate limit recovery)
+  queue: {
+    getRunningTasksByProfile: async () => ({ success: true, data: { byProfile: {}, totalRunning: 0 } }),
+    getBestProfileForTask: async () => ({ success: true, data: null }),
+    getBestUnifiedAccount: async () => ({ success: true, data: null }),
+    assignProfileToTask: async () => ({ success: true }),
+    updateTaskSession: async () => ({ success: true }),
+    getTaskSession: async () => ({ success: true, data: null }),
+    onQueueProfileSwapped: () => () => {},
+    onQueueSessionCaptured: () => () => {},
+    onQueueBlockedNoProfiles: () => () => {}
   },
 
   // Claude Code Operations
@@ -279,6 +313,12 @@ const browserMockAPI: ElectronAPI = {
     data: { path: cliPath }
   }),
 
+  // Worktree Change Detection
+  checkWorktreeChanges: async () => ({
+    success: true,
+    data: { hasChanges: false, changedFileCount: 0 }
+  }),
+
   // Terminal Worktree Operations
   createTerminalWorktree: async () => ({
     success: false,
@@ -314,6 +354,16 @@ const browserMockAPI: ElectronAPI = {
       success: false,
       message: 'Connection test not available in browser mode'
     }
+  }),
+
+  // Screenshot capture operations
+  getSources: async () => ({
+    success: true,
+    data: []
+  }),
+  capture: async (_options: { sourceId: string }) => ({
+    success: false,
+    error: 'Screenshot capture not available in browser mode'
   }),
 
   // Debug Operations

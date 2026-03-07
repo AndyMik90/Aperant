@@ -1,4 +1,22 @@
 {
+  "competitorAnalysis": {
+    "addCompetitor": "Add Competitor",
+    "manualBadge": "Manual",
+    "noCompetitorsYet": "No competitors added yet",
+    "addCompetitorToStart": "Add a competitor to get started",
+    "analysisResults": "Competitor Analysis Results",
+    "analysisDescription": "Analyzed {{count}} competitors to identify market gaps and opportunities",
+    "visit": "Visit",
+    "identifiedPainPoints": "Identified Pain Points ({{count}})",
+    "noPainPointsIdentified": "No pain points identified",
+    "source": "Source:",
+    "frequency": "Frequency:",
+    "opportunity": "Opportunity:",
+    "marketInsightsSummary": "Market Insights Summary",
+    "topPainPoints": "Top Pain Points:",
+    "differentiatorOpportunities": "Differentiator Opportunities:",
+    "marketTrends": "Market Trends:"
+  },
   "projectTab": {
     "settings": "Project settings",
     "showArchived": "Show archived",
@@ -11,6 +29,7 @@
   },
   "accessibility": {
     "deleteFeatureAriaLabel": "Delete feature",
+    "archiveFeatureAriaLabel": "Archive feature",
     "closeFeatureDetailsAriaLabel": "Close feature details",
     "regenerateRoadmapAriaLabel": "Regenerate Roadmap",
     "repositoryOwnerAriaLabel": "Repository owner",
@@ -77,9 +96,23 @@
     "discard": "Discard",
     "switch": "Switch",
     "add": "Add",
+    "apply": "Apply",
     "gotIt": "Got it",
     "continue": "Continue",
-    "saving": "Saving..."
+    "saving": "Saving...",
+    "deleting": "Deleting..."
+  },
+  "actions": {
+    "save": "Save",
+    "apply": "Apply",
+    "delete": "Delete",
+    "settings": "Settings"
+  },
+  "os": {
+    "windows": "Windows",
+    "macos": "macOS",
+    "linux": "Linux",
+    "unknown": "your OS"
   },
   "labels": {
     "loading": "Loading...",
@@ -91,7 +124,19 @@
     "noData": "No data",
     "optional": "Optional",
     "required": "Required",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "important": "Important",
+    "orphaned": "(orphaned)"
+  },
+  "selection": {
+    "select": "Select",
+    "done": "Done",
+    "selected": "{{count}} selected",
+    "selectAll": "Select All",
+    "clearSelection": "Clear Selection",
+    "deleteSelected": "Delete Selected",
+    "archiveSelected": "Archive Selected",
+    "selectedOfTotal": "{{selected}} of {{total}} selected"
   },
   "time": {
     "justNow": "Just now",
@@ -105,7 +150,17 @@
     "operationFailed": "Operation failed",
     "networkError": "Network error",
     "notFound": "Not found",
-    "unauthorized": "Unauthorized"
+    "unauthorized": "Unauthorized",
+    "bulkDeletePartialFailure": "Some worktrees could not be deleted:",
+    "taskNotFoundForWorktree": "Task not found for worktree: {{specName}}",
+    "failedToDeleteTaskWorktree": "Failed to delete task worktree: {{specName}}",
+    "terminalWorktreeNotFound": "Terminal worktree not found: {{name}}",
+    "failedToDeleteTerminalWorktree": "Failed to delete terminal worktree: {{name}}"
+  },
+  "worktrees": {
+    "deleteSuccess": "Worktree '{{branch}}' deleted successfully",
+    "bulkDeleteSuccess": "{{count}} worktree deleted successfully",
+    "bulkDeleteSuccess_plural": "{{count}} worktrees deleted successfully"
   },
   "notification": {
     "accountSwitched": "Account Switched",
@@ -208,6 +263,12 @@
     "selectedCount": "{{count}} selected",
     "noResultsFound": "No results found",
     "reset": "Reset",
+    "sort": {
+      "label": "Sort",
+      "newest": "Newest",
+      "oldest": "Oldest",
+      "largest": "Largest"
+    },
     "pullRequests": "Pull Requests",
     "open": "open",
     "selectPRToView": "Select a pull request to view details",
@@ -251,6 +312,8 @@
     "newIssue": "{{count}} new issue",
     "newIssue_plural": "{{count}} new issues",
     "reviewFailed": "Review Failed",
+    "externalReviewDetected": "External Review Detected",
+    "reviewStartedExternally": "This review was started from another session",
     "description": "Description",
     "noDescription": "No description provided.",
     "followupReviewDetails": "Follow-up Review Details",
@@ -319,10 +382,16 @@
     "followup": "Follow-up",
     "initial": "Initial",
     "rerunFollowup": "Re-run follow-up review",
+    "retryReview": "Retry Review",
     "rerunReview": "Re-run review",
-    "loadingMore": "Loading more PRs...",
-    "scrollForMore": "Scroll for more",
+    "updateBranch": "Update Branch",
+    "updatingBranch": "Updating...",
+    "branchUpdated": "Branch updated",
+    "branchUpdateFailed": "Failed to update branch",
     "allPRsLoaded": "All PRs loaded",
+    "maxPRsShown": "Showing first 100 PRs",
+    "loadMore": "Load More",
+    "loadingMore": "Loading...",
     "workflowsAwaitingApproval": "{{count}} Workflow Awaiting Approval",
     "workflowsAwaitingApproval_plural": "{{count}} Workflows Awaiting Approval",
     "blockedByWorkflows": "Blocked",
@@ -354,6 +423,10 @@
     "verifyChanges": "Verify Changes",
     "verifyAnyway": "Verify",
     "runFollowupAnyway": "Run follow-up verification even though no files overlap",
+    "disputed": "Disputed",
+    "disputedByValidator": "Disputed by Validator ({{count}})",
+    "crossValidatedBy": "Confirmed by {{count}} agents",
+    "disputedSectionHint": "These findings were reported by specialists but disputed by the validator. You can still select and post them.",
     "logs": {
       "agentActivity": "Agent Activity",
       "showMore": "Show {{count}} more",
@@ -373,6 +446,51 @@
     "failedLabel": "Failed",
     "starting": "Starting..."
   },
+  "insights": {
+    "suggestedTask": "Suggested Task",
+    "creating": "Creating...",
+    "taskCreated": "Task Created",
+    "createTask": "Create Task",
+    "chatHistory": "Chat History",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "archiveSelected": "Archive Selected",
+    "showArchived": "Show Archived",
+    "hideArchived": "Hide Archived",
+    "bulkDeleteTitle": "Delete Conversations",
+    "bulkDeleteDescription": "Are you sure you want to delete {{count}} conversation(s)? This action cannot be undone.",
+    "bulkDeleteConfirm": "Delete {{count}} Conversation(s)",
+    "noConversations": "No conversations",
+    "archived": "Archived",
+    "conversationsToDelete": "Conversations to delete",
+    "archiveConfirmDescription": "Are you sure you want to archive the selected conversations?",
+    "archiveConfirmTitle": "Archive Conversations",
+    "archiveConfirmButton": "Archive {{count}} Conversation(s)",
+    "deleteTitle": "Delete Conversation",
+    "deleteDescription": "Are you sure you want to delete this conversation? This action cannot be undone.",
+    "selectMode": "Select",
+    "exitSelectMode": "Done",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "daysAgo": "{{count}} days ago",
+    "messageCount": "{{count}} message",
+    "messageCount_other": "{{count}} messages",
+    "images": {
+      "pasteHint": "Paste an image or screenshot",
+      "dropHint": "Drop image here",
+      "screenshotButton": "Attach screenshot",
+      "removeImage": "Remove image",
+      "imageCount": "{{count}} image attached",
+      "imageCount_plural": "{{count}} images attached",
+      "maxImagesReached": "Maximum number of images reached",
+      "invalidType": "Invalid file type. Please use PNG, JPEG, GIF, or WebP.",
+      "processFailed": "Failed to process image",
+      "dragOver": "Drop image to attach",
+      "analysisUnsupported": "Note: Image analysis is not yet supported. Images are stored for reference but cannot be analyzed by the model.",
+      "screenshotTooLarge": "Screenshot is too large ({{size}}MB). Maximum size is {{max}}MB. Consider capturing a smaller area.",
+      "notAnalyzed": "Images were stored for reference but not analyzed by the model."
+    }
+  },
   "ideation": {
     "converting": "Converting...",
     "convertToTask": "Convert to Auto-Build Task",
@@ -389,5 +507,321 @@
     "loadingMore": "Loading more...",
     "scrollForMore": "Scroll for more",
     "allLoaded": "All issues loaded"
+  },
+  "usage": {
+    "dataUnavailable": "Usage data unavailable",
+    "dataUnavailableDescription": "The usage monitoring endpoint for this provider is not available or not supported.",
+    "activeAccount": "Active Account",
+    "usageAlert": "Usage Alert",
+    "accountExceedsThreshold": "Account usage exceeds 90% threshold",
+    "authentication": "Authentication",
+    "authenticationAriaLabel": "Authentication: {{provider}}",
+    "authenticationDetails": "Authentication Details",
+    "apiProfile": "API Profile",
+    "apiKey": "API Key",
+    "oauth": "OAuth",
+    "claudeCode": "Claude Code",
+    "claudeCodeSubscription": "Claude Code subscription",
+    "subscription": "Subscription",
+    "provider": "Provider",
+    "providerAnthropic": "Anthropic",
+    "providerZai": "z.ai",
+    "providerZhipu": "ZHIPU AI",
+    "providerUnknown": "Unknown",
+    "profile": "Profile",
+    "id": "ID",
+    "created": "Created",
+    "apiEndpoint": "API Endpoint",
+    "sessionQuota": "Session Quota",
+    "notAvailable": "N/A",
+    "usageStatusAriaLabel": "Usage status",
+    "usageBreakdown": "Usage Breakdown",
+    "used": "used",
+    "loading": "Loading...",
+    "sessionDefault": "Session",
+    "weeklyDefault": "Weekly",
+    "resetsInHours": "Resets in {{hours}}h {{minutes}}m",
+    "resetsInDays": "Resets in {{days}}d {{hours}}h",
+    "window5Hour": "5-hour window",
+    "window7Day": "7-day window",
+    "window5HoursQuota": "5 Hours Quota",
+    "windowMonthlyToolsQuota": "Monthly Tools Quota",
+    "otherAccounts": "Other Accounts",
+    "next": "Next",
+    "weeklyLimitReached": "Weekly limit reached",
+    "sessionLimitReached": "Session limit reached",
+    "notAuthenticated": "Not authenticated",
+    "needsReauth": "Needs re-auth",
+    "reauthRequired": "Re-authentication required",
+    "reauthRequiredDescription": "Your session has expired. Re-authenticate to view usage and continue using this account.",
+    "reauthButton": "Re-authenticate",
+    "clickToOpenSettings": "Click to open Settings →",
+    "sessionShort": "5-hour session usage",
+    "weeklyShort": "7-day weekly usage",
+    "swap": "Swap"
+  },
+  "oauth": {
+    "enterCode": "Manual Code Entry (Fallback)",
+    "enterCodeDescription": "This dialog is only needed if the browser didn't redirect automatically. If authentication already completed in your browser, you can close this dialog.",
+    "fallbackNote": "Only use this if you see a \"Paste this into Claude Code\" page in your browser.",
+    "step1": "Complete the authorization in your browser",
+    "step2": "If you see a code page, copy the code shown",
+    "step3": "Paste the code below and click Submit",
+    "codeLabel": "Authorization Code",
+    "codePlaceholder": "Paste your code here (only if needed)...",
+    "codeHint": "The code is a long string shown only if automatic redirect failed",
+    "submit": "Submit",
+    "submitting": "Submitting...",
+    "codeSubmitted": "Code Submitted",
+    "codeSubmittedDescription": "Authentication should complete shortly. Check the terminal for confirmation.",
+    "codeSubmitFailed": "Failed to Submit Code",
+    "codeSubmitFailedDescription": "Please try again or copy the code manually to the terminal.",
+    "authenticateTitle": "Authenticate with Claude",
+    "authenticateDescription": "Auto Claude requires Claude AI authentication for AI-powered features like Roadmap generation, Task automation, and Ideation.",
+    "authenticateTerminalInfo": "This will open a terminal with Claude CLI where you can authenticate. Your credentials are stored securely and are valid for 1 year.",
+    "completeAuthTitle": "Complete Authentication",
+    "terminalOpened": "A terminal window has opened with Claude CLI.",
+    "completeStepsTitle": "Complete these steps in the terminal:",
+    "stepTypeLogin": "Type <code>/login</code> and press Enter",
+    "stepBrowserOpen": "Your browser will open for Claude authentication",
+    "stepCompleteOAuth": "Complete the OAuth flow in your browser",
+    "stepReturnAndVerify": "Return here and click <strong>Verify Authentication</strong>",
+    "verifyAuth": "Verify Authentication",
+    "verifyingAuth": "Verifying Authentication...",
+    "checkingCredentials": "Checking your Claude credentials.",
+    "successTitle": "Successfully Authenticated!",
+    "connectedAs": "Connected as {{email}}",
+    "credentialsSaved": "Your Claude credentials have been saved",
+    "canUseFeatures": "You can now use all Auto Claude AI features",
+    "authFailed": "Authentication Failed",
+    "skipForNow": "Skip for now",
+    "manualTokenEntry": "Manual Token Entry",
+    "tokenCommandHint": "Run <code>claude setup-token</code> to get your token",
+    "emailOptionalPlaceholder": "Email (optional, for display)",
+    "saveToken": "Save Token",
+    "accountNamePlaceholder": "Account name (e.g., Work, Personal)",
+    "hasAuthenticatedAccount": "You have at least one authenticated Claude account. You can continue to the next step.",
+    "authNotDetected": "Authentication not detected. Please complete /login in the terminal first.",
+    "noProfileSelected": "No profile selected for verification",
+    "alerts": {
+      "profileCreatedAuthFailed": "Profile created, but failed to start authentication: {{error}}",
+      "authPrepareFailed": "Failed to prepare authentication: {{error}}",
+      "authStartFailedMessage": "Failed to start authentication. Please try again."
+    },
+    "badges": {
+      "default": "Default",
+      "active": "Active",
+      "authenticated": "Authenticated",
+      "needsAuth": "Needs Auth"
+    },
+    "buttons": {
+      "authenticate": "Authenticate",
+      "setActive": "Set Active",
+      "back": "Back",
+      "skip": "Skip",
+      "continue": "Continue"
+    },
+    "toast": {
+      "tokenSaved": "Token Saved",
+      "tokenSavedDescription": "Your Claude token has been saved securely.",
+      "tokenSaveFailed": "Failed to Save Token",
+      "addProfileFailed": "Failed to Add Profile",
+      "tryAgain": "Please try again."
+    },
+    "configureTitle": "Configure Claude Accounts",
+    "addAccountsDesc": "Add and authenticate your Claude accounts to use AI features.",
+    "multiAccountInfo": "You can add multiple Claude accounts. The active account will be used for AI features. You can switch accounts at any time.",
+    "keychainTitle": "Secure Storage",
+    "keychainDescription": "Your authentication tokens are stored securely in macOS Keychain.",
+    "noAccountsYet": "No accounts added yet. Add your first Claude account below."
+  },
+  "authTerminal": {
+    "failedToCreate": "Failed to create terminal",
+    "unknownError": "Unknown error",
+    "instructionTitle": "Claude Authentication",
+    "step1": "Press Enter to start authentication",
+    "step2": "Complete authentication in your browser",
+    "step3": "Return here - auth will be detected automatically",
+    "authFailed": "Authentication failed",
+    "connecting": "Connecting...",
+    "authenticate": "Authenticate: {{profileName}}",
+    "completeSetup": "Complete setup: {{profileName}}",
+    "authenticatedAs": "Authenticated as {{email}}",
+    "authenticated": "Authenticated!",
+    "authError": "Authentication Error",
+    "onboardingMessage": "Token received! Complete the Claude Code setup below - this window will close automatically when done.",
+    "successMessage": "Authentication successful! Closing..."
+  },
+  "profileCreated": {
+    "title": "Profile \"{{profileName}}\" has been created.",
+    "instructions": "To authenticate this profile:",
+    "step1": "Go to Settings > Integrations",
+    "step2": "Find the profile in the Claude Accounts section",
+    "step3": "Click \"Authenticate\" to complete login",
+    "footer": "The account will be available once you complete authentication."
+  },
+  "roadmap": {
+    "taskCompleted": "Completed",
+    "taskDeleted": "Deleted",
+    "taskArchived": "Archived",
+    "showMoreFeatures": "Show {{count}} more feature",
+    "showMoreFeatures_plural": "Show {{count}} more features",
+    "showLessFeatures": "Show less",
+    "archiveFeature": "Archive",
+    "archiveFeatureConfirmTitle": "Archive Feature?",
+    "archiveFeatureConfirmDescription": "This will remove \"{{title}}\" from your roadmap.",
+    "goToTask": "Go to Task",
+    "convertToTask": "Convert to Auto-Build Task",
+    "build": "Build",
+    "task": "Task",
+    "viewTask": "View Task"
+  },
+  "roadmapGeneration": {
+    "progress": "Progress",
+    "elapsed": "Elapsed: {{time}}",
+    "stillWorking": "Still working...",
+    "stopping": "Stopping...",
+    "stop": "Stop",
+    "stopTooltip": "Stop generation",
+    "phases": {
+      "analyzing": {
+        "label": "Analyzing",
+        "description": "Analyzing project structure and codebase..."
+      },
+      "discovering": {
+        "label": "Discovering",
+        "description": "Discovering target audience and user needs..."
+      },
+      "generating": {
+        "label": "Generating",
+        "description": "Generating feature roadmap..."
+      },
+      "complete": {
+        "label": "Complete",
+        "description": "Roadmap generation complete!"
+      },
+      "error": {
+        "label": "Error",
+        "description": "Generation failed"
+      }
+    },
+    "steps": {
+      "analyze": "Analyze",
+      "discover": "Discover",
+      "generate": "Generate"
+    }
+  },
+  "auth": {
+    "failure": {
+      "title": "Authentication Required",
+      "profileLabel": "Profile",
+      "unknownProfile": "Unknown Profile",
+      "tokenExpired": "Your authentication token has expired.",
+      "tokenInvalid": "Your authentication token is invalid.",
+      "tokenMissing": "No authentication token found.",
+      "authFailed": "Authentication failed.",
+      "description": "Please re-authenticate your Claude profile to continue using Auto Claude.",
+      "taskAffected": "Task affected",
+      "technicalDetails": "Technical details",
+      "goToSettings": "Go to Settings"
+    }
+  },
+  "git": {
+    "branchGroups": {
+      "local": "Local Branches",
+      "remote": "Remote Branches"
+    },
+    "branchType": {
+      "local": "Local",
+      "remote": "Remote"
+    }
+  },
+  "githubErrors": {
+    "rateLimitTitle": "GitHub Rate Limit Reached",
+    "authTitle": "GitHub Authentication Required",
+    "permissionTitle": "GitHub Permission Denied",
+    "notFoundTitle": "GitHub Resource Not Found",
+    "networkTitle": "GitHub Connection Error",
+    "unknownTitle": "GitHub Error",
+    "rateLimitMessage": "GitHub API rate limit reached. Please wait a moment before trying again.",
+    "rateLimitMessageMinutes": "GitHub API rate limit reached. Please wait {{minutes}} minute(s) before trying again.",
+    "rateLimitMessageHours": "GitHub API rate limit reached. Rate limit resets in approximately {{hours}} hour(s).",
+    "authMessage": "GitHub authentication failed. Please check your GitHub token in Settings and try again.",
+    "permissionMessage": "GitHub permission denied. Your token may not have the required access. Please check your token permissions in Settings.",
+    "permissionMessageScopes": "GitHub permission denied. Your token is missing required scopes: {{scopes}}. Please update your GitHub token in Settings.",
+    "notFoundMessage": "The requested GitHub resource was not found. Please verify the repository exists and you have access to it.",
+    "networkMessage": "Unable to connect to GitHub. Please check your internet connection and try again.",
+    "unknownMessage": "An unexpected error occurred while communicating with GitHub. Please try again.",
+    "resetsIn": "Resets in {{time}}",
+    "countdownHoursMinutes": "{{hours}}h {{minutes}}m",
+    "countdownMinutesSeconds": "{{minutes}}m {{seconds}}s",
+    "rateLimitExpired": "Rate limit has reset. You can retry now.",
+    "requiredScopes": "Required scopes"
+  },
+  "roadmapProgress": {
+    "elapsedTime": "Elapsed",
+    "lastActivity": "Last activity",
+    "staleWarning": "No activity for a while",
+    "staleWarningTooltip": "This task has had no activity for {{minutes}} minutes",
+    "phases": {
+      "analyzing": {
+        "label": "Analyzing",
+        "description": "Analyzing project structure and codebase..."
+      },
+      "discovering": {
+        "label": "Discovering",
+        "description": "Discovering target audience and user needs..."
+      },
+      "generating": {
+        "label": "Generating",
+        "description": "Generating feature roadmap..."
+      },
+      "complete": {
+        "label": "Complete",
+        "description": "Roadmap generation complete!"
+      },
+      "error": {
+        "label": "Error",
+        "description": "Generation failed"
+      }
+    },
+    "steps": {
+      "analyze": "Analyze",
+      "discover": "Discover",
+      "generate": "Generate"
+    },
+    "processing": "Processing",
+    "processActiveTooltip": "Process is actively running",
+    "stopGeneration": "Stop generation",
+    "stopping": "Stopping...",
+    "progress": "Progress",
+    "lastActivityPrefix": "last activity",
+    "lastProgressUpdateTooltip": "Last progress update received"
+  },
+  "prStatus": {
+    "ci": {
+      "success": "CI Passed",
+      "pending": "CI Pending",
+      "failure": "CI Failed",
+      "successTooltip": "All CI checks have passed",
+      "pendingTooltip": "CI checks are still running",
+      "failureTooltip": "One or more CI checks have failed"
+    },
+    "review": {
+      "approved": "Approved",
+      "changesRequested": "Changes Requested",
+      "pending": "Review Pending",
+      "approvedTooltip": "This PR has been approved",
+      "changesRequestedTooltip": "Changes have been requested on this PR",
+      "pendingTooltip": "Waiting for review"
+    },
+    "merge": {
+      "ready": "Ready to Merge",
+      "blocked": "Merge Blocked",
+      "conflict": "Has Conflicts",
+      "readyTooltip": "This PR is ready to be merged",
+      "blockedTooltip": "This PR cannot be merged due to blocking conditions",
+      "conflictTooltip": "This PR has merge conflicts that need to be resolved"
+    }
   }
 }

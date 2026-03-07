@@ -4,7 +4,9 @@ import path from 'path';
 import { EventEmitter } from 'events';
 import { app } from 'electron';
 import { findPythonCommand, getBundledPythonPath } from './python-detector';
-import { isLinux, isWindows } from './platform';
+import { isLinux, isWindows, getPathDelimiter } from './platform';
+import { getIsolatedGitEnv } from './utils/git-isolation';
+import { normalizeEnvPathKey } from './agent/env-utils';
 
 export interface PythonEnvStatus {
   ready: boolean;
@@ -217,7 +219,8 @@ if sys.version_info >= (3, 12):
 `;
       execSync(`"${venvPython}" -c "${checkScript.replace(/\n/g, '; ').replace(/; ; /g, '; ')}"`, {
         stdio: 'pipe',
-        timeout: 15000
+        timeout: 15000,
+        encoding: 'utf-8'
       });
       return true;
     } catch {
@@ -248,8 +251,9 @@ if sys.version_info >= (3, 12):
       // For commands like "py -3", we need to resolve to the actual executable
       const pythonPath = execSync(`${pythonCmd} -c "import sys; print(sys.executable)"`, {
         stdio: 'pipe',
-        timeout: 5000
-      }).toString().trim();
+        timeout: 5000,
+        encoding: 'utf-8'
+      }).trim();
 
       console.log(`[PythonEnvManager] Found Python at: ${pythonPath}`);
       return pythonPath;
@@ -286,7 +290,8 @@ if sys.version_info >= (3, 12):
     return new Promise((resolve) => {
       const proc = spawn(systemPython, ['-m', 'venv', venvPath], {
         cwd: this.autoBuildSourcePath!,
-        stdio: 'pipe'
+        stdio: 'pipe',
+        env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' }
       });
 
       // Track the process for cleanup on app exit
@@ -312,7 +317,7 @@ if sys.version_info >= (3, 12):
       }, PythonEnvManager.VENV_CREATION_TIMEOUT_MS);
 
       proc.stderr?.on('data', (data) => {
-        stderr += data.toString();
+        stderr += data.toString('utf-8');
       });
 
       proc.on('close', (code) => {
@@ -357,12 +362,13 @@ if sys.version_info >= (3, 12):
     return new Promise((resolve) => {
       const proc = spawn(venvPython, ['-m', 'ensurepip'], {
         cwd: this.autoBuildSourcePath!,
-        stdio: 'pipe'
+        stdio: 'pipe',
+        env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' }
       });
 
       let stderr = '';
       proc.stderr?.on('data', (data) => {
-        stderr += data.toString();
+        stderr += data.toString('utf-8');
       });
 
       proc.on('close', (code) => {
@@ -411,16 +417,17 @@ if sys.version_info >= (3, 12):
       // Use python -m pip for better compatibility across Python versions
       const proc = spawn(venvPython, ['-m', 'pip', 'install', '-r', requirementsPath], {
         cwd: this.autoBuildSourcePath!,
-        stdio: 'pipe'
+        stdio: 'pipe',
+        env: { ...process.env, PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1' }
       });
 
       let stdout = '';
       let stderr = '';
 
       proc.stdout?.on('data', (data) => {
-        stdout += data.toString();
+        stdout += data.toString('utf-8');
         // Emit progress updates for long-running installations
-        const lines = data.toString().split('\n');
+        const lines = data.toString('utf-8').split('\n');
         for (const line of lines) {
           if (line.includes('Installing') || line.includes('Successfully')) {
             this.emit('status', line.trim());
@@ -429,7 +436,7 @@ if sys.version_info >= (3, 12):
       });
 
       proc.stderr?.on('data', (data) => {
-        stderr += data.toString();
+        stderr += data.toString('utf-8');
       });
 
       proc.on('close', (code) => {
@@ -669,34 +676,86 @@ if sys.version_info >= (3, 12):
    * problematic Python variables removed. This fixes the "Could not find platform
    * independent libraries <prefix>" error on Windows when PYTHONHOME is set.
    *
+   * For Windows with pywin32, this method handles several critical issues:
+   * 1. PYTHONPATH must include win32 and win32/lib for module imports
+   * 2. pywin32_system32 must be in PATH for DLL loading
+   *
+   * Note: The DLL copying performed by fixPywin32() in download-python.cjs is what
+   * actually makes pywin32 work - it copies DLLs to locations where Python's default
+   * DLL search finds them. Adding pywin32_system32 to PATH is an additional fallback.
+   *
    * @see https://github.com/AndyMik90/Auto-Claude/issues/176
+   * @see https://github.com/AndyMik90/Auto-Claude/issues/810
+   * @see https://github.com/mhammond/pywin32/blob/main/win32/Lib/pywin32_bootstrap.py
    */
   getPythonEnv(): Record<string, string> {
-    // Start with process.env but explicitly remove problematic Python variables
-    // PYTHONHOME causes "Could not find platform independent libraries" when set
-    // to a different Python installation than the one we're spawning
+    // Start with isolated git env to prevent git environment variable contamination.
+    // When running Python scripts that call git (like merge resolver, PR creator),
+    // we must not pass GIT_DIR, GIT_WORK_TREE, etc. or git operations will target
+    // the wrong repository. getIsolatedGitEnv() removes these variables and sets HUSKY=0.
+    //
+    // Also remove PYTHONHOME - it causes "Could not find platform independent libraries"
+    // when set to a different Python installation than the one we're spawning.
+    const isolatedEnv = getIsolatedGitEnv();
     const baseEnv: Record<string, string> = {};
 
-    for (const [key, value] of Object.entries(process.env)) {
+    for (const [key, value] of Object.entries(isolatedEnv)) {
       // Skip PYTHONHOME - it causes the "platform independent libraries" error
       // Use case-insensitive check for Windows compatibility (env vars are case-insensitive on Windows)
       // Skip undefined values (TypeScript type guard)
-      if (key.toUpperCase() !== 'PYTHONHOME' && value !== undefined) {
+      const upperKey = key.toUpperCase();
+      if (upperKey !== 'PYTHONHOME' && value !== undefined) {
         baseEnv[key] = value;
       }
     }
 
-    // Apply our Python configuration on top
+    // Build PYTHONPATH - for Windows with pywin32, we need to include win32 and win32/lib
+    // since the .pth file that normally adds these isn't processed when using PYTHONPATH
+    let pythonPath = this.sitePackagesPath || '';
+    if (this.sitePackagesPath && isWindows()) {
+      const pathSep = getPathDelimiter();  // Platform-appropriate path separator
+      const win32Path = path.join(this.sitePackagesPath, 'win32');
+      const win32LibPath = path.join(this.sitePackagesPath, 'win32', 'lib');
+      pythonPath = [this.sitePackagesPath, win32Path, win32LibPath].join(pathSep);
+    }
+
+    // Windows-specific pywin32 DLL loading fix
+    // On Windows with bundled packages, we need to ensure pywin32 DLLs can be found.
+    // The DLL copying in fixPywin32() is the primary fix - this PATH addition is a fallback.
+    const windowsEnv: Record<string, string> = {};
+    if (this.sitePackagesPath && isWindows()) {
+      const pywin32System32 = path.join(this.sitePackagesPath, 'pywin32_system32');
+
+      // Add pywin32_system32 to PATH for DLL loading
+      // Normalize to single 'PATH' key before reading/writing, using the shared utility.
+      // This prevents duplicate 'Path'/'PATH' keys that cause DLL-load failures on Windows.
+      normalizeEnvPathKey(baseEnv);
+      const currentPath = baseEnv['PATH'] ?? '';
+
+      if (currentPath && !currentPath.includes(pywin32System32)) {
+        windowsEnv['PATH'] = `${pywin32System32};${currentPath}`;
+      } else if (!currentPath) {
+        windowsEnv['PATH'] = pywin32System32;
+      } else {
+        // pywin32System32 already in path, but still normalize to 'PATH'
+        windowsEnv['PATH'] = currentPath;
+      }
+    }
+
     return {
       ...baseEnv,
+      ...windowsEnv,
       // Don't write bytecode - not needed and avoids permission issues
       PYTHONDONTWRITEBYTECODE: '1',
+      // Force unbuffered stdout/stderr so progress updates reach Electron immediately
+      PYTHONUNBUFFERED: '1',
       // Use UTF-8 encoding
       PYTHONIOENCODING: 'utf-8',
+      PYTHONUTF8: '1',
       // Disable user site-packages to avoid conflicts
       PYTHONNOUSERSITE: '1',
       // Override PYTHONPATH if we have bundled packages
-      ...(this.sitePackagesPath ? { PYTHONPATH: this.sitePackagesPath } : {}),
+      ...(pythonPath ? { PYTHONPATH: pythonPath } : {}),
     };
   }
 

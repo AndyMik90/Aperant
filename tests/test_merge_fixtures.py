@@ -12,15 +12,13 @@ Contains:
 import os
 import subprocess
 import sys
-from datetime import datetime
 from pathlib import Path
 from typing import Callable, Generator
-from unittest.mock import MagicMock
 
 import pytest
 
 # Add auto-claude directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "Apps" / "backend"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
 from merge import (
     SemanticAnalyzer,

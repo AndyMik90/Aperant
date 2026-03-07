@@ -25,7 +25,6 @@ export function createHookProxy(
     get isLoadingEnv() { return hookRef.current.isLoadingEnv; },
     get envError() { return hookRef.current.envError; },
     get setEnvError() { return hookRef.current.setEnvError; },
-    get isSavingEnv() { return hookRef.current.isSavingEnv; },
     get updateEnvConfig() { return hookRef.current.updateEnvConfig; },
     get showClaudeToken() { return hookRef.current.showClaudeToken; },
     get setShowClaudeToken() { return hookRef.current.setShowClaudeToken; },
@@ -51,7 +50,6 @@ export function createHookProxy(
     get linearConnectionStatus() { return hookRef.current.linearConnectionStatus; },
     get isCheckingLinear() { return hookRef.current.isCheckingLinear; },
     get handleInitialize() { return hookRef.current.handleInitialize; },
-    get handleSaveEnv() { return hookRef.current.handleSaveEnv; },
     get handleClaudeSetup() { return hookRef.current.handleClaudeSetup; },
     get handleSave() { return hookRef.current.handleSave; },
   };

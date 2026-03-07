@@ -30,21 +30,31 @@ export function useFindingSelection({
     onSelectionChange(next);
   }, [selectedIds, onSelectionChange]);
 
-  // Select all findings
+  // Select all findings (preserving any disputed selections not in active findings)
   const selectAll = useCallback(() => {
-    onSelectionChange(new Set(findings.map(f => f.id)));
-  }, [findings, onSelectionChange]);
+    const activeIds = new Set(findings.map(f => f.id));
+    // Preserve selections for disputed findings (IDs not in active findings list)
+    for (const id of selectedIds) {
+      if (!findings.some(f => f.id === id)) activeIds.add(id);
+    }
+    onSelectionChange(activeIds);
+  }, [findings, selectedIds, onSelectionChange]);
 
   // Clear all selections
   const selectNone = useCallback(() => {
     onSelectionChange(new Set());
   }, [onSelectionChange]);
 
-  // Select only critical and high severity findings
+  // Select only critical and high severity findings (preserving disputed selections)
   const selectImportant = useCallback(() => {
     const important = [...groupedFindings.critical, ...groupedFindings.high];
-    onSelectionChange(new Set(important.map(f => f.id)));
-  }, [groupedFindings, onSelectionChange]);
+    const importantIds = new Set(important.map(f => f.id));
+    // Preserve selections for disputed findings (IDs not in active findings list)
+    for (const id of selectedIds) {
+      if (!findings.some(f => f.id === id)) importantIds.add(id);
+    }
+    onSelectionChange(importantIds);
+  }, [groupedFindings, findings, selectedIds, onSelectionChange]);
 
   // Toggle entire severity group selection
   const toggleSeverityGroup = useCallback((severity: SeverityGroup) => {

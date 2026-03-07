@@ -143,7 +143,7 @@ def auto_fix_plan(spec_dir: Path) -> bool:
         with open(plan_file, encoding="utf-8") as f:
             content = f.read()
         plan = json.loads(content)
-    except json.JSONDecodeError:
+    except (json.JSONDecodeError, UnicodeDecodeError):
         # Attempt JSON syntax repair
         try:
             with open(plan_file, encoding="utf-8") as f:

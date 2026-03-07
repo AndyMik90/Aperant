@@ -56,14 +56,10 @@ def _apply_qa_update(
         "ready_for_qa_revalidation": status == "fixes_applied",
     }
 
-    # Update plan status to match QA result
-    # This ensures the UI shows the correct column after QA
-    if status == "approved":
-        plan["status"] = "human_review"
-        plan["planStatus"] = "review"
-    elif status == "rejected":
-        plan["status"] = "human_review"
-        plan["planStatus"] = "review"
+    # NOTE: Do NOT write plan["status"] or plan["planStatus"] here.
+    # The frontend XState task state machine owns status transitions.
+    # Writing status here races with XState's persistPlanStatusAndReasonSync()
+    # and can clobber the reviewReason field, causing tasks to appear "incomplete".
 
     plan["last_updated"] = datetime.now(timezone.utc).isoformat()
 
@@ -140,7 +136,7 @@ def create_qa_tools(spec_dir: Path, project_dir: Path) -> list:
             except json.JSONDecodeError:
                 tests_passed = {}
 
-            with open(plan_file) as f:
+            with open(plan_file, encoding="utf-8") as f:
                 plan = json.load(f)
 
             qa_session = _apply_qa_update(plan, status, issues, tests_passed)
@@ -162,7 +158,7 @@ def create_qa_tools(spec_dir: Path, project_dir: Path) -> list:
             if auto_fix_plan(spec_dir):
                 # Retry after fix
                 try:
-                    with open(plan_file) as f:
+                    with open(plan_file, encoding="utf-8") as f:
                         plan = json.load(f)
 
                     qa_session = _apply_qa_update(plan, status, issues, tests_passed)

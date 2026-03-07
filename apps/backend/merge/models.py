@@ -108,5 +108,5 @@ class MergeReport:
 
     def save(self, path: Path) -> None:
         """Save report to JSON file."""
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             json.dump(self.to_dict(), f, indent=2)

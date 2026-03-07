@@ -26,102 +26,52 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 # =============================================================================
-# Common Finding Types
+# Verification Evidence (Optional for findings — only code_examined is consumed)
 # =============================================================================
 
 
-class BaseFinding(BaseModel):
-    """Base class for all finding types."""
+class VerificationEvidence(BaseModel):
+    """Evidence that a finding was verified against actual code."""
 
-    id: str = Field(description="Unique identifier for this finding")
-    severity: Literal["critical", "high", "medium", "low"] = Field(
-        description="Issue severity level"
+    code_examined: str = Field(
+        description="Code snippet that was examined to verify the finding",
     )
-    title: str = Field(description="Brief issue title (max 80 chars)")
-    description: str = Field(description="Detailed explanation of the issue")
-    file: str = Field(description="File path where issue was found")
-    line: int = Field(0, description="Line number of the issue")
-    suggested_fix: str | None = Field(None, description="How to fix this issue")
-    fixable: bool = Field(False, description="Whether this can be auto-fixed")
-    evidence: str | None = Field(
-        None,
-        description="Actual code snippet proving the issue exists. Required for validation.",
+    line_range_examined: list[int] = Field(
+        default_factory=list,
+        description="Start and end line numbers [start, end] of the examined code",
+    )
+    verification_method: str = Field(
+        default="direct_code_inspection",
+        description="How the issue was verified (e.g. direct_code_inspection, cross_file_trace, test_verification)",
     )
 
 
-class SecurityFinding(BaseFinding):
-    """A security vulnerability finding."""
+# =============================================================================
+# Severity / Category Validators
+# =============================================================================
 
-    category: Literal["security"] = Field(
-        default="security", description="Always 'security' for security findings"
-    )
-
-
-class QualityFinding(BaseFinding):
-    """A code quality or redundancy finding."""
-
-    category: Literal[
-        "redundancy", "quality", "test", "performance", "pattern", "docs"
-    ] = Field(description="Issue category")
-    redundant_with: str | None = Field(
-        None, description="Reference to duplicate code (file:line) if redundant"
-    )
+_VALID_SEVERITIES = {"critical", "high", "medium", "low"}
 
 
-class DeepAnalysisFinding(BaseFinding):
-    """A finding from deep analysis with verification info."""
-
-    category: Literal[
-        "verification_failed",
-        "redundancy",
-        "quality",
-        "pattern",
-        "performance",
-        "logic",
-    ] = Field(description="Issue category")
-    verification_note: str | None = Field(
-        None, description="What evidence is missing or couldn't be verified"
-    )
+def _normalize_severity(v: str) -> str:
+    """Normalize severity to a valid value, defaulting to 'medium'."""
+    if isinstance(v, str):
+        v = v.lower().strip()
+    if v not in _VALID_SEVERITIES:
+        return "medium"
+    return v
 
 
-class StructuralIssue(BaseModel):
-    """A structural issue with the PR."""
-
-    id: str = Field(description="Unique identifier")
-    issue_type: Literal[
-        "feature_creep", "scope_creep", "architecture_violation", "poor_structure"
-    ] = Field(description="Type of structural issue")
-    severity: Literal["critical", "high", "medium", "low"] = Field(
-        description="Issue severity"
-    )
-    title: str = Field(description="Brief issue title")
-    description: str = Field(description="Detailed explanation")
-    impact: str = Field(description="Why this matters")
-    suggestion: str = Field(description="How to fix")
-
-
-class AICommentTriage(BaseModel):
-    """Triage result for an AI tool comment."""
-
-    comment_id: int = Field(description="GitHub comment ID")
-    tool_name: str = Field(
-        description="AI tool name (CodeRabbit, Cursor, Greptile, etc.)"
-    )
-    verdict: Literal[
-        "critical",
-        "important",
-        "nice_to_have",
-        "trivial",
-        "addressed",
-        "false_positive",
-    ] = Field(description="Verdict on the comment")
-    reasoning: str = Field(description="Why this verdict was chosen")
-    response_comment: str | None = Field(
-        None, description="Optional comment to post in reply"
-    )
+def _normalize_category(v: str, valid_set: set[str], default: str = "quality") -> str:
+    """Normalize category to a valid value, defaulting to given default."""
+    if isinstance(v, str):
+        v = v.lower().strip().replace("-", "_")
+    if v not in valid_set:
+        return default
+    return v
 
 
 # =============================================================================
@@ -139,22 +89,34 @@ class FindingResolution(BaseModel):
     )
 
 
+_FOLLOWUP_CATEGORIES = {"security", "quality", "logic", "test", "docs"}
+
+
 class FollowupFinding(BaseModel):
-    """A new finding from follow-up review (simpler than initial review)."""
+    """A new finding from follow-up review (simpler than initial review).
+
+    verification is intentionally omitted — not consumed by followup_reviewer.py.
+    """
 
     id: str = Field(description="Unique identifier for this finding")
-    severity: Literal["critical", "high", "medium", "low"] = Field(
-        description="Issue severity level"
-    )
-    category: Literal["security", "quality", "logic", "test", "docs"] = Field(
-        description="Issue category"
-    )
+    severity: str = Field(description="Issue severity level")
+    category: str = Field(description="Issue category")
     title: str = Field(description="Brief issue title")
     description: str = Field(description="Detailed explanation of the issue")
     file: str = Field(description="File path where issue was found")
     line: int = Field(0, description="Line number of the issue")
     suggested_fix: str | None = Field(None, description="How to fix this issue")
     fixable: bool = Field(False, description="Whether this can be auto-fixed")
+
+    @field_validator("severity", mode="before")
+    @classmethod
+    def _normalize_severity(cls, v: str) -> str:
+        return _normalize_severity(v)
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def _normalize_category(cls, v: str) -> str:
+        return _normalize_category(v, _FOLLOWUP_CATEGORIES)
 
 
 class FollowupReviewResponse(BaseModel):
@@ -174,81 +136,6 @@ class FollowupReviewResponse(BaseModel):
         "READY_TO_MERGE", "MERGE_WITH_CHANGES", "NEEDS_REVISION", "BLOCKED"
     ] = Field(description="Overall merge verdict")
     verdict_reasoning: str = Field(description="Explanation for the verdict")
-
-
-# =============================================================================
-# Initial Review Responses (Multi-Pass)
-# =============================================================================
-
-
-class QuickScanResult(BaseModel):
-    """Result from the quick scan pass."""
-
-    purpose: str = Field(description="Brief description of what the PR claims to do")
-    actual_changes: str = Field(
-        description="Brief description of what the code actually does"
-    )
-    purpose_match: bool = Field(
-        description="Whether actual changes match the claimed purpose"
-    )
-    purpose_match_note: str | None = Field(
-        None, description="Explanation if purpose doesn't match actual changes"
-    )
-    risk_areas: list[str] = Field(
-        default_factory=list, description="Areas needing careful review"
-    )
-    red_flags: list[str] = Field(
-        default_factory=list, description="Obvious issues or concerns"
-    )
-    requires_deep_verification: bool = Field(
-        description="Whether deep verification is needed"
-    )
-    complexity: Literal["low", "medium", "high"] = Field(description="PR complexity")
-
-
-class SecurityPassResult(BaseModel):
-    """Result from the security pass - array of security findings."""
-
-    findings: list[SecurityFinding] = Field(
-        default_factory=list, description="Security vulnerabilities found"
-    )
-
-
-class QualityPassResult(BaseModel):
-    """Result from the quality pass - array of quality findings."""
-
-    findings: list[QualityFinding] = Field(
-        default_factory=list, description="Quality and redundancy issues found"
-    )
-
-
-class DeepAnalysisResult(BaseModel):
-    """Result from the deep analysis pass."""
-
-    findings: list[DeepAnalysisFinding] = Field(
-        default_factory=list,
-        description="Deep analysis findings with verification info",
-    )
-
-
-class StructuralPassResult(BaseModel):
-    """Result from the structural pass."""
-
-    issues: list[StructuralIssue] = Field(
-        default_factory=list, description="Structural issues found"
-    )
-    verdict: Literal[
-        "READY_TO_MERGE", "MERGE_WITH_CHANGES", "NEEDS_REVISION", "BLOCKED"
-    ] = Field(description="Structural verdict")
-    verdict_reasoning: str = Field(description="Explanation for the verdict")
-
-
-class AICommentTriageResult(BaseModel):
-    """Result from AI comment triage pass."""
-
-    triages: list[AICommentTriage] = Field(
-        default_factory=list, description="Triage results for each AI comment"
-    )
 
 
 # =============================================================================
@@ -294,84 +181,20 @@ class IssueTriageResponse(BaseModel):
 
 
 # =============================================================================
-# Orchestrator Review Response
-# =============================================================================
-
-
-class OrchestratorFinding(BaseModel):
-    """A finding from the orchestrator review."""
-
-    file: str = Field(description="File path where issue was found")
-    line: int = Field(0, description="Line number of the issue")
-    title: str = Field(description="Brief issue title")
-    description: str = Field(description="Detailed explanation of the issue")
-    category: Literal[
-        "security",
-        "quality",
-        "style",
-        "docs",
-        "redundancy",
-        "verification_failed",
-        "pattern",
-        "performance",
-        "logic",
-        "test",
-    ] = Field(description="Issue category")
-    severity: Literal["critical", "high", "medium", "low"] = Field(
-        description="Issue severity level"
-    )
-    suggestion: str | None = Field(None, description="How to fix this issue")
-    evidence: str | None = Field(
-        None,
-        description="Actual code snippet proving the issue exists. Required for validation.",
-    )
-
-
-class OrchestratorReviewResponse(BaseModel):
-    """Complete response schema for orchestrator PR review."""
-
-    verdict: Literal[
-        "READY_TO_MERGE", "MERGE_WITH_CHANGES", "NEEDS_REVISION", "BLOCKED"
-    ] = Field(description="Overall merge verdict")
-    verdict_reasoning: str = Field(description="Explanation for the verdict")
-    findings: list[OrchestratorFinding] = Field(
-        default_factory=list, description="Issues found during review"
-    )
-    summary: str = Field(description="Brief summary of the review")
-
-
-# =============================================================================
 # Parallel Orchestrator Review Response (SDK Subagents)
 # =============================================================================
 
-
-class LogicFinding(BaseFinding):
-    """A logic/correctness finding from the logic review agent."""
-
-    category: Literal["logic"] = Field(
-        default="logic", description="Always 'logic' for logic findings"
-    )
-    example_input: str | None = Field(
-        None, description="Concrete input that triggers the bug"
-    )
-    actual_output: str | None = Field(None, description="What the buggy code produces")
-    expected_output: str | None = Field(
-        None, description="What the code should produce"
-    )
-
-
-class CodebaseFitFinding(BaseFinding):
-    """A codebase fit finding from the codebase fit review agent."""
-
-    category: Literal["codebase_fit"] = Field(
-        default="codebase_fit", description="Always 'codebase_fit' for fit findings"
-    )
-    existing_code: str | None = Field(
-        None, description="Reference to existing code that should be used instead"
-    )
-    codebase_pattern: str | None = Field(
-        None, description="Description of the established pattern being violated"
-    )
+_ORCHESTRATOR_CATEGORIES = {
+    "security",
+    "quality",
+    "logic",
+    "codebase_fit",
+    "test",
+    "docs",
+    "redundancy",
+    "pattern",
+    "performance",
+}
 
 
 class ParallelOrchestratorFinding(BaseModel):
@@ -383,23 +206,26 @@ class ParallelOrchestratorFinding(BaseModel):
     end_line: int | None = Field(None, description="End line for multi-line issues")
     title: str = Field(description="Brief issue title (max 80 chars)")
     description: str = Field(description="Detailed explanation of the issue")
-    category: Literal[
-        "security",
-        "quality",
-        "logic",
-        "codebase_fit",
-        "test",
-        "docs",
-        "redundancy",
-        "pattern",
-        "performance",
-    ] = Field(description="Issue category")
-    severity: Literal["critical", "high", "medium", "low"] = Field(
-        description="Issue severity level"
-    )
-    evidence: str | None = Field(
+    category: str = Field(description="Issue category")
+    severity: str = Field(description="Issue severity level")
+    verification: VerificationEvidence | None = Field(
         None,
-        description="Actual code snippet proving the issue exists. Required for validation.",
+        description="Evidence that this finding was verified against actual code",
+    )
+    is_impact_finding: bool = Field(
+        False,
+        description=(
+            "True if this finding is about impact on OTHER files (not the changed file). "
+            "Impact findings may reference files outside the PR's changed files list."
+        ),
+    )
+    checked_for_handling_elsewhere: bool = Field(
+        False,
+        description=(
+            "For 'missing X' claims (missing error handling, missing validation, etc.), "
+            "True if the agent verified X is not handled elsewhere in the codebase. "
+            "False if this is a 'missing X' claim but other locations were not checked."
+        ),
     )
     suggested_fix: str | None = Field(None, description="How to fix this issue")
     fixable: bool = Field(False, description="Whether this can be auto-fixed")
@@ -410,6 +236,16 @@ class ParallelOrchestratorFinding(BaseModel):
     cross_validated: bool = Field(
         False, description="Whether multiple agents agreed on this finding"
     )
+
+    @field_validator("severity", mode="before")
+    @classmethod
+    def _normalize_severity(cls, v: str) -> str:
+        return _normalize_severity(v)
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def _normalize_category(cls, v: str) -> str:
+        return _normalize_category(v, _ORCHESTRATOR_CATEGORIES)
 
 
 class AgentAgreement(BaseModel):
@@ -428,6 +264,106 @@ class AgentAgreement(BaseModel):
     )
 
 
+class DismissedFinding(BaseModel):
+    """A finding that was validated and dismissed as a false positive.
+
+    Included in output for transparency - users can see what was investigated and why it was dismissed.
+    """
+
+    id: str = Field(description="Original finding ID")
+    original_title: str = Field(description="Original finding title")
+    original_severity: Literal["critical", "high", "medium", "low"] = Field(
+        description="Original severity assigned by specialist"
+    )
+    original_file: str = Field(description="File where issue was claimed")
+    original_line: int = Field(0, description="Line where issue was claimed")
+    dismissal_reason: str = Field(
+        description="Why this finding was dismissed as a false positive"
+    )
+    validation_evidence: str = Field(
+        description="Actual code examined that disproved the finding"
+    )
+
+
+class ValidationSummary(BaseModel):
+    """Summary of validation results for transparency."""
+
+    total_findings_from_specialists: int = Field(
+        description="Total findings reported by all specialist agents"
+    )
+    confirmed_valid: int = Field(
+        description="Findings confirmed as real issues by validator"
+    )
+    dismissed_false_positive: int = Field(
+        description="Findings dismissed as false positives by validator"
+    )
+    needs_human_review: int = Field(
+        0, description="Findings that couldn't be definitively validated"
+    )
+
+
+_SPECIALIST_CATEGORIES = {
+    "security",
+    "quality",
+    "logic",
+    "performance",
+    "pattern",
+    "test",
+    "docs",
+}
+
+
+class SpecialistFinding(BaseModel):
+    """A finding from a specialist agent (used in parallel SDK sessions)."""
+
+    severity: str = Field(description="Issue severity level")
+    category: str = Field(description="Issue category")
+    title: str = Field(description="Brief issue title (max 80 chars)")
+    description: str = Field(description="Detailed explanation of the issue")
+    file: str = Field(description="File path where issue was found")
+    line: int = Field(0, description="Line number of the issue")
+    end_line: int | None = Field(None, description="End line number if multi-line")
+    suggested_fix: str | None = Field(None, description="How to fix this issue")
+    evidence: str = Field(
+        default="",
+        description="Actual code snippet examined that shows the issue.",
+    )
+    is_impact_finding: bool = Field(
+        False,
+        description="True if this is about affected code outside the PR (callers, dependencies)",
+    )
+
+    @field_validator("severity", mode="before")
+    @classmethod
+    def _normalize_severity(cls, v: str) -> str:
+        return _normalize_severity(v)
+
+    @field_validator("category", mode="before")
+    @classmethod
+    def _normalize_category(cls, v: str) -> str:
+        return _normalize_category(v, _SPECIALIST_CATEGORIES)
+
+
+class SpecialistResponse(BaseModel):
+    """Response schema for individual specialist agent (parallel SDK sessions).
+
+    Used when each specialist runs as its own SDK session rather than via Task tool.
+    """
+
+    specialist_name: str = Field(
+        description="Name of the specialist (security, quality, logic, codebase-fit)"
+    )
+    analysis_summary: str = Field(description="Brief summary of what was analyzed")
+    files_examined: list[str] = Field(
+        default_factory=list,
+        description="List of files that were examined",
+    )
+    findings: list[SpecialistFinding] = Field(
+        default_factory=list,
+        description="Issues found during analysis",
+    )
+
+
 class ParallelOrchestratorResponse(BaseModel):
     """Complete response schema for parallel orchestrator PR review."""
 
@@ -438,8 +374,20 @@ class ParallelOrchestratorResponse(BaseModel):
         default_factory=list,
         description="List of agent names that were invoked",
     )
+    validation_summary: ValidationSummary | None = Field(
+        None,
+        description="Summary of validation results (total, confirmed, dismissed, needs_review)",
+    )
     findings: list[ParallelOrchestratorFinding] = Field(
-        default_factory=list, description="All findings from synthesis"
+        default_factory=list,
+        description="Validated findings only (confirmed_valid or needs_human_review)",
+    )
+    dismissed_findings: list[DismissedFinding] = Field(
+        default_factory=list,
+        description=(
+            "Findings that were validated and dismissed as false positives. "
+            "Included for transparency - users can see what was investigated."
+        ),
     )
     agent_agreement: AgentAgreement = Field(
         default_factory=AgentAgreement,
@@ -464,117 +412,81 @@ class ResolutionVerification(BaseModel):
         Field(description="Resolution status after AI verification")
     )
     evidence: str = Field(
-        min_length=1,
-        description="Actual code snippet showing the resolution status. Required.",
+        description="Code snippet or explanation showing the resolution status",
     )
-    resolution_notes: str | None = Field(
-        None, description="Detailed notes on how the issue was addressed"
-    )
+
+
+_PARALLEL_FOLLOWUP_CATEGORIES = {
+    "security",
+    "quality",
+    "logic",
+    "test",
+    "docs",
+    "regression",
+    "incomplete_fix",
+}
 
 
 class ParallelFollowupFinding(BaseModel):
-    """A finding from parallel follow-up review with source agent tracking."""
+    """A finding from parallel follow-up review."""
 
     id: str = Field(description="Unique identifier for this finding")
     file: str = Field(description="File path where issue was found")
     line: int = Field(0, description="Line number of the issue")
-    end_line: int | None = Field(None, description="End line for multi-line issues")
-    title: str = Field(description="Brief issue title (max 80 chars)")
+    title: str = Field(description="Brief issue title")
     description: str = Field(description="Detailed explanation of the issue")
-    category: Literal[
-        "security",
-        "quality",
-        "logic",
-        "test",
-        "docs",
-        "regression",
-        "incomplete_fix",
-    ] = Field(description="Issue category")
-    severity: Literal["critical", "high", "medium", "low"] = Field(
-        description="Issue severity level"
-    )
-    evidence: str | None = Field(
-        None,
-        description="Actual code snippet proving the issue exists. Required for validation.",
-    )
+    category: str = Field(description="Issue category")
+    severity: str = Field(description="Issue severity level")
     suggested_fix: str | None = Field(None, description="How to fix this issue")
     fixable: bool = Field(False, description="Whether this can be auto-fixed")
-    source_agent: str = Field(
-        description="Which agent reported this finding (resolution/newcode/comment)"
-    )
-    related_to_previous: str | None = Field(
-        None, description="ID of related previous finding if this is a regression"
+    is_impact_finding: bool = Field(
+        False,
+        description="True if this finding is about impact on OTHER files outside the PR diff",
     )
 
+    @field_validator("severity", mode="before")
+    @classmethod
+    def _normalize_severity(cls, v: str) -> str:
+        return _normalize_severity(v)
 
-class CommentAnalysis(BaseModel):
-    """Analysis of a contributor or AI comment."""
-
-    comment_id: str = Field(description="Identifier for the comment")
-    author: str = Field(description="Comment author")
-    is_ai_bot: bool = Field(description="Whether this is from an AI tool")
-    requires_response: bool = Field(description="Whether this comment needs a response")
-    sentiment: Literal["question", "concern", "suggestion", "praise", "neutral"] = (
-        Field(description="Comment sentiment/type")
-    )
-    summary: str = Field(description="Brief summary of the comment")
-    action_needed: str | None = Field(None, description="What action is needed if any")
+    @field_validator("category", mode="before")
+    @classmethod
+    def _normalize_category(cls, v: str) -> str:
+        return _normalize_category(v, _PARALLEL_FOLLOWUP_CATEGORIES)
 
 
 class ParallelFollowupResponse(BaseModel):
-    """Complete response schema for parallel follow-up PR review."""
+    """Complete response schema for parallel follow-up PR review.
 
-    # Analysis metadata
-    analysis_summary: str = Field(
-        description="Brief summary of what was analyzed in this follow-up"
-    )
+    Simplified schema — only fields that are consumed downstream are included.
+    Removing unused fields reduces schema size and validation failure rate.
+    """
+
     agents_invoked: list[str] = Field(
         default_factory=list,
         description="List of agent names that were invoked",
     )
-    commits_analyzed: int = Field(0, description="Number of new commits analyzed")
-    files_changed: int = Field(
-        0, description="Number of files changed since last review"
-    )
 
-    # Resolution verification (from resolution-verifier agent)
     resolution_verifications: list[ResolutionVerification] = Field(
         default_factory=list,
-        description="AI-verified resolution status for each previous finding",
+        description="Resolution status for each previous finding",
     )
 
-    # Finding validations (from finding-validator agent)
     finding_validations: list[FindingValidationResult] = Field(
         default_factory=list,
-        description=(
-            "Re-investigation results for unresolved findings. "
-            "Validates whether findings are real issues or false positives."
-        ),
+        description="Re-investigation results for unresolved findings",
     )
 
-    # New findings (from new-code-reviewer agent)
     new_findings: list[ParallelFollowupFinding] = Field(
         default_factory=list,
         description="New issues found in changes since last review",
     )
 
-    # Comment analysis (from comment-analyzer agent)
-    comment_analyses: list[CommentAnalysis] = Field(
-        default_factory=list,
-        description="Analysis of contributor and AI comments",
-    )
     comment_findings: list[ParallelFollowupFinding] = Field(
         default_factory=list,
         description="Issues identified from comment analysis",
     )
 
-    # Agent agreement tracking
-    agent_agreement: AgentAgreement = Field(
-        default_factory=AgentAgreement,
-        description="Information about agent agreement on findings",
-    )
-
-    # Verdict
     verdict: Literal[
         "READY_TO_MERGE", "MERGE_WITH_CHANGES", "NEEDS_REVISION", "BLOCKED"
     ] = Field(description="Overall merge verdict")
@@ -587,53 +499,17 @@ class ParallelFollowupResponse(BaseModel):
 
 
 class FindingValidationResult(BaseModel):
-    """
-    Result of re-investigating an unresolved finding to validate it's actually real.
-
-    The finding-validator agent uses this to report whether a previous finding
-    is a genuine issue or a false positive that should be dismissed.
-
-    EVIDENCE-BASED VALIDATION: No confidence scores - validation is binary.
-    Either the evidence shows the issue exists, or it doesn't.
-    """
+    """Result of re-investigating an unresolved finding to determine if it's real."""
 
     finding_id: str = Field(description="ID of the finding being validated")
     validation_status: Literal[
         "confirmed_valid", "dismissed_false_positive", "needs_human_review"
-    ] = Field(
-        description=(
-            "Validation result: "
-            "confirmed_valid = code evidence proves issue IS real; "
-            "dismissed_false_positive = code evidence proves issue does NOT exist; "
-            "needs_human_review = cannot find definitive evidence either way"
-        )
-    )
+    ] = Field(description="Whether the finding is real, a false positive, or unclear")
     code_evidence: str = Field(
-        min_length=1,
-        description=(
-            "REQUIRED: Exact code snippet examined from the file. "
-            "Must be actual code copy-pasted from the file, not a description. "
-            "This is the proof that determines the validation status."
-        ),
-    )
-    line_range: list[int] = Field(
-        min_length=2,
-        max_length=2,
-        description="Start and end line numbers of the examined code [start, end]",
+        description="Code snippet examined that supports the validation status",
     )
     explanation: str = Field(
-        min_length=20,
-        description=(
-            "Detailed explanation connecting the code_evidence to the validation_status. "
-            "Must explain: (1) what the original finding claimed, (2) what the actual code shows, "
-            "(3) why this proves/disproves the issue."
-        ),
-    )
-    evidence_verified_in_file: bool = Field(
-        description=(
-            "True if the code_evidence was verified to exist at the specified line_range. "
-            "False if the code couldn't be found (indicates hallucination in original finding)."
-        )
+        description="Why this finding was confirmed, dismissed, or flagged for human review",
     )
 
 
@@ -649,4 +525,56 @@ class FindingValidationResponse(BaseModel):
             "Brief summary of validation results: how many confirmed, "
             "how many dismissed, how many need human review"
         )
+    )
+
+
+# =============================================================================
+# Minimal Extraction Schema (Fallback for structured output validation failure)
+# =============================================================================
+
+
+class ExtractedFindingSummary(BaseModel):
+    """Per-finding summary with file location for extraction recovery."""
+
+    severity: str = Field(description="Severity level: LOW, MEDIUM, HIGH, or CRITICAL")
+    description: str = Field(description="One-line description of the finding")
+    file: str = Field(
+        default="unknown", description="File path where the issue was found"
+    )
+    line: int = Field(default=0, description="Line number in the file (0 if unknown)")
+
+    @field_validator("severity", mode="before")
+    @classmethod
+    def _normalize_severity(cls, v: str) -> str:
+        return _normalize_severity(v)
+
+
+class FollowupExtractionResponse(BaseModel):
+    """Minimal extraction schema for recovering data when full structured output fails.
+
+    Uses ExtractedFindingSummary for new findings to preserve file/line information.
+    Used as an intermediate recovery step before falling back to raw text parsing.
+    """
+
+    verdict: Literal[
+        "READY_TO_MERGE", "MERGE_WITH_CHANGES", "NEEDS_REVISION", "BLOCKED"
+    ] = Field(description="Overall merge verdict")
+    verdict_reasoning: str = Field(description="Explanation for the verdict")
+    resolved_finding_ids: list[str] = Field(
+        default_factory=list,
+        description="IDs of previous findings that are now resolved",
+    )
+    unresolved_finding_ids: list[str] = Field(
+        default_factory=list,
+        description="IDs of previous findings that remain unresolved",
+    )
+    new_finding_summaries: list[ExtractedFindingSummary] = Field(
+        default_factory=list,
+        description="Structured summary of each new finding with file location",
+    )
+    confirmed_finding_count: int = Field(
+        0, description="Number of findings confirmed as valid"
+    )
+    dismissed_finding_count: int = Field(
+        0, description="Number of findings dismissed as false positives"
     )

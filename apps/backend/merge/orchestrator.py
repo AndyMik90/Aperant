@@ -33,6 +33,7 @@ from .merge_pipeline import MergePipeline
 
 # Re-export models for backwards compatibility
 from .models import MergeReport, MergeStats, TaskMergeRequest
+from .progress import MergeProgressCallback, MergeProgressStage
 from .semantic_analyzer import SemanticAnalyzer
 from .types import (
     ConflictRegion,
@@ -260,6 +261,7 @@ class MergeOrchestrator:
         task_id: str,
         worktree_path: Path | None = None,
         target_branch: str = "main",
+        progress_callback: MergeProgressCallback | None = None,
     ) -> MergeReport:
         """
         Merge a single task's changes into the target branch.
@@ -268,6 +270,8 @@ class MergeOrchestrator:
             task_id: The task identifier
             worktree_path: Path to the task's worktree (auto-detected if not provided)
             target_branch: Branch to merge into
+            progress_callback: Optional callback for progress updates.
+                Called with (stage, percent, message, details) at key pipeline stages.
 
         Returns:
             MergeReport with results
@@ -284,7 +288,20 @@ class MergeOrchestrator:
         report = MergeReport(started_at=datetime.now(), tasks_merged=[task_id])
         start_time = datetime.now()
 
+        def _emit(
+            stage: MergeProgressStage,
+            percent: int,
+            message: str,
+            details: dict[str, Any] | None = None,
+        ) -> None:
+            """Emit progress if a callback is provided."""
+            if progress_callback is not None:
+                progress_callback(stage, percent, message, details)
+
         try:
+            # --- ANALYZING stage (0-25%) ---
+            _emit(MergeProgressStage.ANALYZING, 0, "Starting merge analysis")
+
             # Find worktree if not provided
             if worktree_path is None:
                 debug_detailed(MODULE, "Auto-detecting worktree path...")
@@ -293,16 +310,23 @@ class MergeOrchestrator:
                     debug_error(MODULE, f"Could not find worktree for task {task_id}")
                     report.success = False
                     report.error = f"Could not find worktree for task {task_id}"
+                    _emit(
+                        MergeProgressStage.ERROR,
+                        0,
+                        f"Could not find worktree for task {task_id}",
+                    )
                     return report
                 debug_detailed(MODULE, f"Found worktree: {worktree_path}")
 
             # Ensure evolution data is up to date
+            _emit(MergeProgressStage.ANALYZING, 5, "Loading file evolution data")
             debug(MODULE, "Refreshing evolution data from git...")
             self.evolution_tracker.refresh_from_git(
                 task_id, worktree_path, target_branch=target_branch
             )
 
             # Get files modified by this task
+            _emit(MergeProgressStage.ANALYZING, 15, "Running semantic analysis")
             modifications = self.evolution_tracker.get_task_modifications(task_id)
             debug(
                 MODULE,
@@ -312,11 +336,39 @@ class MergeOrchestrator:
             if not modifications:
                 debug_warning(MODULE, f"No modifications found for task {task_id}")
                 logger.info(f"No modifications found for task {task_id}")
+                _emit(
+                    MergeProgressStage.COMPLETE,
+                    100,
+                    "No modifications found",
+                )
                 report.completed_at = datetime.now()
                 return report
 
-            # Process each modified file
-            for file_path, snapshot in modifications:
+            _emit(
+                MergeProgressStage.ANALYZING,
+                25,
+                f"Found {len(modifications)} modified files",
+            )
+
+            # --- DETECTING_CONFLICTS stage (25-50%) ---
+            _emit(
+                MergeProgressStage.DETECTING_CONFLICTS,
+                25,
+                "Detecting conflicts",
+            )
+
+            # --- RESOLVING stage (50-75%) ---
+            total_files = len(modifications)
+            for idx, (file_path, snapshot) in enumerate(modifications):
+                # Calculate progress after processing (idx + 1) to reach 75% on last file
+                file_percent = 50 + int(((idx + 1) / max(total_files, 1)) * 25)
+                _emit(
+                    MergeProgressStage.RESOLVING,
+                    file_percent,
+                    f"Merging file {idx + 1}/{total_files}",
+                    {"current_file": file_path},
+                )
+
                 debug_detailed(
                     MODULE,
                     f"Processing file: {file_path}",
@@ -349,13 +401,31 @@ class MergeOrchestrator:
                     file=file_path,
                 )
 
+            # --- VALIDATING stage (75-100%) ---
+            _emit(
+                MergeProgressStage.VALIDATING,
+                75,
+                "Validating merge results",
+                {
+                    "conflicts_found": report.stats.conflicts_detected,
+                    "conflicts_resolved": report.stats.conflicts_auto_resolved,
+                },
+            )
+
             report.success = report.stats.files_failed == 0
+
+            _emit(
+                MergeProgressStage.VALIDATING,
+                90,
+                "Validation complete",
+            )
 
         except Exception as e:
             debug_error(MODULE, f"Merge failed for task {task_id}", error=str(e))
             logger.exception(f"Merge failed for task {task_id}")
             report.success = False
             report.error = str(e)
+            _emit(MergeProgressStage.ERROR, 0, f"Merge failed: {e}")
 
         report.completed_at = datetime.now()
         report.stats.duration_seconds = (
@@ -365,6 +435,18 @@ class MergeOrchestrator:
         # Save report
         if not self.dry_run:
             self._save_report(report, task_id)
+
+        # --- COMPLETE stage (100%) ---
+        if report.success:
+            _emit(
+                MergeProgressStage.COMPLETE,
+                100,
+                f"Merge complete for {task_id}",
+                {
+                    "conflicts_found": report.stats.conflicts_detected,
+                    "conflicts_resolved": report.stats.conflicts_auto_resolved,
+                },
+            )
 
         debug_success(
             MODULE,
@@ -382,6 +464,7 @@ class MergeOrchestrator:
         self,
         requests: list[TaskMergeRequest],
         target_branch: str = "main",
+        progress_callback: MergeProgressCallback | None = None,
     ) -> MergeReport:
         """
         Merge multiple tasks' changes.
@@ -392,6 +475,8 @@ class MergeOrchestrator:
         Args:
             requests: List of merge requests (one per task)
             target_branch: Branch to merge into
+            progress_callback: Optional callback for progress updates.
+                Called with (stage, percent, message, details) at key pipeline stages.
 
         Returns:
             MergeReport with combined results
@@ -402,11 +487,33 @@ class MergeOrchestrator:
         )
         start_time = datetime.now()
 
+        def _emit(
+            stage: MergeProgressStage,
+            percent: int,
+            message: str,
+            details: dict[str, Any] | None = None,
+        ) -> None:
+            """Emit progress if a callback is provided."""
+            if progress_callback is not None:
+                progress_callback(stage, percent, message, details)
+
         try:
+            # --- ANALYZING stage (0-25%) ---
+            _emit(
+                MergeProgressStage.ANALYZING,
+                0,
+                f"Starting merge analysis for {len(requests)} tasks",
+            )
+
             # Sort by priority (higher first)
             requests = sorted(requests, key=lambda r: -r.priority)
 
             # Refresh evolution data for all tasks
+            _emit(
+                MergeProgressStage.ANALYZING,
+                5,
+                "Loading file evolution data",
+            )
             for request in requests:
                 if request.worktree_path and request.worktree_path.exists():
                     self.evolution_tracker.refresh_from_git(
@@ -416,11 +523,38 @@ class MergeOrchestrator:
                     )
 
             # Find all files modified by any task
+            _emit(
+                MergeProgressStage.ANALYZING,
+                15,
+                "Running semantic analysis",
+            )
             task_ids = [r.task_id for r in requests]
             file_tasks = self.evolution_tracker.get_files_modified_by_tasks(task_ids)
 
-            # Process each file
-            for file_path, modifying_tasks in file_tasks.items():
+            _emit(
+                MergeProgressStage.ANALYZING,
+                25,
+                f"Found {len(file_tasks)} files to merge",
+            )
+
+            # --- DETECTING_CONFLICTS stage (25-50%) ---
+            _emit(
+                MergeProgressStage.DETECTING_CONFLICTS,
+                25,
+                "Detecting conflicts across tasks",
+            )
+
+            # --- RESOLVING stage (50-75%) ---
+            total_files = len(file_tasks)
+            for idx, (file_path, modifying_tasks) in enumerate(file_tasks.items()):
+                file_percent = 50 + int((idx / max(total_files, 1)) * 25)
+                _emit(
+                    MergeProgressStage.RESOLVING,
+                    file_percent,
+                    f"Merging file {idx + 1}/{total_files}",
+                    {"current_file": file_path},
+                )
+
                 # Get snapshots from all tasks that modified this file
                 evolution = self.evolution_tracker.get_file_evolution(file_path)
                 if not evolution:
@@ -466,7 +600,24 @@ class MergeOrchestrator:
                 report.file_results[file_path] = result
                 self._update_stats(report.stats, result)
 
+            # --- VALIDATING stage (75-100%) ---
+            _emit(
+                MergeProgressStage.VALIDATING,
+                75,
+                "Validating merge results",
+                {
+                    "conflicts_found": report.stats.conflicts_detected,
+                    "conflicts_resolved": report.stats.conflicts_auto_resolved,
+                },
+            )
+
             report.success = report.stats.files_failed == 0
+
+            _emit(
+                MergeProgressStage.VALIDATING,
+                90,
+                "Validation complete",
+            )
 
         except Exception as e:
             debug_error(
@@ -478,6 +629,7 @@ class MergeOrchestrator:
             logger.exception("Merge failed")
             report.success = False
             report.error = str(e)
+            _emit(MergeProgressStage.ERROR, 0, f"Merge failed: {e}")
 
         report.completed_at = datetime.now()
         report.stats.duration_seconds = (
@@ -488,6 +640,18 @@ class MergeOrchestrator:
         if not self.dry_run:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             self._save_report(report, f"multi_{timestamp}")
+
+        # --- COMPLETE stage (100%) ---
+        if report.success:
+            _emit(
+                MergeProgressStage.COMPLETE,
+                100,
+                f"Merge complete for {len(requests)} tasks",
+                {
+                    "conflicts_found": report.stats.conflicts_detected,
+                    "conflicts_resolved": report.stats.conflicts_auto_resolved,
+                },
+            )
 
         return report
 

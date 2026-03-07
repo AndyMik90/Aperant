@@ -86,7 +86,7 @@ class RequirementsPhaseMixin:
             )
 
             # Save hints to file
-            with open(hints_file, "w") as f:
+            with open(hints_file, "w", encoding="utf-8") as f:
                 json.dump(
                     {
                         "enabled": True,

@@ -1,8 +1,9 @@
-import { useRef, useEffect, useCallback } from 'react';
-import { Loader2, AlertCircle } from 'lucide-react';
+import { useRef, useEffect, useCallback, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { ScrollArea } from '../../ui/scroll-area';
 import { IssueListItem } from './IssueListItem';
 import { EmptyState } from './EmptyStates';
+import { GitHubErrorDisplay } from './GitHubErrorDisplay';
 import type { IssueListProps } from '../types';
 import { useTranslation } from 'react-i18next';
 
@@ -15,10 +16,13 @@ export function IssueList({
   error,
   onSelectIssue,
   onInvestigate,
-  onLoadMore
+  onLoadMore,
+  onRetry,
+  onOpenSettings
 }: IssueListProps) {
   const { t } = useTranslation('common');
   const loadMoreTriggerRef = useRef<HTMLDivElement>(null);
+  const [viewportElement, setViewportElement] = useState<HTMLDivElement | null>(null);
 
   // Intersection Observer for infinite scroll
   const handleIntersection = useCallback((entries: IntersectionObserverEntry[]) => {
@@ -30,10 +34,10 @@ export function IssueList({
 
   useEffect(() => {
     const trigger = loadMoreTriggerRef.current;
-    if (!trigger || !onLoadMore) return;
+    if (!trigger || !onLoadMore || !viewportElement) return;
 
     const observer = new IntersectionObserver(handleIntersection, {
-      root: null,
+      root: viewportElement,
       rootMargin: '100px',
       threshold: 0
     });
@@ -43,18 +47,18 @@ export function IssueList({
     return () => {
       observer.disconnect();
     };
-  }, [handleIntersection, onLoadMore]);
+  }, [handleIntersection, onLoadMore, viewportElement]);
 
   // Only show blocking error view when no issues are loaded
   // Load-more errors are shown inline near the load-more trigger
   if (error && issues.length === 0) {
     return (
-      <div className="p-4 bg-destructive/10 border-b border-destructive/30">
-        <div className="flex items-center gap-2 text-sm text-destructive">
-          <AlertCircle className="h-4 w-4" />
-          {error}
-        </div>
-      </div>
+      <GitHubErrorDisplay
+        error={error}
+        onRetry={onRetry}
+        onOpenSettings={onOpenSettings}
+        className="flex-1"
+      />
     );
   }
 
@@ -71,7 +75,7 @@ export function IssueList({
   }
 
   return (
-    <ScrollArea className="flex-1">
+    <ScrollArea className="flex-1" onViewportRef={setViewportElement}>
       <div className="p-2 space-y-1">
         {issues.map((issue) => (
           <IssueListItem
@@ -84,15 +88,18 @@ export function IssueList({
         ))}
 
         {/* Load more trigger / Loading indicator */}
+        {/* Inline error for load-more failures (visible even when onLoadMore is undefined during search) */}
+        {error && issues.length > 0 && (
+          <GitHubErrorDisplay
+            error={error}
+            onRetry={onRetry}
+            onOpenSettings={onOpenSettings}
+            compact
+            className="w-full"
+          />
+        )}
         {onLoadMore && (
           <div ref={loadMoreTriggerRef} className="py-4 flex flex-col items-center gap-2">
-            {/* Inline error for load-more failures (when issues are already loaded) */}
-            {error && issues.length > 0 && (
-              <div className="flex items-center gap-2 text-sm text-destructive">
-                <AlertCircle className="h-4 w-4" />
-                {error}
-              </div>
-            )}
             {isLoadingMore ? (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />

@@ -97,3 +97,14 @@ When testing UI elements, prefer these selector strategies:
 3. `button:contains("Text")` - By visible text
 4. `.class-name` - CSS classes
 5. `input[name="..."]` - Form fields by name
+
+### Handling Common Issues
+
+**Dev Server Not Running:**
+If the development server is not running or the page cannot be loaded:
+
+1. Check the project commands listed in the PROJECT CAPABILITIES section for the dev server command
+2. Start the dev server and wait for it to be ready
+3. If the server cannot be started:
+   - **For specs with UI changes**: This is a CRITICAL blocking issue. Mark as **REJECTED** — visual verification is mandatory for UI changes
+   - **For non-UI changes**: Document as "Browser validation skipped — no UI files changed" and proceed with code-based review

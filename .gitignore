@@ -7,6 +7,7 @@
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+nul
 
 # ===========================
 # Security - Environment & Secrets
@@ -56,6 +57,8 @@ lerna-debug.log*
 # Auto Claude Generated
 # ===========================
 .auto-claude/
+.planning/
+.planning-archive/
 .auto-build-security.json
 .auto-claude-security.json
 .auto-claude-status
@@ -107,7 +110,8 @@ dmypy.json
 # ===========================
 # Node.js (apps/frontend)
 # ===========================
-node_modules/
+node_modules
+apps/frontend/node_modules
 .npm
 .yarn/
 .pnp.*
@@ -169,3 +173,5 @@ OPUS_ANALYSIS_AND_IDEAS.md
 # Auto Claude generated files
 .security-key
 /shared_docs
+logs/security/
+Agents.md

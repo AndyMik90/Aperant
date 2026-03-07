@@ -55,6 +55,10 @@ export const projectMock = {
 
   saveTabState: async () => ({ success: true }),
 
+  // Kanban Preferences
+  getKanbanPreferences: async () => ({ success: true, data: null }),
+  saveKanbanPreferences: async () => ({ success: true }),
+
   // Dialog operations
   selectDirectory: async () => {
     return prompt('Enter project path (browser mock):', '/Users/demo/projects/new-project');
@@ -86,6 +90,17 @@ export const projectMock = {
   getGitBranches: async () => ({
     success: true,
     data: ['main', 'develop', 'feature/test']
+  }),
+
+  getGitBranchesWithInfo: async () => ({
+    success: true,
+    data: [
+      { name: 'main', type: 'local' as const, displayName: 'main', isCurrent: true },
+      { name: 'develop', type: 'local' as const, displayName: 'develop', isCurrent: false },
+      { name: 'feature/test', type: 'local' as const, displayName: 'feature/test', isCurrent: false },
+      { name: 'origin/main', type: 'remote' as const, displayName: 'origin/main', isCurrent: false },
+      { name: 'origin/develop', type: 'remote' as const, displayName: 'origin/develop', isCurrent: false }
+    ]
   }),
 
   getCurrentGitBranch: async () => ({

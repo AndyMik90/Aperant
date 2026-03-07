@@ -23,10 +23,10 @@ export {
 export {
   usePRReviewStore,
   initializePRReviewListeners,
-  startPRReview,
-  startFollowupReview
+  cleanupPRReviewListeners
 } from './pr-review-store';
 import { initializePRReviewListeners as _initPRReviewListeners } from './pr-review-store';
+import { cleanupPRReviewListeners as _cleanupPRReviewListeners } from './pr-review-store';
 
 // Investigation Store
 export {
@@ -47,6 +47,14 @@ export {
 export function initializeGitHubListeners(): void {
   _initPRReviewListeners();
   // Add other global listeners here as needed
+}
+
+/**
+ * Cleanup all global GitHub listeners.
+ * Call this during app unmount or hot-reload.
+ */
+export function cleanupGitHubListeners(): void {
+  _cleanupPRReviewListeners();
 }
 
 // Re-export types for convenience

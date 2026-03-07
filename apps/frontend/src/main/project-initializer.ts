@@ -164,13 +164,18 @@ const GITIGNORE_ENTRIES = ['.auto-claude/'];
 function ensureGitignoreEntries(projectPath: string, entries: string[]): void {
   const gitignorePath = path.join(projectPath, '.gitignore');
 
+  // Read existing content atomically (no TOCTOU)
   let content = '';
-  let existingLines: string[] = [];
-
-  if (existsSync(gitignorePath)) {
+  let fileExists = false;
+  try {
     content = readFileSync(gitignorePath, 'utf-8');
-    existingLines = content.split('\n').map(line => line.trim());
+    fileExists = true;
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+    // File doesn't exist - content stays empty
   }
+
+  const existingLines = content ? content.split('\n').map(line => line.trim()) : [];
 
   // Find entries that need to be added
   const entriesToAdd: string[] = [];
@@ -191,23 +196,23 @@ function ensureGitignoreEntries(projectPath: string, entries: string[]): void {
     return;
   }
 
-  // Build the content to append
-  let appendContent = '';
+  if (fileExists) {
+    // Build the content to append
+    let appendContent = '';
 
-  // Ensure file ends with newline before adding our entries
-  if (content && !content.endsWith('\n')) {
-    appendContent += '\n';
-  }
+    // Ensure file ends with newline before adding our entries
+    if (content && !content.endsWith('\n')) {
+      appendContent += '\n';
+    }
 
-  appendContent += '\n# Auto Claude data directory\n';
-  for (const entry of entriesToAdd) {
-    appendContent += entry + '\n';
-  }
+    appendContent += '\n# Auto Claude data directory\n';
+    for (const entry of entriesToAdd) {
+      appendContent += entry + '\n';
+    }
 
-  if (existsSync(gitignorePath)) {
     appendFileSync(gitignorePath, appendContent);
   } else {
-    writeFileSync(gitignorePath, '# Auto Claude data directory\n' + entriesToAdd.join('\n') + '\n');
+    writeFileSync(gitignorePath, '# Auto Claude data directory\n' + entriesToAdd.join('\n') + '\n', 'utf-8');
   }
 
   debug('Added entries to .gitignore', { entries: entriesToAdd });
@@ -315,7 +320,7 @@ export function initializeProject(projectPath: string): InitializationResult {
       const dirPath = path.join(dotAutoBuildPath, dataDir);
       debug('Creating data directory', { dataDir, dirPath });
       mkdirSync(dirPath, { recursive: true });
-      writeFileSync(path.join(dirPath, '.gitkeep'), '');
+      writeFileSync(path.join(dirPath, '.gitkeep'), '', 'utf-8');
     }
 
     // Update .gitignore to exclude .auto-claude/
@@ -353,7 +358,7 @@ export function ensureDataDirectories(projectPath: string): InitializationResult
       if (!existsSync(dirPath)) {
         debug('Creating missing data directory', { dataDir, dirPath });
         mkdirSync(dirPath, { recursive: true });
-        writeFileSync(path.join(dirPath, '.gitkeep'), '');
+        writeFileSync(path.join(dirPath, '.gitkeep'), '', 'utf-8');
       }
     }
     return { success: true };

@@ -248,7 +248,7 @@ class StackDetector:
                 "**/*.yaml"
             ) + self.parser.glob_files("**/*.yml"):
                 try:
-                    with open(yaml_file) as f:
+                    with open(yaml_file, encoding="utf-8") as f:
                         content = f.read()
                         if "apiVersion:" in content and "kind:" in content:
                             self.stack.infrastructure.append("kubernetes")

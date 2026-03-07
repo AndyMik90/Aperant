@@ -248,9 +248,9 @@ class DataCleaner:
     ) -> bool:
         """Process a single file for cleanup."""
         try:
-            with open(file_path) as f:
+            with open(file_path, encoding="utf-8") as f:
                 data = json.load(f)
-        except (OSError, json.JSONDecodeError):
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
             # Corrupted file, mark for deletion
             if not dry_run:
                 file_size = file_path.stat().st_size
@@ -327,7 +327,7 @@ class DataCleaner:
         data["_archived_at"] = datetime.now(timezone.utc).isoformat()
         data["_original_path"] = str(file_path)
 
-        with open(archive_path, "w") as f:
+        with open(archive_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
         # Remove original
@@ -350,7 +350,7 @@ class DataCleaner:
                 continue
 
             try:
-                with open(index_path) as f:
+                with open(index_path, encoding="utf-8") as f:
                     index_data = json.load(f)
 
                 if not isinstance(index_data, dict):
@@ -375,12 +375,12 @@ class DataCleaner:
                     for key in to_remove:
                         del items[key]
 
-                    with open(index_path, "w") as f:
+                    with open(index_path, "w", encoding="utf-8") as f:
                         json.dump(index_data, f, indent=2)
 
                 result.pruned_index_entries += pruned
 
-            except (OSError, json.JSONDecodeError, KeyError):
+            except (OSError, json.JSONDecodeError, UnicodeDecodeError, KeyError):
                 result.errors.append(f"Error pruning index: {index_path}")
 
     async def _clean_audit_logs(

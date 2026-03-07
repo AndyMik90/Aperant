@@ -17,6 +17,7 @@ while still verifying the critical implementation patterns that prevent regressi
 of the hardcoded fallback bug (ACS-294).
 """
 
+import json
 import os
 import sys
 from collections.abc import Generator
@@ -28,7 +29,17 @@ import pytest
 # Add backend to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "backend"))
 
-from phase_config import MODEL_ID_MAP, resolve_model_id
+from phase_config import (
+    ADAPTIVE_THINKING_MODELS,
+    MODEL_BETAS_MAP,
+    MODEL_ID_MAP,
+    get_fast_mode,
+    get_model_betas,
+    get_phase_model_betas,
+    get_thinking_kwargs_for_model,
+    is_adaptive_model,
+    resolve_model_id,
+)
 
 # Common paths - extracted to avoid duplication and ease maintenance
 GITHUB_RUNNER_DIR = (
@@ -322,3 +333,224 @@ class TestParallelReviewerImportResolution:
         # Verify resolve_model_id is imported and used
         assert "resolve_model_id" in orchestrator_content
         assert "resolve_model_id" in followup_content
+
+
+class TestModelBetasMap:
+    """Tests for MODEL_BETAS_MAP configuration."""
+
+    def test_model_betas_map_exists(self):
+        """MODEL_BETAS_MAP is a dict with expected entries."""
+        assert isinstance(MODEL_BETAS_MAP, dict)
+
+    def test_opus_1m_has_context_beta(self):
+        """opus-1m entry has the 1M context window beta header."""
+        assert "opus-1m" in MODEL_BETAS_MAP
+        assert MODEL_BETAS_MAP["opus-1m"] == ["context-1m-2025-08-07"]
+
+    def test_regular_models_not_in_betas_map(self):
+        """Regular model shorthands (opus, sonnet, haiku) are not in MODEL_BETAS_MAP."""
+        assert "opus" not in MODEL_BETAS_MAP
+        assert "sonnet" not in MODEL_BETAS_MAP
+        assert "haiku" not in MODEL_BETAS_MAP
+
+
+class TestGetModelBetas:
+    """Tests for get_model_betas() function."""
+
+    def test_opus_1m_returns_context_beta(self):
+        """get_model_betas('opus-1m') returns the 1M context beta header."""
+        result = get_model_betas("opus-1m")
+        assert result == ["context-1m-2025-08-07"]
+
+    def test_opus_returns_empty_list(self):
+        """get_model_betas('opus') returns empty list (no betas needed)."""
+        result = get_model_betas("opus")
+        assert result == []
+
+    def test_sonnet_returns_empty_list(self):
+        """get_model_betas('sonnet') returns empty list."""
+        result = get_model_betas("sonnet")
+        assert result == []
+
+    def test_unknown_returns_empty_list(self):
+        """get_model_betas('unknown') returns empty list."""
+        result = get_model_betas("unknown")
+        assert result == []
+
+
+class TestOpus1mModelResolution:
+    """Tests for opus-1m model ID resolution."""
+
+    def test_opus_1m_resolves_to_opus_model_id(self, clean_env):
+        """resolve_model_id('opus-1m') returns the same model ID as regular opus."""
+        result = resolve_model_id("opus-1m")
+        assert result == "claude-opus-4-6"
+
+    def test_opus_resolves_to_opus_model_id(self, clean_env):
+        """resolve_model_id('opus') returns claude-opus-4-6."""
+        result = resolve_model_id("opus")
+        assert result == "claude-opus-4-6"
+
+    def test_opus_1m_and_opus_resolve_to_same_id(self, clean_env):
+        """opus-1m and opus both resolve to the same underlying model ID."""
+        assert resolve_model_id("opus-1m") == resolve_model_id("opus")
+
+    def test_opus_1m_respects_env_override(self):
+        """opus-1m respects ANTHROPIC_DEFAULT_OPUS_MODEL environment variable."""
+        custom_model = "custom-opus-model"
+        with patch.dict(os.environ, {"ANTHROPIC_DEFAULT_OPUS_MODEL": custom_model}):
+            result = resolve_model_id("opus-1m")
+            assert result == custom_model
+
+
+class TestGetPhaseModelBetas:
+    """Tests for get_phase_model_betas() function."""
+
+    def test_cli_model_opus_1m_returns_betas(self, tmp_path):
+        """get_phase_model_betas with cli_model='opus-1m' returns the betas."""
+        result = get_phase_model_betas(tmp_path, "coding", cli_model="opus-1m")
+        assert result == ["context-1m-2025-08-07"]
+
+    def test_cli_model_opus_returns_empty(self, tmp_path):
+        """get_phase_model_betas with cli_model='opus' returns empty list."""
+        result = get_phase_model_betas(tmp_path, "coding", cli_model="opus")
+        assert result == []
+
+    def test_cli_model_sonnet_returns_empty(self, tmp_path):
+        """get_phase_model_betas with cli_model='sonnet' returns empty list."""
+        result = get_phase_model_betas(tmp_path, "coding", cli_model="sonnet")
+        assert result == []
+
+    def test_metadata_with_opus_1m_returns_betas(self, tmp_path):
+        """get_phase_model_betas reads opus-1m from task_metadata and returns betas."""
+        metadata = {"model": "opus-1m"}
+        metadata_path = tmp_path / "task_metadata.json"
+        metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+        result = get_phase_model_betas(tmp_path, "coding")
+        assert result == ["context-1m-2025-08-07"]
+
+    def test_metadata_auto_profile_with_opus_1m_returns_betas(self, tmp_path):
+        """get_phase_model_betas reads opus-1m from auto profile phase config."""
+        metadata = {
+            "isAutoProfile": True,
+            "phaseModels": {"coding": "opus-1m", "qa": "sonnet"},
+        }
+        metadata_path = tmp_path / "task_metadata.json"
+        metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+        result = get_phase_model_betas(tmp_path, "coding")
+        assert result == ["context-1m-2025-08-07"]
+
+        # QA phase should have no betas (sonnet)
+        result_qa = get_phase_model_betas(tmp_path, "qa")
+        assert result_qa == []
+
+    def test_no_metadata_returns_empty(self, tmp_path):
+        """get_phase_model_betas with no metadata returns empty list (defaults are sonnet)."""
+        result = get_phase_model_betas(tmp_path, "coding")
+        assert result == []
+
+
+class TestIsAdaptiveModel:
+    """Tests for is_adaptive_model() function."""
+
+    def test_opus_is_adaptive(self):
+        """claude-opus-4-6 is an adaptive thinking model."""
+        assert is_adaptive_model("claude-opus-4-6") is True
+
+    def test_sonnet_is_not_adaptive(self):
+        """claude-sonnet-4-5-20250929 is not an adaptive thinking model."""
+        assert is_adaptive_model("claude-sonnet-4-5-20250929") is False
+
+    def test_haiku_is_not_adaptive(self):
+        """claude-haiku-4-5-20251001 is not an adaptive thinking model."""
+        assert is_adaptive_model("claude-haiku-4-5-20251001") is False
+
+    def test_unknown_model_is_not_adaptive(self):
+        """Unknown models are not adaptive."""
+        assert is_adaptive_model("some-unknown-model") is False
+
+    def test_adaptive_models_set_contains_opus(self):
+        """ADAPTIVE_THINKING_MODELS set contains opus."""
+        assert "claude-opus-4-6" in ADAPTIVE_THINKING_MODELS
+
+
+class TestGetThinkingKwargsForModel:
+    """Tests for get_thinking_kwargs_for_model() function."""
+
+    def test_opus_gets_effort_level(self):
+        """Opus model gets both max_thinking_tokens and effort_level."""
+        result = get_thinking_kwargs_for_model("claude-opus-4-6", "medium")
+        assert "max_thinking_tokens" in result
+        assert "effort_level" in result
+        assert result["effort_level"] == "medium"
+        assert result["max_thinking_tokens"] == 4096
+
+    def test_opus_high_thinking(self):
+        """Opus with high thinking level gets high effort."""
+        result = get_thinking_kwargs_for_model("claude-opus-4-6", "high")
+        assert result["effort_level"] == "high"
+        assert result["max_thinking_tokens"] == 16384
+
+    def test_opus_low_thinking(self):
+        """Opus with low thinking level gets low effort."""
+        result = get_thinking_kwargs_for_model("claude-opus-4-6", "low")
+        assert result["effort_level"] == "low"
+        assert result["max_thinking_tokens"] == 1024
+
+    def test_sonnet_no_effort_level(self):
+        """Sonnet model gets only max_thinking_tokens, no effort_level."""
+        result = get_thinking_kwargs_for_model("claude-sonnet-4-5-20250929", "medium")
+        assert "max_thinking_tokens" in result
+        assert "effort_level" not in result
+        assert result["max_thinking_tokens"] == 4096
+
+    def test_haiku_no_effort_level(self):
+        """Haiku model gets only max_thinking_tokens, no effort_level."""
+        result = get_thinking_kwargs_for_model("claude-haiku-4-5-20251001", "high")
+        assert "max_thinking_tokens" in result
+        assert "effort_level" not in result
+        assert result["max_thinking_tokens"] == 16384
+
+
+
+class TestCreateClientFastMode:
+    """Tests for create_client() fast_mode parameter acceptance."""
+
+    def test_create_client_accepts_fast_mode_parameter(self):
+        """create_client() signature accepts fast_mode parameter."""
+        import inspect
+
+        from core.client import create_client
+
+        sig = inspect.signature(create_client)
+        assert "fast_mode" in sig.parameters
+        # Default should be False
+        assert sig.parameters["fast_mode"].default is False
+
+    def test_create_simple_client_accepts_fast_mode_parameter(self):
+        """create_simple_client() signature accepts fast_mode parameter."""
+        import inspect
+
+        from core.simple_client import create_simple_client
+
+        sig = inspect.signature(create_simple_client)
+        assert "fast_mode" in sig.parameters
+        assert sig.parameters["fast_mode"].default is False
+
+
+class TestGetFastModeIntegration:
+    """Tests for get_fast_mode() integration with task metadata."""
+
+    def test_fast_mode_reads_from_metadata(self, tmp_path):
+        """get_fast_mode reads fastMode from task_metadata.json."""
+        metadata = {"fastMode": True, "model": "opus"}
+        metadata_path = tmp_path / "task_metadata.json"
+        metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+        assert get_fast_mode(tmp_path) is True
+
+    def test_fast_mode_defaults_to_false(self, tmp_path):
+        """get_fast_mode returns False when no metadata exists."""
+        assert get_fast_mode(tmp_path) is False
