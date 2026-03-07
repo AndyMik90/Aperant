@@ -1,0 +1,238 @@
+{
+  "wizard": {
+    "title": "Einrichtungsassistent",
+    "description": "Konfiguriere deine Auto Claude Umgebung in wenigen einfachen Schritten",
+    "helpText": "Dieser Assistent hilft dir, deine Umgebung in wenigen Schritten einzurichten. Du kannst deinen Claude OAuth-Token konfigurieren, Speicherfunktionen einrichten und deine erste Aufgabe erstellen."
+  },
+  "welcome": {
+    "title": "Willkommen bei Auto Claude",
+    "subtitle": "Entwickle Software autonom mit KI-gesteuerten Agenten",
+    "getStarted": "Loslegen",
+    "skip": "Einrichtung überspringen",
+    "features": {
+      "aiPowered": {
+        "title": "KI-gestützte Entwicklung",
+        "description": "Generiere Code und entwickle Features mit Claude Code Agenten"
+      },
+      "specDriven": {
+        "title": "Spezifikationsbasierter Workflow",
+        "description": "Definiere Aufgaben mit klaren Spezifikationen und lass Auto Claude die Implementierung übernehmen"
+      },
+      "memory": {
+        "title": "Gedächtnis & Kontext",
+        "description": "Persistentes Gedächtnis über Sitzungen hinweg mit Graphiti"
+      },
+      "parallel": {
+        "title": "Parallele Ausführung",
+        "description": "Führe mehrere Agenten parallel aus für schnellere Entwicklungszyklen"
+      }
+    }
+  },
+  "oauth": {
+    "title": "Claude Authentifizierung",
+    "description": "Verbinde dein Claude-Konto, um KI-Features zu aktivieren",
+    "configureTitle": "Claude Authentifizierung konfigurieren",
+    "addAccountsDesc": "Füge deine Claude-Konten hinzu, um KI-Features zu aktivieren",
+    "multiAccountInfo": "Füge mehrere Claude-Abonnements hinzu, um automatisch zwischen ihnen zu wechseln, wenn du an Ratenlimits stößt.",
+    "noAccountsYet": "Noch keine Konten konfiguriert",
+    "badges": {
+      "default": "Standard",
+      "active": "Aktiv",
+      "authenticated": "Authentifiziert",
+      "needsAuth": "Auth erforderlich"
+    },
+    "buttons": {
+      "authenticate": "Authentifizieren",
+      "setActive": "Aktivieren",
+      "rename": "Umbenennen",
+      "delete": "Löschen",
+      "add": "Hinzufügen",
+      "adding": "Wird hinzugefügt...",
+      "showToken": "Token anzeigen",
+      "hideToken": "Token verbergen",
+      "copyToken": "Token kopieren",
+      "back": "Zurück",
+      "continue": "Weiter",
+      "skip": "Überspringen"
+    },
+    "labels": {
+      "accountName": "Kontoname",
+      "namePlaceholder": "Profilname (z.B. Arbeit, Privat)",
+      "tokenLabel": "OAuth-Token",
+      "tokenPlaceholder": "Token hier eingeben",
+      "tokenHint": "Füge den Token ein, der nach Abschluss der OAuth-Anmeldung in deinem Terminal angezeigt wird."
+    },
+    "keychainTitle": "Sichere Speicherung",
+    "keychainDescription": "Deine Tokens werden mit dem Schlüsselbund deines Systems verschlüsselt. Möglicherweise siehst du eine Passwortabfrage von macOS – klicke auf \"Immer erlauben\", um sie nicht erneut zu sehen.",
+    "toast": {
+      "authSuccess": "Profil erfolgreich authentifiziert",
+      "authSuccessWithEmail": "Konto: {{email}}",
+      "authSuccessGeneric": "Authentifizierung abgeschlossen. Du kannst dieses Profil jetzt verwenden.",
+      "authStartFailed": "Authentifizierung konnte nicht gestartet werden",
+      "addProfileFailed": "Profil konnte nicht hinzugefügt werden",
+      "tokenSaved": "Token gespeichert",
+      "tokenSavedDescription": "Dein Token wurde erfolgreich gespeichert.",
+      "tokenSaveFailed": "Token konnte nicht gespeichert werden",
+      "tryAgain": "Bitte erneut versuchen."
+    }
+  },
+  "memory": {
+    "title": "Gedächtnis",
+    "description": "Konfiguriere persistentes sitzungsübergreifendes Gedächtnis für Agenten",
+    "contextDescription": "Das Auto Claude Gedächtnis hilft, Kontext über deine Coding-Sitzungen hinweg zu behalten",
+    "enableMemory": "Gedächtnis aktivieren",
+    "enableMemoryDescription": "Persistentes sitzungsübergreifendes Gedächtnis mit LadybugDB (eingebettete Datenbank)",
+    "memoryDisabledInfo": "Gedächtnis ist deaktiviert. Sitzungserkenntnisse werden nur in lokalen Dateien gespeichert. Aktiviere das Gedächtnis für persistenten sitzungsübergreifenden Kontext mit semantischer Suche.",
+    "enableAgentAccess": "Agenten-Gedächtniszugriff aktivieren",
+    "enableAgentAccessDescription": "Erlaube Agenten, den Wissensgraphen über MCP zu durchsuchen und zu erweitern",
+    "mcpServerUrl": "Graphiti MCP-Server URL",
+    "mcpServerUrlDescription": "URL des Graphiti MCP-Servers für den Agenten-Gedächtniszugriff",
+    "embeddingProvider": "Embedding-Anbieter",
+    "embeddingProviderDescription": "Anbieter für semantische Suche (optional – Stichwortsuche funktioniert auch ohne)",
+    "selectEmbeddingModel": "Embedding-Modell auswählen",
+    "openaiApiKey": "OpenAI API-Schlüssel",
+    "openaiApiKeyDescription": "Erforderlich für OpenAI Embeddings",
+    "openaiGetKey": "Hole deinen Schlüssel von",
+    "voyageApiKey": "Voyage AI API-Schlüssel",
+    "voyageApiKeyDescription": "Erforderlich für Voyage AI Embeddings",
+    "googleApiKey": "Google AI API-Schlüssel",
+    "googleApiKeyDescription": "Erforderlich für Google AI Embeddings",
+    "azureConfig": "Azure OpenAI Konfiguration",
+    "azureApiKey": "API-Schlüssel",
+    "azureBaseUrl": "Basis-URL",
+    "azureEmbeddingDeployment": "Embedding Deployment Name",
+    "memoryInfo": "Das Gedächtnis speichert Entdeckungen, Muster und Erkenntnisse über deine Codebase, sodass zukünftige Sitzungen mit bereits geladenem Kontext starten. Kein Docker erforderlich – verwendet eine eingebettete Datenbank.",
+    "learnMore": "Mehr über das Gedächtnis erfahren",
+    "back": "Zurück",
+    "skip": "Überspringen",
+    "saving": "Wird gespeichert...",
+    "saveAndContinue": "Speichern & Weiter",
+    "providers": {
+      "ollama": "Ollama (Lokal - Kostenlos)",
+      "openai": "OpenAI",
+      "voyage": "Voyage AI",
+      "google": "Google AI",
+      "azure": "Azure OpenAI"
+    }
+  },
+  "completion": {
+    "title": "Alles bereit!",
+    "subtitle": "Auto Claude ist bereit, dir beim Entwickeln großartiger Software zu helfen",
+    "setupComplete": "Einrichtung abgeschlossen",
+    "setupCompleteDescription": "Deine Umgebung ist konfiguriert und bereit. Du kannst sofort mit dem Erstellen von Aufgaben beginnen oder die Anwendung in deinem eigenen Tempo erkunden.",
+    "whatsNext": "Wie geht es weiter?",
+    "createTask": {
+      "title": "Aufgabe erstellen",
+      "description": "Beginne mit deiner ersten Aufgabe, um Auto Claude in Aktion zu sehen.",
+      "action": "Aufgaben-Ersteller öffnen"
+    },
+    "customizeSettings": {
+      "title": "Einstellungen anpassen",
+      "description": "Passe deine Präferenzen an, konfiguriere Integrationen oder starte diesen Assistenten erneut.",
+      "action": "Einstellungen öffnen"
+    },
+    "exploreDocs": {
+      "title": "Dokumentation erkunden",
+      "description": "Erfahre mehr über erweiterte Funktionen, Best Practices und Fehlerbehebung."
+    },
+    "finish": "Abschließen & Loslegen",
+    "rerunHint": "Du kannst diesen Assistenten jederzeit über Einstellungen → Anwendung erneut starten"
+  },
+  "steps": {
+    "welcome": "Willkommen",
+    "authChoice": "Auth-Methode",
+    "auth": "Auth",
+    "claudeCode": "CLI",
+    "devtools": "Dev-Tools",
+    "privacy": "Datenschutz",
+    "memory": "Gedächtnis",
+    "done": "Fertig"
+  },
+  "privacy": {
+    "title": "Hilf Auto Claude zu verbessern",
+    "subtitle": "Anonyme Fehlerberichte helfen uns, Bugs schneller zu beheben",
+    "whatWeCollect": {
+      "title": "Was wir erfassen",
+      "crashReports": "Absturzberichte und Fehler-Stack-Traces",
+      "errorMessages": "Fehlermeldungen (mit anonymisierten Dateipfaden)",
+      "appVersion": "App-Version und Plattforminformationen"
+    },
+    "whatWeNeverCollect": {
+      "title": "Was wir niemals erfassen",
+      "code": "Deinen Code oder Projektdateien",
+      "filenames": "Vollständige Dateipfade (Benutzernamen werden maskiert)",
+      "apiKeys": "API-Schlüssel oder Tokens",
+      "personalData": "Persönliche Informationen oder Nutzungsdaten"
+    },
+    "toggle": {
+      "label": "Anonyme Fehlerberichte senden",
+      "description": "Hilf uns, Probleme zu identifizieren und zu beheben"
+    }
+  },
+  "claudeCode": {
+    "title": "Claude Code CLI",
+    "description": "Installiere oder aktualisiere die Claude Code CLI, um KI-gestützte Features zu aktivieren",
+    "detecting": "Prüfe Claude Code Installation...",
+    "info": {
+      "title": "Was ist Claude Code?",
+      "description": "Claude Code ist Anthropics offizielle CLI, die die KI-Features von Auto Claude antreibt. Sie bietet sichere Authentifizierung und direkten Zugriff auf Claude-Modelle."
+    },
+    "status": {
+      "installed": "Installiert",
+      "outdated": "Update verfügbar",
+      "notFound": "Nicht installiert"
+    },
+    "version": {
+      "current": "Aktuelle Version",
+      "latest": "Neueste Version"
+    },
+    "install": {
+      "button": "Claude Code installieren",
+      "updating": "Claude Code aktualisieren",
+      "inProgress": "Wird installiert...",
+      "success": "Installationsbefehl wurde an das Terminal gesendet. Bitte schließe die Installation dort ab.",
+      "instructions": "Das Installationsprogramm wird in deinem Terminal geöffnet. Folge den Anweisungen, um die Installation abzuschließen."
+    },
+    "learnMore": "Mehr über Claude Code erfahren"
+  },
+  "devtools": {
+    "title": "Entwicklerwerkzeuge",
+    "description": "Wähle deine bevorzugte IDE und dein Terminal für die Arbeit mit Auto Claude Worktrees",
+    "detecting": "Erkenne installierte Werkzeuge...",
+    "detectAgain": "Erneut erkennen",
+    "whyConfigure": "Warum konfigurieren?",
+    "whyConfigureDescription": "Wenn Auto Claude Features in isolierten Worktrees entwickelt, kannst du sie direkt in deiner bevorzugten IDE oder deinem Terminal öffnen, um Änderungen zu testen und zu überprüfen.",
+    "ide": {
+      "label": "Bevorzugte IDE",
+      "description": "Auto Claude öffnet Worktrees in diesem Editor",
+      "customPath": "Benutzerdefinierter IDE-Pfad"
+    },
+    "terminal": {
+      "label": "Bevorzugtes Terminal",
+      "description": "Auto Claude öffnet Terminal-Sitzungen hier",
+      "customPath": "Benutzerdefinierter Terminal-Pfad"
+    },
+    "detectedSummary": "Auf deinem System erkannt:",
+    "noToolsDetected": "Keine zusätzlichen Werkzeuge erkannt (VS Code und System-Terminal werden verwendet)",
+    "custom": "Benutzerdefiniert...",
+    "saveAndContinue": "Speichern & Weiter"
+  },
+  "ollama": {
+    "notInstalled": {
+      "title": "Ollama nicht installiert",
+      "description": "Ollama bietet kostenlose, lokale Embedding-Modelle für semantische Suche. Installiere es mit einem Klick, um diese Funktion zu aktivieren.",
+      "installSuccess": "Installation wurde in deinem Terminal gestartet. Schließe die Installation dort ab und klicke dann auf Erneut versuchen.",
+      "installButton": "Ollama installieren",
+      "installing": "Wird installiert...",
+      "retry": "Erneut versuchen",
+      "learnMore": "Mehr erfahren",
+      "fallbackNote": "Das Gedächtnis funktioniert auch ohne Ollama mit Stichwortsuche."
+    },
+    "notRunning": {
+      "title": "Ollama läuft nicht",
+      "description": "Ollama ist installiert, aber nicht aktiv. Starte Ollama, um lokale Embedding-Modelle zu verwenden.",
+      "retry": "Erneut versuchen",
+      "fallbackNote": "Das Gedächtnis funktioniert auch ohne Embeddings mit Stichwortsuche."
+    }
+  }
+}

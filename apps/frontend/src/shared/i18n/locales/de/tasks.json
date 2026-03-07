@@ -1,0 +1,244 @@
+{
+  "refreshTasks": "Aufgaben aktualisieren",
+  "status": {
+    "backlog": "Backlog",
+    "todo": "Zu erledigen",
+    "in_progress": "In Bearbeitung",
+    "review": "Überprüfung",
+    "prCreated": "PR erstellt",
+    "complete": "Abgeschlossen",
+    "archived": "Archiviert"
+  },
+  "actions": {
+    "start": "Starten",
+    "stop": "Stoppen",
+    "recover": "Wiederherstellen",
+    "resume": "Fortsetzen",
+    "archive": "Archivieren",
+    "delete": "Löschen",
+    "view": "Details anzeigen",
+    "viewPR": "PR anzeigen",
+    "moveTo": "Verschieben nach",
+    "taskActions": "Aufgabenaktionen"
+  },
+  "labels": {
+    "running": "Läuft",
+    "aiReview": "KI-Überprüfung",
+    "needsReview": "Überprüfung erforderlich",
+    "pending": "Ausstehend",
+    "stuck": "Blockiert",
+    "incomplete": "Unvollständig",
+    "recovering": "Wiederherstellung...",
+    "needsRecovery": "Wiederherstellung erforderlich",
+    "needsResume": "Fortsetzung erforderlich"
+  },
+  "reviewReason": {
+    "completed": "Abgeschlossen",
+    "hasErrors": "Fehler vorhanden",
+    "qaIssues": "QA-Probleme",
+    "approvePlan": "Plan genehmigen"
+  },
+  "tooltips": {
+    "archiveTask": "Aufgabe archivieren",
+    "archiveAllDone": "Alle erledigten Aufgaben archivieren",
+    "viewPR": "Pull Request im Browser öffnen"
+  },
+  "creation": {
+    "title": "Neue Aufgabe erstellen",
+    "description": "Beschreibe, was du bauen möchtest",
+    "placeholder": "Beschreibe deine Aufgabe..."
+  },
+  "empty": {
+    "title": "Noch keine Aufgaben",
+    "description": "Erstelle deine erste Aufgabe, um loszulegen"
+  },
+  "columns": {
+    "error": "Fehler",
+    "backlog": "Planung",
+    "in_progress": "In Bearbeitung",
+    "ai_review": "KI-Überprüfung",
+    "human_review": "Manuelle Überprüfung",
+    "done": "Erledigt",
+    "pr_created": "PR erstellt"
+  },
+  "kanban": {
+    "emptyBacklog": "Keine Aufgaben geplant",
+    "emptyBacklogHint": "Füge eine Aufgabe hinzu, um loszulegen",
+    "emptyInProgress": "Nichts in Bearbeitung",
+    "emptyInProgressHint": "Starte eine Aufgabe aus dem Backlog",
+    "emptyAiReview": "Keine Aufgaben in Überprüfung",
+    "emptyAiReviewHint": "Die KI überprüft abgeschlossene Aufgaben",
+    "emptyHumanReview": "Nichts zu überprüfen",
+    "emptyHumanReviewHint": "Aufgaben warten hier auf deine Freigabe",
+    "emptyDone": "Keine abgeschlossenen Aufgaben",
+    "emptyDoneHint": "Freigegebene Aufgaben erscheinen hier",
+    "emptyError": "Keine fehlerhaften Aufgaben",
+    "emptyErrorHint": "Fehlerhafte Aufgaben erscheinen hier, wenn das Parsing fehlschlägt",
+    "emptyDefault": "Keine Aufgaben",
+    "dropHere": "Hier ablegen",
+    "showArchived": "Archivierte anzeigen",
+    "addTaskAriaLabel": "Neue Aufgabe zum Backlog hinzufügen",
+    "closeTaskDetailsAriaLabel": "Aufgabendetails schließen",
+    "editTask": "Aufgabe bearbeiten",
+    "cannotEditWhileRunning": "Bearbeitung nicht möglich, während Aufgabe läuft",
+    "worktreeCleanupTitle": "Worktree-Bereinigung",
+    "worktreeCleanupStaged": "Diese Aufgabe wurde bereitgestellt und hat einen Worktree. Möchtest du den Worktree bereinigen?",
+    "worktreeCleanupNotStaged": "Diese Aufgabe hat einen Worktree mit Änderungen, die noch nicht gemergt wurden. Lösche den Worktree, um die Aufgabe als erledigt zu markieren, oder brich ab, um die Änderungen zuerst zu überprüfen.",
+    "keepWorktree": "Worktree behalten",
+    "deleteWorktree": "Worktree löschen & als erledigt markieren",
+    "refreshTasks": "Aufgaben aktualisieren"
+  },
+  "execution": {
+    "phases": {
+      "idle": "Inaktiv",
+      "planning": "Planung",
+      "coding": "Programmierung",
+      "reviewing": "Überprüfung",
+      "fixing": "Korrektur",
+      "complete": "Abgeschlossen",
+      "failed": "Fehlgeschlagen"
+    },
+    "labels": {
+      "interrupted": "Unterbrochen",
+      "progress": "Fortschritt",
+      "entry": "Eintrag",
+      "entries": "Einträge"
+    },
+    "shortPhases": {
+      "plan": "Plan",
+      "code": "Code",
+      "qa": "QA"
+    }
+  },
+  "files": {
+    "title": "Dateien",
+    "tab": "Dateien",
+    "noSpecPath": "Keine Spezifikationsdateien verfügbar",
+    "noFiles": "Keine Dateien gefunden",
+    "loading": "Dateien werden geladen...",
+    "loadingContent": "Inhalt wird geladen...",
+    "errorLoading": "Dateien konnten nicht geladen werden",
+    "errorLoadingContent": "Dateiinhalt konnte nicht geladen werden",
+    "retry": "Erneut versuchen",
+    "selectFile": "Wähle eine Datei, um den Inhalt anzuzeigen",
+    "openInIDE": "In IDE öffnen"
+  },
+  "metadata": {
+    "severity": "Schweregrad",
+    "pullRequest": "Pull Request"
+  },
+  "images": {
+    "removeImageAriaLabel": "Bild {{filename}} entfernen",
+    "pasteHint": "Tipp: Füge Screenshots direkt mit {{shortcut}} ein, um Referenzbilder hinzuzufügen."
+  },
+  "notifications": {
+    "backgroundTaskTitle": "Aufgabe läuft im Hintergrund weiter",
+    "backgroundTaskDescription": "Die Aufgabe wird noch ausgeführt. Du kannst diesen Dialog erneut öffnen, um den Fortschritt zu verfolgen."
+  },
+  "wizard": {
+    "createTitle": "Neue Aufgabe erstellen",
+    "createDescription": "Beschreibe, was du bauen möchtest. Die KI analysiert deine Anfrage und erstellt eine detaillierte Spezifikation.",
+    "descriptionPlaceholder": "Beschreibe das Feature, die Fehlerbehebung oder die Verbesserung, die du implementieren möchtest. Sei so spezifisch wie möglich bezüglich Anforderungen, Einschränkungen und erwartetem Verhalten. Tippe @ um Dateien zu referenzieren.",
+    "draftRestored": "Entwurf wiederhergestellt",
+    "startFresh": "Neu beginnen",
+    "hideFiles": "Dateien ausblenden",
+    "browseFiles": "Dateien durchsuchen",
+    "creating": "Wird erstellt...",
+    "createTask": "Aufgabe erstellen",
+    "worktreeNotice": {
+      "title": "Isolierter Arbeitsbereich",
+      "description": "Diese Aufgabe läuft in einem isolierten Git-Worktree. Dein Hauptbranch bleibt sicher, bis du dich für das Mergen entscheidest."
+    },
+    "gitOptions": {
+      "title": "Git-Optionen (optional)",
+      "baseBranchLabel": "Basis-Branch (optional)",
+      "useProjectDefault": "Projekt-Standard verwenden",
+      "useProjectDefaultWithBranch": "Projekt-Standard verwenden ({{branch}})",
+      "helpText": "Überschreibe den Branch, von dem der Worktree dieser Aufgabe erstellt wird. Leer lassen, um den konfigurierten Standard-Branch des Projekts zu verwenden.",
+      "useWorktreeLabel": "Isolierten Arbeitsbereich verwenden (empfohlen)",
+      "useWorktreeDescription": "Erstellt Änderungen in einem separaten Git-Worktree zur sicheren Überprüfung vor dem Mergen. Deaktivieren, um direkt im Projekt zu arbeiten (schneller, aber riskanter)."
+    },
+    "errors": {
+      "createFailed": "Aufgabe konnte nicht erstellt werden. Bitte versuche es erneut."
+    }
+  },
+  "feedback": {
+    "dragDropHint": "Bilder per Drag & Drop oder Screenshots einfügen",
+    "imageAdded": "Bild erfolgreich hinzugefügt",
+    "maxImagesError": "Maximal {{count}} Bilder erlaubt",
+    "invalidTypeError": "Ungültiger Bildtyp. Erlaubt: {{types}}",
+    "removeImage": "Bild entfernen",
+    "processingError": "Bild konnte nicht verarbeitet werden"
+  },
+  "review": {
+    "mergeTooltip": "Führt Änderungen vom Worktree-Branch der Aufgabe zurück in deinen Basis-Branch zusammen. Die KI löst eventuelle Konflikte. Danach kannst du entscheiden, ob du den Worktree behalten oder entfernen möchtest."
+  },
+  "edit": {
+    "title": "Aufgabe bearbeiten",
+    "description": "Aktualisiere Aufgabendetails wie Titel, Beschreibung, Klassifizierung, Bilder und Einstellungen. Änderungen werden in den Spezifikationsdateien gespeichert.",
+    "saveChanges": "Änderungen speichern",
+    "errors": {
+      "updateFailed": "Aufgabe konnte nicht aktualisiert werden. Bitte versuche es erneut."
+    }
+  },
+  "form": {
+    "description": "Beschreibung",
+    "descriptionPlaceholder": "Beschreibe das Feature, die Fehlerbehebung oder die Verbesserung, die du implementieren möchtest. Sei so spezifisch wie möglich bezüglich Anforderungen, Einschränkungen und erwartetem Verhalten.",
+    "imageAddedSuccess": "Bild erfolgreich hinzugefügt!",
+    "taskTitle": "Aufgabentitel",
+    "titlePlaceholder": "Leer lassen für automatische Generierung aus der Beschreibung",
+    "titleHelpText": "Ein kurzer, beschreibender Titel wird automatisch generiert, wenn das Feld leer bleibt.",
+    "classificationOptional": "Klassifizierung (optional)",
+    "requireReviewLabel": "Manuelle Überprüfung vor dem Programmieren erforderlich",
+    "requireReviewDescription": "Wenn aktiviert, wirst du aufgefordert, die Spezifikation und den Implementierungsplan zu überprüfen, bevor die Programmierphase beginnt. So kannst du genehmigen, Änderungen anfordern oder Feedback geben.",
+    "errors": {
+      "descriptionRequired": "Bitte gib eine Beschreibung an",
+      "maxImagesReached": "Maximal 5 Bilder erlaubt",
+      "invalidImageType": "Ungültiger Bildtyp. Erlaubt: PNG, JPEG, GIF, WebP",
+      "processPasteFailed": "Eingefügtes Bild konnte nicht verarbeitet werden",
+      "processDropFailed": "Abgelegtes Bild konnte nicht verarbeitet werden"
+    },
+    "classification": {
+      "category": "Kategorie",
+      "selectCategory": "Kategorie auswählen",
+      "priority": "Priorität",
+      "selectPriority": "Priorität auswählen",
+      "complexity": "Komplexität",
+      "selectComplexity": "Komplexität auswählen",
+      "impact": "Auswirkung",
+      "selectImpact": "Auswirkung auswählen",
+      "helpText": "Diese Labels helfen bei der Organisation und Priorisierung von Aufgaben. Sie sind optional, aber nützlich zum Filtern.",
+      "values": {
+        "category": {
+          "feature": "Feature",
+          "bug_fix": "Fehlerbehebung",
+          "refactoring": "Refactoring",
+          "documentation": "Dokumentation",
+          "security": "Sicherheit"
+        },
+        "priority": {
+          "low": "Niedrig",
+          "medium": "Mittel",
+          "high": "Hoch",
+          "urgent": "Dringend"
+        },
+        "complexity": {
+          "trivial": "Trivial",
+          "small": "Klein",
+          "medium": "Mittel",
+          "large": "Groß",
+          "complex": "Komplex"
+        },
+        "impact": {
+          "low": "Geringe Auswirkung",
+          "medium": "Mittlere Auswirkung",
+          "high": "Hohe Auswirkung",
+          "critical": "Kritische Auswirkung"
+        }
+      }
+    }
+  },
+  "subtasks": {
+    "untitled": "Unbenannte Unteraufgabe"
+  }
+}

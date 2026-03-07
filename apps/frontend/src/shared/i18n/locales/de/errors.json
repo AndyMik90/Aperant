@@ -1,0 +1,5 @@
+{
+  "task": {
+    "parseImplementationPlan": "Fehler beim Parsen von implementation_plan.json für {{specId}}: {{error}}"
+  }
+}

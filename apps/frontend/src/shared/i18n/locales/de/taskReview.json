@@ -1,0 +1,66 @@
+{
+  "terminal": {
+    "openTerminal": "Terminal öffnen",
+    "openInbuilt": "Im integrierten Terminal öffnen",
+    "openExternal": "Im externen Terminal öffnen"
+  },
+  "merge": {
+    "branchHasNewCommits": "Der {{branch}}-Branch hat {{count}} neuen Commit.",
+    "branchHasNewCommits_other": "Der {{branch}}-Branch hat {{count}} neue Commits.",
+    "branchHasNewCommitsSinceWorktree": "Der {{branch}}-Branch hat {{count}} neuen Commit seit der Erstellung dieses Worktrees.",
+    "branchHasNewCommitsSinceWorktree_other": "Der {{branch}}-Branch hat {{count}} neue Commits seit der Erstellung dieses Worktrees.",
+    "filesNeedMerging": "{{count}} Datei muss zusammengeführt werden.",
+    "filesNeedMerging_other": "{{count}} Dateien müssen zusammengeführt werden.",
+    "filesNeedIntelligentMerging": "{{count}} Datei erfordert intelligentes Zusammenführen:",
+    "filesNeedIntelligentMerging_other": "{{count}} Dateien erfordern intelligentes Zusammenführen:",
+    "branchHasNewCommitsSinceBuild": "Der {{branch}}-Branch hat {{count}} neuen Commit seit Start dieses Builds.",
+    "branchHasNewCommitsSinceBuild_other": "Der {{branch}}-Branch hat {{count}} neue Commits seit Start dieses Builds.",
+    "filesNeedAIMergeDueToRenames": "{{count}} Datei erfordert KI-Merge aufgrund von {{renameCount}} Dateiumbenennung.",
+    "filesNeedAIMergeDueToRenames_other": "{{count}} Dateien erfordern KI-Merge aufgrund von {{renameCount}} Dateiumbenennung.",
+    "filesNeedAIMergeDueToRenamesPlural": "{{count}} Datei erfordert KI-Merge aufgrund von {{renameCount}} Dateiumbenenungen.",
+    "filesNeedAIMergeDueToRenamesPlural_other": "{{count}} Dateien erfordern KI-Merge aufgrund von {{renameCount}} Dateiumbenenungen.",
+    "fileRenamesDetected": "{{count}} Dateiumbenennung erkannt – die KI übernimmt das Zusammenführen.",
+    "fileRenamesDetected_other": "{{count}} Dateiumbenenungen erkannt – die KI übernimmt das Zusammenführen.",
+    "filesRenamedOrMoved": "Dateien wurden möglicherweise umbenannt oder verschoben – die KI übernimmt das Zusammenführen.",
+    "buttons": {
+      "stageWithAIMerge": "Mit KI-Merge stagen",
+      "mergeWithAI": "Mit KI zusammenführen",
+      "stageTo": "Nach {{branch}} stagen",
+      "mergeTo": "Nach {{branch}} zusammenführen",
+      "resolving": "Wird aufgelöst...",
+      "staging": "Wird gestagt...",
+      "merging": "Wird zusammengeführt..."
+    }
+  },
+  "pr": {
+    "title": "Pull Request erstellen",
+    "description": "Branch pushen und Pull Request für '{{taskTitle}}' erstellen",
+    "errors": {
+      "unknown": "Ein unbekannter Fehler ist beim Erstellen des Pull Requests aufgetreten",
+      "invalidBranchName": "Der Branch-Name enthält ungültige Zeichen. Verwende nur Buchstaben, Zahlen, Bindestriche (-), Unterstriche (_) und Schrägstriche (/).",
+      "emptyTitle": "Der Titel des Pull Requests darf nicht leer sein."
+    },
+    "success": {
+      "created": "Pull Request erfolgreich erstellt!",
+      "alreadyExists": "Für diesen Branch existiert bereits ein Pull Request"
+    },
+    "actions": {
+      "retry": "Erneut versuchen",
+      "creating": "PR wird erstellt...",
+      "create": "Pull Request erstellen"
+    },
+    "labels": {
+      "sourceBranch": "Quell-Branch",
+      "targetBranch": "Ziel-Branch",
+      "commits": "Commits",
+      "changes": "Änderungen",
+      "prTitle": "PR-Titel (optional)",
+      "draftPR": "Als Entwurf erstellen",
+      "unknown": "Unbekannt"
+    },
+    "hints": {
+      "targetBranch": "Leer lassen für den Standard-Branch",
+      "prTitle": "Leer lassen für den Task-Titel"
+    }
+  }
+}

@@ -1,0 +1,208 @@
+{
+  "title": "GitLab Issues",
+  "states": {
+    "opened": "Offen",
+    "closed": "Geschlossen"
+  },
+  "complexity": {
+    "simple": "Einfach",
+    "standard": "Standard",
+    "complex": "Komplex"
+  },
+  "header": {
+    "open": "offen",
+    "searchPlaceholder": "Issues durchsuchen..."
+  },
+  "filters": {
+    "opened": "Offen",
+    "closed": "Geschlossen",
+    "all": "Alle"
+  },
+  "empty": {
+    "noMatch": "Keine Issues entsprechen deiner Suche",
+    "selectIssue": "Wähle ein Issue aus, um Details anzuzeigen"
+  },
+  "notConnected": {
+    "title": "GitLab nicht verbunden",
+    "description": "Konfiguriere deinen GitLab-Token und das Projekt in den Projekteinstellungen, um Issues zu synchronisieren.",
+    "openSettings": "Einstellungen öffnen"
+  },
+  "detail": {
+    "notes": "Notizen",
+    "viewTask": "Aufgabe anzeigen",
+    "createTask": "Aufgabe erstellen",
+    "taskLinked": "Aufgabe verknüpft",
+    "taskId": "Aufgaben-ID",
+    "description": "Beschreibung",
+    "noDescription": "Keine Beschreibung vorhanden.",
+    "assignees": "Zugewiesene",
+    "milestone": "Meilenstein"
+  },
+  "investigation": {
+    "title": "Aufgabe aus Issue erstellen",
+    "issuePrefix": "Issue",
+    "description": "Erstelle eine Aufgabe aus diesem GitLab-Issue. Die Aufgabe wird deinem Kanban-Board in der Backlog-Spalte hinzugefügt.",
+    "selectNotes": "Notizen zur Aufnahme auswählen",
+    "deselectAll": "Alle abwählen",
+    "selectAll": "Alle auswählen",
+    "willInclude": "Die Aufgabe enthält:",
+    "includeTitle": "Issue-Titel und Beschreibung",
+    "includeLink": "Link zum GitLab-Issue",
+    "includeLabels": "Labels und Metadaten des Issues",
+    "noNotes": "Keine Notizen (dieses Issue hat keine Notizen)",
+    "failedToLoadNotes": "Notizen konnten nicht geladen werden",
+    "taskCreated": "Aufgabe erstellt! Sieh sie dir in deinem Kanban-Board an.",
+    "creating": "Wird erstellt...",
+    "cancel": "Abbrechen",
+    "done": "Fertig",
+    "close": "Schließen"
+  },
+  "settings": {
+    "enableIssues": "GitLab Issues aktivieren",
+    "enableIssuesDescription": "Issues von GitLab synchronisieren und automatisch Aufgaben erstellen",
+    "instance": "GitLab-Instanz",
+    "instanceDescription": "Verwende https://gitlab.com oder die URL deiner selbst gehosteten Instanz",
+    "connectedVia": "Verbunden über GitLab CLI",
+    "authenticatedAs": "Authentifiziert als",
+    "useDifferentToken": "Anderen Token verwenden",
+    "authentication": "GitLab-Authentifizierung",
+    "useManualToken": "Manuellen Token verwenden",
+    "authenticating": "Authentifizierung über glab CLI...",
+    "browserWindow": "Ein Browserfenster sollte sich öffnen, damit du dich anmelden kannst.",
+    "personalAccessToken": "Persönlicher Zugriffstoken",
+    "useOAuth": "Stattdessen OAuth verwenden",
+    "tokenScope": "Erstelle einen Token mit dem",
+    "scopeApi": "api",
+    "scopeFrom": "Bereich von",
+    "gitlabSettings": "GitLab-Einstellungen",
+    "project": "Projekt",
+    "enterManually": "Manuell eingeben",
+    "loadingProjects": "Projekte werden geladen...",
+    "selectProject": "Projekt auswählen...",
+    "searchProjects": "Projekte suchen...",
+    "noMatchingProjects": "Keine passenden Projekte",
+    "noProjectsFound": "Keine Projekte gefunden",
+    "selected": "Ausgewählt",
+    "projectFormat": "Format:",
+    "projectFormatExample": "(z.B. gitlab-org/gitlab)",
+    "connectionStatus": "Verbindungsstatus",
+    "checking": "Wird geprüft...",
+    "connectedTo": "Verbunden mit",
+    "notConnected": "Nicht verbunden",
+    "issuesAvailable": "Issues verfügbar",
+    "issuesAvailableDescription": "Greife über die Seitenleiste auf GitLab Issues zu, um Issues anzuzeigen, zu untersuchen und Aufgaben daraus zu erstellen.",
+    "defaultBranch": "Standard-Branch",
+    "defaultBranchDescription": "Basis-Branch für die Erstellung von Aufgaben-Worktrees",
+    "loadingBranches": "Branches werden geladen...",
+    "autoDetect": "Automatisch erkennen (main/master)",
+    "searchBranches": "Branches suchen...",
+    "noMatchingBranches": "Keine passenden Branches",
+    "noBranchesFound": "Keine Branches gefunden",
+    "branchFromNote": "Alle neuen Aufgaben werden von diesem Branch abgeleitet",
+    "autoSyncOnLoad": "Automatische Synchronisierung beim Laden",
+    "autoSyncDescription": "Issues automatisch abrufen, wenn das Projekt geladen wird",
+    "cli": {
+      "required": "GitLab CLI erforderlich",
+      "notInstalled": "Die GitLab CLI (glab) wird für die OAuth-Authentifizierung benötigt. Installiere sie, um die Option 'OAuth verwenden' zu nutzen.",
+      "installButton": "glab installieren",
+      "installing": "Wird installiert...",
+      "installSuccess": "Installation in deinem Terminal gestartet. Schließe sie ab und klicke auf Aktualisieren.",
+      "refresh": "Aktualisieren",
+      "learnMore": "Mehr erfahren",
+      "installed": "GitLab CLI installiert:"
+    }
+  },
+  "mergeRequests": {
+    "title": "GitLab Merge Requests",
+    "newMR": "Neuer Merge Request",
+    "selectMR": "Wähle einen Merge Request aus, um Details anzuzeigen",
+    "states": {
+      "opened": "Offen",
+      "closed": "Geschlossen",
+      "merged": "Gemerged",
+      "locked": "Gesperrt"
+    },
+    "filters": {
+      "opened": "Offen",
+      "closed": "Geschlossen",
+      "merged": "Gemerged",
+      "all": "Alle"
+    }
+  },
+  "mrReview": {
+    "runReview": "KI-Review starten",
+    "reviewing": "Wird überprüft...",
+    "followupReview": "Folge-Review",
+    "newCommits": "neuer Commit",
+    "newCommitsPlural": "neue Commits",
+    "cancel": "Abbrechen",
+    "postFindings": "Ergebnisse posten",
+    "posting": "Wird gepostet...",
+    "postedTo": "Auf GitLab gepostet",
+    "approve": "Genehmigen",
+    "approving": "Wird genehmigt...",
+    "merge": "MR mergen",
+    "merging": "Wird gemerged...",
+    "aiReviewResult": "KI-Review-Ergebnis",
+    "followupReviewResult": "Folge-Review",
+    "description": "Beschreibung",
+    "noDescription": "Keine Beschreibung vorhanden.",
+    "labels": "Labels",
+    "status": {
+      "notReviewed": "Nicht überprüft",
+      "notReviewedDesc": "Starte ein KI-Review, um diesen MR zu analysieren",
+      "reviewComplete": "Review abgeschlossen",
+      "reviewCompleteDesc": "Befund(e) gefunden. Auswählen und auf GitLab posten.",
+      "waitingForChanges": "Warte auf Änderungen",
+      "waitingForChangesDesc": "Befund(e) gepostet. Warte auf den Contributor, um die Probleme zu beheben.",
+      "readyToMerge": "Bereit zum Mergen",
+      "readyToMergeDesc": "Keine blockierenden Probleme gefunden. Dieser MR kann gemerged werden.",
+      "needsAttention": "Erfordert Aufmerksamkeit",
+      "needsAttentionDesc": "Befund(e) müssen auf GitLab gepostet werden.",
+      "readyForFollowup": "Bereit für Folge-Review",
+      "readyForFollowupDesc": "seit dem Review. Starte ein Folge-Review, um zu prüfen, ob die Probleme behoben wurden.",
+      "blockingIssues": "Blockierende Probleme",
+      "blockingIssuesDesc": "blockierende(s) Problem(e) noch offen."
+    },
+    "overallStatus": {
+      "approve": "Genehmigen",
+      "requestChanges": "Änderungen angefordert",
+      "comment": "Kommentar"
+    },
+    "resolution": {
+      "resolved": "behoben",
+      "stillOpen": "noch offen",
+      "newIssue": "neues Problem",
+      "newIssues": "neue Probleme"
+    }
+  },
+  "findings": {
+    "summary": "ausgewählt",
+    "selectCriticalHigh": "Blocker/Erforderlich auswählen",
+    "selectAll": "Alle auswählen",
+    "clear": "Zurücksetzen",
+    "noIssues": "Keine Probleme gefunden! Der Code sieht gut aus.",
+    "suggestedFix": "Vorgeschlagene Lösung:",
+    "posted": "Gepostet",
+    "severity": {
+      "critical": "Blocker",
+      "criticalDesc": "Muss behoben werden",
+      "high": "Erforderlich",
+      "highDesc": "Sollte behoben werden",
+      "medium": "Empfohlen",
+      "mediumDesc": "Verbessert die Qualität",
+      "low": "Vorschlag",
+      "lowDesc": "Zu erwägen"
+    },
+    "category": {
+      "security": "Sicherheit",
+      "quality": "Qualität",
+      "style": "Stil",
+      "test": "Test",
+      "docs": "Dokumentation",
+      "pattern": "Muster",
+      "performance": "Performance",
+      "logic": "Logik"
+    }
+  }
+}

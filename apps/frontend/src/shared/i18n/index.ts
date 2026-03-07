@@ -27,6 +27,19 @@ import frTaskReview from './locales/fr/taskReview.json';
 import frTerminal from './locales/fr/terminal.json';
 import frErrors from './locales/fr/errors.json';
 
+// Import German translation resources
+import deCommon from './locales/de/common.json';
+import deNavigation from './locales/de/navigation.json';
+import deSettings from './locales/de/settings.json';
+import deTasks from './locales/de/tasks.json';
+import deWelcome from './locales/de/welcome.json';
+import deOnboarding from './locales/de/onboarding.json';
+import deDialogs from './locales/de/dialogs.json';
+import deGitlab from './locales/de/gitlab.json';
+import deTaskReview from './locales/de/taskReview.json';
+import deTerminal from './locales/de/terminal.json';
+import deErrors from './locales/de/errors.json';
+
 export const defaultNS = 'common';
 
 export const resources = {
@@ -55,6 +68,19 @@ export const resources = {
     taskReview: frTaskReview,
     terminal: frTerminal,
     errors: frErrors
+  },
+  de: {
+    common: deCommon,
+    navigation: deNavigation,
+    settings: deSettings,
+    tasks: deTasks,
+    welcome: deWelcome,
+    onboarding: deOnboarding,
+    dialogs: deDialogs,
+    gitlab: deGitlab,
+    taskReview: deTaskReview,
+    terminal: deTerminal,
+    errors: deErrors
   }
 } as const;
 

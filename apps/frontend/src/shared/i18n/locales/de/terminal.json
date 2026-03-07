@@ -1,0 +1,39 @@
+{
+  "expand": {
+    "expand": "Terminal erweitern",
+    "collapse": "Terminal minimieren"
+  },
+  "auth": {
+    "terminalTitle": "Auth: {{profileName}}",
+    "maxTerminalsReached": "Auth-Terminal kann nicht geöffnet werden: Maximale Anzahl an Terminals erreicht. Bitte schließen Sie zuerst ein Terminal."
+  },
+  "worktree": {
+    "create": "Worktree",
+    "createNew": "Neuer Worktree",
+    "existing": "Terminal-Worktrees",
+    "taskWorktrees": "Aufgaben-Worktrees",
+    "createTitle": "Terminal-Worktree erstellen",
+    "createDescription": "Erstellen Sie einen isolierten Arbeitsbereich für dieses Terminal. Alle Arbeiten werden im Worktree-Verzeichnis durchgeführt.",
+    "name": "Worktree-Name",
+    "namePlaceholder": "mein-feature",
+    "nameRequired": "Worktree-Name ist erforderlich",
+    "nameInvalid": "Name muss mit einem Buchstaben oder einer Zahl beginnen und enden",
+    "nameHelp": "Kleinbuchstaben, Zahlen, Bindestriche und Unterstriche (Leerzeichen werden zu Bindestrichen)",
+    "associateTask": "Mit Aufgabe verknüpfen",
+    "selectTask": "Aufgabe auswählen...",
+    "noTask": "Keine Aufgabe (eigenständiger Worktree)",
+    "createBranch": "Git-Branch erstellen",
+    "branchHelp": "Erstellt Branch: {{branch}}",
+    "baseBranch": "Basis-Branch",
+    "selectBaseBranch": "Basis-Branch auswählen...",
+    "searchBranch": "Branches durchsuchen...",
+    "noBranchFound": "Kein Branch gefunden",
+    "useProjectDefault": "Projektstandard verwenden ({{branch}})",
+    "baseBranchHelp": "Der Branch, von dem der Worktree erstellt wird",
+    "openInIDE": "In IDE öffnen",
+    "maxReached": "Maximale Anzahl von 12 Terminal-Worktrees erreicht",
+    "alreadyExists": "Ein Worktree mit diesem Namen existiert bereits",
+    "deleteTitle": "Worktree löschen?",
+    "deleteDescription": "Dadurch werden der Worktree und sein Branch dauerhaft gelöscht. Alle nicht gespeicherten Änderungen gehen verloren."
+  }
+}

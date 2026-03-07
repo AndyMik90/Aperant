@@ -1,0 +1,72 @@
+{
+  "sections": {
+    "project": "Projekt",
+    "tools": "Werkzeuge"
+  },
+  "items": {
+    "kanban": "Kanban-Board",
+    "terminals": "Agent-Terminals",
+    "insights": "Einblicke",
+    "roadmap": "Roadmap",
+    "ideation": "Ideenfindung",
+    "changelog": "Änderungsprotokoll",
+    "context": "Kontext",
+    "githubIssues": "GitHub Issues",
+    "githubPRs": "GitHub PRs",
+    "gitlabIssues": "GitLab Issues",
+    "gitlabMRs": "GitLab MRs",
+    "worktrees": "Worktrees",
+    "agentTools": "MCP-Übersicht"
+  },
+  "actions": {
+    "settings": "Einstellungen",
+    "help": "Hilfe & Feedback",
+    "newTask": "Neue Aufgabe"
+  },
+  "tooltips": {
+    "settings": "Anwendungseinstellungen",
+    "help": "Hilfe & Feedback"
+  },
+  "messages": {
+    "initializeToCreateTasks": "Initialisiere Auto Claude, um Aufgaben zu erstellen"
+  },
+  "claudeCode": {
+    "checking": "Claude Code wird überprüft...",
+    "upToDate": "Claude Code ist aktuell",
+    "updateAvailable": "Claude Code Update verfügbar",
+    "notInstalled": "Claude Code nicht installiert",
+    "error": "Fehler bei der Claude Code Überprüfung",
+    "installed": "Installiert",
+    "outdated": "Update verfügbar",
+    "missing": "Nicht installiert",
+    "current": "Aktuell",
+    "latest": "Neueste",
+    "path": "Pfad",
+    "lastChecked": "Zuletzt überprüft",
+    "learnMore": "Mehr über Claude Code erfahren",
+    "learnMoreAriaLabel": "Mehr über Claude Code erfahren (öffnet in neuem Fenster)",
+    "viewChangelog": "Claude Code Änderungsprotokoll anzeigen",
+    "viewChangelogAriaLabel": "Claude Code Änderungsprotokoll anzeigen (öffnet in neuem Fenster)",
+    "updateWarningTitle": "Claude Code aktualisieren?",
+    "updateWarningDescription": "Die Aktualisierung schließt alle laufenden Claude Code Sitzungen. Nicht gespeicherte Arbeit in diesen Sitzungen kann verloren gehen. Stelle sicher, dass du deine Arbeit gespeichert hast, bevor du fortfährst.",
+    "updateAnyway": "Trotzdem aktualisieren",
+    "switchVersion": "Version wechseln",
+    "selectVersion": "Version auswählen",
+    "loadingVersions": "Versionen werden geladen...",
+    "failedToLoadVersions": "Versionen konnten nicht geladen werden",
+    "installingVersion": "Version {{version}} wird installiert...",
+    "rollbackWarningTitle": "Zu Version {{version}} wechseln?",
+    "rollbackWarningDescription": "Der Versionswechsel schließt alle laufenden Claude Code Sitzungen. Nicht gespeicherte Arbeit in diesen Sitzungen kann verloren gehen. Stelle sicher, dass du deine Arbeit gespeichert hast, bevor du fortfährst.",
+    "switchAnyway": "Trotzdem wechseln",
+    "currentVersion": "Aktuell",
+    "switchInstallation": "Installation wechseln",
+    "selectInstallation": "Installation auswählen",
+    "loadingInstallations": "Installationen werden geladen...",
+    "failedToLoadInstallations": "Installationen konnten nicht geladen werden",
+    "activeInstallation": "Aktiv",
+    "pathChangeWarningTitle": "CLI-Installation wechseln?",
+    "pathChangeWarningDescription": "Der Wechsel der CLI-Installation verwendet eine andere Claude Code Binary. Laufende Sitzungen verwenden weiterhin die vorherige Installation bis zum Neustart.",
+    "switchInstallationConfirm": "Wechseln",
+    "versionUnknown": "Version unbekannt"
+  }
+}
