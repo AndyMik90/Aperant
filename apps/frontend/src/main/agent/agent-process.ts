@@ -1,7 +1,7 @@
 import { spawn } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, statSync } from 'fs';
 import { app } from 'electron';
 
 // ESM-compatible __dirname
@@ -229,6 +229,27 @@ export class AgentProcessManager {
     const ghCliEnv = this.detectAndSetCliPath('gh');
     const glabCliEnv = this.detectAndSetCliPath('glab');
 
+    // Inject custom CA certificate path for enterprise proxy SSL support
+    const certEnv: Record<string, string> = {};
+    const appSettingsForCert = readSettingsFile() as Partial<AppSettings> | null;
+    const rawCertPath = appSettingsForCert?.customCACertPath;
+    const configuredCertPath = typeof rawCertPath === 'string' ? rawCertPath.trim() : undefined;
+    if (configuredCertPath) {
+      if (!path.isAbsolute(configuredCertPath)) {
+        console.warn('[AgentProcess] customCACertPath must be an absolute path, skipping NODE_EXTRA_CA_CERTS:', configuredCertPath);
+      } else {
+        try {
+          if (existsSync(configuredCertPath) && statSync(configuredCertPath).isFile()) {
+            certEnv['NODE_EXTRA_CA_CERTS'] = configuredCertPath;
+          } else {
+            console.warn('[AgentProcess] customCACertPath is missing or not a file, skipping NODE_EXTRA_CA_CERTS:', configuredCertPath);
+          }
+        } catch (err) {
+          console.warn('[AgentProcess] customCACertPath stat failed, skipping NODE_EXTRA_CA_CERTS:', configuredCertPath, err);
+        }
+      }
+    }
+
     // Profile env is spread last to ensure CLAUDE_CONFIG_DIR and auth vars
     // from the active profile always win over extraEnv or augmentedEnv.
     const mergedEnv = {
@@ -237,6 +258,7 @@ export class AgentProcessManager {
       ...claudeCliEnv,
       ...ghCliEnv,
       ...glabCliEnv,
+      ...certEnv,
       ...extraEnv,
       ...profileEnv,
       PYTHONUNBUFFERED: '1',

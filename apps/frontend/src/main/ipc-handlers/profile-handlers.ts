@@ -13,6 +13,7 @@
 import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { IPCResult } from '../../shared/types';
+import type { AppSettings } from '../../shared/types';
 import type { APIProfile, ProfileFormData, ProfilesFile, TestConnectionResult, DiscoverModelsResult } from '@shared/types/profile';
 import {
   loadProfilesFile,
@@ -25,9 +26,15 @@ import {
   testConnection,
   discoverModels
 } from '../services/profile';
+import { readSettingsFile } from '../settings-utils';
 
 // Track active test connection requests for cancellation
 const activeTestConnections = new Map<number, AbortController>();
+
+function getCustomCaCertPath(): string | undefined {
+  const settings = readSettingsFile() as Partial<AppSettings> | null;
+  return settings?.customCACertPath || undefined;
+}
 
 // Track active discover models requests for cancellation
 const activeDiscoverModelsRequests = new Map<number, AbortController>();
@@ -214,7 +221,7 @@ export function registerProfileHandlers(): void {
         }
 
         // Call testConnection from service layer with abort signal
-        const result = await testConnection(baseUrl, apiKey, controller.signal);
+        const result = await testConnection(baseUrl, apiKey, controller.signal, getCustomCaCertPath());
 
         // Clear timeout on success
         clearTimeout(timeoutId);
@@ -300,7 +307,7 @@ export function registerProfileHandlers(): void {
         }
 
         // Call discoverModels from service layer with abort signal
-        const result = await discoverModels(baseUrl, apiKey, controller.signal);
+        const result = await discoverModels(baseUrl, apiKey, controller.signal, getCustomCaCertPath());
 
         // Clear timeout on success
         clearTimeout(timeoutId);

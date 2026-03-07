@@ -296,6 +296,8 @@ export interface AppSettings {
   sidebarCollapsed?: boolean;
   // GPU acceleration for terminal rendering (WebGL)
   gpuAcceleration?: GpuAcceleration;
+  // Custom CA certificate path for enterprise proxy SSL (e.g., Zscaler)
+  customCACertPath?: string;
 }
 
 // GPU acceleration mode for terminal WebGL rendering

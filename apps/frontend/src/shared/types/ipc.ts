@@ -407,6 +407,7 @@ export interface ElectronAPI {
 
   // Dialog operations
   selectDirectory: () => Promise<string | null>;
+  selectFile: (filters?: { name: string; extensions: string[] }[]) => Promise<string | null>;
   createProjectFolder: (location: string, name: string, initGit: boolean) => Promise<IPCResult<CreateProjectFolderResult>>;
   getDefaultProjectLocation: () => Promise<string | null>;
 

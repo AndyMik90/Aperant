@@ -116,6 +116,12 @@ vi.mock('electron', () => ({
   }
 }));
 
+// Mock settings-utils to avoid electron.app.getPath dependency
+vi.mock('../settings-utils', () => ({
+  readSettingsFile: vi.fn(() => ({})),
+  getSettingsPath: vi.fn(() => '/fake/settings.json')
+}));
+
 // Mock cli-tool-manager to avoid blocking tool detection on Windows
 vi.mock('../cli-tool-manager', () => ({
   getToolInfo: vi.fn((tool: string) => {
