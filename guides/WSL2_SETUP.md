@@ -1,6 +1,6 @@
-# WSL2/WSLg Setup Guide for Auto Claude
+# WSL2/WSLg Setup Guide for Aperant
 
-This guide documents the setup process and fixes required to run Auto Claude Electron desktop app on Windows 11 WSL2 with WSLg (Windows Subsystem for Linux Graphics).
+This guide documents the setup process and fixes required to run the Aperant Electron desktop app on Windows 11 WSL2 with WSLg (Windows Subsystem for Linux Graphics).
 
 ## Table of Contents
 
@@ -113,22 +113,24 @@ The following sections document the technical challenges encountered when runnin
 **[apps/frontend/src/main/index.ts](../apps/frontend/src/main/index.ts)**
 
 ```typescript
+import { isWindows, isMacOS, isLinux } from './platform';
+
 // Lazy-loaded platform info to avoid @electron-toolkit/utils initialization issues
 const is = {
   get dev() { return !app.isPackaged; },
-  get mac() { return process.platform === 'darwin'; },
-  get windows() { return process.platform === 'win32'; },
-  get linux() { return process.platform === 'linux'; }
+  get mac() { return isMacOS(); },
+  get windows() { return isWindows(); },
+  get linux() { return isLinux(); }
 };
 
 // Wrap app.setName in try-catch
 try {
-  app.setName('Auto Claude');
-  if (process.platform === 'darwin') {
-    app.name = 'Auto Claude';
+  app.setName('Aperant');
+  if (isMacOS()) {
+    app.name = 'Aperant';
   }
 
-  if (process.platform === 'win32') {
+  if (isWindows()) {
     app.commandLine.appendSwitch('disable-gpu-shader-disk-cache');
     app.commandLine.appendSwitch('disable-gpu-program-cache');
   }
@@ -598,8 +600,8 @@ When making changes that affect WSL2 compatibility:
 WSL2/WSLg compatibility work by:
 - Initial testing and bug reports: @freakedbuntu
 - Implementation and fixes: Claude Code AI Assistant
-- Based on Auto Claude by: @AndyMik90
+- Based on Aperant by: @AndyMik90
 
 ## License
 
-Same as Auto Claude project license (AGPL-3.0).
+Same as the Aperant project license (AGPL-3.0).

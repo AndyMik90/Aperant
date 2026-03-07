@@ -237,6 +237,16 @@
   "review": {
     "mergeTooltip": "Merges changes from the task's worktree branch back to your base branch. AI will resolve any conflicts. You can then choose whether to keep or remove the worktree."
   },
+  "workspace": {
+    "planReview": {
+      "title": "Human Review Required",
+      "description": "Human review required prior to coding. Review your spec.md for any necessary changes."
+    },
+    "noWorkspace": {
+      "title": "No Workspace Found",
+      "description": "No isolated workspace was found for this task. The changes may have been made directly in your project."
+    }
+  },
   "edit": {
     "title": "Edit Task",
     "description": "Update task details including title, description, classification, images, and settings. Changes will be saved to the spec files.",

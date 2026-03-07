@@ -170,7 +170,6 @@ _bmad-output/
 OPUS_ANALYSIS_AND_IDEAS.md
 /.github/agents
 
-# Auto Claude generated files
 .security-key
 /shared_docs
 Agents.md

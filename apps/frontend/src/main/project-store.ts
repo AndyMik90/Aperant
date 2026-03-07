@@ -898,11 +898,18 @@ export class ProjectStore {
 let _projectStore: ProjectStore | null = null;
 
 export const projectStore = new Proxy({} as ProjectStore, {
-  get(target, prop) {
+  get(_target, prop) {
     if (!_projectStore) {
       _projectStore = new ProjectStore();
     }
     const value = _projectStore[prop as keyof ProjectStore];
     return typeof value === 'function' ? value.bind(_projectStore) : value;
+  },
+  set(_target, prop, value) {
+    if (!_projectStore) {
+      _projectStore = new ProjectStore();
+    }
+    (_projectStore as unknown as Record<string, unknown>)[prop as string] = value;
+    return true;
   }
 });

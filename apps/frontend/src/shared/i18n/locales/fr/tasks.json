@@ -237,6 +237,16 @@
   "review": {
     "mergeTooltip": "Fusionne les changements de la branche worktree de la tâche vers votre branche de base. L'IA résoudra les conflits éventuels. Vous pourrez ensuite choisir de conserver ou de supprimer le worktree."
   },
+  "workspace": {
+    "planReview": {
+      "title": "Révision humaine requise",
+      "description": "Une révision humaine est requise avant le codage. Vérifiez votre spec.md pour tout changement nécessaire."
+    },
+    "noWorkspace": {
+      "title": "Aucun espace de travail trouvé",
+      "description": "Aucun espace de travail isolé n'a été trouvé pour cette tâche. Les changements ont peut-être été effectués directement dans votre projet."
+    }
+  },
   "edit": {
     "title": "Modifier la tâche",
     "description": "Mettez à jour les détails de la tâche, y compris le titre, la description, la classification, les images et les paramètres. Les modifications seront enregistrées dans les fichiers de spécification.",

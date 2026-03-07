@@ -76,30 +76,25 @@ export function isDev(): boolean {
     return !app.isPackaged;
   } catch {
     // If app is not ready, check NODE_ENV
-    return process.env.NODE_ENV !== 'production';
+    return process.env.NODE_ENV === 'development';
   }
 }
 
 /**
  * Check if running in WSL2 environment
  *
- * Detects Windows Subsystem for Linux 2 by checking:
- * 1. WSL_DISTRO_NAME environment variable (most reliable, set by WSL2 automatically)
- * 2. /proc/version for 'microsoft' signature (WSL2 kernel identifier)
+ * Detects Windows Subsystem for Linux 2 by checking /proc/version for both
+ * 'microsoft' and 'wsl2' signatures. The WSL2 kernel version string contains
+ * both (e.g., "5.15.x-microsoft-standard-WSL2"), while WSL1 only contains
+ * 'microsoft'. Checking both ensures WSL1 is not falsely detected as WSL2.
  */
 export function isWSL2(): boolean {
-  // Check WSL_DISTRO_NAME environment variable (most reliable)
-  if (process.env.WSL_DISTRO_NAME) {
-    return true;
-  }
-
-  // Check /proc/version for WSL2 kernel signature (Linux only)
   if (isLinux()) {
     try {
       const versionInfo = existsSync('/proc/version')
         ? readFileSync('/proc/version', 'utf8').toLowerCase()
         : '';
-      return versionInfo.includes('microsoft');
+      return versionInfo.includes('microsoft') && versionInfo.includes('wsl2');
     } catch {
       return false;
     }

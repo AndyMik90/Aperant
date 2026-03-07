@@ -35,6 +35,7 @@ import {
 } from './git-integration';
 import { getValidatedPythonPath } from '../python-detector';
 import { getConfiguredPythonPath } from '../python-env-manager';
+import { joinPaths } from '../platform';
 
 /**
  * Main changelog service - orchestrates all changelog operations
@@ -123,7 +124,7 @@ export class ChangelogService extends EventEmitter {
     // Add app path if app is ready (WSL2 compatibility)
     try {
       if (app && app.getAppPath) {
-        appPathSegment.push(path.resolve(app.getAppPath(), '..', 'backend'));
+        appPathSegment.push(joinPaths(app.getAppPath(), '..', 'backend'));
       }
     } catch (e) {
       // App not ready yet, continue without app path
@@ -131,9 +132,9 @@ export class ChangelogService extends EventEmitter {
 
     const possiblePaths = [
       // Apps structure: from out/main -> apps/backend
-      path.resolve(__dirname, '..', '..', '..', 'backend'),
+      joinPaths(__dirname, '..', '..', '..', 'backend'),
       ...appPathSegment,
-      path.resolve(process.cwd(), 'apps', 'backend'),
+      joinPaths(process.cwd(), 'apps', 'backend'),
     ];
 
     for (const p of possiblePaths) {

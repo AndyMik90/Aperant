@@ -1,6 +1,6 @@
-## 2.7.6 - Stability & Feature Enhancements
+# 2.7.6 - Stability & Feature Enhancements
 
-### ✨ New Features
+## ✨ New Features
 
 - **Multi-profile account management** — Unified profile swapping with automatic token refresh and rate limit recovery for both OAuth and API-compatible providers
 

@@ -21,6 +21,23 @@ import { isWindows, isUnix, getPathDelimiter, getNpmCommand, isWSL2 } from './pl
 const execFileAsync = promisify(execFile);
 
 /**
+ * Memoized WSL2 detection
+ *
+ * isWSL2() performs synchronous fs/exec checks that block the main thread.
+ * Since the WSL2 status never changes during a process lifetime, cache the
+ * result after the first call.
+ */
+const isWsl2Cached = (() => {
+  let cached: boolean | null = null;
+  return () => {
+    if (cached === null) {
+      cached = isWSL2();
+    }
+    return cached;
+  };
+})();
+
+/**
  * Windows npm global fallback path
  *
  * On Windows, npm global packages are installed in %APPDATA%\npm by default.
@@ -279,7 +296,7 @@ export function getAugmentedEnv(additionalPaths?: string[]): Record<string, stri
   // Add Sentry environment variables for Python subprocesses
   // These are embedded at build time and need to be passed explicitly
   // Skip Sentry in WSL2 to avoid initialization issues
-  if (!isWSL2()) {
+  if (!isWsl2Cached()) {
     const sentryEnv = getSentryEnvForSubprocess();
     Object.assign(env, sentryEnv);
   }
@@ -458,7 +475,7 @@ export async function getAugmentedEnvAsync(additionalPaths?: string[]): Promise<
   // Add Sentry environment variables for Python subprocesses
   // These are embedded at build time and need to be passed explicitly
   // Skip Sentry in WSL2 to avoid initialization issues
-  if (!isWSL2()) {
+  if (!isWsl2Cached()) {
     const sentryEnv = getSentryEnvForSubprocess();
     Object.assign(env, sentryEnv);
   }

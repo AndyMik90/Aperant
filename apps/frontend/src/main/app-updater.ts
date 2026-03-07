@@ -29,7 +29,7 @@ import { isMacOS } from './platform';
 
 // GitHub repo info for API calls
 const GITHUB_OWNER = 'AndyMik90';
-const GITHUB_REPO = 'Auto-Claude';
+const GITHUB_REPO = 'Aperant';
 
 // Debug mode - DEBUG_UPDATER=true or development mode
 const DEBUG_UPDATER = process.env.DEBUG_UPDATER === 'true' || process.env.NODE_ENV === 'development';
@@ -238,7 +238,7 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
   console.warn('[app-updater] ========================================');
   console.warn('[app-updater] Initializing app auto-updater');
   console.warn('[app-updater] App packaged:', app.isPackaged);
-  console.warn('[app-updater] Current version:', autoUpdater.currentVersion.version);
+  console.warn('[app-updater] Current version:', app.getVersion());
   console.warn('[app-updater] Update channel:', channel);
   console.warn('[app-updater] Auto-download enabled:', autoUpdater.autoDownload, '(manual download after version check)');
   console.warn('[app-updater] Debug mode:', DEBUG_UPDATER);
@@ -250,7 +250,7 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
 
   // Update available - new version found
   autoUpdater.on('update-available', (info: UpdateInfo) => {
-    const currentVersion = autoUpdater!.currentVersion.version;
+    const currentVersion = app.getVersion();
     const isNewer = compareVersions(info.version, currentVersion) > 0;
     console.warn(`[app-updater] Update available: ${info.version} (current: ${currentVersion}, isNewer: ${isNewer})`);
 
@@ -269,14 +269,14 @@ export function initializeAppUpdater(window: BrowserWindow, betaUpdates = false)
     }
 
     // Download the update now that we've confirmed it's valid
-    autoUpdater.downloadUpdate().catch((error) => {
+    autoUpdater?.downloadUpdate().catch((error) => {
       console.error('[app-updater] Failed to download update:', error.message);
     });
   });
 
   // Update downloaded - ready to install
   autoUpdater.on('update-downloaded', (info: UpdateDownloadedEvent) => {
-    const currentVersion = autoUpdater!.currentVersion.version;
+    const currentVersion = app.getVersion();
     const isNewer = compareVersions(info.version, currentVersion) > 0;
     console.warn(`[app-updater] Update downloaded: ${info.version} (current: ${currentVersion}, isNewer: ${isNewer})`);
 
@@ -395,7 +395,7 @@ export async function checkForUpdates(): Promise<AppUpdateInfo | null> {
       return null;
     }
 
-    const currentVersion = autoUpdater.currentVersion.version;
+    const currentVersion = app.getVersion();
     const latestVersion = result.updateInfo.version;
 
     // Use proper semver comparison to detect if update is actually newer

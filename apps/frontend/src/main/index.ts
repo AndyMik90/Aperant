@@ -362,10 +362,10 @@ if (isWindows()) {
 // Set app name before ready (for dock tooltip on macOS in dev mode)
 // WSL2 compatibility: wrap in try-catch since app may not be initialized yet
 try {
-  app.setName('Auto Claude');
+  app.setName('Aperant');
   if (isMacOS()) {
     // Force the name to appear in dock on macOS
-    app.name = 'Auto Claude';
+    app.name = 'Aperant';
   }
 } catch (_e) {
   // App not ready yet (WSL2), will be set in whenReady handler
@@ -376,9 +376,9 @@ try {
 app.whenReady().then(() => {
   // Set app name (in case pre-init failed on WSL2)
   try {
-    app.setName('Auto Claude');
+    app.setName('Aperant');
     if (isMacOS()) {
-      app.name = 'Auto Claude';
+      app.name = 'Aperant';
     }
   } catch (_e) {
     // Ignore - already set
@@ -414,25 +414,18 @@ app.whenReady().then(() => {
     }
   }
 
-  // Default open or close DevTools by F12 in development
-  // and ignore CommandOrControl + R in production.
+  // Handle keyboard shortcuts: F12 toggles DevTools in development,
+  // Ctrl/Cmd+R refresh is disabled in production.
   app.on('browser-window-created', (_, window) => {
-    // F12 toggles DevTools in development
-    if (is.dev) {
-      window.webContents.on('before-input-event', (_, input) => {
-        if (input.type === 'keyDown' && input.key === 'F12') {
-          window.webContents.toggleDevTools();
-        }
-      });
-    }
-    // Disable Ctrl/Cmd+R refresh in production
-    if (!is.dev) {
-      window.webContents.on('before-input-event', (event, input) => {
-        if (input.type === 'keyDown' && input.key === 'r' && (input.control || input.meta)) {
-          event.preventDefault();
-        }
-      });
-    }
+    window.webContents.on('before-input-event', (event, input) => {
+      if (input.type !== 'keyDown') return;
+      if (is.dev && input.key === 'F12') {
+        window.webContents.toggleDevTools();
+      }
+      if (!is.dev && input.key === 'r' && (input.control || input.meta)) {
+        event.preventDefault();
+      }
+    });
   });
 
   // Initialize agent manager

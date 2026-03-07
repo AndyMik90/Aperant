@@ -82,12 +82,12 @@ export function NoWorkspaceMessage({ task, onClose }: NoWorkspaceMessageProps) {
     <div className="rounded-xl border border-border bg-secondary/30 p-4">
       <h3 className="font-medium text-sm text-foreground mb-2 flex items-center gap-2">
         <AlertCircle className="h-4 w-4 text-muted-foreground" />
-        {isPlanReview ? 'Human Review Required' : 'No Workspace Found'}
+        {isPlanReview ? t('tasks:workspace.planReview.title') : t('tasks:workspace.noWorkspace.title')}
       </h3>
       <p className="text-sm text-muted-foreground mb-3">
         {isPlanReview
-          ? 'Human review required prior to coding. Review your spec.md for any necessary changes.'
-          : 'No isolated workspace was found for this task. The changes may have been made directly in your project.'}
+          ? t('tasks:workspace.planReview.description')
+          : t('tasks:workspace.noWorkspace.description')}
       </p>
 
       {/* Allow marking as done */}
