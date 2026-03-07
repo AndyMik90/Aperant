@@ -42,12 +42,12 @@ if env_file.exists():
     load_dotenv(env_file)
 
 # Import from refactored modules
+from core.language import LANGUAGE_NAMES
 from ideation import (
     IdeationConfig,
     IdeationOrchestrator,
     IdeationPhaseResult,
 )
-from core.language import LANGUAGE_NAMES
 from ideation.generator import IDEATION_TYPE_LABELS, IDEATION_TYPES
 from phase_config import sanitize_thinking_level
 
