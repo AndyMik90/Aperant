@@ -22,10 +22,10 @@ import { pythonEnvManager, getConfiguredPythonPath } from '../python-env-manager
 import { buildMemoryEnvVars } from '../memory-env-builder';
 import { readSettingsFile } from '../settings-utils';
 import type { AppSettings } from '../../shared/types/settings';
-import { getOAuthModeClearVars } from './env-utils';
+import { getOAuthModeClearVars, normalizeEnvPathKey, mergePythonEnvPath } from './env-utils';
 import { getAugmentedEnv } from '../env-utils';
 import { getToolInfo, getClaudeCliPathForSdk } from '../cli-tool-manager';
-import { killProcessGracefully, isWindows } from '../platform';
+import { killProcessGracefully, isWindows, getPathDelimiter } from '../platform';
 import { debugLog } from '../../shared/utils/debug-logger';
 
 /**
@@ -679,7 +679,17 @@ export class AgentProcessManager {
       },
     });
 
-    // Parse Python commandto handle space-separated commands like "py -3"
+    // Merge PATH from pythonEnv with augmented PATH from env.
+    // pythonEnv may contain its own PATH (e.g., on Windows with pywin32_system32 prepended).
+    // Simply spreading pythonEnv after env would overwrite the augmented PATH (which includes
+    // npm globals, homebrew, etc.), causing "Claude code not found" on Windows (#1661).
+    // mergePythonEnvPath() normalizes PATH key casing and prepends pythonEnv-specific paths.
+    const mergedPythonEnv = { ...pythonEnv };
+    const pathSep = getPathDelimiter();
+
+    mergePythonEnvPath(env as Record<string, string | undefined>, mergedPythonEnv as Record<string, string | undefined>, pathSep);
+
+    // Parse Python command to handle space-separated commands like "py -3"
     const [pythonCommand, pythonBaseArgs] = parsePythonCommand(this.getPythonPath());
     let childProcess;
     try {
@@ -687,7 +697,7 @@ export class AgentProcessManager {
         cwd,
         env: {
           ...env, // Already includes process.env, extraEnv, profileEnv, PYTHONUNBUFFERED, PYTHONUTF8
-          ...pythonEnv, // Include Python environment (PYTHONPATH for bundled packages)
+          ...mergedPythonEnv, // Python env with merged PATH (preserves augmented PATH entries)
           ...oauthModeClearVars, // Clear stale ANTHROPIC_* vars when in OAuth mode
           ...apiProfileEnv // Include active API profile config (highest priority for ANTHROPIC_* vars)
         }

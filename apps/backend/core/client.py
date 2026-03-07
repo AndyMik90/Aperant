@@ -30,6 +30,89 @@ from core.platform import (
 logger = logging.getLogger(__name__)
 
 # =============================================================================
+# SDK Message Parser Patch
+# =============================================================================
+# The Claude Agent SDK's message_parser raises MessageParseError for unknown
+# message types (e.g., "rate_limit_event"). Since parse_message runs inside an
+# async generator, the exception kills the entire agent session stream.
+# Patch to log a warning and return a SystemMessage instead of crashing.
+# This is needed until the SDK natively handles all CLI message types.
+
+
+def _patch_sdk_message_parser() -> None:
+    """Patch the SDK's parse_message to handle unknown message types gracefully.
+
+    The Claude CLI may emit message types that the installed SDK version doesn't
+    recognize (e.g., rate_limit_event, usage_event). Without this patch, any
+    unrecognized type raises MessageParseError inside the SDK's async generator,
+    which terminates the entire response stream and kills the agent session.
+
+    The patch converts unknown types into SystemMessage objects with a
+    'unknown_<type>' subtype, which all message consumers silently skip.
+    """
+    try:
+        import claude_agent_sdk._internal.message_parser as _parser
+        from claude_agent_sdk._errors import MessageParseError
+        from claude_agent_sdk.types import SystemMessage
+
+        _original_parse = _parser.parse_message
+
+        def _patched_parse(data):
+            try:
+                return _original_parse(data)
+            except MessageParseError as e:
+                msg = str(e)
+                if "Unknown message type" in msg:
+                    msg_type = (
+                        data.get("type", "unknown")
+                        if isinstance(data, dict)
+                        else "unknown"
+                    )
+                    # Rate limit events deserve a visible warning; others just debug-level
+                    if "rate_limit" in msg_type:
+                        retry_after = (
+                            data.get("retry_after")
+                            or data.get("data", {}).get("retry_after")
+                            if isinstance(data, dict)
+                            else None
+                        )
+                        retry_info = (
+                            f" (retry_after={retry_after}s)" if retry_after else ""
+                        )
+                        logger.warning(
+                            f"Rate limit event received from CLI{retry_info} — "
+                            f"the SDK will handle backoff automatically"
+                        )
+                    else:
+                        logger.debug(
+                            f"SDK received unhandled message type '{msg_type}', skipping"
+                        )
+                    return SystemMessage(
+                        subtype=f"unknown_{msg_type}",
+                        data=data if isinstance(data, dict) else {},
+                    )
+                raise
+
+        _parser.parse_message = _patched_parse
+    except Exception as e:
+        logger.warning(f"Failed to patch SDK message parser: {e}")
+
+
+_patch_sdk_message_parser()
+
+# =============================================================================
+# Windows System Prompt Limits
+# =============================================================================
+# Windows CreateProcessW has a 32,768 character limit for the entire command line.
+# When CLAUDE.md is very large and passed as --system-prompt, the command can exceed
+# this limit, causing ERROR_FILE_NOT_FOUND. We cap CLAUDE.md content to stay safe.
+# 20,000 chars leaves ~12KB headroom for CLI overhead (model, tools, MCP config, etc.)
+WINDOWS_MAX_SYSTEM_PROMPT_CHARS = 20000
+WINDOWS_TRUNCATION_MESSAGE = (
+    "\n\n[... CLAUDE.md truncated due to Windows command-line length limit ...]"
+)
+
+# =============================================================================
 # Project Index Cache
 # =============================================================================
 # Caches project index and capabilities to avoid reloading on every create_client() call.
@@ -821,8 +904,31 @@ def create_client(
     if should_use_claude_md():
         claude_md_content = load_claude_md(project_dir)
         if claude_md_content:
+            # On Windows, the SDK passes system_prompt as a --system-prompt CLI argument.
+            # Windows CreateProcessW has a 32,768 character limit for the entire command line.
+            # When CLAUDE.md is very large, the command can exceed this limit, causing Windows
+            # to return ERROR_FILE_NOT_FOUND which the SDK misreports as "Claude Code not found".
+            # Cap CLAUDE.md content to keep total command line under the limit. (#1661)
+            was_truncated = False
+            if is_windows():
+                max_claude_md_chars = (
+                    WINDOWS_MAX_SYSTEM_PROMPT_CHARS
+                    - len(base_prompt)
+                    - len(WINDOWS_TRUNCATION_MESSAGE)
+                    - len("\n\n# Project Instructions (from CLAUDE.md)\n\n")
+                )
+                if len(claude_md_content) > max_claude_md_chars > 0:
+                    claude_md_content = (
+                        claude_md_content[:max_claude_md_chars]
+                        + WINDOWS_TRUNCATION_MESSAGE
+                    )
+                    print(
+                        "   - CLAUDE.md: truncated (exceeded Windows command-line limit)"
+                    )
+                    was_truncated = True
             base_prompt = f"{base_prompt}\n\n# Project Instructions (from CLAUDE.md)\n\n{claude_md_content}"
-            print("   - CLAUDE.md: included in system prompt")
+            if not was_truncated:
+                print("   - CLAUDE.md: included in system prompt")
         else:
             print("   - CLAUDE.md: not found in project root")
     else:

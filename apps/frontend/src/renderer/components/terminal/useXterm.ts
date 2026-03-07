@@ -4,12 +4,14 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { SerializeAddon } from '@xterm/addon-serialize';
 import { terminalBufferManager } from '../../lib/terminal-buffer-manager';
-import { registerOutputCallback, unregisterOutputCallback } from '../../stores/terminal-store';
+import { registerOutputCallback, unregisterOutputCallback, useTerminalStore } from '../../stores/terminal-store';
 import { useTerminalFontSettingsStore } from '../../stores/terminal-font-settings-store';
 import { isWindows as checkIsWindows, isLinux as checkIsLinux } from '../../lib/os-detection';
 import { debounce } from '../../lib/debounce';
 import { DEFAULT_TERMINAL_THEME } from '../../lib/terminal-theme';
 import { debugLog, debugError } from '../../../shared/utils/debug-logger';
+import { useSettingsStore } from '../../stores/settings-store';
+import type { WebGLContextManagerType } from '../../lib/webgl-context-manager';
 
 interface UseXtermOptions {
   terminalId: string;
@@ -58,6 +60,8 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
   const commandBufferRef = useRef<string>('');
   const isDisposedRef = useRef<boolean>(false);
   const dimensionsReadyCalledRef = useRef<boolean>(false);
+  // Lazily-loaded WebGL context manager — only populated when gpuAcceleration !== 'off'
+  const webglManagerRef = useRef<WebGLContextManagerType | null>(null);
   const onResizeRef = useRef(onResize);
   const [dimensions, setDimensions] = useState<{ cols: number; rows: number }>({ cols: 80, rows: 24 });
 
@@ -116,6 +120,29 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     xterm.loadAddon(serializeAddon);
 
     xterm.open(terminalRef.current);
+
+    // WebGL acceleration: lazily load the WebGL module and acquire a context.
+    // The dynamic import() ensures NO GPU code (WebGL2 probing, context creation)
+    // runs unless the user has explicitly enabled GPU acceleration.
+    // This prevents GPU process instability on systems where WebGL2 is problematic
+    // (e.g., Apple Silicon Macs with certain macOS / Electron combinations).
+    const gpuAcceleration = useSettingsStore.getState().settings.gpuAcceleration ?? 'off';
+    debugLog(`[useXterm] WebGL check for ${terminalId}: gpuAcceleration=${gpuAcceleration}`);
+    if (gpuAcceleration !== 'off') {
+      import('../../lib/webgl-context-manager')
+        .then(({ webglContextManager }) => {
+          // Guard: terminal may have been disposed while the import was resolving
+          if (isDisposedRef.current) return;
+          webglManagerRef.current = webglContextManager;
+          webglContextManager.register(terminalId, xterm);
+          webglContextManager.acquire(terminalId);
+          debugLog(`[useXterm] WebGL acquired for ${terminalId}`);
+        })
+        .catch((error) => {
+          // WebGL is a progressive enhancement — terminal works fine without it
+          debugError(`[useXterm] WebGL initialization failed for ${terminalId}, falling back to canvas renderer:`, error);
+        });
+    }
 
     // Platform detection for copy/paste shortcuts
     // Use existing os-detection module instead of custom implementation
@@ -279,9 +306,25 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     // Use atomic getAndClear to prevent race condition where new output could arrive between get() and clear()
     const bufferedOutput = terminalBufferManager.getAndClear(terminalId);
     if (bufferedOutput && bufferedOutput.length > 0) {
-      debugLog(`[useXterm] Replaying buffered output for terminal: ${terminalId}, buffer size: ${bufferedOutput.length} chars`);
-      xterm.write(bufferedOutput);
-      debugLog(`[useXterm] Buffer replay complete and cleared for terminal: ${terminalId}`);
+      // For Claude-mode terminals that are NOT being restored for the first time
+      // (i.e., project switch remount), skip buffer replay.
+      // Reason: the buffer contains serialized state + accumulated raw PTY output
+      // from the TUI during the unmount period. This concatenation creates garbled
+      // display. The forced SIGWINCH (from pty-manager) will make Claude Code redraw
+      // its full TUI properly.
+      // For initial restore (isRestored=true), we DO replay to show the saved state
+      // as a loading preview while claude --continue starts.
+      const terminal = useTerminalStore.getState().terminals.find(t => t.id === terminalId);
+      const isClaudeActive = terminal?.isClaudeMode || terminal?.pendingClaudeResume;
+      const isInitialRestore = terminal?.isRestored === true;
+
+      if (isClaudeActive && !isInitialRestore) {
+        debugLog(`[useXterm] Skipping buffer replay for Claude-mode terminal on project switch remount: ${terminalId}`);
+      } else {
+        debugLog(`[useXterm] Replaying buffered output for terminal: ${terminalId}, buffer size: ${bufferedOutput.length} chars`);
+        xterm.write(bufferedOutput);
+        debugLog(`[useXterm] Buffer replay complete and cleared for terminal: ${terminalId}`);
+      }
     } else {
       debugLog(`[useXterm] No buffered output to replay for terminal: ${terminalId}`);
     }
@@ -551,6 +594,16 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
 
     // Serialize buffer before disposing to preserve ANSI formatting
     serializeBuffer();
+
+    // Release WebGL context before disposing addons and xterm (only if WebGL was loaded)
+    if (webglManagerRef.current) {
+      try {
+        webglManagerRef.current.unregister(terminalId);
+      } catch (error) {
+        debugError(`[useXterm] WebGL cleanup failed for ${terminalId}:`, error);
+      }
+      webglManagerRef.current = null;
+    }
 
     // Dispose addons explicitly before disposing xterm
     // While xterm.dispose() handles loaded addons, explicit disposal ensures

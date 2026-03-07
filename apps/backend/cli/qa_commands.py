@@ -101,8 +101,12 @@ def handle_qa_command(
             print("\n✅ Build already approved by QA.")
         else:
             completed, total = count_subtasks(spec_dir)
-            print(f"\n❌ Build not complete ({completed}/{total} subtasks).")
-            print("Complete all subtasks before running QA validation.")
+            print(
+                f"\n❌ Build not ready for QA ({completed}/{total} subtasks completed)."
+            )
+            print(
+                "All subtasks must reach a terminal state (completed, failed, or stuck) before running QA."
+            )
         return
 
     if has_human_feedback:

@@ -7,6 +7,7 @@
  * - Quick select actions (Critical/High, All, None)
  * - Collapsible sections for less important findings
  * - Visual summary of finding counts
+ * - Disputed findings shown in a separate collapsible section
  */
 
 import { useState, useMemo } from 'react';
@@ -16,6 +17,9 @@ import {
   CheckSquare,
   Square,
   Send,
+  ChevronDown,
+  ChevronRight,
+  ShieldQuestion,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../../ui/button';
@@ -47,6 +51,7 @@ export function ReviewFindings({
   const [expandedSections, setExpandedSections] = useState<Set<SeverityGroup>>(
     new Set<SeverityGroup>(['critical', 'high']) // Critical and High expanded by default
   );
+  const [disputedExpanded, setDisputedExpanded] = useState(false);
 
   // Filter out posted findings - only show unposted findings for selection
   const unpostedFindings = useMemo(() =>
@@ -54,10 +59,24 @@ export function ReviewFindings({
     [findings, postedIds]
   );
 
+  // Split unposted findings into active vs disputed (single pass)
+  const { activeFindings, disputedFindings } = useMemo(() => {
+    const active: PRReviewFinding[] = [];
+    const disputed: PRReviewFinding[] = [];
+    for (const finding of unpostedFindings) {
+      if (finding.validationStatus === 'dismissed_false_positive') {
+        disputed.push(finding);
+      } else {
+        active.push(finding);
+      }
+    }
+    return { activeFindings: active, disputedFindings: disputed };
+  }, [unpostedFindings]);
+
   // Check if all findings are posted
   const allFindingsPosted = findings.length > 0 && unpostedFindings.length === 0;
 
-  // Group unposted findings by severity (only show findings that haven't been posted)
+  // Group ACTIVE unposted findings by severity (disputed go in their own section)
   const groupedFindings = useMemo(() => {
     const groups: Record<SeverityGroup, PRReviewFinding[]> = {
       critical: [],
@@ -66,7 +85,7 @@ export function ReviewFindings({
       low: [],
     };
 
-    for (const finding of unpostedFindings) {
+    for (const finding of activeFindings) {
       const severity = finding.severity as SeverityGroup;
       if (groups[severity]) {
         groups[severity].push(finding);
@@ -74,20 +93,20 @@ export function ReviewFindings({
     }
 
     return groups;
-  }, [unpostedFindings]);
+  }, [activeFindings]);
 
-  // Count by severity (unposted findings only)
+  // Count by severity (active findings only)
   const counts = useMemo(() => ({
     critical: groupedFindings.critical.length,
     high: groupedFindings.high.length,
     medium: groupedFindings.medium.length,
     low: groupedFindings.low.length,
-    total: unpostedFindings.length,
+    total: activeFindings.length,
     important: groupedFindings.critical.length + groupedFindings.high.length,
     posted: postedIds.size,
-  }), [groupedFindings, unpostedFindings.length, postedIds.size]);
+  }), [groupedFindings, activeFindings.length, postedIds.size]);
 
-  // Selection hooks - use unposted findings only
+  // Selection hooks - use ACTIVE unposted findings only (Select All excludes disputed)
   const {
     toggleFinding,
     selectAll,
@@ -95,7 +114,7 @@ export function ReviewFindings({
     selectImportant,
     toggleSeverityGroup,
   } = useFindingSelection({
-    findings: unpostedFindings,
+    findings: activeFindings,
     selectedIds,
     onSelectionChange,
     groupedFindings,
@@ -114,6 +133,12 @@ export function ReviewFindings({
     });
   };
 
+  // Count only active findings that are selected (excludes disputed from count)
+  const selectedActiveCount = useMemo(
+    () => activeFindings.filter(f => selectedIds.has(f.id)).length,
+    [activeFindings, selectedIds]
+  );
+
   // When all findings have been posted, show a success message instead of the selection UI
   if (allFindingsPosted) {
     return (
@@ -131,10 +156,11 @@ export function ReviewFindings({
 
   return (
     <div className="space-y-4">
-      {/* Summary Stats Bar - show unposted findings only */}
+      {/* Summary Stats Bar - show active findings + disputed count */}
       <FindingsSummary
-        findings={unpostedFindings}
-        selectedCount={selectedIds.size}
+        findings={activeFindings}
+        selectedCount={selectedActiveCount}
+        disputedCount={disputedFindings.length}
       />
 
       {/* Quick Select Actions */}
@@ -170,7 +196,7 @@ export function ReviewFindings({
         </Button>
       </div>
 
-      {/* Grouped Findings (unposted only) */}
+      {/* Grouped Findings (active only) */}
       <div className="space-y-3">
         {SEVERITY_ORDER.map((severity) => {
           const group = groupedFindings[severity];
@@ -219,6 +245,48 @@ export function ReviewFindings({
           );
         })}
       </div>
+
+      {/* Disputed Findings Section */}
+      {disputedFindings.length > 0 && (
+        <div className="rounded-lg border border-purple-500/20 bg-purple-500/5">
+          {/* Disputed Header */}
+          <button
+            type="button"
+            onClick={() => setDisputedExpanded(!disputedExpanded)}
+            aria-expanded={disputedExpanded}
+            className="w-full flex items-center gap-2 p-3 text-left hover:bg-purple-500/10 transition-colors rounded-t-lg"
+          >
+            {disputedExpanded ? (
+              <ChevronDown className="h-4 w-4 text-purple-500 shrink-0" />
+            ) : (
+              <ChevronRight className="h-4 w-4 text-purple-500 shrink-0" />
+            )}
+            <ShieldQuestion className="h-4 w-4 text-purple-500 shrink-0" />
+            <span className="text-sm font-medium text-purple-500">
+              {t('prReview.disputedByValidator', { count: disputedFindings.length })}
+            </span>
+          </button>
+
+          {/* Disputed Content */}
+          {disputedExpanded && (
+            <div className="p-3 pt-0 space-y-2">
+              <p className="text-xs text-muted-foreground italic mb-2">
+                {t('prReview.disputedSectionHint')}
+              </p>
+              {disputedFindings.map((finding) => (
+                <FindingItem
+                  key={finding.id}
+                  finding={finding}
+                  selected={selectedIds.has(finding.id)}
+                  posted={false}
+                  disputed
+                  onToggle={() => toggleFinding(finding.id)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Empty State - no findings at all */}
       {findings.length === 0 && (

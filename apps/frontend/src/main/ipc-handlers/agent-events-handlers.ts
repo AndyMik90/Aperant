@@ -7,18 +7,24 @@ import type {
   AuthFailureInfo,
   ImplementationPlan,
 } from "../../shared/types";
-import { XSTATE_SETTLED_STATES, XSTATE_TO_PHASE, mapStateToLegacy } from "../../shared/state-machines";
+import { XSTATE_SETTLED_STATES, XSTATE_ACTIVE_STATES, XSTATE_TO_PHASE, mapStateToLegacy } from "../../shared/state-machines";
 import { AgentManager } from "../agent";
 import type { ProcessType, ExecutionProgressData } from "../agent";
 import { titleGenerator } from "../title-generator";
 import { fileWatcher } from "../file-watcher";
 import { notificationService } from "../notification-service";
-import { persistPlanLastEventSync, getPlanPath, persistPlanPhaseSync, persistPlanStatusAndReasonSync } from "./task/plan-file-utils";
+import { persistPlanLastEventSync, getPlanPath, persistPlanPhaseSync, persistPlanStatusAndReasonSync, hasPlanWithSubtasks } from "./task/plan-file-utils";
 import { findTaskWorktree } from "../worktree-paths";
 import { findTaskAndProject } from "./task/shared";
 import { safeSendToRenderer } from "./utils";
 import { getClaudeProfileManager } from "../claude-profile-manager";
 import { taskStateManager } from "../task-state-manager";
+
+// Timeout for fallback safety net to check if task is still stuck after process exit
+const STUCK_TASK_FALLBACK_TIMEOUT_MS = 500;
+
+// Map to store active fallback timers so they can be cancelled on task restart
+const fallbackTimers = new Map<string, NodeJS.Timeout>();
 
 /**
  * Register all agent-events-related IPC handlers
@@ -96,9 +102,53 @@ export function registerAgenteventsHandlers(
 
     taskStateManager.handleProcessExited(taskId, code, exitTask, exitProject);
 
+    // Fallback safety net: If XState failed to transition the task out of an active state,
+    // force it to human_review after a short delay. This prevents tasks from getting stuck
+    // when the process exits without XState properly handling it.
+    // We check XState's current state directly to avoid stale cache issues from projectStore.
+    // Store timer reference so it can be cancelled if task restarts within the window.
+    const timer = setTimeout(() => {
+      const currentState = taskStateManager.getCurrentState(taskId);
+
+      if (currentState && XSTATE_ACTIVE_STATES.has(currentState)) {
+        const { task: checkTask, project: checkProject } = findTaskAndProject(taskId, projectId);
+        if (checkTask && checkProject) {
+          // Use shared utility to determine if a valid implementation plan exists
+          const hasPlan = hasPlanWithSubtasks(checkProject, checkTask);
+
+          console.warn(
+            `[agent-events-handlers] Task ${taskId} still in XState ${currentState} ` +
+            `${STUCK_TASK_FALLBACK_TIMEOUT_MS}ms after exit, forcing USER_STOPPED (hasPlan: ${hasPlan})`
+          );
+          taskStateManager.handleUiEvent(taskId, { type: 'USER_STOPPED', hasPlan }, checkTask, checkProject);
+        }
+      }
+      // Clean up timer reference after it fires
+      fallbackTimers.delete(taskId);
+    }, STUCK_TASK_FALLBACK_TIMEOUT_MS);
+
+    // Store timer reference for potential cancellation
+    fallbackTimers.set(taskId, timer);
+
     // Send final plan state to renderer BEFORE unwatching
     // This ensures the renderer has the final subtask data (fixes 0/0 subtask bug)
-    const finalPlan = fileWatcher.getCurrentPlan(taskId);
+    // Try the file watcher's current path first, then fall back to worktree path
+    let finalPlan = fileWatcher.getCurrentPlan(taskId);
+    if (!finalPlan && exitTask && exitProject) {
+      // File watcher may have been watching the wrong path (main vs worktree)
+      // Try reading directly from the worktree
+      const worktreePath = findTaskWorktree(exitProject.path, exitTask.specId);
+      if (worktreePath) {
+        const specsBaseDir = getSpecsDir(exitProject.autoBuildPath);
+        const worktreePlanPath = path.join(worktreePath, specsBaseDir, exitTask.specId, AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN);
+        try {
+          const content = readFileSync(worktreePlanPath, 'utf-8');
+          finalPlan = JSON.parse(content);
+        } catch {
+          // Worktree plan file not readable - not critical
+        }
+      }
+    }
     if (finalPlan) {
       safeSendToRenderer(
         getMainWindow,
@@ -109,7 +159,9 @@ export function registerAgenteventsHandlers(
       );
     }
 
-    fileWatcher.unwatch(taskId);
+    fileWatcher.unwatch(taskId).catch((err) => {
+      console.error(`[agent-events-handlers] Failed to unwatch for ${taskId}:`, err);
+    });
 
     if (processType === "spec-creation") {
       console.warn(`[Task ${taskId}] Spec creation completed with code ${code}`);
@@ -211,25 +263,46 @@ export function registerAgenteventsHandlers(
       const worktreePath = findTaskWorktree(project.path, task.specId);
       if (worktreePath) {
         const specsBaseDir = getSpecsDir(project.autoBuildPath);
+        const worktreeSpecDir = path.join(worktreePath, specsBaseDir, task.specId);
         const worktreePlanPath = path.join(
-          worktreePath,
-          specsBaseDir,
-          task.specId,
+          worktreeSpecDir,
           AUTO_BUILD_PATHS.IMPLEMENTATION_PLAN
         );
         if (existsSync(worktreePlanPath)) {
           persistPlanPhaseSync(worktreePlanPath, progress.phase, project.id);
+        }
+
+        // Re-watch the worktree path if the file watcher is still watching the main project path.
+        // This handles the case where the task started before the worktree existed:
+        // the initial watch fell back to the main project spec dir, but now the worktree
+        // is available and implementation_plan.json is being written there.
+        const currentWatchDir = fileWatcher.getWatchedSpecDir(taskId);
+        if (currentWatchDir && currentWatchDir !== worktreeSpecDir && existsSync(worktreePlanPath)) {
+          console.warn(`[agent-events-handlers] Re-watching worktree path for ${taskId}: ${worktreeSpecDir}`);
+          fileWatcher.watch(taskId, worktreeSpecDir).catch((err) => {
+            console.error(`[agent-events-handlers] Failed to re-watch worktree for ${taskId}:`, err);
+          });
         }
       }
     } else if (xstateInTerminalState && progress.phase) {
       console.debug(`[agent-events-handlers] Skipping persistPlanPhaseSync for ${taskId}: XState in '${currentXState}', not overwriting with phase '${progress.phase}'`);
     }
 
-    // Skip sending execution-progress to renderer when XState has settled.
-    // XState's emitPhaseFromState already sent the correct phase to the renderer.
+    // Skip sending execution-progress to renderer when XState has settled,
+    // UNLESS this is a final phase update (complete/failed) AND the task is still in_progress.
+    // This prevents UI flicker where a failed phase arrives after the status has already changed to human_review.
+    const isFinalPhaseUpdate = progress.phase === 'complete' || progress.phase === 'failed';
     if (xstateInTerminalState) {
-      console.debug(`[agent-events-handlers] Skipping execution-progress to renderer for ${taskId}: XState in '${currentXState}', ignoring phase '${progress.phase}'`);
-      return;
+      if (!isFinalPhaseUpdate) {
+        console.debug(`[agent-events-handlers] Skipping execution-progress to renderer for ${taskId}: XState in '${currentXState}', ignoring phase '${progress.phase}'`);
+        return;
+      }
+      // For final phase updates, only send if task is still in_progress to prevent flicker
+      const { task } = findTaskAndProject(taskId, taskProjectId);
+      if (task && task.status !== 'in_progress') {
+        console.debug(`[agent-events-handlers] Skipping final phase '${progress.phase}' for ${taskId}: task status is '${task.status}', not 'in_progress'`);
+        return;
+      }
     }
     safeSendToRenderer(
       getMainWindow,
@@ -284,4 +357,18 @@ export function registerAgenteventsHandlers(
     const { project } = findTaskAndProject(taskId);
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.TASK_ERROR, taskId, error, project?.id);
   });
+}
+
+/**
+ * Cancel any pending fallback timer for a task.
+ * Should be called when a task is restarted to prevent the stale timer
+ * from incorrectly stopping the new process.
+ */
+export function cancelFallbackTimer(taskId: string): void {
+  const timer = fallbackTimers.get(taskId);
+  if (timer) {
+    clearTimeout(timer);
+    fallbackTimers.delete(taskId);
+    console.debug(`[agent-events-handlers] Cancelled fallback timer for task ${taskId}`);
+  }
 }

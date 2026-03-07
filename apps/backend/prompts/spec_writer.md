@@ -24,7 +24,7 @@ You MUST create `spec.md` with ALL required sections (see template below).
 ## PHASE 0: LOAD ALL CONTEXT (MANDATORY)
 
 ```bash
-# Read all input files
+# Read all input files (some may not exist for greenfield/empty projects)
 cat project_index.json
 cat requirements.json
 cat context.json
@@ -34,6 +34,12 @@ Extract from these files:
 - **From project_index.json**: Services, tech stacks, ports, run commands
 - **From requirements.json**: Task description, workflow type, services, acceptance criteria
 - **From context.json**: Files to modify, files to reference, patterns
+
+**IMPORTANT**: If any input file is missing, empty, or shows 0 files, this is likely a **greenfield/new project**. Adapt accordingly:
+- Skip sections that reference existing code (e.g., "Files to Modify", "Patterns to Follow")
+- Instead, focus on files to CREATE and the initial project structure
+- Define the tech stack, dependencies, and setup instructions from scratch
+- Use industry best practices as patterns rather than referencing existing code
 
 ---
 

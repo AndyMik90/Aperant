@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle2, ChevronDown, ChevronUp, Circle, ExternalLink, Play, TrendingUp } from 'lucide-react';
+import { Archive, CheckCircle2, ChevronDown, ChevronUp, Circle, ExternalLink, Play, TrendingUp } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { TaskOutcomeBadge } from './TaskOutcomeBadge';
 import { Badge } from '../ui/badge';
@@ -18,6 +18,7 @@ export function PhaseCard({
   onFeatureSelect,
   onConvertToSpec,
   onGoToTask,
+  onArchive,
 }: PhaseCardProps) {
   const { t } = useTranslation('common');
   const [isExpanded, setIsExpanded] = useState(false);
@@ -96,7 +97,24 @@ export function PhaseCard({
       <div>
         <h4 className="text-sm font-medium mb-2">Features ({features.length})</h4>
         <div className="grid gap-2">
-          {visibleFeatures.map((feature) => (
+          {visibleFeatures.map((feature) => {
+            const isDone = feature.status === 'done';
+            const archiveButton = isDone && onArchive && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-2"
+                title={t('roadmap.archiveFeature')}
+                aria-label={t('accessibility.archiveFeatureAriaLabel')}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onArchive(feature.id);
+                }}
+              >
+                <Archive className="h-3 w-3" />
+              </Button>
+            );
+            return (
             <div
               key={feature.id}
               className="flex items-center justify-between p-2 rounded-md bg-muted/50 hover:bg-muted transition-colors"
@@ -118,11 +136,15 @@ export function PhaseCard({
                 )}
               </button>
               {feature.taskOutcome ? (
-                <span className="flex-shrink-0">
+                <span className="flex items-center gap-1 flex-shrink-0">
                   <TaskOutcomeBadge outcome={feature.taskOutcome} size="lg" showLabel={false} />
+                  {archiveButton}
                 </span>
-              ) : feature.status === 'done' ? (
-                <CheckCircle2 className="h-4 w-4 text-success flex-shrink-0" />
+              ) : isDone ? (
+                <span className="flex items-center gap-1 flex-shrink-0">
+                  <CheckCircle2 className="h-4 w-4 text-success" />
+                  {archiveButton}
+                </span>
               ) : feature.linkedSpecId ? (
                 <Button
                   variant="ghost"
@@ -134,7 +156,7 @@ export function PhaseCard({
                   }}
                 >
                   <ExternalLink className="h-3 w-3 mr-1" />
-                  View Task
+                  {t('roadmap.viewTask')}
                 </Button>
               ) : (
                 <Button
@@ -147,11 +169,12 @@ export function PhaseCard({
                   }}
                 >
                   <Play className="h-3 w-3 mr-1" />
-                  Build
+                  {t('roadmap.build')}
                 </Button>
               )}
             </div>
-          ))}
+            );
+          })}
           {hasMoreFeatures && (
             <Button
               type="button"

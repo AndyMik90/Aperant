@@ -10,20 +10,36 @@ export const isDebugEnabled = (): boolean => {
   return false;
 };
 
+function safeConsoleWarn(...args: unknown[]): void {
+  try {
+    console.warn(...args);
+  } catch {
+    // Ignore console stream failures (e.g. EIO) in debug logging paths.
+  }
+}
+
+function safeConsoleError(...args: unknown[]): void {
+  try {
+    console.error(...args);
+  } catch {
+    // Ignore console stream failures (e.g. EIO) in debug logging paths.
+  }
+}
+
 export const debugLog = (...args: unknown[]): void => {
   if (isDebugEnabled()) {
-    console.warn(...args);
+    safeConsoleWarn(...args);
   }
 };
 
 export const debugWarn = (...args: unknown[]): void => {
   if (isDebugEnabled()) {
-    console.warn(...args);
+    safeConsoleWarn(...args);
   }
 };
 
 export const debugError = (...args: unknown[]): void => {
   if (isDebugEnabled()) {
-    console.error(...args);
+    safeConsoleError(...args);
   }
 };

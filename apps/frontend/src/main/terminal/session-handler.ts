@@ -226,6 +226,18 @@ export function persistAllSessions(terminals: Map<string, TerminalProcess>): voi
 }
 
 /**
+ * Clear a terminal ID from pendingDelete, allowing session saves to proceed.
+ *
+ * Must be called when re-creating a terminal with a previously-used ID
+ * (e.g., worktree switching, terminal restart after shell exit). Without this,
+ * the pendingDelete guard blocks persistence for the new terminal.
+ */
+export function clearPendingDelete(terminalId: string): void {
+  const store = getTerminalSessionStore();
+  store.clearPendingDelete(terminalId);
+}
+
+/**
  * Remove a session from persistent storage
  */
 export function removePersistedSession(terminal: TerminalProcess): void {

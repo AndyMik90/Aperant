@@ -309,6 +309,10 @@ export const useTaskStore = create<TaskState>((set, get) => ({
             // When starting a task and no phase is set yet, default to planning
             // This prevents the "no active phase" UI state during startup race condition
             executionProgress = { phase: 'planning' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
+          } else if (['human_review', 'error', 'done', 'pr_created'].includes(status)) {
+            // Reset execution progress when task reaches terminal states
+            // This prevents stuck tasks from showing stale progress indicators
+            executionProgress = { phase: 'idle' as ExecutionPhase, phaseProgress: 0, overallProgress: 0 };
           }
 
           // Log status transitions to help diagnose flip-flop issues
@@ -792,7 +796,7 @@ export interface PersistStatusResult {
 export async function persistTaskStatus(
   taskId: string,
   status: TaskStatus,
-  options?: { forceCleanup?: boolean }
+  options?: { forceCleanup?: boolean; keepWorktree?: boolean }
 ): Promise<PersistStatusResult> {
   const store = useTaskStore.getState();
 

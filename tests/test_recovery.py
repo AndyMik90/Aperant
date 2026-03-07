@@ -250,6 +250,119 @@ def test_mark_subtask_stuck(test_env):
     assert history["status"] == "stuck", "Chunk status not updated to stuck"
 
 
+def test_mark_subtask_stuck_updates_plan(test_env):
+    """Test that mark_subtask_stuck updates implementation_plan.json status."""
+    temp_dir, spec_dir, project_dir = test_env
+
+    # Create implementation_plan.json with subtask in_progress
+    plan = {
+        "feature": "Test Feature",
+        "phases": [
+            {
+                "phase": 1,
+                "name": "Phase 1",
+                "subtasks": [
+                    {
+                        "id": "subtask-1-1",
+                        "description": "Implement feature A",
+                        "status": "in_progress",
+                    },
+                    {
+                        "id": "subtask-1-2",
+                        "description": "Implement feature B",
+                        "status": "completed",
+                    },
+                ],
+            },
+        ],
+    }
+    plan_file = spec_dir / "implementation_plan.json"
+    plan_file.write_text(json.dumps(plan, indent=2))
+
+    manager = RecoveryManager(spec_dir, project_dir)
+
+    # Record some attempts for subtask-1-1
+    manager.record_attempt("subtask-1-1", 1, False, "Try 1", "Error 1")
+    manager.record_attempt("subtask-1-1", 2, False, "Try 2", "Error 2")
+    manager.record_attempt("subtask-1-1", 3, False, "Try 3", "Error 3")
+
+    # Mark subtask-1-1 as stuck
+    reason = "Circular fix after 3 attempts"
+    manager.mark_subtask_stuck("subtask-1-1", reason)
+
+    # Verify plan file was updated
+    with open(plan_file, encoding="utf-8") as f:
+        updated_plan = json.load(f)
+
+    # Find the stuck subtask
+    subtask_1_1 = updated_plan["phases"][0]["subtasks"][0]
+    assert subtask_1_1["id"] == "subtask-1-1"
+    assert subtask_1_1["status"] == "failed", "Stuck subtask status should be 'failed'"
+    assert "actual_output" in subtask_1_1, "actual_output field should be added"
+    assert "Marked as stuck" in subtask_1_1["actual_output"], "actual_output should mention stuck status"
+    assert reason in subtask_1_1["actual_output"], "actual_output should include the reason"
+
+    # Verify other subtask was not affected
+    subtask_1_2 = updated_plan["phases"][0]["subtasks"][1]
+    assert subtask_1_2["id"] == "subtask-1-2"
+    assert subtask_1_2["status"] == "completed", "Other subtask status should be unchanged"
+
+
+def test_mark_subtask_stuck_plan_missing_subtask(test_env):
+    """Test mark_subtask_stuck when subtask doesn't exist in plan."""
+    temp_dir, spec_dir, project_dir = test_env
+
+    # Create plan without the subtask we'll mark as stuck
+    plan = {
+        "feature": "Test Feature",
+        "phases": [
+            {
+                "phase": 1,
+                "name": "Phase 1",
+                "subtasks": [
+                    {
+                        "id": "subtask-1-1",
+                        "description": "Implement feature A",
+                        "status": "completed",
+                    },
+                ],
+            },
+        ],
+    }
+    plan_file = spec_dir / "implementation_plan.json"
+    plan_file.write_text(json.dumps(plan, indent=2))
+
+    manager = RecoveryManager(spec_dir, project_dir)
+
+    # Mark a non-existent subtask as stuck
+    manager.mark_subtask_stuck("subtask-2-1", "Some error")
+
+    # Verify plan file was not corrupted
+    with open(plan_file, encoding="utf-8") as f:
+        updated_plan = json.load(f)
+
+    # Plan should remain unchanged
+    assert len(updated_plan["phases"]) == 1
+    assert len(updated_plan["phases"][0]["subtasks"]) == 1
+    assert updated_plan["phases"][0]["subtasks"][0]["status"] == "completed"
+
+
+def test_mark_subtask_stuck_plan_missing_file(test_env):
+    """Test mark_subtask_stuck when implementation_plan.json doesn't exist."""
+    temp_dir, spec_dir, project_dir = test_env
+
+    manager = RecoveryManager(spec_dir, project_dir)
+
+    # Record attempts and mark as stuck (should not crash)
+    manager.record_attempt("subtask-1", 1, False, "Try 1", "Error 1")
+    manager.mark_subtask_stuck("subtask-1", "Some error")
+
+    # Verify stuck status in attempt_history
+    stuck_subtasks = manager.get_stuck_subtasks()
+    assert len(stuck_subtasks) == 1
+    assert stuck_subtasks[0]["subtask_id"] == "subtask-1"
+
+
 def test_recovery_hints(test_env):
     """Test recovery hints generation."""
     temp_dir, spec_dir, project_dir = test_env

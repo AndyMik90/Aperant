@@ -185,6 +185,7 @@ export const IPC_CHANNELS = {
   ROADMAP_STOP: 'roadmap:stop',
   ROADMAP_UPDATE_FEATURE: 'roadmap:updateFeature',
   ROADMAP_CONVERT_TO_SPEC: 'roadmap:convertToSpec',
+  COMPETITOR_ANALYSIS_SAVE: 'roadmap:competitorAnalysisSave',
 
   // Roadmap events (main -> renderer)
   ROADMAP_PROGRESS: 'roadmap:progress',
@@ -408,11 +409,13 @@ export const IPC_CHANNELS = {
   GITHUB_PR_CHECK_MERGE_READINESS: 'github:pr:checkMergeReadiness',
   GITHUB_PR_MARK_REVIEW_POSTED: 'github:pr:markReviewPosted',
   GITHUB_PR_UPDATE_BRANCH: 'github:pr:updateBranch',
+  GITHUB_PR_NOTIFY_EXTERNAL_REVIEW_COMPLETE: 'github:pr:notifyExternalReviewComplete',
 
   // GitHub PR Review events (main -> renderer)
   GITHUB_PR_REVIEW_PROGRESS: 'github:pr:reviewProgress',
   GITHUB_PR_REVIEW_COMPLETE: 'github:pr:reviewComplete',
   GITHUB_PR_REVIEW_ERROR: 'github:pr:reviewError',
+  GITHUB_PR_REVIEW_STATE_CHANGE: 'github:pr:reviewStateChange',
   GITHUB_PR_LOGS_UPDATED: 'github:pr:logsUpdated',
 
   // GitHub PR Logs (for viewing AI review logs)
@@ -496,6 +499,10 @@ export const IPC_CHANNELS = {
   INSIGHTS_NEW_SESSION: 'insights:newSession',
   INSIGHTS_SWITCH_SESSION: 'insights:switchSession',
   INSIGHTS_DELETE_SESSION: 'insights:deleteSession',
+  INSIGHTS_DELETE_SESSIONS: 'insights:deleteSessions',
+  INSIGHTS_ARCHIVE_SESSION: 'insights:archiveSession',
+  INSIGHTS_ARCHIVE_SESSIONS: 'insights:archiveSessions',
+  INSIGHTS_UNARCHIVE_SESSION: 'insights:unarchiveSession',
   INSIGHTS_RENAME_SESSION: 'insights:renameSession',
   INSIGHTS_UPDATE_MODEL_CONFIG: 'insights:updateModelConfig',
 

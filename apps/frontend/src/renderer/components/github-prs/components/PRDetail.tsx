@@ -46,6 +46,7 @@ interface PRDetailProps {
   startedAt: string | null;
   isReviewing: boolean;
   isExternalReview?: boolean;
+  reviewError?: string | null;
   initialNewCommitsCheck?: NewCommitsCheck | null;
   isActive?: boolean;
   isLoadingFiles?: boolean;
@@ -81,6 +82,7 @@ export function PRDetail({
   startedAt,
   isReviewing,
   isExternalReview = false,
+  reviewError: reviewErrorProp,
   initialNewCommitsCheck,
   isActive: _isActive = false,
   isLoadingFiles = false,
@@ -417,19 +419,22 @@ export function PRDetail({
     const MAX_POLL_DURATION_MS = 30 * 60 * 1000; // 30 minutes
     const pollStart = Date.now();
 
+    let notified = false;
+
     const pollForCompletion = async () => {
+      // Skip if we already notified (prevents duplicate notifications before React cleanup)
+      if (notified) return;
+
       // Timeout: stop polling after 30 minutes to avoid indefinite polling
       if (Date.now() - pollStart > MAX_POLL_DURATION_MS) {
-        usePRReviewStore.getState().setPRReviewResult(projectId, {
-          prNumber: pr.number,
-          repo: '',
-          success: false,
-          findings: [],
-          summary: '',
-          overallStatus: 'comment',
-          reviewedAt: new Date().toISOString(),
-          error: 'External review polling timed out after 30 minutes',
-        });
+        console.warn('[PRDetail] External review polling timed out after 30 minutes');
+        notified = true;
+        try {
+          // Notify main process so the XState actor transitions to error state
+          await window.electronAPI.github.notifyExternalReviewComplete(projectId, pr.number, null);
+        } catch {
+          // Non-critical — state manager timeout is a best-effort notification
+        }
         return;
       }
 
@@ -440,7 +445,9 @@ export function PRDetail({
           // Otherwise this is a stale result from a previous review still on disk
           // (in-progress results are intentionally NOT saved to disk).
           if (startedAt && result.reviewedAt && new Date(result.reviewedAt) > new Date(startedAt)) {
-            usePRReviewStore.getState().setPRReviewResult(projectId, result);
+            notified = true;
+            // Notify main process so the XState actor transitions to completed state
+            await window.electronAPI.github.notifyExternalReviewComplete(projectId, pr.number, result);
           }
         }
       } catch {
@@ -721,6 +728,16 @@ export function PRDetail({
       };
     }
 
+    if (reviewErrorProp && !reviewResult?.success) {
+      return {
+        status: 'not_reviewed',
+        label: t('prReview.reviewFailed'),
+        description: reviewErrorProp,
+        icon: <AlertCircle className="h-5 w-5" />,
+        color: 'bg-destructive/20 text-destructive border-destructive/50',
+      };
+    }
+
     if (!reviewResult || !reviewResult.success) {
       return {
         status: 'not_reviewed',
@@ -863,7 +880,7 @@ export function PRDetail({
       icon: <MessageSquare className="h-5 w-5" />,
       color: 'bg-primary/20 text-primary border-primary/50',
     };
-  }, [isReviewing, reviewProgress, reviewResult, postedFindingIds, isReadyToMerge, newCommitsCheck, t]);
+  }, [isReviewing, reviewProgress, reviewResult, reviewErrorProp, postedFindingIds, isReadyToMerge, newCommitsCheck, t]);
 
   const handlePostReview = async () => {
     const idsToPost = Array.from(selectedFindingIds);
@@ -1128,6 +1145,7 @@ ${t('prReview.blockedStatusMessageFooter')}`;
           reviewResult={reviewResult}
           previousReviewResult={previousReviewResult}
           postedCount={new Set([...postedFindingIds, ...(reviewResult?.postedFindingIds ?? [])]).size}
+          reviewError={reviewErrorProp}
           onRunReview={onRunReview}
           onRunFollowupReview={onRunFollowupReview}
           onCancelReview={onCancelReview}

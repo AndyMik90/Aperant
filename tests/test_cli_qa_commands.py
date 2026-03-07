@@ -284,7 +284,7 @@ class TestHandleQaCommand:
             )
 
         captured = capsys.readouterr()
-        assert "Build not complete" in captured.out
+        assert "Build not ready for QA" in captured.out
         assert "1/2" in captured.out
 
     def test_processes_human_feedback(

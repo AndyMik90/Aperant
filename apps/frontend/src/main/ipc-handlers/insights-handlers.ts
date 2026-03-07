@@ -16,6 +16,7 @@ import type {
   InsightsSession,
   InsightsSessionSummary,
   InsightsModelConfig,
+  ImageAttachment,
   Task,
   TaskMetadata,
   AppSettings,
@@ -81,7 +82,7 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
 
   ipcMain.on(
     IPC_CHANNELS.INSIGHTS_SEND_MESSAGE,
-    async (_, projectId: string, message: string, modelConfig?: InsightsModelConfig) => {
+    async (_, projectId: string, message: string, modelConfig?: InsightsModelConfig, images?: ImageAttachment[]) => {
       const project = projectStore.getProject(projectId);
       if (!project) {
         safeSendToRenderer(
@@ -112,7 +113,7 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
       // the handler returns. This fixes race conditions on Windows where
       // environment setup wouldn't complete before process spawn.
       try {
-        await insightsService.sendMessage(projectId, project.path, message, configWithSettings);
+        await insightsService.sendMessage(projectId, project.path, message, configWithSettings, images);
       } catch (error) {
         // Errors during sendMessage (executor errors) are already emitted via
         // the 'error' event, but we catch here to prevent unhandled rejection
@@ -249,14 +250,92 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
   // List all sessions for a project
   ipcMain.handle(
     IPC_CHANNELS.INSIGHTS_LIST_SESSIONS,
-    async (_, projectId: string): Promise<IPCResult<InsightsSessionSummary[]>> => {
+    async (_, projectId: string, includeArchived?: boolean): Promise<IPCResult<InsightsSessionSummary[]>> => {
       const project = projectStore.getProject(projectId);
       if (!project) {
         return { success: false, error: "Project not found" };
       }
 
-      const sessions = insightsService.listSessions(project.path);
+      const sessions = insightsService.listSessions(project.path, includeArchived ?? false);
       return { success: true, data: sessions };
+    }
+  );
+
+  // Delete multiple sessions
+  ipcMain.handle(
+    IPC_CHANNELS.INSIGHTS_DELETE_SESSIONS,
+    async (_, projectId: string, sessionIds: string[]): Promise<IPCResult<{ deletedIds: string[]; failedIds: string[] }>> => {
+      if (!Array.isArray(sessionIds) || sessionIds.length === 0) {
+        return { success: false, error: "No sessions specified" };
+      }
+
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: "Project not found" };
+      }
+
+      const result = insightsService.deleteSessions(projectId, project.path, sessionIds);
+      return {
+        success: result.failedIds.length === 0,
+        data: result,
+        ...(result.failedIds.length > 0 && { error: `Failed to delete ${result.failedIds.length} session(s)` })
+      };
+    }
+  );
+
+  // Archive a session
+  ipcMain.handle(
+    IPC_CHANNELS.INSIGHTS_ARCHIVE_SESSION,
+    async (_, projectId: string, sessionId: string): Promise<IPCResult> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: "Project not found" };
+      }
+
+      const success = insightsService.archiveSession(projectId, project.path, sessionId);
+      if (success) {
+        return { success: true };
+      }
+      return { success: false, error: "Failed to archive session" };
+    }
+  );
+
+  // Archive multiple sessions
+  ipcMain.handle(
+    IPC_CHANNELS.INSIGHTS_ARCHIVE_SESSIONS,
+    async (_, projectId: string, sessionIds: string[]): Promise<IPCResult<{ archivedIds: string[]; failedIds: string[] }>> => {
+      if (!Array.isArray(sessionIds) || sessionIds.length === 0) {
+        return { success: false, error: "No sessions specified" };
+      }
+
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: "Project not found" };
+      }
+
+      const result = insightsService.archiveSessions(projectId, project.path, sessionIds);
+      return {
+        success: result.failedIds.length === 0,
+        data: result,
+        ...(result.failedIds.length > 0 && { error: `Failed to archive ${result.failedIds.length} session(s)` })
+      };
+    }
+  );
+
+  // Unarchive a session
+  ipcMain.handle(
+    IPC_CHANNELS.INSIGHTS_UNARCHIVE_SESSION,
+    async (_, projectId: string, sessionId: string): Promise<IPCResult> => {
+      const project = projectStore.getProject(projectId);
+      if (!project) {
+        return { success: false, error: "Project not found" };
+      }
+
+      const success = insightsService.unarchiveSession(project.path, sessionId);
+      if (success) {
+        return { success: true };
+      }
+      return { success: false, error: "Failed to unarchive session" };
     }
   );
 

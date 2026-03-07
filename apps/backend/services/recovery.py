@@ -21,6 +21,8 @@ from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 
+from core.file_utils import write_json_atomic
+
 # Recovery manager configuration
 ATTEMPT_WINDOW_SECONDS = 7200  # Only count attempts within last 2 hours
 MAX_ATTEMPT_HISTORY_PER_SUBTASK = 50  # Cap stored attempts per subtask
@@ -513,6 +515,36 @@ class RecoveryManager:
             history["subtasks"][subtask_id]["status"] = "stuck"
 
         self._save_attempt_history(history)
+
+        # Also update the subtask status in implementation_plan.json
+        # so that other callers (like is_build_ready_for_qa) see accurate status
+        try:
+            plan_file = self.spec_dir / "implementation_plan.json"
+            if plan_file.exists():
+                with open(plan_file, encoding="utf-8") as f:
+                    plan = json.load(f)
+
+                updated = False
+                for phase in plan.get("phases", []):
+                    for subtask in phase.get("subtasks", []):
+                        if subtask.get("id") == subtask_id:
+                            subtask["status"] = "failed"
+                            stuck_note = f"Marked as stuck: {reason}"
+                            existing = subtask.get("actual_output", "")
+                            subtask["actual_output"] = (
+                                f"{stuck_note}\n{existing}" if existing else stuck_note
+                            )
+                            updated = True
+                            break
+                    if updated:
+                        break
+
+                if updated:
+                    write_json_atomic(plan_file, plan, indent=2)
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError) as e:
+            logger.warning(
+                f"Failed to update implementation_plan.json for stuck subtask {subtask_id}: {e}"
+            )
 
     def get_stuck_subtasks(self) -> list[dict]:
         """

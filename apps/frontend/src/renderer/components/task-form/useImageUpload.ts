@@ -15,6 +15,7 @@ import {
 import type { ImageAttachment } from '../../../shared/types';
 import {
   MAX_IMAGES_PER_TASK,
+  MAX_IMAGE_SIZE,
   ALLOWED_IMAGE_TYPES_DISPLAY
 } from '../../../shared/constants';
 
@@ -30,6 +31,7 @@ export interface FileReferenceData {
 interface ImageUploadErrorMessages {
   maxImagesReached?: string;
   invalidImageType?: string;
+  imageTooLarge?: string;
   processPasteFailed?: string;
   processDropFailed?: string;
 }
@@ -74,6 +76,7 @@ interface UseImageUploadReturn {
 const DEFAULT_ERROR_MESSAGES: Required<ImageUploadErrorMessages> = {
   maxImagesReached: `Maximum of ${MAX_IMAGES_PER_TASK} images allowed`,
   invalidImageType: `Invalid image type. Allowed: ${ALLOWED_IMAGE_TYPES_DISPLAY}`,
+  imageTooLarge: `Image exceeds maximum size of ${Math.round(MAX_IMAGE_SIZE / 1024 / 1024)}MB`,
   processPasteFailed: 'Failed to process pasted image',
   processDropFailed: 'Failed to process dropped image'
 };
@@ -145,6 +148,12 @@ export function useImageUpload({
         // Validate image type
         if (!isValidImageMimeType(file.type)) {
           onError?.(errors.invalidImageType);
+          continue;
+        }
+
+        // Validate file size
+        if (file.size > MAX_IMAGE_SIZE) {
+          onError?.(errors.imageTooLarge);
           continue;
         }
 
