@@ -13,7 +13,7 @@ import path from 'path';
 import { IPC_CHANNELS } from '../../shared/constants/ipc';
 import type { IPCResult } from '../../shared/types';
 import type { GlobalMcpInfo, GlobalMcpServerEntry } from '../../shared/types/integrations';
-import { readUserGlobalSettings } from '../claude-code-settings/reader';
+import { readUserGlobalSettings, getUserConfigDir } from '../claude-code-settings/reader';
 import { debugLog } from '../../shared/utils/debug-logger';
 
 const LOG_PREFIX = '[ClaudeMCP]';
@@ -98,15 +98,8 @@ async function resolvePluginServers(pluginKey: string, claudeDir: string): Promi
     return [];
   }
 
-  // Read .mcp.json from the hash directory
+  // Read .mcp.json from the hash directory (read directly to avoid TOCTOU race)
   const mcpJsonPath = path.join(latestHashDir, '.mcp.json');
-  try {
-    await fs.access(mcpJsonPath);
-  } catch {
-    debugLog(`${LOG_PREFIX} .mcp.json not found in plugin cache:`, mcpJsonPath);
-    return [];
-  }
-
   try {
     const content = await fs.readFile(mcpJsonPath, 'utf-8');
     const parsed = JSON.parse(content);
@@ -158,8 +151,13 @@ async function resolvePluginServers(pluginKey: string, claudeDir: string): Promi
 
     debugLog(`${LOG_PREFIX} Resolved ${entries.length} server(s) from plugin:`, pluginKey);
     return entries;
-  } catch (error) {
-    debugLog(`${LOG_PREFIX} Failed to parse .mcp.json:`, mcpJsonPath, error);
+  } catch (error: unknown) {
+    // ENOENT means file doesn't exist — not an error worth logging at detail level
+    if (error instanceof Error && 'code' in error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
+      debugLog(`${LOG_PREFIX} .mcp.json not found in plugin cache:`, mcpJsonPath);
+    } else {
+      debugLog(`${LOG_PREFIX} Failed to parse .mcp.json:`, mcpJsonPath, error);
+    }
     return [];
   }
 }
@@ -240,14 +238,11 @@ function resolveInlineServers(
 
 /**
  * Get the Claude home directory (~/.claude).
- * Uses the same logic as the settings reader for consistency.
+ * Delegates to getUserConfigDir() from the settings reader for consistency
+ * with profile-aware config resolution (active profile → CLAUDE_CONFIG_DIR → ~/.claude).
  */
 function getClaudeHomeDir(): string {
-  const envConfigDir = process.env.CLAUDE_CONFIG_DIR;
-  if (envConfigDir) {
-    return envConfigDir;
-  }
-  return path.join(homedir(), '.claude');
+  return getUserConfigDir();
 }
 
 /**
@@ -258,10 +253,18 @@ function getClaudeHomeDir(): string {
  * @returns Array of GlobalMcpServerEntry with source 'claude-json', or empty array on failure.
  */
 async function readClaudeJsonMcpServers(): Promise<GlobalMcpServerEntry[]> {
-  const claudeConfigDir = process.env.CLAUDE_CONFIG_DIR;
-  const candidates = claudeConfigDir
-    ? [path.join(claudeConfigDir, '.claude.json'), path.join(homedir(), '.claude.json')]
-    : [path.join(homedir(), '.claude.json')];
+  // .claude.json lives in the home directory (or CLAUDE_CONFIG_DIR parent).
+  // Use getUserConfigDir() for profile-aware resolution, then look for
+  // .claude.json in the parent of that config dir.
+  const configDir = getUserConfigDir();
+  const configParent = path.dirname(configDir);
+  const homeDir = homedir();
+
+  // Build candidate list: config dir parent first, then home as fallback
+  const candidates = [path.join(configParent, '.claude.json')];
+  if (configParent !== homeDir) {
+    candidates.push(path.join(homeDir, '.claude.json'));
+  }
 
   let claudeJsonPath: string | undefined;
   for (const candidate of candidates) {
