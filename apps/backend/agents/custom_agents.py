@@ -298,6 +298,7 @@ def _parse_simple_yaml(text: str) -> dict:
         if isinstance(parsed, dict):
             return parsed
     except Exception:
+        # yaml.safe_load may fail or return non-dict; fall through to manual parser
         pass
 
     # Fallback: manual parser with block-list support

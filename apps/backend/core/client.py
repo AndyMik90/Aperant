@@ -395,20 +395,39 @@ def _validate_custom_mcp_server(server: dict) -> bool:
 def _load_global_mcp_servers() -> dict[str, dict]:
     """Load MCP servers from ~/.claude.json (user's global Claude Code config).
 
+    Respects CLAUDE_CONFIG_DIR env var for custom config locations (e.g.
+    multi-profile setups). Falls back to ~/.claude.json.
+
     Returns a dict mapping server_id -> server_config for all non-disabled
     MCP servers defined in the user's global config. These are the same
     servers available in interactive Claude Code sessions.
     """
     home = Path.home()
-    claude_json_path = home / ".claude.json"
-    if not claude_json_path.exists():
+
+    # Respect CLAUDE_CONFIG_DIR for custom config locations (multi-profile support).
+    # .claude.json lives in the PARENT of the config dir (e.g. ~/.claude.json is the
+    # parent of ~/.claude/). For custom config dirs, check the parent first.
+    config_dir = os.environ.get("CLAUDE_CONFIG_DIR")
+    candidates = []
+    if config_dir:
+        config_parent = Path(config_dir).parent
+        candidates.append(config_parent / ".claude.json")
+    candidates.append(home / ".claude.json")
+
+    claude_json_path: Path | None = None
+    for candidate in candidates:
+        if candidate.exists():
+            claude_json_path = candidate
+            break
+
+    if not claude_json_path:
         return {}
 
     try:
-        with open(claude_json_path, "r", encoding="utf-8") as f:
+        with open(claude_json_path, encoding="utf-8") as f:
             data = json.load(f)
     except (json.JSONDecodeError, OSError) as exc:
-        logger.warning("Failed to read ~/.claude.json: %s", exc)
+        logger.warning("Failed to read %s: %s", claude_json_path, exc)
         return {}
 
     raw_servers = data.get("mcpServers")
@@ -776,6 +795,11 @@ def create_client(
                     )
             break
 
+    # Pre-load global MCP server IDs so we can grant permissions in security_settings.
+    # The actual mcp_servers dict is populated later; here we only need the IDs.
+    _global_mcp_servers_preload = _load_global_mcp_servers()
+    global_mcp_added: list[str] = []  # Populated after mcp_servers is built
+
     security_settings = {
         "sandbox": {"enabled": True, "autoAllowBashIfSandboxed": True},
         "permissions": {
@@ -956,8 +980,8 @@ def create_client(
     # ========== Merge global MCP servers from ~/.claude.json ==========
     # Load all user-configured MCPs and add any that Auto-Claude doesn't
     # already define. Auto-Claude's hardcoded/project MCPs take priority.
-    global_mcp_servers = _load_global_mcp_servers()
-    global_mcp_added = []
+    # Re-use the pre-loaded global servers (loaded before security_settings).
+    global_mcp_servers = _global_mcp_servers_preload
     for server_id, server_config in global_mcp_servers.items():
         if server_id not in mcp_servers:
             mcp_servers[server_id] = server_config
@@ -966,6 +990,12 @@ def create_client(
             allowed_tools_list.append(f"mcp__{server_id}__*")
 
     if global_mcp_added:
+        # Update security_settings with permissions for global MCP tools and re-write
+        security_settings["permissions"]["allow"].extend(
+            [f"mcp__{sid}__*(*)" for sid in global_mcp_added]
+        )
+        with open(settings_file, "w", encoding="utf-8") as f:
+            json.dump(security_settings, f, indent=2)
         print(f"   - Global MCPs (from ~/.claude.json): {', '.join(sorted(global_mcp_added))}")
 
     # Build system prompt

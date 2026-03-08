@@ -173,7 +173,9 @@
     "retry": "Retry",
     "clonedCount": "{{count}} repository cloned",
     "clonedCount_other": "{{count}} repositories cloned",
-    "done": "Done"
+    "done": "Done",
+    "private": "Private repository",
+    "public": "Public repository"
   },
   "customModel": {
     "title": "Custom Model Configuration",

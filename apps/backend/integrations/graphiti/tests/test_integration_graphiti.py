@@ -73,7 +73,7 @@ def mock_graphiti_core_modules():
     mock_graphiti_core.Graphiti = mock_graphiti_class
 
     # Mock driver
-    _mock_driver = MagicMock()
+    mock_driver = MagicMock()  # noqa: F841 - assigned to set up mock chain below
     mock_driver_module = MagicMock()
     mock_driver_module.KuzuDriver = MagicMock()
     mock_graphiti_core.driver = MagicMock()

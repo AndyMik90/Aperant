@@ -173,7 +173,9 @@
     "retry": "Réessayer",
     "clonedCount": "{{count}} dépôt cloné",
     "clonedCount_other": "{{count}} dépôts clonés",
-    "done": "Terminé"
+    "done": "Terminé",
+    "private": "Dépôt privé",
+    "public": "Dépôt public"
   },
   "customModel": {
     "title": "Configuration du modèle personnalisé",

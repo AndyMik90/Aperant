@@ -18,11 +18,11 @@ export function makePRId(repoFullName: string | undefined, number: number): stri
 export function parsePRId(id: string): { repo: string; number: number } {
   const hashIndex = id.lastIndexOf('#');
   if (hashIndex === -1) {
-    return { repo: '', number: Number.parseInt(id, 10) };
+    return { repo: '', number: Number.parseInt(id, 10) || 0 };
   }
   return {
     repo: id.slice(0, hashIndex),
-    number: Number.parseInt(id.slice(hashIndex + 1), 10),
+    number: Number.parseInt(id.slice(hashIndex + 1), 10) || 0,
   };
 }
 

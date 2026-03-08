@@ -7,11 +7,11 @@
 
 import { ipcMain } from 'electron';
 import { existsSync, readdirSync } from 'fs';
-import { homedir } from 'os';
 import path from 'path';
 import { IPC_CHANNELS } from '../../shared/constants/ipc';
 import type { IPCResult } from '../../shared/types';
 import type { ClaudeAgentsInfo, ClaudeAgentCategory, ClaudeCustomAgent } from '../../shared/types/integrations';
+import { getUserConfigDir } from '../claude-code-settings/reader';
 import { debugLog } from '../../shared/utils/debug-logger';
 
 const LOG_PREFIX = '[ClaudeAgents]';
@@ -45,9 +45,7 @@ function toAgentName(fileName: string): string {
  * Respects CLAUDE_CONFIG_DIR environment variable.
  */
 function getAgentsDir(): string {
-  const envConfigDir = process.env.CLAUDE_CONFIG_DIR;
-  const claudeDir = envConfigDir || path.join(homedir(), '.claude');
-  return path.join(claudeDir, 'agents');
+  return path.join(getUserConfigDir(), 'agents');
 }
 
 /**
@@ -79,7 +77,6 @@ export function registerClaudeAgentsHandlers(): void {
           for (const file of files) {
             if (!file.endsWith('.md') || file.toLowerCase() === 'readme.md') continue;
 
-            const filePath = path.join(entryPath, file);
             const agentId = file.replace(/\.md$/, '');
 
             // Use relative path (categoryDir/file) instead of absolute filePath

@@ -184,9 +184,9 @@ export function CustomerReposModal({ open, onOpenChange, customer }: CustomerRep
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-sm truncate">{repo.fullName}</span>
                     {repo.isPrivate ? (
-                      <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      <Lock className="h-3 w-3 shrink-0 text-muted-foreground" aria-label={t('customerRepos.private')} />
                     ) : (
-                      <Globe className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      <Globe className="h-3 w-3 shrink-0 text-muted-foreground" aria-label={t('customerRepos.public')} />
                     )}
                   </div>
                   {repo.description && (
