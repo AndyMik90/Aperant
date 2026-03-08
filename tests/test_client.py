@@ -27,9 +27,13 @@ def clear_auth_env():
     """Clear auth environment variables before and after each test."""
     for var in AUTH_TOKEN_ENV_VARS:
         os.environ.pop(var, None)
+    saved_config_dir = os.environ.pop("CLAUDE_CONFIG_DIR", None)
     yield
     for var in AUTH_TOKEN_ENV_VARS:
         os.environ.pop(var, None)
+    os.environ.pop("CLAUDE_CONFIG_DIR", None)
+    if saved_config_dir is not None:
+        os.environ["CLAUDE_CONFIG_DIR"] = saved_config_dir
 
 
 class TestClientTokenValidation:

@@ -35,10 +35,14 @@ class TestEnvVarTokenResolution:
         """Clear auth environment variables before each test."""
         for var in AUTH_TOKEN_ENV_VARS:
             os.environ.pop(var, None)
+        saved_config_dir = os.environ.pop("CLAUDE_CONFIG_DIR", None)
         yield
         # Cleanup after test
         for var in AUTH_TOKEN_ENV_VARS:
             os.environ.pop(var, None)
+        os.environ.pop("CLAUDE_CONFIG_DIR", None)
+        if saved_config_dir is not None:
+            os.environ["CLAUDE_CONFIG_DIR"] = saved_config_dir
 
     def test_claude_oauth_token_from_env(self):
         """Reads CLAUDE_CODE_OAUTH_TOKEN from environment."""
@@ -373,6 +377,7 @@ class TestRequireAuthToken:
         """Clear auth environment variables and mock keychain before each test."""
         for var in AUTH_TOKEN_ENV_VARS:
             os.environ.pop(var, None)
+        monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
         # Mock keychain to return None (tests that need a token will set env var)
         monkeypatch.setattr("core.auth.get_token_from_keychain", lambda _config_dir=None: None)
         yield
@@ -437,11 +442,15 @@ class TestEnsureClaudeCodeOAuthToken:
         for var in AUTH_TOKEN_ENV_VARS:
             os.environ.pop(var, None)
         os.environ.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
+        saved_config_dir = os.environ.pop("CLAUDE_CONFIG_DIR", None)
         yield
         # Cleanup after test
         for var in AUTH_TOKEN_ENV_VARS:
             os.environ.pop(var, None)
         os.environ.pop("CLAUDE_CODE_OAUTH_TOKEN", None)
+        os.environ.pop("CLAUDE_CONFIG_DIR", None)
+        if saved_config_dir is not None:
+            os.environ["CLAUDE_CONFIG_DIR"] = saved_config_dir
 
     def test_does_nothing_when_already_set(self):
         """Doesn't modify env var when CLAUDE_CODE_OAUTH_TOKEN is already set."""
@@ -480,10 +489,14 @@ class TestTokenSourceDetection:
         """Clear auth environment variables before each test."""
         for var in AUTH_TOKEN_ENV_VARS:
             os.environ.pop(var, None)
+        saved_config_dir = os.environ.pop("CLAUDE_CONFIG_DIR", None)
         yield
         # Cleanup after test
         for var in AUTH_TOKEN_ENV_VARS:
             os.environ.pop(var, None)
+        os.environ.pop("CLAUDE_CONFIG_DIR", None)
+        if saved_config_dir is not None:
+            os.environ["CLAUDE_CONFIG_DIR"] = saved_config_dir
 
     def test_source_env_var_claude_oauth(self):
         """Identifies CLAUDE_CODE_OAUTH_TOKEN as source."""
@@ -982,10 +995,14 @@ class TestTokenDecryptionKeychain:
         """Clear auth environment variables before each test."""
         for var in AUTH_TOKEN_ENV_VARS:
             os.environ.pop(var, None)
+        saved_config_dir = os.environ.pop("CLAUDE_CONFIG_DIR", None)
         yield
         # Cleanup after test
         for var in AUTH_TOKEN_ENV_VARS:
             os.environ.pop(var, None)
+        os.environ.pop("CLAUDE_CONFIG_DIR", None)
+        if saved_config_dir is not None:
+            os.environ["CLAUDE_CONFIG_DIR"] = saved_config_dir
 
     def test_keychain_encrypted_token_decryption_attempted(self, monkeypatch):
         """Verify encrypted tokens from keychain trigger decryption."""
