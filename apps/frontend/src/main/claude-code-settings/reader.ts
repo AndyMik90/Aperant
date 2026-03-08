@@ -338,7 +338,7 @@ function readJsonFile(filePath: string): ClaudeCodeSettings | undefined {
  * 2. CLAUDE_CONFIG_DIR environment variable
  * 3. Default: ~/.claude
  */
-function getUserConfigDir(): string {
+export function getUserConfigDir(): string {
   // Try to get configDir from the active Claude profile.
   // We use a lazy import to avoid circular dependencies and to handle
   // the case where ClaudeProfileManager hasn't been initialized yet.

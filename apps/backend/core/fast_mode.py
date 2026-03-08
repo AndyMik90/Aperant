@@ -8,6 +8,7 @@ per-task fast mode overrides. Shared by both client.py and simple_client.py.
 
 import json
 import logging
+import os
 from pathlib import Path
 
 from core.file_utils import write_json_atomic
@@ -23,7 +24,8 @@ def _write_fast_mode_setting(enabled: bool) -> None:
     Uses write_json_atomic from core.file_utils to prevent corruption when
     multiple concurrent task processes modify the file simultaneously.
     """
-    settings_file = Path.home() / ".claude" / "settings.json"
+    config_dir = os.environ.get("CLAUDE_CONFIG_DIR")
+    settings_file = Path(config_dir) / "settings.json" if config_dir else Path.home() / ".claude" / "settings.json"
     try:
         settings: dict = {}
         if settings_file.exists():
