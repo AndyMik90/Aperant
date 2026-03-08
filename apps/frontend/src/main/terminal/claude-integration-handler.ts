@@ -540,17 +540,16 @@ export function handleOAuthToken(
 
       console.warn('[ClaudeIntegration] Profile credentials verified via Keychain (not caching token):', profileId);
 
-      // Set flag to watch for Claude's ready state (onboarding complete)
-      terminal.awaitingOnboardingComplete = true;
-
-      // needsOnboarding: true tells the UI to show "complete setup" message
-      // instead of "success" - user should finish Claude's onboarding before closing
+      // Credentials verified - close the auth terminal immediately.
+      // claude /login exits after OAuth completes and does not continue as an interactive
+      // session, so the welcome screen never appears and waiting for it would leave the
+      // window open forever.
       safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, {
         terminalId: terminal.id,
         profileId,
         email: emailFromOutput || keychainCreds.email || profile?.email,
         success: true,
-        needsOnboarding: true,
+        needsOnboarding: false,
         detectedAt: new Date().toISOString()
       } as OAuthTokenEvent);
     } else {
@@ -561,17 +560,12 @@ export function handleOAuthToken(
       if (hasCredentials) {
         console.warn('[ClaudeIntegration] Profile credentials verified (no Keychain token):', profileId);
 
-        // Set flag to watch for Claude's ready state (onboarding complete)
-        terminal.awaitingOnboardingComplete = true;
-
-        // needsOnboarding: true tells the UI to show "complete setup" message
-        // instead of "success" - user should finish Claude's onboarding before closing
         safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_OAUTH_TOKEN, {
           terminalId: terminal.id,
           profileId,
           email: emailFromOutput || profile?.email,
           success: true,
-          needsOnboarding: true,
+          needsOnboarding: false,
           detectedAt: new Date().toISOString()
         } as OAuthTokenEvent);
       } else {

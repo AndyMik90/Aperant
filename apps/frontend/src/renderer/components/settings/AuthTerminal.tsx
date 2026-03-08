@@ -252,6 +252,14 @@ export function AuthTerminal({
             debugLog('Setting status to success (no onboarding needed)', { terminalId });
             setStatus('success');
             onAuthSuccess?.(info.email);
+            // Auto-close after a brief delay to show success UI
+            successTimeoutRef.current = setTimeout(() => {
+              if (isCreatedRef.current) {
+                window.electronAPI.destroyTerminal(terminalId).catch(console.error);
+                isCreatedRef.current = false;
+              }
+              onClose();
+            }, 1500);
           }
         } else {
           debugLog('OAuth failed', { terminalId, message: info.message });
