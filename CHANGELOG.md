@@ -1,3 +1,21 @@
+## 2.7.16 - Memory System & Custom Agents
+
+### ✨ New Features
+
+- **Memory system improvements** — Enhanced Graphiti integration with episode types, embedding dimension validation, and session-scoped context retrieval
+- **Custom agents integration** — Full YAML frontmatter parsing with tool/MCP server overrides, thinking level control, and category-based agent catalog
+
+### 🐛 Bug Fixes
+
+- **Critical: UnboundLocalError in client.py** — Fixed `global_mcp_added` being referenced before definition in security settings dict; pre-load global MCP servers and update settings file after population
+- **TOCTOU race condition** — Eliminated filesystem race in MCP plugin cache reader by replacing `fs.access()` + `fs.readFile()` with a single read call
+- **Test environment isolation** — Fixed 14 failing tests caused by `CLAUDE_CONFIG_DIR` env var leaking into auth/client test fixtures
+- **NaN propagation** — Guarded `parseIssueId`/`parsePRId` against `NaN` from malformed composite IDs
+- **Accessibility** — Added `aria-label` to Lock/Globe repo visibility icons in CustomerReposModal
+- **i18n** — Added private/public repository label keys for en + fr locales
+- **Config path resolution** — `fast_mode.py` now respects `CLAUDE_CONFIG_DIR` for settings file location
+- **Code quality** — Removed unused variables (`filePath`, `_mock_driver`), added explanatory comments to empty except clauses
+
 ## 2.7.15 - Global MCP Integration & Code Quality
 
 ### ✨ New Features
