@@ -663,6 +663,8 @@
         "crossProvider": "Cross-Provider"
       },
       "crossProviderDescription": "This priority order is used when cross-provider mode is active. When multiple accounts share a provider, the system selects the best available one based on this order.",
+      "setActive": "Set as active",
+      "setActiveTooltip": "Make this the primary account",
       "noAccounts": "No accounts configured. Add accounts above to set priority.",
       "noEmail": "No email",
       "active": "Active",

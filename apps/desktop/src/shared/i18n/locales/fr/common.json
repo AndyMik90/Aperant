@@ -532,6 +532,7 @@
     "crossProvider": "Multi-fournisseur",
     "crossProviderConfig": "Multi-fournisseur",
     "crossProviderUsage": "Utilisation multi-fournisseur",
+    "crossProviderActive": "Multi-fournisseur actif",
     "providerUnknown": "Inconnu",
     "providerOpenAI": "OpenAI",
     "providerGoogle": "Google AI",

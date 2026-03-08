@@ -532,6 +532,7 @@
     "crossProvider": "Cross-Provider",
     "crossProviderConfig": "Cross-Provider",
     "crossProviderUsage": "Cross-Provider Usage",
+    "crossProviderActive": "Cross-Provider Active",
     "providerOpenRouter": "OpenRouter",
     "providerUnknown": "Unknown",
     "providerOpenAI": "OpenAI",

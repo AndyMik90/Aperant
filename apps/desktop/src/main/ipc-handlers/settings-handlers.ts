@@ -1014,6 +1014,16 @@ export function registerSettingsHandlers(
         settings.globalPriorityOrder = order;
         const currentSettingsPath = getSettingsPath();
         writeFileSync(currentSettingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+
+        // Sync to claude-profiles.json so usage-monitor (which reads from profileManager) stays in sync
+        try {
+          const { getClaudeProfileManager } = await import('../claude-profile-manager');
+          const manager = getClaudeProfileManager();
+          manager.setAccountPriorityOrder(order);
+        } catch {
+          // Non-fatal: usage-monitor may use stale order until next app restart
+        }
+
         console.warn('[PROVIDER_ACCOUNTS_SET_QUEUE_ORDER] Queue order updated:', order.length, 'accounts');
         return { success: true };
       } catch (error) {

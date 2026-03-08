@@ -538,15 +538,6 @@ export class ProjectStore {
           });
         }) || [];
 
-        // Diagnostic: log subtask status summary when any non-pending status is found.
-        // Helps trace whether disk data has correct statuses on load.
-        if (subtasks.length > 0) {
-          const completed = subtasks.filter(s => s.status === 'completed').length;
-          if (completed > 0) {
-            console.warn(`[ProjectStore] Task ${dir.name} (${location}): ${completed}/${subtasks.length} subtasks completed on disk`);
-          }
-        }
-
         // Auto-correct status to human_review if all subtasks are completed
         // This handles cases where task completed but app restarted before XState persisted the status
         // (e.g., QA_PASSED event emitted but not processed before shutdown)

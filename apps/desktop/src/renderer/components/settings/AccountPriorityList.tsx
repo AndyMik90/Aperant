@@ -133,9 +133,10 @@ export interface UnifiedAccount {
 interface SortableAccountItemProps {
   account: UnifiedAccount;
   index: number;
+  onSetActive?: (accountId: string) => void;
 }
 
-function SortableAccountItem({ account, index }: SortableAccountItemProps) {
+function SortableAccountItem({ account, index, onSetActive }: SortableAccountItemProps) {
   const { t } = useTranslation('settings');
   const {
     attributes,
@@ -333,15 +334,33 @@ function SortableAccountItem({ account, index }: SortableAccountItemProps) {
         )}
       </div>
 
-      {/* Right side badge for API profiles */}
-      {account.type === 'api' && (
-        <div className="flex items-center gap-1.5 shrink-0">
+      {/* Right side actions */}
+      <div className="flex items-center gap-1.5 shrink-0">
+        {/* Set Active button - only shown for non-active accounts */}
+        {onSetActive && !account.isActive && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => onSetActive(account.id)}
+                className="text-muted-foreground hover:text-primary p-1 rounded hover:bg-primary/10 transition-colors"
+              >
+                <Star className="h-3.5 w-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="text-xs">
+              {t('accounts.priority.setActiveTooltip')}
+            </TooltipContent>
+          </Tooltip>
+        )}
+        {/* Pay-per-use badge for API profiles */}
+        {account.type === 'api' && (
           <span className="text-[10px] bg-muted text-muted-foreground px-2 py-1 rounded flex items-center gap-1">
             <Infinity className="h-3 w-3" />
             {t('accounts.priority.payPerUse')}
           </span>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
@@ -349,10 +368,11 @@ function SortableAccountItem({ account, index }: SortableAccountItemProps) {
 interface AccountPriorityListProps {
   accounts: UnifiedAccount[];
   onReorder: (newOrder: string[]) => void;
+  onSetActive?: (accountId: string) => void;
   isLoading?: boolean;
 }
 
-export function AccountPriorityList({ accounts, onReorder, isLoading }: AccountPriorityListProps) {
+export function AccountPriorityList({ accounts, onReorder, onSetActive, isLoading }: AccountPriorityListProps) {
   const { t } = useTranslation('settings');
   const [items, setItems] = useState<UnifiedAccount[]>(accounts);
 
@@ -491,6 +511,7 @@ export function AccountPriorityList({ accounts, onReorder, isLoading }: AccountP
                   isDuplicateUsage: duplicateUsageIds.has(account.id)
                 }}
                 index={index}
+                onSetActive={onSetActive}
               />
             ))}
           </div>

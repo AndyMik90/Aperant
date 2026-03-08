@@ -13,7 +13,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { Activity, TrendingUp, AlertCircle, Clock, ChevronRight, Info, LogIn } from 'lucide-react';
+import { Activity, TrendingUp, AlertCircle, Clock, ChevronRight, Info, LogIn, Layers } from 'lucide-react';
 import {
   Popover,
   PopoverContent,
@@ -181,6 +181,91 @@ export function UsageIndicator() {
       return (words[0][0] + words[1][0]).toUpperCase();
     }
     return name.substring(0, 2).toUpperCase();
+  };
+
+  /**
+   * Render the active account footer section.
+   * When cross-provider mode is on, shows a cross-provider summary instead of a single account.
+   */
+  const renderActiveAccountFooter = (opts: {
+    hasOtherItems: boolean;
+    needsReauth?: boolean;
+    usageProfile?: { profileName: string; profileEmail?: string; needsReauthentication?: boolean } | null;
+  }) => {
+    const { hasOtherItems, needsReauth, usageProfile } = opts;
+    const bottomPadding = hasOtherItems ? 'pb-2' : '-mb-3 pb-3 rounded-b-md';
+
+    if (isCrossProviderMode) {
+      return (
+        <button
+          type="button"
+          onClick={handleOpenAccounts}
+          className={`w-full pt-3 border-t flex items-center gap-2.5 hover:bg-muted/50 -mx-3 px-3 ${bottomPadding} transition-colors cursor-pointer group`}
+        >
+          <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-violet-500/10">
+            <Layers className="h-4 w-4 text-violet-500" />
+          </div>
+          <div className="flex-1 min-w-0 text-left">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-muted-foreground font-medium">
+                {t('common:usage.crossProviderActive')}
+              </span>
+            </div>
+            <div className="font-medium text-xs truncate text-violet-500">
+              {crossProviderLabel}
+            </div>
+          </div>
+          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
+        </button>
+      );
+    }
+
+    // Standard single-account display
+    const displayName = usageProfile?.profileEmail || usageProfile?.profileName || activeAccount?.name;
+    const initials = getInitials(usageProfile?.profileName || activeAccount?.name || '');
+    const showReauth = needsReauth || usageProfile?.needsReauthentication;
+
+    return activeAccount ? (
+      <button
+        type="button"
+        onClick={handleOpenAccounts}
+        className={`w-full pt-3 border-t flex items-center gap-2.5 hover:bg-muted/50 -mx-3 px-3 ${bottomPadding} transition-colors cursor-pointer group`}
+      >
+        <div className="relative">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+            showReauth ? 'bg-red-500/10' : 'bg-primary/10'
+          }`}>
+            <span className={`text-xs font-semibold ${showReauth ? 'text-red-500' : 'text-primary'}`}>
+              {initials}
+            </span>
+          </div>
+          {showReauth && (
+            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-background" />
+          )}
+        </div>
+        <div className="flex-1 min-w-0 text-left">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] text-muted-foreground font-medium">
+              {t('common:usage.activeAccount')}
+            </span>
+            {showReauth && (
+              <span className="text-[9px] px-1.5 py-0.5 bg-red-500/10 text-destructive rounded font-semibold">
+                {t('common:usage.needsReauth')}
+              </span>
+            )}
+            <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold border ${
+              PROVIDER_BADGE_COLORS[activeAccount.provider] ?? PROVIDER_BADGE_COLORS['openai-compatible']
+            }`}>
+              {getProviderName(activeAccount.provider)}
+            </span>
+          </div>
+          <div className={`font-medium text-xs truncate ${showReauth ? 'text-destructive' : 'text-primary'}`}>
+            {displayName}
+          </div>
+        </div>
+        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
+      </button>
+    ) : null;
   };
 
   /**
@@ -763,35 +848,7 @@ export function UsageIndicator() {
             </div>
 
             {/* Active account footer */}
-            {activeAccount && (
-              <button
-                type="button"
-                onClick={handleOpenAccounts}
-                className={`w-full pt-3 border-t flex items-center gap-2.5 hover:bg-muted/50 -mx-3 px-3 ${otherAccounts.length === 0 ? '-mb-3 pb-3 rounded-b-md' : 'pb-2'} transition-colors cursor-pointer group`}
-              >
-                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-primary/10">
-                  <span className="text-xs font-semibold text-primary">
-                    {getInitials(activeAccount.name)}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0 text-left">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-muted-foreground font-medium">
-                      {t('common:usage.activeAccount')}
-                    </span>
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold border ${
-                      PROVIDER_BADGE_COLORS[activeAccount.provider] ?? PROVIDER_BADGE_COLORS['openai-compatible']
-                    }`}>
-                      {getProviderName(activeAccount.provider)}
-                    </span>
-                  </div>
-                  <div className="font-medium text-xs truncate text-primary">
-                    {activeAccount.name}
-                  </div>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
-              </button>
-            )}
+            {renderActiveAccountFooter({ hasOtherItems: otherAccounts.length > 0 })}
 
             {/* Other accounts from the queue */}
             {otherAccounts.length > 0 && (
@@ -921,35 +978,7 @@ export function UsageIndicator() {
             </div>
 
             {/* Active account footer */}
-            {activeAccount && (
-              <button
-                type="button"
-                onClick={handleOpenAccounts}
-                className={`w-full pt-3 border-t flex items-center gap-2.5 hover:bg-muted/50 -mx-3 px-3 ${otherAccounts.length === 0 ? '-mb-3 pb-3 rounded-b-md' : 'pb-2'} transition-colors cursor-pointer group`}
-              >
-                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-primary/10">
-                  <span className="text-xs font-semibold text-primary">
-                    {getInitials(activeAccount.name)}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0 text-left">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-muted-foreground font-medium">
-                      {t('common:usage.activeAccount')}
-                    </span>
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold border ${
-                      PROVIDER_BADGE_COLORS[activeAccount.provider] ?? PROVIDER_BADGE_COLORS['openai-compatible']
-                    }`}>
-                      {getProviderName(activeAccount.provider)}
-                    </span>
-                  </div>
-                  <div className="font-medium text-xs truncate text-primary">
-                    {activeAccount.name}
-                  </div>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
-              </button>
-            )}
+            {renderActiveAccountFooter({ hasOtherItems: otherAccounts.length > 0 })}
 
             {/* Other accounts from the queue */}
             {otherAccounts.length > 0 && (
@@ -1106,37 +1135,7 @@ export function UsageIndicator() {
             </div>
 
             {/* Active account footer */}
-            {activeAccount && (
-              <button
-                type="button"
-                onClick={handleOpenAccounts}
-                className={`w-full pt-3 border-t flex items-center gap-2.5 hover:bg-muted/50 -mx-3 px-3 ${otherAccounts.length === 0 ? '-mb-3 pb-3 rounded-b-md' : 'pb-2'} transition-colors cursor-pointer group`}
-              >
-                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-primary/10">
-                  <span className="text-xs font-semibold text-primary">
-                    {getInitials(activeAccount.name)}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0 text-left">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-muted-foreground font-medium">
-                      {t('common:usage.activeAccount')}
-                    </span>
-                    <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold border ${
-                      PROVIDER_BADGE_COLORS[activeAccount.provider] ?? PROVIDER_BADGE_COLORS['openai-compatible']
-                    }`}>
-                      {getProviderName(activeAccount.provider)}
-                    </span>
-                  </div>
-                  <div className={`font-medium text-xs truncate ${
-                    needsReauth ? 'text-destructive' : 'text-primary'
-                  }`}>
-                    {activeAccount.name}
-                  </div>
-                </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
-              </button>
-            )}
+            {renderActiveAccountFooter({ hasOtherItems: otherAccounts.length > 0, needsReauth })}
 
             {/* Other accounts with swap buttons */}
             {otherAccounts.length > 0 && (
@@ -1427,57 +1426,10 @@ export function UsageIndicator() {
           )}
 
           {/* Active account footer - clickable to go to settings */}
-          <button
-            type="button"
-            onClick={handleOpenAccounts}
-            className={`w-full pt-3 border-t flex items-center gap-2.5 hover:bg-muted/50 -mx-3 px-3 ${(otherProfiles.length === 0 && otherAccounts.length === 0) ? '-mb-3 pb-3 rounded-b-md' : 'pb-2'} transition-colors cursor-pointer group`}
-          >
-            {/* Initials Avatar with warning indicator for re-auth needed */}
-            <div className="relative">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                usage.needsReauthentication ? 'bg-red-500/10' : 'bg-primary/10'
-              }`}>
-                <span className={`text-xs font-semibold ${
-                  usage.needsReauthentication ? 'text-red-500' : 'text-primary'
-                }`}>
-                  {getInitials(usage.profileName)}
-                </span>
-              </div>
-              {/* Status dot for re-auth needed */}
-              {usage.needsReauthentication && (
-                <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-background" />
-              )}
-            </div>
-
-            {/* Account Info */}
-            <div className="flex-1 min-w-0 text-left">
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-muted-foreground font-medium">
-                  {t('common:usage.activeAccount')}
-                </span>
-                {usage.needsReauthentication && (
-                  <span className="text-[9px] px-1.5 py-0.5 bg-red-500/10 text-destructive rounded font-semibold">
-                    {t('common:usage.needsReauth')}
-                  </span>
-                )}
-                {activeAccount && (
-                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold border ${
-                    PROVIDER_BADGE_COLORS[activeAccount.provider] ?? PROVIDER_BADGE_COLORS['openai-compatible']
-                  }`}>
-                    {getProviderName(activeAccount.provider)}
-                  </span>
-                )}
-              </div>
-              <div className={`font-medium text-xs truncate ${
-                usage.needsReauthentication ? 'text-destructive' : 'text-primary'
-              }`}>
-                {usage.profileEmail || usage.profileName}
-              </div>
-            </div>
-
-            {/* Chevron */}
-            <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
-          </button>
+          {renderActiveAccountFooter({
+            hasOtherItems: otherAccounts.length > 0,
+            usageProfile: usage,
+          })}
 
           {/* Other accounts from priority queue (non-Anthropic or non-OAuth) */}
           {otherAccounts.length > 0 && (

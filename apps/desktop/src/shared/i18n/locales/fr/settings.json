@@ -663,6 +663,8 @@
         "crossProvider": "Multi-fournisseur"
       },
       "crossProviderDescription": "Cet ordre de priorité est utilisé lorsque le mode multi-fournisseur est actif. Lorsque plusieurs comptes partagent un fournisseur, le système sélectionne le meilleur disponible selon cet ordre.",
+      "setActive": "Définir comme actif",
+      "setActiveTooltip": "Faire de ce compte le compte principal",
       "noAccounts": "Aucun compte configuré. Ajoutez des comptes ci-dessus pour définir la priorité.",
       "noEmail": "Pas d'email",
       "active": "Actif",
