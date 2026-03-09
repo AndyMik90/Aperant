@@ -191,7 +191,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
   useEffect(() => {
     if (isOpen) {
       loadAutoSwitchSettings();
-      loadProfileUsageData(true);
+      loadProfileUsageData(false); // Use cached data; push-based listener below provides fresh updates
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, loadProfileUsageData]);

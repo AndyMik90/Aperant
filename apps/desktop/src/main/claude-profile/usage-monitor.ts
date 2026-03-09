@@ -231,7 +231,17 @@ export class UsageMonitor extends EventEmitter {
   // Cache for all profiles' usage data
   // Map<profileId, { usage: ProfileUsageSummary, fetchedAt: number }>
   private allProfilesUsageCache: Map<string, { usage: ProfileUsageSummary; fetchedAt: number }> = new Map();
-  private static PROFILE_USAGE_CACHE_TTL_MS = 60 * 1000; // 1 minute cache for inactive profiles
+  private static PROFILE_USAGE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes cache for inactive profiles
+
+  // Request coalescing: track in-flight getAllProfilesUsage() promise to avoid parallel duplicate fetches
+  private allProfilesUsageInflight: Promise<AllProfilesUsage | null> | null = null;
+
+  // Timestamp of last inactive-profile refresh (for adaptive cadence)
+  private lastInactiveProfileRefreshAt = 0;
+
+  // Rate-limit (429) tracking: separate from general API failures, uses longer cooldown
+  private rateLimitedProfiles: Map<string, number> = new Map(); // profileId -> 429 timestamp
+  private static RATE_LIMIT_COOLDOWN_MS = 10 * 60 * 1000; // 10 minutes cooldown for 429s
 
   // Debug flag for verbose logging
   private readonly isDebug = process.env.DEBUG === 'true';
@@ -282,7 +292,7 @@ export class UsageMonitor extends EventEmitter {
    * Note: Usage monitoring always runs to display the usage badge.
    * Proactive account swapping only occurs if enabled in settings.
    *
-   * Update interval: 30 seconds (30000ms) to keep usage stats accurate
+   * Update interval: 60 seconds (60000ms) for active profile; inactive profiles every 5 minutes (adaptive: 60s when usage is high)
    */
   start(): void {
     if (this.intervalId) {
@@ -292,9 +302,9 @@ export class UsageMonitor extends EventEmitter {
 
     const profileManager = getClaudeProfileManager();
     const settings = profileManager.getAutoSwitchSettings();
-    const interval = settings.usageCheckInterval || 30000; // 30 seconds for accurate usage tracking
+    const interval = settings.usageCheckInterval || 60000; // 60 seconds for active profile polling
 
-    this.debugLog('[UsageMonitor] Starting with interval: ' + interval + ' ms (30-second updates for accurate usage stats)');
+    this.debugLog('[UsageMonitor] Starting with interval: ' + interval + ' ms (60-second updates for active profile usage stats)');
 
     // Check immediately
     this.checkUsageAndSwap();
@@ -397,6 +407,7 @@ export class UsageMonitor extends EventEmitter {
     // missing credentials to show the re-auth indicator. Proactively check all profiles
     // for missing credentials and populate needsReauthProfiles.
     if (!this.currentUsage) {
+      // Fast path: no coalescing needed since this is synchronous-ish and returns quickly
       // Check all OAuth profiles for missing credentials
       for (const profile of settings.profiles) {
         if (profile.configDir) {
@@ -446,6 +457,26 @@ export class UsageMonitor extends EventEmitter {
       };
     }
 
+    // Request coalescing: if a fetch is already in-flight, return the existing promise
+    // This prevents burst API calls when multiple callers trigger getAllProfilesUsage() simultaneously
+    if (!forceRefresh && this.allProfilesUsageInflight) {
+      return this.allProfilesUsageInflight;
+    }
+
+    this.allProfilesUsageInflight = this._doGetAllProfilesUsage(forceRefresh);
+    try {
+      return await this.allProfilesUsageInflight;
+    } finally {
+      this.allProfilesUsageInflight = null;
+    }
+  }
+
+  private async _doGetAllProfilesUsage(
+    forceRefresh: boolean
+  ): Promise<AllProfilesUsage | null> {
+    const profileManager = getClaudeProfileManager();
+    const settings = profileManager.getSettings();
+    const activeProfileId = settings.activeProfileId;
     const now = Date.now();
     const allProfiles: ProfileUsageSummary[] = [];
 
@@ -454,12 +485,21 @@ export class UsageMonitor extends EventEmitter {
     const profilesToFetch: ProfileToFetch[] = [];
     const profileResults: (ProfileUsageSummary | null)[] = new Array(settings.profiles.length).fill(null);
 
+    // Adaptive cache TTL: when active profile usage is high, refresh inactive profiles more
+    // frequently (every 60s instead of 5min) because we may need to swap soon
+    const activeUsageHigh = this.currentUsage
+      ? (this.currentUsage.sessionPercent > 80 || this.currentUsage.weeklyPercent > 90)
+      : false;
+    const effectiveCacheTtl = activeUsageHigh
+      ? 60 * 1000 // 60s when usage is high (swap-ready mode)
+      : UsageMonitor.PROFILE_USAGE_CACHE_TTL_MS; // 5 min normally
+
     for (let i = 0; i < settings.profiles.length; i++) {
       const profile = settings.profiles[i];
       const cached = this.allProfilesUsageCache.get(profile.id);
 
       // Use cached data if fresh (within TTL) and not force refreshing
-      if (!forceRefresh && cached && (now - cached.fetchedAt) < UsageMonitor.PROFILE_USAGE_CACHE_TTL_MS) {
+      if (!forceRefresh && cached && (now - cached.fetchedAt) < effectiveCacheTtl) {
         profileResults[i] = {
           ...cached.usage,
           isActive: profile.id === activeProfileId
@@ -484,42 +524,84 @@ export class UsageMonitor extends EventEmitter {
       // Collect usage updates for batch save (avoids race condition with concurrent saves)
       const usageUpdates: Array<{ profileId: string; sessionPercent: number; weeklyPercent: number }> = [];
 
-      const fetchPromises = profilesToFetch.map(async ({ profile, index }) => {
-        const inactiveUsage = await this.fetchUsageForInactiveProfile(profile);
-        const rateLimitStatus = isProfileRateLimited(profile);
-
-        let sessionPercent = 0;
-        let weeklyPercent = 0;
-
-        if (inactiveUsage) {
-          sessionPercent = inactiveUsage.sessionPercent;
-          weeklyPercent = inactiveUsage.weeklyPercent;
-          // Collect update for batch save (don't save here to avoid race condition)
-          return {
-            index,
-            update: { profileId: profile.id, sessionPercent, weeklyPercent },
-            profile,
-            inactiveUsage,
-            rateLimitStatus
-          };
-        } else {
-          // Fallback to cached profile data if API fetch failed
-          sessionPercent = profile.usage?.sessionUsagePercent ?? 0;
-          weeklyPercent = profile.usage?.weeklyUsagePercent ?? 0;
-          return {
-            index,
-            update: null, // No update needed for fallback
-            profile,
-            inactiveUsage,
-            rateLimitStatus,
-            sessionPercent,
-            weeklyPercent
-          };
+      // Build provider lookup map for staggered fetching
+      // OAuth profiles (with configDir) are always 'anthropic'; API profiles use their stored provider
+      const providerAccountsMap = new Map<string, string>(); // profileId -> provider
+      try {
+        const appSettings = await readSettingsFileAsync();
+        if (appSettings) {
+          const accounts = (appSettings.providerAccounts as ProviderAccount[] | undefined) ?? [];
+          for (const account of accounts) {
+            providerAccountsMap.set(account.id, account.provider);
+            if (account.claudeProfileId) {
+              providerAccountsMap.set(account.claudeProfileId, account.provider);
+            }
+          }
         }
+      } catch {
+        // Use default 'anthropic' for all profiles if settings can't be read
+      }
+
+      // Group profiles by provider — different providers hit different APIs so can run in parallel,
+      // but same-provider fetches are staggered to avoid burst hits against the same API endpoint
+      type FetchItem = { profile: typeof profilesToFetch[0]['profile']; index: number };
+      const providerGroups = new Map<string, FetchItem[]>();
+      for (const item of profilesToFetch) {
+        const provider = providerAccountsMap.get(item.profile.id) ?? 'anthropic';
+        const group = providerGroups.get(provider) ?? [];
+        group.push(item);
+        providerGroups.set(provider, group);
+      }
+
+      // 15-second stagger between consecutive same-provider fetches
+      const STAGGER_DELAY_MS = 15_000;
+
+      // Fetch provider groups in parallel; within each group, stagger sequentially
+      const groupPromises = Array.from(providerGroups.values()).map(async (group) => {
+        const groupResults: Array<{
+          index: number;
+          update: { profileId: string; sessionPercent: number; weeklyPercent: number } | null;
+          profile: FetchItem['profile'];
+          inactiveUsage: ClaudeUsageSnapshot | null;
+          rateLimitStatus: ReturnType<typeof isProfileRateLimited>;
+          sessionPercent?: number;
+          weeklyPercent?: number;
+        }> = [];
+
+        for (let gi = 0; gi < group.length; gi++) {
+          if (gi > 0) {
+            await new Promise<void>(resolve => setTimeout(resolve, STAGGER_DELAY_MS));
+          }
+          const { profile, index } = group[gi];
+          const inactiveUsage = await this.fetchUsageForInactiveProfile(profile);
+          const rateLimitStatus = isProfileRateLimited(profile);
+
+          if (inactiveUsage) {
+            groupResults.push({
+              index,
+              update: { profileId: profile.id, sessionPercent: inactiveUsage.sessionPercent, weeklyPercent: inactiveUsage.weeklyPercent },
+              profile,
+              inactiveUsage,
+              rateLimitStatus
+            });
+          } else {
+            groupResults.push({
+              index,
+              update: null,
+              profile,
+              inactiveUsage,
+              rateLimitStatus,
+              sessionPercent: profile.usage?.sessionUsagePercent ?? 0,
+              weeklyPercent: profile.usage?.weeklyUsagePercent ?? 0
+            });
+          }
+        }
+        return groupResults;
       });
 
-      // Wait for all fetches to complete in parallel
-      const fetchResults = await Promise.all(fetchPromises);
+      // Wait for all provider groups to complete in parallel
+      const allGroupResults = await Promise.all(groupPromises);
+      const fetchResults = allGroupResults.flat();
 
       // Collect all updates and build summaries
       for (const result of fetchResults) {
@@ -580,7 +662,8 @@ export class UsageMonitor extends EventEmitter {
     allProfiles.sort((a, b) => b.availabilityScore - a.availabilityScore);
 
     return {
-      activeProfile: this.currentUsage,
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      activeProfile: this.currentUsage!, // Non-null: _doGetAllProfilesUsage is only called when currentUsage is set
       allProfiles,
       fetchedAt: new Date()
     };
@@ -641,6 +724,14 @@ export class UsageMonitor extends EventEmitter {
 
         token = tokenResult.token;
 
+        // If we got a valid token (regardless of refresh), clear the needs-reauth flag.
+        // This handles the case where the startup null-check in getAllProfilesUsage()
+        // incorrectly marked the profile (sync keychain read returned null, but async
+        // ensureValidToken succeeds later).
+        if (token && !tokenResult.persistenceFailed) {
+          this.needsReauthProfiles.delete(profile.id);
+        }
+
         if (tokenResult.error) {
           this.debugLog('[UsageMonitor] Token validation failed for inactive profile: ' + profile.name, tokenResult.error);
 
@@ -673,6 +764,8 @@ export class UsageMonitor extends EventEmitter {
           this.needsReauthProfiles.add(profile.id);
           return null;
         }
+        // Got a valid token from keychain fallback — clear stale needs-reauth flag
+        this.needsReauthProfiles.delete(profile.id);
       }
 
       this.traceLog('[UsageMonitor] Fetching usage for inactive profile:', {
@@ -1051,6 +1144,10 @@ export class UsageMonitor extends EventEmitter {
         }
 
         if (tokenResult.token) {
+          // Valid token obtained — clear any stale needs-reauth flag
+          if (!tokenResult.persistenceFailed) {
+            this.needsReauthProfiles.delete(activeProfile.id);
+          }
           this.traceLog('[UsageMonitor:TRACE] Using OAuth token for profile: ' + activeProfile.name, {
             tokenFingerprint: getCredentialFingerprint(tokenResult.token),
             wasRefreshed: tokenResult.wasRefreshed
@@ -1083,6 +1180,8 @@ export class UsageMonitor extends EventEmitter {
       // Fallback: Try direct keychain read (e.g., if refresh token unavailable)
       const keychainCreds = getCredentialsFromKeychain(activeProfile.configDir);
       if (keychainCreds.token) {
+        // Got a valid token from keychain fallback — clear stale needs-reauth flag
+        this.needsReauthProfiles.delete(activeProfile.id);
         this.traceLog('[UsageMonitor:TRACE] Using fallback OAuth token from Keychain for profile: ' + activeProfile.name, {
           tokenFingerprint: getCredentialFingerprint(keychainCreds.token)
         });
@@ -1232,6 +1331,17 @@ export class UsageMonitor extends EventEmitter {
    * @returns true if API should be tried, false if CLI should be used
    */
   private shouldUseApiMethod(profileId: string): boolean {
+    // Check rate-limit (429) cooldown first — longer backoff than general API failures
+    const lastRateLimit = this.rateLimitedProfiles.get(profileId);
+    if (lastRateLimit) {
+      const elapsed = Date.now() - lastRateLimit;
+      if (elapsed < UsageMonitor.RATE_LIMIT_COOLDOWN_MS) {
+        return false;
+      }
+      this.rateLimitedProfiles.delete(profileId); // Cooldown expired, clear the marker
+    }
+
+    // Check general API failure cooldown
     const lastFailure = this.apiFailureTimestamps.get(profileId);
     if (!lastFailure) return true; // No previous failure, try API
     // Check if cooldown has expired (use >= to allow retry at exact boundary)
@@ -1338,6 +1448,10 @@ export class UsageMonitor extends EventEmitter {
 
         if (tokenResult.token) {
           credential = tokenResult.token;
+          // Valid token obtained — clear any stale needs-reauth flag
+          if (!tokenResult.persistenceFailed) {
+            this.needsReauthProfiles.delete(account.id);
+          }
         } else if (tokenResult.error) {
           this.traceLog('[UsageMonitor:TRACE] Token validation failed for active account:', tokenResult.error);
           if (tokenResult.errorCode === 'invalid_grant') {
@@ -1355,7 +1469,10 @@ export class UsageMonitor extends EventEmitter {
       if (!credential) {
         const keychainCreds = getCredentialsFromKeychain(configDir);
         credential = keychainCreds.token ?? undefined;
-        if (!credential) {
+        if (credential) {
+          // Got a valid token from keychain fallback — clear stale needs-reauth flag
+          this.needsReauthProfiles.delete(account.id);
+        } else {
           this.traceLog('[UsageMonitor:TRACE] No token in keychain for Anthropic OAuth account: ' + account.name);
           this.needsReauthProfiles.add(account.id);
         }
@@ -1952,6 +2069,17 @@ export class UsageMonitor extends EventEmitter {
           provider,
           endpoint: usageEndpoint
         });
+
+        // Handle rate limiting with a much longer backoff than general API failures
+        if (response.status === 429) {
+          console.warn('[UsageMonitor] Rate limited (429) by provider, backing off for 10 minutes:', {
+            provider,
+            endpoint: usageEndpoint,
+            cooldownMs: UsageMonitor.RATE_LIMIT_COOLDOWN_MS
+          });
+          this.rateLimitedProfiles.set(profileId, Date.now());
+          return null;
+        }
 
         // Check for auth failures via status code (works for all providers)
         if (response.status === 401 || response.status === 403) {
