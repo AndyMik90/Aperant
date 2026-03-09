@@ -7,6 +7,7 @@ import { useProjectStore } from './project-store';
 /** Default max parallel tasks when no project setting is configured */
 export const DEFAULT_MAX_PARALLEL_TASKS = 3;
 
+
 /** Maximum log entries stored per task to prevent renderer OOM */
 export const MAX_LOG_ENTRIES = 5000;
 
@@ -154,11 +155,11 @@ function validatePlanData(plan: ImplementationPlan): boolean {
         return false;
       }
 
-      // Description is critical - we can't show a subtask without it.
-      // Accept 'title' and 'name' as fallbacks since AI planners vary in field naming.
-      const desc = subtask.description || subtask.title || (subtask as unknown as { name?: string }).name;
-      if (!desc || typeof desc !== 'string' || desc.trim() === '') {
-        console.warn(`[validatePlanData] Invalid subtask at phase ${i}, index ${j}: missing or empty description`);
+      // Title is the primary display field.
+      // Accept 'description' and 'name' as fallbacks since AI planners vary in field naming.
+      const displayText = subtask.title || subtask.description || (subtask as unknown as { name?: string }).name;
+      if (!displayText || typeof displayText !== 'string' || displayText.trim() === '') {
+        console.warn(`[validatePlanData] Invalid subtask at phase ${i}, index ${j}: missing title and description`);
         return false;
       }
     }
@@ -373,9 +374,8 @@ export const useTaskStore = create<TaskState>((set, get) => ({
               const id = subtask.id || (typeof crypto !== 'undefined' && crypto.randomUUID
                 ? crypto.randomUUID()
                 : `subtask-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`);
-              // Accept 'title' and 'name' as fallbacks since AI planners vary in field naming
-              const description = subtask.description || subtask.title || (subtask as unknown as { name?: string }).name || 'No description available';
-              const title = description; // Title and description are the same for subtasks
+              const title = subtask.title;
+              const description = subtask.description;
               const status = (subtask.status as SubtaskStatus) || 'pending';
 
               return {

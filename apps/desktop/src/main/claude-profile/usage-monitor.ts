@@ -542,11 +542,46 @@ export class UsageMonitor extends EventEmitter {
         // Use default 'anthropic' for all profiles if settings can't be read
       }
 
-      // Group profiles by provider — different providers hit different APIs so can run in parallel,
-      // but same-provider fetches are staggered to avoid burst hits against the same API endpoint
+      // DEDUPLICATION: Group profiles by configDir to avoid fetching the same underlying
+      // account multiple times. Multiple ClaudeProfileManager entries can point to the same
+      // configDir (same OAuth credentials = same API endpoint = same usage data).
+      // Only fetch once per unique configDir, then share the result with all siblings.
       type FetchItem = { profile: typeof profilesToFetch[0]['profile']; index: number };
-      const providerGroups = new Map<string, FetchItem[]>();
+      const configDirGroups = new Map<string, FetchItem[]>(); // configDir -> all profiles sharing it
+      const noConfigDirItems: FetchItem[] = []; // profiles without configDir (API key profiles)
+
       for (const item of profilesToFetch) {
+        const configDir = item.profile.configDir;
+        if (configDir) {
+          const group = configDirGroups.get(configDir) ?? [];
+          group.push(item);
+          configDirGroups.set(configDir, group);
+        } else {
+          noConfigDirItems.push(item);
+        }
+      }
+
+      // Build the deduplicated fetch list: one representative per configDir + all non-configDir items
+      const deduplicatedFetchItems: FetchItem[] = [];
+      const configDirRepresentatives = new Map<string, FetchItem>(); // configDir -> representative item
+      for (const [configDir, group] of configDirGroups) {
+        const representative = group[0]; // fetch for the first profile in the group
+        deduplicatedFetchItems.push(representative);
+        configDirRepresentatives.set(configDir, representative);
+      }
+      deduplicatedFetchItems.push(...noConfigDirItems);
+
+      if (configDirGroups.size < profilesToFetch.length - noConfigDirItems.length) {
+        this.debugLog('[UsageMonitor] Deduplicated profiles by configDir:', {
+          original: profilesToFetch.length,
+          deduplicated: deduplicatedFetchItems.length,
+          savedFetches: profilesToFetch.length - deduplicatedFetchItems.length
+        });
+      }
+
+      // Group deduplicated items by provider for staggered fetching
+      const providerGroups = new Map<string, FetchItem[]>();
+      for (const item of deduplicatedFetchItems) {
         const provider = providerAccountsMap.get(item.profile.id) ?? 'anthropic';
         const group = providerGroups.get(provider) ?? [];
         group.push(item);
@@ -557,16 +592,17 @@ export class UsageMonitor extends EventEmitter {
       const STAGGER_DELAY_MS = 15_000;
 
       // Fetch provider groups in parallel; within each group, stagger sequentially
+      type FetchResult = {
+        index: number;
+        update: { profileId: string; sessionPercent: number; weeklyPercent: number } | null;
+        profile: FetchItem['profile'];
+        inactiveUsage: ClaudeUsageSnapshot | null;
+        rateLimitStatus: ReturnType<typeof isProfileRateLimited>;
+        sessionPercent?: number;
+        weeklyPercent?: number;
+      };
       const groupPromises = Array.from(providerGroups.values()).map(async (group) => {
-        const groupResults: Array<{
-          index: number;
-          update: { profileId: string; sessionPercent: number; weeklyPercent: number } | null;
-          profile: FetchItem['profile'];
-          inactiveUsage: ClaudeUsageSnapshot | null;
-          rateLimitStatus: ReturnType<typeof isProfileRateLimited>;
-          sessionPercent?: number;
-          weeklyPercent?: number;
-        }> = [];
+        const groupResults: FetchResult[] = [];
 
         for (let gi = 0; gi < group.length; gi++) {
           if (gi > 0) {
@@ -603,7 +639,10 @@ export class UsageMonitor extends EventEmitter {
       const allGroupResults = await Promise.all(groupPromises);
       const fetchResults = allGroupResults.flat();
 
-      // Collect all updates and build summaries
+      // Build a map of configDir -> fetch result for sharing with sibling profiles
+      const configDirFetchResults = new Map<string, FetchResult>();
+
+      // Collect all updates and build summaries for fetched (representative) profiles
       for (const result of fetchResults) {
         const { index, update, profile, inactiveUsage, rateLimitStatus } = result;
 
@@ -638,6 +677,61 @@ export class UsageMonitor extends EventEmitter {
 
         this.allProfilesUsageCache.set(profile.id, { usage: summary, fetchedAt: now });
         profileResults[index] = summary;
+
+        // Store fetch result for sibling profiles sharing the same configDir
+        if (profile.configDir) {
+          configDirFetchResults.set(profile.configDir, result);
+        }
+      }
+
+      // Propagate fetch results to sibling profiles that share the same configDir
+      // (these were deduplicated above and not fetched individually)
+      for (const [configDir, group] of configDirGroups) {
+        if (group.length <= 1) continue; // No siblings to propagate to
+        const representativeResult = configDirFetchResults.get(configDir);
+        if (!representativeResult) continue;
+
+        const { inactiveUsage } = representativeResult;
+        const sessionPercent = representativeResult.update?.sessionPercent ?? representativeResult.sessionPercent ?? 0;
+        const weeklyPercent = representativeResult.update?.weeklyPercent ?? representativeResult.weeklyPercent ?? 0;
+
+        // Skip the first item (already processed as the representative)
+        for (let si = 1; si < group.length; si++) {
+          const sibling = group[si];
+          const rateLimitStatus = isProfileRateLimited(sibling.profile);
+
+          // Copy rate-limit/failure state from representative to sibling
+          if (this.rateLimitedProfiles.has(representativeResult.profile.id)) {
+            const ts = this.rateLimitedProfiles.get(representativeResult.profile.id)!;
+            this.rateLimitedProfiles.set(sibling.profile.id, ts);
+          }
+
+          usageUpdates.push({ profileId: sibling.profile.id, sessionPercent, weeklyPercent });
+
+          const summary: ProfileUsageSummary = {
+            profileId: sibling.profile.id,
+            profileName: sibling.profile.name,
+            profileEmail: sibling.profile.email,
+            sessionPercent,
+            weeklyPercent,
+            isAuthenticated: sibling.profile.isAuthenticated ?? false,
+            isRateLimited: rateLimitStatus.limited,
+            rateLimitType: rateLimitStatus.type,
+            availabilityScore: this.calculateAvailabilityScore(
+              sessionPercent,
+              weeklyPercent,
+              rateLimitStatus.limited,
+              rateLimitStatus.type,
+              sibling.profile.isAuthenticated ?? false
+            ),
+            isActive: sibling.profile.id === activeProfileId,
+            lastFetchedAt: inactiveUsage?.fetchedAt?.toISOString() ?? sibling.profile.usage?.lastUpdated?.toISOString(),
+            needsReauthentication: this.needsReauthProfiles.has(sibling.profile.id)
+          };
+
+          this.allProfilesUsageCache.set(sibling.profile.id, { usage: summary, fetchedAt: now });
+          profileResults[sibling.index] = summary;
+        }
       }
 
       // Batch save all usage updates at once (single disk write, no race condition)
@@ -1332,13 +1426,19 @@ export class UsageMonitor extends EventEmitter {
    */
   private shouldUseApiMethod(profileId: string): boolean {
     // Check rate-limit (429) cooldown first — longer backoff than general API failures
-    const lastRateLimit = this.rateLimitedProfiles.get(profileId);
-    if (lastRateLimit) {
-      const elapsed = Date.now() - lastRateLimit;
-      if (elapsed < UsageMonitor.RATE_LIMIT_COOLDOWN_MS) {
-        return false;
+    // Also check sibling profiles that share the same configDir (same underlying API endpoint).
+    // When Anthropic 429s one profile, all profiles sharing the same credential are also blocked.
+    const profileIdsToCheck = this.getProfileIdFamily(profileId);
+
+    for (const id of profileIdsToCheck) {
+      const lastRateLimit = this.rateLimitedProfiles.get(id);
+      if (lastRateLimit) {
+        const elapsed = Date.now() - lastRateLimit;
+        if (elapsed < UsageMonitor.RATE_LIMIT_COOLDOWN_MS) {
+          return false; // Any sibling is rate-limited → block all
+        }
+        this.rateLimitedProfiles.delete(id); // Cooldown expired, clear the marker
       }
-      this.rateLimitedProfiles.delete(profileId); // Cooldown expired, clear the marker
     }
 
     // Check general API failure cooldown
@@ -1347,6 +1447,30 @@ export class UsageMonitor extends EventEmitter {
     // Check if cooldown has expired (use >= to allow retry at exact boundary)
     const elapsed = Date.now() - lastFailure;
     return elapsed >= UsageMonitor.API_FAILURE_COOLDOWN_MS;
+  }
+
+  /**
+   * Get all profile IDs that share the same configDir as the given profile.
+   * This is used to propagate rate-limit state across duplicate profile entries
+   * that point to the same underlying OAuth credential/API endpoint.
+   */
+  private getProfileIdFamily(profileId: string): string[] {
+    try {
+      const profileManager = getClaudeProfileManager();
+      const settings = profileManager.getSettings();
+      const targetProfile = settings.profiles.find(p => p.id === profileId);
+
+      if (!targetProfile?.configDir) return [profileId];
+
+      // Find all profiles with the same configDir
+      const siblings = settings.profiles
+        .filter(p => p.configDir === targetProfile.configDir)
+        .map(p => p.id);
+
+      return siblings.length > 0 ? siblings : [profileId];
+    } catch {
+      return [profileId];
+    }
   }
 
   /**
@@ -2071,13 +2195,19 @@ export class UsageMonitor extends EventEmitter {
         });
 
         // Handle rate limiting with a much longer backoff than general API failures
+        // Propagate to all sibling profiles sharing the same configDir (same API endpoint)
         if (response.status === 429) {
+          const now = Date.now();
+          const siblingIds = this.getProfileIdFamily(profileId);
           console.warn('[UsageMonitor] Rate limited (429) by provider, backing off for 10 minutes:', {
             provider,
             endpoint: usageEndpoint,
-            cooldownMs: UsageMonitor.RATE_LIMIT_COOLDOWN_MS
+            cooldownMs: UsageMonitor.RATE_LIMIT_COOLDOWN_MS,
+            affectedProfiles: siblingIds.length
           });
-          this.rateLimitedProfiles.set(profileId, Date.now());
+          for (const id of siblingIds) {
+            this.rateLimitedProfiles.set(id, now);
+          }
           return null;
         }
 

@@ -76,6 +76,8 @@ export interface WorktreeResult {
  * @param baseBranch     Base branch to branch from (defaults to "main")
  * @param useLocalBranch If true, always use the local base branch instead of
  *                       the remote ref (preserves gitignored files)
+ * @param pushNewBranches If true, push the branch to origin and set upstream
+ *                        tracking after worktree creation. Defaults to true.
  * @param autoBuildPath  Optional custom data directory (e.g. ".auto-claude").
  *                       Passed to getSpecsDir() for spec-copy logic.
  */
@@ -84,6 +86,7 @@ export async function createOrGetWorktree(
   specId: string,
   baseBranch = 'main',
   useLocalBranch = false,
+  pushNewBranches = true,
   autoBuildPath?: string,
 ): Promise<WorktreeResult> {
   const worktreePath = join(projectPath, '.auto-claude/worktrees/tasks', specId);
@@ -193,7 +196,7 @@ export async function createOrGetWorktree(
     }
 
     await git(
-      ['worktree', 'add', '-b', branchName, worktreePath, startPoint],
+      ['worktree', 'add', '-b', branchName, '--no-track', worktreePath, startPoint],
       projectPath,
     );
   }
@@ -201,6 +204,37 @@ export async function createOrGetWorktree(
   console.warn(
     `[WorktreeManager] Created worktree: ${specId} on branch ${branchName}`,
   );
+
+  // Best-effort upstream setup: the remote branch does not exist until first push,
+  // so publish it here when origin is available instead of inheriting origin/main.
+  if (pushNewBranches) {
+    const hasOrigin = await git(
+      ['remote', 'get-url', 'origin'],
+      projectPath,
+      /* allowFailure */ true,
+    );
+
+    if (hasOrigin) {
+      try {
+        await git(
+          ['push', '--set-upstream', 'origin', branchName],
+          worktreePath,
+        );
+        console.warn(
+          `[WorktreeManager] Pushed and set upstream: origin/${branchName}`,
+        );
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn(
+          `[WorktreeManager] Warning: Could not push upstream for ${branchName}: ${message}`,
+        );
+      }
+    }
+  } else {
+    console.warn(
+      `[WorktreeManager] Leaving branch local-only (auto-push disabled): ${branchName}`,
+    );
+  }
 
   // ------------------------------------------------------------------
   // Step 7: Copy spec directory into the worktree

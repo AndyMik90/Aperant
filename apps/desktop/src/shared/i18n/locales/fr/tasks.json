@@ -218,6 +218,8 @@
       "searchBranches": "Rechercher des branches...",
       "noBranchesFound": "Aucune branche trouvée",
       "helpText": "Remplacez la branche à partir de laquelle le worktree de cette tâche sera créé. Laissez vide pour utiliser la branche par défaut configurée du projet.",
+      "pushNewBranchesLabel": "Pousser automatiquement la nouvelle branche",
+      "pushNewBranchesDescription": "Publier automatiquement cette branche de tâche sur GitHub et configurer le suivi. Désactivez pour la garder locale uniquement.",
       "useWorktreeLabel": "Utiliser un espace de travail isolé (recommandé)",
       "useWorktreeDescription": "Crée les changements dans un worktree git séparé pour une révision sécurisée avant la fusion. Désactivez pour travailler directement dans votre projet (plus rapide mais risqué)."
     },

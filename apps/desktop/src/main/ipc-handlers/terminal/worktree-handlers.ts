@@ -240,6 +240,11 @@ function getDefaultBranch(projectPath: string): string {
   }
 }
 
+function shouldPushNewBranches(projectPath: string): boolean {
+  const project = projectStore.getProjects().find(p => p.path === projectPath);
+  return project?.settings?.pushNewBranches !== false;
+}
+
 /**
  * Configuration for a single dependency to be shared in a worktree.
  */
@@ -868,7 +873,7 @@ async function createTerminalWorktree(
         debugLog('[TerminalWorktree] No origin remote found, skipping push for local-only repo');
       }
 
-      if (hasOrigin) {
+      if (hasOrigin && shouldPushNewBranches(projectPath)) {
         try {
           await execFileAsync(getToolPath('git'), ['push', '-u', 'origin', branchName], {
             cwd: worktreePath,
@@ -885,6 +890,8 @@ async function createTerminalWorktree(
           remotePushWarning = message;
           debugLog('[TerminalWorktree] Could not push to remote (worktree still usable):', message);
         }
+      } else if (!shouldPushNewBranches(projectPath)) {
+        debugLog('[TerminalWorktree] Leaving branch local-only (auto-push disabled):', branchName);
       }
     } else {
       // Use async to avoid blocking the main process on large repos.

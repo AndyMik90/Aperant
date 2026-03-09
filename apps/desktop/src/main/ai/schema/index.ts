@@ -37,6 +37,7 @@ export {
   validateStructuredOutput,
   validateJsonFile,
   validateAndNormalizeJsonFile,
+  repairJsonWithLLM,
   parseLLMJson,
   formatZodErrors,
   buildValidationRetryPrompt,

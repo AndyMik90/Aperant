@@ -55,8 +55,8 @@ function normalizeStatus(value: unknown): string {
 
 /**
  * Preprocessor that normalizes LLM field name variations before Zod validation.
- * Handles: subtask_id→id, name→description (fallback), file_paths→files_to_modify.
- * Title and description are kept as separate fields.
+ * Handles: subtask_id→id, name→title (fallback), file_paths→files_to_modify.
+ * Title is the primary field (short summary); description is optional detail.
  */
 function coerceSubtask(input: unknown): unknown {
   if (!input || typeof input !== 'object') return input;
@@ -67,11 +67,12 @@ function coerceSubtask(input: unknown): unknown {
     // Coerce id: accept subtask_id, task_id, step as aliases
     // Some models use "step": 1 as the identifier instead of "id"
     id: raw.id ?? raw.subtask_id ?? raw.task_id ?? (raw.step !== undefined ? String(raw.step) : undefined),
-    // Keep title as-is (short summary). Preserved separately from description.
-    title: raw.title ?? undefined,
-    // Coerce description: falls back to title/name/summary/details for backward compatibility
-    // (old plans may only have "title" and no "description"; some models write "details")
-    description: raw.description ?? raw.title ?? raw.name ?? raw.summary ?? raw.details ?? undefined,
+    // Title is the primary field — short summary (3-10 words).
+    // Falls back to name/summary/description for models that don't produce "title".
+    title: raw.title ?? raw.name ?? raw.summary ?? raw.description ?? undefined,
+    // Description is detailed implementation notes for the coder agent.
+    // Falls back to details/title/name for models that don't produce a separate description.
+    description: raw.description ?? (typeof raw.details === 'string' ? raw.details : undefined) ?? raw.title ?? raw.name ?? raw.summary ?? undefined,
     // Normalize status
     status: normalizeStatus(raw.status),
     // Coerce files_to_modify: accept file_paths, files_modified as aliases
@@ -94,8 +95,8 @@ function coerceSubtask(input: unknown): unknown {
 
 export const PlanSubtaskSchema = z.preprocess(coerceSubtask, z.object({
   id: z.string({ message: 'Subtask must have an "id" field' }),
-  title: z.string().optional(),
-  description: z.string({ message: 'Subtask must have a "description" field' }),
+  title: z.string({ message: 'Subtask must have a "title" field (short 3-10 word summary)' }),
+  description: z.string({ message: 'Subtask must have a "description" field (detailed implementation notes)' }),
   status: z.enum(SUBTASK_STATUS_VALUES).default('pending'),
   files_to_create: z.array(z.string()).optional(),
   files_to_modify: z.array(z.string()).optional(),
@@ -115,16 +116,46 @@ function coercePhase(input: unknown): unknown {
   if (!input || typeof input !== 'object') return input;
   const raw = input as Record<string, unknown>;
 
+  const phaseId = raw.id ?? raw.phase_id ?? (raw.phase !== undefined ? String(raw.phase) : undefined);
+
+  // Resolve subtasks from known aliases
+  let subtasks = raw.subtasks ?? raw.chunks ?? raw.tasks ?? undefined;
+
+  // Coerce string/number subtask items to objects.
+  // Many LLMs write tasks as simple string arrays instead of subtask objects:
+  //   "tasks": ["Add package.json", "Set up Vite", "Add linting"]
+  // This is a common pattern across providers (OpenAI, Gemini, Mistral, local
+  // models, etc.) — convert to subtask objects so downstream validation succeeds.
+  if (Array.isArray(subtasks)) {
+    subtasks = subtasks.map((item: unknown, idx: number) => {
+      if (typeof item === 'string') {
+        return {
+          id: `${phaseId ?? idx + 1}-${idx + 1}`,
+          title: item,
+          status: 'pending',
+          files_to_modify: [],
+          files_to_create: [],
+        };
+      }
+      // Some models write subtasks as bare numbers (step indices)
+      if (typeof item === 'number') {
+        return {
+          id: `${phaseId ?? idx + 1}-${idx + 1}`,
+          title: `Step ${item}`,
+          status: 'pending',
+        };
+      }
+      return item;
+    });
+  }
+
   return {
     ...raw,
     // Coerce id: accept phase_id as alias, or convert phase number to string id
-    id: raw.id ?? raw.phase_id ?? (raw.phase !== undefined ? String(raw.phase) : undefined),
+    id: phaseId,
     // Coerce name: accept title as alias
     name: raw.name ?? raw.title ?? (raw.id ? String(raw.id) : undefined) ?? 'Phase',
-    // Coerce subtasks: accept chunks, tasks as aliases.
-    // If no subtask array exists, let Zod reject it — the validation retry loop
-    // will tell the LLM that phases must contain a "subtasks" array.
-    subtasks: raw.subtasks ?? raw.chunks ?? raw.tasks ?? undefined,
+    subtasks,
   };
 }
 
@@ -150,8 +181,8 @@ function coercePlan(input: unknown): unknown {
   const raw = input as Record<string, unknown>;
 
   // If model wrote flat steps/tasks/implementation_steps instead of phases[], wrap in a single phase.
-  // Some providers (e.g., OpenAI) produce a flat array of steps rather than
-  // the nested phases[].subtasks[] structure our schema requires.
+  // Many models produce a flat array of steps rather than the nested
+  // phases[].subtasks[] structure our schema requires.
   // The quick_spec agent commonly writes "implementation_steps" as well.
   let phases = raw.phases;
   if (!phases && (raw.steps || raw.tasks || raw.implementation_steps)) {
@@ -180,7 +211,7 @@ function coercePlan(input: unknown): unknown {
         const filePath = colonIdx > 0 ? desc.slice(0, colonIdx).trim() : undefined;
         subtasks.push({
           id: `1-${i + 1}`,
-          description: desc,
+          title: desc,
           status: 'pending',
           files_to_modify: filePath ? [filePath] : [],
         });
@@ -200,7 +231,7 @@ function coercePlan(input: unknown): unknown {
               : String(change);
             subtasks.push({
               id: `1-${subtaskIndex}`,
-              description: changeDesc,
+              title: changeDesc as string,
               status: 'pending',
               files_to_modify: filePath ? [filePath] : [],
             });

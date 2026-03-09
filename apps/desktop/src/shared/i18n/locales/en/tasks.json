@@ -218,6 +218,8 @@
       "searchBranches": "Search branches...",
       "noBranchesFound": "No branches found",
       "helpText": "Override the branch this task's worktree will be created from. Leave empty to use the project's configured default branch.",
+      "pushNewBranchesLabel": "Automatically push new branch",
+      "pushNewBranchesDescription": "Publish this task branch to GitHub and set upstream tracking automatically. Disable to keep it local-only.",
       "useWorktreeLabel": "Use isolated workspace (recommended)",
       "useWorktreeDescription": "Creates changes in a separate git worktree for safe review before merging. Disable to build directly in your project (faster but riskier)."
     },

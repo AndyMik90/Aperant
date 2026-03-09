@@ -9,21 +9,23 @@ import { describe, it, expect } from 'vitest';
 import { ImplementationPlanSchema, PlanSubtaskSchema, PlanPhaseSchema } from '../implementation-plan';
 
 describe('PlanSubtaskSchema', () => {
-  it('validates a canonical subtask', () => {
+  it('validates a canonical subtask with title and description', () => {
     const result = PlanSubtaskSchema.safeParse({
       id: '1.1',
-      description: 'Create the API endpoint',
+      title: 'Create the API endpoint',
+      description: 'Build REST endpoints for the analytics feature',
       status: 'pending',
     });
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.id).toBe('1.1');
-      expect(result.data.description).toBe('Create the API endpoint');
+      expect(result.data.title).toBe('Create the API endpoint');
+      expect(result.data.description).toBe('Build REST endpoints for the analytics feature');
       expect(result.data.status).toBe('pending');
     }
   });
 
-  it('coerces "title" to "description"', () => {
+  it('validates a subtask with title only (description falls back to title)', () => {
     const result = PlanSubtaskSchema.safeParse({
       id: '1.1',
       title: 'Create canonical allowlist',
@@ -31,11 +33,13 @@ describe('PlanSubtaskSchema', () => {
     });
     expect(result.success).toBe(true);
     if (result.success) {
+      expect(result.data.title).toBe('Create canonical allowlist');
+      // Description falls back to title when not explicitly provided
       expect(result.data.description).toBe('Create canonical allowlist');
     }
   });
 
-  it('coerces "name" to "description"', () => {
+  it('coerces "name" to "title"', () => {
     const result = PlanSubtaskSchema.safeParse({
       id: '1.1',
       name: 'Setup database',
@@ -43,14 +47,36 @@ describe('PlanSubtaskSchema', () => {
     });
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.description).toBe('Setup database');
+      expect(result.data.title).toBe('Setup database');
     }
+  });
+
+  it('coerces "description" to "title" when title is missing', () => {
+    const result = PlanSubtaskSchema.safeParse({
+      id: '1.1',
+      description: 'Detailed notes used as title',
+      status: 'pending',
+    });
+    // description falls back to title when no explicit title is present
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.title).toBe('Detailed notes used as title');
+      expect(result.data.description).toBe('Detailed notes used as title');
+    }
+  });
+
+  it('fails when no displayable text is present', () => {
+    const result = PlanSubtaskSchema.safeParse({
+      id: '1.1',
+      status: 'pending',
+    });
+    expect(result.success).toBe(false);
   });
 
   it('coerces "subtask_id" to "id"', () => {
     const result = PlanSubtaskSchema.safeParse({
       subtask_id: 'subtask-1-1',
-      description: 'Test something',
+      title: 'Test something',
       status: 'pending',
     });
     expect(result.success).toBe(true);
@@ -62,7 +88,7 @@ describe('PlanSubtaskSchema', () => {
   it('normalizes "done" status to "completed"', () => {
     const result = PlanSubtaskSchema.safeParse({
       id: '1.1',
-      description: 'Task',
+      title: 'Task',
       status: 'done',
     });
     expect(result.success).toBe(true);
@@ -74,7 +100,7 @@ describe('PlanSubtaskSchema', () => {
   it('normalizes "todo" status to "pending"', () => {
     const result = PlanSubtaskSchema.safeParse({
       id: '1.1',
-      description: 'Task',
+      title: 'Task',
       status: 'todo',
     });
     expect(result.success).toBe(true);
@@ -86,7 +112,7 @@ describe('PlanSubtaskSchema', () => {
   it('defaults missing status to "pending"', () => {
     const result = PlanSubtaskSchema.safeParse({
       id: '1.1',
-      description: 'Task',
+      title: 'Task',
     });
     expect(result.success).toBe(true);
     if (result.success) {
@@ -97,7 +123,7 @@ describe('PlanSubtaskSchema', () => {
   it('coerces "file_paths" to "files_to_modify"', () => {
     const result = PlanSubtaskSchema.safeParse({
       id: '1.1',
-      description: 'Task',
+      title: 'Task',
       status: 'pending',
       file_paths: ['src/main.ts'],
     });
@@ -107,7 +133,7 @@ describe('PlanSubtaskSchema', () => {
     }
   });
 
-  it('fails when both id and description are missing', () => {
+  it('fails when both id and title are missing', () => {
     const result = PlanSubtaskSchema.safeParse({
       status: 'pending',
     });
@@ -117,7 +143,7 @@ describe('PlanSubtaskSchema', () => {
   it('rejects string verification (must be an object for retry feedback)', () => {
     const result = PlanSubtaskSchema.safeParse({
       id: '1.1',
-      description: 'Add HiDPI support',
+      title: 'Add HiDPI support',
       status: 'pending',
       verification: 'Open in Chrome, canvas should render sharp on DPR=2',
     });
@@ -128,7 +154,7 @@ describe('PlanSubtaskSchema', () => {
   it('coerces "files_modified" to "files_to_modify"', () => {
     const result = PlanSubtaskSchema.safeParse({
       id: '1.1',
-      description: 'Task',
+      title: 'Task',
       status: 'pending',
       files_modified: ['script.js', 'style.css'],
     });
@@ -141,7 +167,7 @@ describe('PlanSubtaskSchema', () => {
   it('preserves unknown fields via passthrough', () => {
     const result = PlanSubtaskSchema.safeParse({
       id: '1.1',
-      description: 'Task',
+      title: 'Task',
       status: 'pending',
       deliverable: 'A working feature',
       details: ['step 1', 'step 2'],
@@ -154,7 +180,7 @@ describe('PlanSubtaskSchema', () => {
 });
 
 describe('PlanPhaseSchema', () => {
-  const validSubtask = { id: '1.1', description: 'Task', status: 'pending' };
+  const validSubtask = { id: '1.1', title: 'Task', status: 'pending' };
 
   it('validates a canonical phase', () => {
     const result = PlanPhaseSchema.safeParse({
@@ -219,6 +245,105 @@ describe('PlanPhaseSchema', () => {
     // The refine check should fail
     expect(result.success).toBe(false);
   });
+
+  it('coerces string task arrays to subtask objects (common cross-provider pattern)', () => {
+    // Many LLMs write tasks as string arrays instead of subtask objects.
+    // This pattern appears across providers (OpenAI, Gemini, Mistral, local models).
+    const result = PlanPhaseSchema.safeParse({
+      id: 'phase_1',
+      title: 'Bootstrap modern tooling',
+      tasks: [
+        'Add package.json and lockfile',
+        'Set up dev server (e.g., Vite)',
+        'Add linting (ESLint)',
+      ],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.subtasks).toHaveLength(3);
+      expect(result.data.subtasks[0].id).toBe('phase_1-1');
+      expect(result.data.subtasks[0].title).toBe('Add package.json and lockfile');
+      expect(result.data.subtasks[0].title).toBe('Add package.json and lockfile');
+      expect(result.data.subtasks[0].status).toBe('pending');
+      expect(result.data.subtasks[0].files_to_modify).toEqual([]);
+      expect(result.data.subtasks[0].files_to_create).toEqual([]);
+      expect(result.data.subtasks[2].id).toBe('phase_1-3');
+      expect(result.data.subtasks[2].title).toBe('Add linting (ESLint)');
+    }
+  });
+
+  it('coerces mixed string and object task arrays', () => {
+    // Some models mix string and object tasks in the same array
+    const result = PlanPhaseSchema.safeParse({
+      id: '2',
+      name: 'Refactor',
+      tasks: [
+        'Extract constants module',
+        { id: '2-2', description: 'Extract rendering module', status: 'pending' },
+        'Wire modules together',
+      ],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.subtasks).toHaveLength(3);
+      // First: string coerced to object
+      expect(result.data.subtasks[0].title).toBe('Extract constants module');
+      // Second: already an object, passed through
+      expect(result.data.subtasks[1].id).toBe('2-2');
+      // description is coerced to title when title is missing
+      expect(result.data.subtasks[1].title).toBe('Extract rendering module');
+      // Third: string coerced to object
+      expect(result.data.subtasks[2].title).toBe('Wire modules together');
+    }
+  });
+
+  it('uses phase number for string subtask IDs when phase has numeric id', () => {
+    const result = PlanPhaseSchema.safeParse({
+      phase: 3,
+      name: 'Testing',
+      tasks: ['Add unit tests', 'Add integration tests'],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.subtasks[0].id).toBe('3-1');
+      expect(result.data.subtasks[1].id).toBe('3-2');
+    }
+  });
+
+  it('coerces "steps" alias to subtasks at phase level', () => {
+    // Some models use "steps" within a phase (different from top-level steps)
+    const result = PlanPhaseSchema.safeParse({
+      id: '1',
+      name: 'Setup',
+      steps: [
+        { id: '1-1', description: 'Initialize project', status: 'pending' },
+      ],
+    });
+    // "steps" is not a recognized alias for subtasks at phase level (only
+    // "subtasks", "chunks", "tasks" are). This should fail to avoid ambiguity.
+    // The retry prompt will tell the model to use "subtasks".
+    expect(result.success).toBe(false);
+  });
+
+  it('coerces "tasks" with object items (Gemini/Mistral pattern)', () => {
+    // Models sometimes write "tasks" with objects that use non-standard field names
+    const result = PlanPhaseSchema.safeParse({
+      id: 'p1',
+      title: 'Core changes',
+      tasks: [
+        { task_id: 'a', summary: 'Refactor entry point', status: 'todo' },
+        { task_id: 'b', summary: 'Update imports', status: 'not_started' },
+      ],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.subtasks).toHaveLength(2);
+      // task_id → id, summary → title (via coerceSubtask fallback chain)
+      expect(result.data.subtasks[0].id).toBe('a');
+      expect(result.data.subtasks[0].status).toBe('pending'); // todo → pending
+      expect(result.data.subtasks[1].status).toBe('pending'); // not_started → pending
+    }
+  });
 });
 
 describe('ImplementationPlanSchema', () => {
@@ -230,7 +355,7 @@ describe('ImplementationPlanSchema', () => {
         id: 'phase-1',
         name: 'Backend',
         subtasks: [
-          { id: '1.1', description: 'Create model', status: 'pending' },
+          { id: '1.1', title: 'Create model', status: 'pending' },
         ],
       },
     ],
@@ -275,7 +400,7 @@ describe('ImplementationPlanSchema', () => {
       expect(result.data.feature).toBe('Restrict web access');
       expect(result.data.workflow_type).toBe('feature');
       const subtask = result.data.phases[0].subtasks[0];
-      expect(subtask.description).toBe('Create canonical allowlist');
+      expect(subtask.title).toBe('Create canonical allowlist');
       expect(result.data.phases[0].subtasks[1].status).toBe('completed');
     }
   });
@@ -287,7 +412,7 @@ describe('ImplementationPlanSchema', () => {
         {
           id: 'p1',
           name: 'Phase 1',
-          subtasks: [{ id: '1', description: 'Task', status: 'pending' }],
+          subtasks: [{ id: '1', title: 'Task', status: 'pending' }],
         },
       ],
     });
@@ -325,7 +450,7 @@ describe('ImplementationPlanSchema', () => {
       expect(result.data.phases).toHaveLength(1);
       expect(result.data.phases[0].subtasks).toHaveLength(3);
       expect(result.data.phases[0].subtasks[0].id).toBe('1-1');
-      expect(result.data.phases[0].subtasks[0].description).toBe('script.js: Increase PARTICLE_MAX_TRAIL constant');
+      expect(result.data.phases[0].subtasks[0].title).toBe('script.js: Increase PARTICLE_MAX_TRAIL constant');
       expect(result.data.phases[0].subtasks[0].files_to_modify).toEqual(['script.js']);
       expect(result.data.phases[0].subtasks[0].status).toBe('pending');
     }
@@ -396,6 +521,140 @@ describe('ImplementationPlanSchema', () => {
 
     const result = ImplementationPlanSchema.safeParse(flatPhasePlan);
     expect(result.success).toBe(false);
+  });
+
+  it('validates string-tasks plan with deliverables/acceptance_criteria (real-world LLM output)', () => {
+    // Real-world output where model wrote tasks as string arrays with extra phase-level
+    // metadata (deliverables, acceptance_criteria, dependencies). This pattern appears
+    // across multiple providers when models deviate from the subtask object format.
+    const codexPlan = {
+      feature: 'modernize the snake game',
+      description: 'Refactor the existing static snake game into a modular, testable project.',
+      phases: [
+        {
+          id: 'phase_1_tooling_bootstrap',
+          title: 'Bootstrap modern tooling and project scripts',
+          objective: 'Introduce a lightweight modern JS tooling baseline.',
+          tasks: [
+            'Add package.json and lockfile',
+            'Set up dev server and production build (e.g., Vite)',
+            'Add linting (ESLint) and formatting (Prettier optional)',
+            'Add npm scripts: dev, build, test, lint, format',
+          ],
+          deliverables: ['package.json', 'tooling config files'],
+          acceptance_criteria: ['npm install succeeds', 'npm run dev starts local server'],
+          dependencies: [],
+        },
+        {
+          id: 'phase_2_modular_architecture',
+          title: 'Refactor monolithic game code into modules',
+          objective: 'Separate concerns for maintainability.',
+          tasks: [
+            'Create src entrypoint and module directories',
+            'Extract constants/config module',
+            'Extract game state + update logic module',
+            'Extract rendering module (canvas)',
+            'Extract input and UI-binding modules',
+            'Wire modules through a single bootstrap layer',
+          ],
+          deliverables: ['modular src codebase'],
+          acceptance_criteria: ['Game runs with same features'],
+          dependencies: ['phase_1_tooling_bootstrap'],
+        },
+        {
+          id: 'phase_3_logic_tests',
+          title: 'Add automated tests for core logic',
+          objective: 'Protect gameplay against regressions.',
+          tasks: [
+            'Install/configure test runner (e.g., Vitest)',
+            'Add tests for collision detection',
+            'Add tests for food consumption and growth',
+            'Add tests for direction-change rules',
+          ],
+          deliverables: ['test configuration', 'logic test files'],
+          acceptance_criteria: ['npm run test executes successfully'],
+          dependencies: ['phase_2_modular_architecture'],
+        },
+      ],
+      quality_gates: {
+        required_commands: ['npm run lint', 'npm run test', 'npm run build'],
+      },
+    };
+
+    const result = ImplementationPlanSchema.safeParse(codexPlan);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.feature).toBe('modernize the snake game');
+      expect(result.data.phases).toHaveLength(3);
+
+      // Phase 1: string tasks coerced to subtask objects
+      const phase1 = result.data.phases[0];
+      expect(phase1.name).toBe('Bootstrap modern tooling and project scripts');
+      expect(phase1.subtasks).toHaveLength(4);
+      expect(phase1.subtasks[0].id).toBe('phase_1_tooling_bootstrap-1');
+      expect(phase1.subtasks[0].title).toBe('Add package.json and lockfile');
+      expect(phase1.subtasks[0].status).toBe('pending');
+      expect(phase1.subtasks[3].title).toBe('Add npm scripts: dev, build, test, lint, format');
+
+      // Phase 2: 6 string tasks
+      const phase2 = result.data.phases[1];
+      expect(phase2.subtasks).toHaveLength(6);
+      expect(phase2.subtasks[0].title).toBe('Create src entrypoint and module directories');
+
+      // Phase 3: 4 string tasks
+      const phase3 = result.data.phases[2];
+      expect(phase3.subtasks).toHaveLength(4);
+      expect(phase3.subtasks[1].title).toBe('Add tests for collision detection');
+    }
+  });
+
+  it('validates plan with proper subtask objects (canonical format)', () => {
+    // Canonical format: phases with fully-formed subtask objects including
+    // verification, files_to_create, files_to_modify. This is the ideal output.
+    const claudePlan = {
+      feature: 'modernize-classic-snake-game',
+      workflow_type: 'feature',
+      phases: [
+        {
+          id: '1',
+          name: 'Foundation — Low-Risk Additive Changes',
+          subtasks: [
+            {
+              id: '1-1',
+              title: 'Load Orbitron web font in HTML and CSS',
+              description: 'Add three <link> tags to index.html for Google Fonts.',
+              status: 'pending',
+              files_to_create: [],
+              files_to_modify: ['index.html', 'style.css'],
+              verification: {
+                type: 'manual',
+                run: 'Open index.html in a browser. UI text should render in Orbitron.',
+              },
+            },
+            {
+              id: '1-2',
+              title: 'Add WASD keys',
+              description: 'Extend the keydown switch with WASD cases.',
+              status: 'pending',
+              files_to_create: [],
+              files_to_modify: ['script.js', 'index.html'],
+              verification: {
+                type: 'manual',
+                run: 'WASD keys should move the snake.',
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const result = ImplementationPlanSchema.safeParse(claudePlan);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.feature).toBe('modernize-classic-snake-game');
+      expect(result.data.phases[0].subtasks[0].verification?.type).toBe('manual');
+      expect(result.data.phases[0].subtasks[0].files_to_modify).toEqual(['index.html', 'style.css']);
+    }
   });
 
   it('coerces flat steps[] into phases with subtasks (steps become subtasks)', () => {

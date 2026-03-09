@@ -25,7 +25,9 @@ import type { AgentType } from '../config/agent-configs';
 import type { Phase } from '../config/types';
 import {
   ImplementationPlanSchema,
+  ImplementationPlanOutputSchema,
   validateAndNormalizeJsonFile,
+  repairJsonWithLLM,
   buildValidationRetryPrompt,
   IMPLEMENTATION_PLAN_SCHEMA_HINT,
 } from '../schema';
@@ -95,6 +97,8 @@ export interface BuildOrchestratorConfig {
   runSession: (config: SessionRunConfig) => Promise<SessionResult>;
   /** Optional callback for syncing spec to source (worktree mode) */
   syncSpecToSource?: (specDir: string, sourceSpecDir: string) => Promise<boolean>;
+  /** Optional callback to get a resolved LanguageModel for lightweight repair calls */
+  getModel?: (agentType: AgentType) => Promise<import('ai').LanguageModel | undefined>;
 }
 
 /** Context passed to prompt generation */
@@ -349,8 +353,35 @@ export class BuildOrchestrator extends EventEmitter {
         return { success: true };
       }
 
-      // Plan is invalid — retry with Zod error feedback
+      // Plan is invalid — try lightweight LLM repair first (single generateText call,
+      // no tools, no codebase re-exploration). This is ~100x cheaper than a full re-plan.
       validationFailures++;
+      this.emitTyped('log', `Plan validation failed (attempt ${validationFailures}), attempting lightweight repair...`);
+
+      if (this.config.getModel) {
+        const model = await this.config.getModel('planner');
+        if (model) {
+          const repairResult = await repairJsonWithLLM(
+            planPath,
+            ImplementationPlanSchema,
+            ImplementationPlanOutputSchema,
+            model,
+            validation.errors,
+            IMPLEMENTATION_PLAN_SCHEMA_HINT,
+          );
+          if (repairResult.valid) {
+            this.emitTyped('log', 'Lightweight repair succeeded');
+            if (this.config.sourceSpecDir && this.config.syncSpecToSource) {
+              await this.config.syncSpecToSource(this.config.specDir, this.config.sourceSpecDir);
+            }
+            this.markPhaseCompleted('planning');
+            return { success: true };
+          }
+          this.emitTyped('log', `Lightweight repair failed: ${repairResult.errors.join(', ')}`);
+        }
+      }
+
+      // Lightweight repair failed or unavailable — fall back to full re-plan
       if (validationFailures >= MAX_PLANNING_VALIDATION_RETRIES) {
         return {
           success: false,
@@ -358,14 +389,14 @@ export class BuildOrchestrator extends EventEmitter {
         };
       }
 
-      // Build LLM-friendly retry prompt from Zod validation errors
+      // Build retry context for the full re-plan (last resort)
       planningRetryContext = buildValidationRetryPrompt(
         'implementation_plan.json',
         validation.errors,
         IMPLEMENTATION_PLAN_SCHEMA_HINT,
       );
 
-      this.emitTyped('log', `Plan validation failed (attempt ${validationFailures}), retrying...`);
+      this.emitTyped('log', `Falling back to full re-plan (attempt ${validationFailures + 1})...`);
     }
 
     return { success: false, error: 'Planning exhausted all retries' };

@@ -35,8 +35,8 @@ function createTestPlan(overrides: Partial<ImplementationPlan> = {}): Implementa
         name: 'Test Phase',
         type: 'implementation',
         subtasks: [
-          { id: 'subtask-1', description: 'First subtask', status: 'pending' },
-          { id: 'subtask-2', description: 'Second subtask', status: 'pending' }
+          { id: 'subtask-1', title: 'First subtask', description: 'Implement first subtask', status: 'pending' },
+          { id: 'subtask-2', title: 'Second subtask', description: 'Implement second subtask', status: 'pending' }
         ]
       }
     ],
@@ -243,8 +243,8 @@ describe('Task Store', () => {
             name: 'Phase 1',
             type: 'implementation',
             subtasks: [
-              { id: 'c1', description: 'Subtask 1', status: 'completed' },
-              { id: 'c2', description: 'Subtask 2', status: 'pending' }
+              { id: 'c1', title: 'Subtask 1', description: 'Implement subtask 1', status: 'completed' },
+              { id: 'c2', title: 'Subtask 2', description: 'Implement subtask 2', status: 'pending' }
             ]
           }
         ]
@@ -268,13 +268,13 @@ describe('Task Store', () => {
             phase: 1,
             name: 'Phase 1',
             type: 'implementation',
-            subtasks: [{ id: 'c1', description: 'Subtask 1', status: 'completed' }]
+            subtasks: [{ id: 'c1', title: 'Subtask 1', description: 'Implement subtask 1', status: 'completed' }]
           },
           {
             phase: 2,
             name: 'Phase 2',
             type: 'cleanup',
-            subtasks: [{ id: 'c2', description: 'Subtask 2', status: 'pending' }]
+            subtasks: [{ id: 'c2', title: 'Subtask 2', description: 'Implement subtask 2', status: 'pending' }]
           }
         ]
       });

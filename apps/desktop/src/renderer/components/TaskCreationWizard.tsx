@@ -89,12 +89,17 @@ export function TaskCreationWizard({
   const [projectDefaultBranch, setProjectDefaultBranch] = useState<string>('');
   // Worktree isolation - default to true for safety
   const [useWorktree, setUseWorktree] = useState(true);
+  const [pushNewBranches, setPushNewBranches] = useState(true);
 
   // Get project path from project store
   const projects = useProjectStore((state) => state.projects);
   const projectPath = useMemo(() => {
     const project = projects.find((p) => p.id === projectId);
     return project?.path ?? null;
+  }, [projects, projectId]);
+  const projectPushNewBranches = useMemo(() => {
+    const project = projects.find((p) => p.id === projectId);
+    return project?.settings?.pushNewBranches !== false;
   }, [projects, projectId]);
 
   // Build branch options using shared utility - groups by local/remote with type indicators
@@ -187,6 +192,7 @@ export function TaskCreationWizard({
         setReferencedFiles(draft.referencedFiles ?? []);
         setRequireReviewBeforeCoding(draft.requireReviewBeforeCoding ?? false);
         setFastMode(draft.fastMode ?? false);
+        setPushNewBranches(draft.pushNewBranches ?? projectPushNewBranches);
         setIsDraftRestored(true);
 
         if (draft.category || draft.priority || draft.complexity || draft.impact) {
@@ -212,13 +218,14 @@ export function TaskCreationWizard({
         setFastMode(false);
         setBaseBranch(PROJECT_DEFAULT_BRANCH);
         setUseWorktree(true);
+        setPushNewBranches(projectPushNewBranches);
         setIsDraftRestored(false);
         setShowClassification(false);
         setShowFileExplorer(false);
         setShowGitOptions(false);
       }
     }
-  }, [open, projectId, resolvedProfileId, resolvedPhaseModels, resolvedPhaseThinking, selectedProfile.model, selectedProfile.thinkingLevel]);
+  }, [open, projectId, projectPushNewBranches, resolvedProfileId, resolvedPhaseModels, resolvedPhaseThinking, selectedProfile.model, selectedProfile.thinkingLevel]);
 
   // Fetch branches when dialog opens - using structured branch data with type indicators
   useEffect(() => {
@@ -287,8 +294,9 @@ export function TaskCreationWizard({
     referencedFiles,
     requireReviewBeforeCoding,
     fastMode,
+    pushNewBranches,
     savedAt: new Date()
-  }), [projectId, title, description, category, priority, complexity, impact, profileId, model, thinkingLevel, phaseModels, phaseThinking, images, referencedFiles, requireReviewBeforeCoding, fastMode]);
+  }), [projectId, title, description, category, priority, complexity, impact, profileId, model, thinkingLevel, phaseModels, phaseThinking, images, referencedFiles, requireReviewBeforeCoding, fastMode, pushNewBranches]);
 
   /**
    * Detect @ mention being typed and show autocomplete
@@ -497,6 +505,7 @@ export function TaskCreationWizard({
       // Set useLocalBranch when user explicitly selects a local branch
       // This preserves gitignored files (.env, configs) by not switching to origin
       if (isSelectedBranchLocal) metadata.useLocalBranch = true;
+      if (!pushNewBranches) metadata.pushNewBranches = false;
       metadata.fastMode = fastMode;
 
       const task = await createTask(projectId, title.trim(), description.trim(), metadata);
@@ -532,6 +541,7 @@ export function TaskCreationWizard({
     setFastMode(false);
     setBaseBranch(PROJECT_DEFAULT_BRANCH);
     setUseWorktree(true);
+    setPushNewBranches(projectPushNewBranches);
     setError(null);
     setShowClassification(false);
     setShowFileExplorer(false);
@@ -785,6 +795,30 @@ export function TaskCreationWizard({
               <p className="text-xs text-muted-foreground">
                 {t('tasks:wizard.gitOptions.helpText')}
               </p>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium text-foreground">
+                  {t('tasks:wizard.gitOptions.pushNewBranchesLabel')}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {t('tasks:wizard.gitOptions.pushNewBranchesDescription')}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className={cn(
+                  'h-8 px-3 border',
+                  pushNewBranches ? 'border-primary/40 text-primary' : 'border-border text-muted-foreground'
+                )}
+                onClick={() => setPushNewBranches((current) => !current)}
+                disabled={isCreating}
+              >
+                {pushNewBranches ? 'On' : 'Off'}
+              </Button>
             </div>
           </div>
         )}

@@ -100,6 +100,7 @@ interface PlanPhase {
 
 interface PlanSubtask {
   id: string;
+  title: string;
   description: string;
   status: string;
   files_to_create?: string[];

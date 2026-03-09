@@ -81,7 +81,8 @@ Use the **Write tool** to create `implementation_plan.json` in the spec director
       "subtasks": [
         {
           "id": "1-1",
-          "description": "[specific change to make]",
+          "title": "[Short 3-10 word summary]",
+          "description": "[Detailed implementation notes - optional]",
           "status": "pending",
           "files_to_create": [],
           "files_to_modify": ["[path/to/file]"],
@@ -99,8 +100,8 @@ Use the **Write tool** to create `implementation_plan.json` in the spec director
 **Schema rules:**
 - Top-level MUST have a `phases` array (NOT `steps`, `tasks`, or `implementation_steps`)
 - Each phase MUST have a `subtasks` array (NOT `steps` or `tasks`)
-- Each subtask MUST have `id` (string) and `description` (string)
-- Each subtask SHOULD have `status` (default: "pending"), `files_to_modify`, and `verification`
+- Each subtask MUST have `id` (string) and `title` (string, short 3-10 word summary)
+- Each subtask SHOULD have `description` (detailed notes), `status` (default: "pending"), `files_to_modify`, and `verification`
 
 ---
 
@@ -175,6 +176,7 @@ Change the `primaryColor` variable from `#3B82F6` to `#22C55E`.
       "subtasks": [
         {
           "id": "1-1",
+          "title": "Change button primary color to green",
           "description": "Change primaryColor from #3B82F6 to #22C55E in Button.tsx",
           "status": "pending",
           "files_to_modify": ["src/components/Button.tsx"],

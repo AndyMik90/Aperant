@@ -259,8 +259,9 @@ export function autoFixPlan(specDir: string): boolean {
         fixed = true;
       }
 
-      if (!('description' in subtask)) {
-        subtask.description = 'No description';
+      if (!('title' in subtask)) {
+        // Derive title from description or name if available
+        subtask.title = subtask.description || subtask.name || 'Untitled subtask';
         fixed = true;
       }
 

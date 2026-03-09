@@ -28,6 +28,7 @@ const inputSchema = z.object({});
 
 interface PlanSubtask {
   id?: string;
+  title?: string;
   description?: string;
   status?: string;
 }

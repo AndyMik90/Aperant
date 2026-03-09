@@ -19,6 +19,7 @@
  */
 
 import type { ZodSchema, ZodError } from 'zod';
+import type { LanguageModel } from 'ai';
 import { readFile, writeFile } from 'node:fs/promises';
 import { safeParseJson } from '../../utils/json-repair';
 
@@ -240,14 +241,104 @@ export function buildValidationRetryPrompt(
     `3. Rewrite the file with the corrected JSON using the Write tool`,
     ``,
     `Common field name issues:`,
-    `- Use "title" for short 3-10 word subtask summary`,
-    `- Use "description" for detailed implementation instructions`,
+    `- Use "title" (REQUIRED) for short 3-10 word subtask summary`,
+    `- Use "description" (optional) for detailed implementation instructions`,
     `- Use "id" (not "subtask_id" or "task_id") for subtask identifiers`,
     `- Use "status" with value "pending" for new subtasks`,
     `- Use "name" for phase names, "subtasks" for the subtask array`,
+    `- Each subtask MUST be an object — do NOT use plain strings`,
   );
 
   return lines.join('\n');
+}
+
+// =============================================================================
+// Lightweight LLM JSON Repair
+// =============================================================================
+
+/** Maximum repair attempts before giving up */
+const MAX_REPAIR_ATTEMPTS = 2;
+
+/**
+ * Attempt to repair an invalid JSON file using a lightweight LLM call.
+ *
+ * Instead of re-running an entire agent session (which involves codebase
+ * exploration, tool calls, and full planning), this makes a single focused
+ * generateText() call with Output.object() to fix just the JSON structure.
+ *
+ * Cost comparison:
+ * - Full re-plan: 50-100+ tool calls, reads entire codebase again
+ * - This repair: single generateText() call, no tools, just JSON → JSON
+ *
+ * @param filePath - Path to the invalid JSON file
+ * @param schema - Zod schema (coercion variant) for post-repair validation
+ * @param outputSchema - Clean Zod schema for Output.object() constrained decoding
+ * @param model - The language model to use for repair
+ * @param errors - Human-readable validation errors from the first attempt
+ * @param schemaHint - Optional schema example for the repair prompt
+ * @returns Validation result — valid if repair succeeded, errors if not
+ */
+export async function repairJsonWithLLM<T>(
+  filePath: string,
+  schema: ZodSchema<T>,
+  outputSchema: ZodSchema,
+  model: LanguageModel,
+  errors: string[],
+  schemaHint?: string,
+): Promise<StructuredOutputValidation<T>> {
+  // Lazy import to avoid circular dependencies — ai package is heavy
+  const { generateText, Output } = await import('ai');
+
+  let rawContent: string;
+  try {
+    rawContent = await readFile(filePath, 'utf-8');
+  } catch {
+    return { valid: false, errors: [`File not found: ${filePath}`] };
+  }
+
+  for (let attempt = 0; attempt < MAX_REPAIR_ATTEMPTS; attempt++) {
+    try {
+      const repairPrompt = [
+        'You are a JSON repair tool. Fix the following JSON so it matches the required schema.',
+        '',
+        '## Current (invalid) JSON:',
+        '```json',
+        rawContent,
+        '```',
+        '',
+        '## Validation errors:',
+        ...errors.map((e) => `- ${e}`),
+        '',
+        ...(schemaHint ? ['## Required schema:', schemaHint, ''] : []),
+        'Return ONLY the corrected JSON object. Preserve all existing data — only fix the structure.',
+      ].join('\n');
+
+      const result = await generateText({
+        model,
+        prompt: repairPrompt,
+        output: Output.object({ schema: outputSchema }),
+      });
+
+      if (result.output) {
+        // Output.object() validated the response — now validate with the
+        // coercion schema (which may normalize fields further) and write back
+        const coerced = schema.safeParse(result.output);
+        if (coerced.success) {
+          await writeFile(filePath, JSON.stringify(coerced.data, null, 2));
+          return { valid: true, data: coerced.data, errors: [] };
+        }
+        // Output.object() passed but coercion schema didn't — update errors for next attempt
+        errors = formatZodErrors(coerced.error as ZodError);
+        rawContent = JSON.stringify(result.output, null, 2);
+      }
+    } catch {
+      // generateText failed (network, auth, etc.) — fall through to return failure
+      break;
+    }
+  }
+
+  // Repair failed — return the latest errors so the caller can decide next steps
+  return { valid: false, errors };
 }
 
 /** Schema hint for the implementation plan (used in retry prompts) */
@@ -262,8 +353,8 @@ export const IMPLEMENTATION_PLAN_SCHEMA_HINT = `\`\`\`
       "subtasks": [
         {
           "id": "string (unique subtask identifier)",
-          "title": "string (short 3-10 word summary)",
-          "description": "string (detailed implementation instructions)",
+          "title": "string (REQUIRED — short 3-10 word summary)",
+          "description": "string (optional — detailed implementation instructions)",
           "status": "pending",
           "files_to_modify": ["string (optional)"],
           "files_to_create": ["string (optional)"],
@@ -273,4 +364,7 @@ export const IMPLEMENTATION_PLAN_SCHEMA_HINT = `\`\`\`
     }
   ]
 }
-\`\`\``;
+\`\`\`
+
+IMPORTANT: Each subtask MUST be an object with at least "id", "title", and "status" fields.
+Do NOT write subtasks as plain strings — they must be objects.`;

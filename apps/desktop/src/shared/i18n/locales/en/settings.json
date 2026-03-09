@@ -373,6 +373,10 @@
         "searchPlaceholder": "Search branches...",
         "noBranchesFound": "No branches found",
         "selectedBranchHelp": "All new tasks will branch from {{branch}}"
+      },
+      "pushNewBranches": {
+        "label": "Automatically Push New Branches",
+        "description": "Push new task and worktree branches to GitHub and set upstream tracking automatically"
       }
     },
     "gitlab": {

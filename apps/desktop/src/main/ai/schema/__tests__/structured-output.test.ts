@@ -13,7 +13,9 @@ import {
   validateAndNormalizeJsonFile,
   formatZodErrors,
   buildValidationRetryPrompt,
+  IMPLEMENTATION_PLAN_SCHEMA_HINT,
 } from '../structured-output';
+import { ImplementationPlanSchema } from '../implementation-plan';
 
 const testSchema = z.object({
   name: z.string(),
@@ -155,7 +157,7 @@ describe('formatZodErrors', () => {
 describe('buildValidationRetryPrompt', () => {
   it('includes file name and errors', () => {
     const prompt = buildValidationRetryPrompt('plan.json', [
-      'At "phases.0.subtasks.0.description": expected string, received undefined',
+      'At "phases.0.subtasks.0.title": expected string, received undefined',
     ]);
     expect(prompt).toContain('plan.json');
     expect(prompt).toContain('expected string');
@@ -170,8 +172,142 @@ describe('buildValidationRetryPrompt', () => {
 
   it('includes common field name guidance', () => {
     const prompt = buildValidationRetryPrompt('plan.json', ['error']);
-    expect(prompt).toContain('"description"');
     expect(prompt).toContain('"title"');
     expect(prompt).toContain('"id"');
+    expect(prompt).toContain('do NOT use plain strings');
+  });
+});
+
+describe('end-to-end: validation → retry → self-correction', () => {
+  const testDir = join(tmpdir(), `e2e-validation-${Date.now()}`);
+
+  beforeEach(() => {
+    mkdirSync(testDir, { recursive: true });
+  });
+
+  afterEach(() => {
+    rmSync(testDir, { recursive: true, force: true });
+  });
+
+  it('validates and normalizes a string-tasks plan written to a file', async () => {
+    // Simulate: LLM writes a plan with string tasks (common across providers)
+    const filePath = join(testDir, 'implementation_plan.json');
+    const llmOutput = {
+      feature: 'modernize app',
+      phases: [
+        {
+          id: 'phase-1',
+          title: 'Setup tooling',
+          tasks: ['Add build system', 'Configure linter', 'Add test runner'],
+        },
+      ],
+    };
+    writeFileSync(filePath, JSON.stringify(llmOutput));
+
+    // Import the actual schema used in production
+    // ImplementationPlanSchema imported at top level
+
+    // Step 1: Validate — should succeed because coercion handles string tasks
+    const result = await validateAndNormalizeJsonFile(filePath, ImplementationPlanSchema);
+    expect(result.valid).toBe(true);
+    if (result.data) {
+      expect(result.data.phases[0].subtasks).toHaveLength(3);
+      expect(result.data.phases[0].subtasks[0].title).toBe('Add build system');
+      expect(result.data.phases[0].subtasks[0].status).toBe('pending');
+    }
+
+    // Step 2: Read back the normalized file — should have canonical structure
+    const { readFileSync } = await import('node:fs');
+    const normalized = JSON.parse(readFileSync(filePath, 'utf-8'));
+    expect(normalized.phases[0].subtasks[0].id).toBe('phase-1-1');
+    expect(normalized.phases[0].subtasks[0].title).toBe('Add build system');
+  });
+
+  it('generates actionable retry prompt when validation fails', async () => {
+    // Simulate: LLM writes a plan with no subtasks at all (just phase-level data)
+    const filePath = join(testDir, 'implementation_plan.json');
+    const badOutput = {
+      phases: [
+        {
+          phase: 1,
+          title: 'Refactor game code',
+          description: 'Split monolith into modules',
+          // No subtasks, no tasks — this should fail
+        },
+      ],
+    };
+    writeFileSync(filePath, JSON.stringify(badOutput));
+
+    // ImplementationPlanSchema imported at top level
+    // IMPLEMENTATION_PLAN_SCHEMA_HINT imported at top level
+
+    // Step 1: Validation should fail
+    const result = await validateJsonFile(filePath, ImplementationPlanSchema);
+    expect(result.valid).toBe(false);
+    expect(result.errors.length).toBeGreaterThan(0);
+
+    // Step 2: Build retry prompt — should be actionable for any LLM
+    const retryPrompt = buildValidationRetryPrompt(
+      'implementation_plan.json',
+      result.errors,
+      IMPLEMENTATION_PLAN_SCHEMA_HINT,
+    );
+
+    // The retry prompt should tell the model exactly what's wrong
+    expect(retryPrompt).toContain('INVALID');
+    expect(retryPrompt).toContain('implementation_plan.json');
+    expect(retryPrompt).toContain('subtasks');
+    expect(retryPrompt).toContain('Required schema');
+    // Should include the fix instructions
+    expect(retryPrompt).toContain('Read the current');
+    expect(retryPrompt).toContain('Fix each error');
+    expect(retryPrompt).toContain('Rewrite the file');
+  });
+
+  it('full cycle: invalid → retry prompt → corrected output validates', async () => {
+    // ImplementationPlanSchema imported at top level
+    // IMPLEMENTATION_PLAN_SCHEMA_HINT imported at top level
+
+    // Step 1: First LLM attempt — broken structure (no subtask objects)
+    const firstAttempt = {
+      phases: [{
+        id: '1',
+        name: 'Setup',
+        // Missing subtasks entirely
+      }],
+    };
+
+    const firstResult = validateStructuredOutput(firstAttempt, ImplementationPlanSchema);
+    expect(firstResult.valid).toBe(false);
+
+    // Step 2: Generate retry prompt
+    const retryPrompt = buildValidationRetryPrompt(
+      'implementation_plan.json',
+      firstResult.errors,
+      IMPLEMENTATION_PLAN_SCHEMA_HINT,
+    );
+    expect(retryPrompt.length).toBeGreaterThan(100); // Substantial feedback
+
+    // Step 3: Simulated corrected output from the LLM after seeing retry prompt
+    const correctedAttempt = {
+      feature: 'Setup project',
+      phases: [{
+        id: '1',
+        name: 'Setup',
+        subtasks: [{
+          id: '1-1',
+          title: 'Initialize build system',
+          status: 'pending',
+          files_to_create: ['package.json'],
+          files_to_modify: [],
+        }],
+      }],
+    };
+
+    const secondResult = validateStructuredOutput(correctedAttempt, ImplementationPlanSchema);
+    expect(secondResult.valid).toBe(true);
+    if (secondResult.data) {
+      expect(secondResult.data.phases[0].subtasks[0].title).toBe('Initialize build system');
+    }
   });
 });

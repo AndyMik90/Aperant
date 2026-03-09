@@ -112,7 +112,7 @@ export function TaskSubtasks({ task }: TaskSubtasksProps) {
                   )}>
                     #{index + 1}
                   </span>
-                  <span className="text-sm font-medium text-foreground break-words flex-1 min-w-0">
+                  <span className="text-sm font-medium text-foreground flex-1 min-w-0 line-clamp-2">
                     {subtask.title || t('tasks:subtasks.untitled')}
                   </span>
                   {hasDetails && (

@@ -155,6 +155,7 @@ export interface TaskDraft {
   referencedFiles: ReferencedFile[];
   requireReviewBeforeCoding?: boolean;
   fastMode?: boolean;
+  pushNewBranches?: boolean;
   savedAt: Date;
 }
 
@@ -243,6 +244,7 @@ export interface TaskMetadata {
   prUrl?: string;  // GitHub PR URL if task has been submitted as a PR
   useWorktree?: boolean;  // If false, use direct mode (no worktree isolation) - default is true for safety
   useLocalBranch?: boolean;  // If true, use the local branch directly instead of preferring origin/branch (preserves gitignored files)
+  pushNewBranches?: boolean;  // If false, keep the task branch local-only instead of auto-pushing to origin
 
   // Archive status
   archivedAt?: string;  // ISO date when task was archived
@@ -307,9 +309,10 @@ export interface Phase {
 
 export interface PlanSubtask {
   id: string;
+  /** Short summary (3-10 words) — the primary display field */
+  title: string;
+  /** Detailed implementation notes for the coder agent */
   description: string;
-  /** Some AI planners output 'title' instead of 'description' */
-  title?: string;
   status: SubtaskStatus;
   verification?: {
     type: string;

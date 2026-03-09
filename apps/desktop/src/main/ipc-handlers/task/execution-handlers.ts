@@ -333,7 +333,8 @@ export function registerTaskExecutionHandlers(
             workers: 1,
             baseBranch,
             useWorktree: task.metadata?.useWorktree,
-            useLocalBranch: task.metadata?.useLocalBranch
+            useLocalBranch: task.metadata?.useLocalBranch,
+            pushNewBranches: task.metadata?.pushNewBranches
           },
           project.id
         );
@@ -351,7 +352,8 @@ export function registerTaskExecutionHandlers(
             workers: 1,
             baseBranch,
             useWorktree: task.metadata?.useWorktree,
-            useLocalBranch: task.metadata?.useLocalBranch
+            useLocalBranch: task.metadata?.useLocalBranch,
+            pushNewBranches: task.metadata?.pushNewBranches
           },
           project.id
         );
@@ -839,7 +841,8 @@ export function registerTaskExecutionHandlers(
                 workers: 1,
                 baseBranch: baseBranchForUpdate,
                 useWorktree: task.metadata?.useWorktree,
-                useLocalBranch: task.metadata?.useLocalBranch
+                useLocalBranch: task.metadata?.useLocalBranch,
+                pushNewBranches: task.metadata?.pushNewBranches
               },
               project.id
             );
@@ -856,7 +859,8 @@ export function registerTaskExecutionHandlers(
                 workers: 1,
                 baseBranch: baseBranchForUpdate,
                 useWorktree: task.metadata?.useWorktree,
-                useLocalBranch: task.metadata?.useLocalBranch
+                useLocalBranch: task.metadata?.useLocalBranch,
+                pushNewBranches: task.metadata?.pushNewBranches
               },
               project.id
             );
@@ -1347,7 +1351,8 @@ export function registerTaskExecutionHandlers(
                   workers: 1,
                   baseBranch: baseBranchForRecovery,
                   useWorktree: task.metadata?.useWorktree,
-                  useLocalBranch: task.metadata?.useLocalBranch
+                  useLocalBranch: task.metadata?.useLocalBranch,
+                  pushNewBranches: task.metadata?.pushNewBranches
                 },
                 project.id
               );

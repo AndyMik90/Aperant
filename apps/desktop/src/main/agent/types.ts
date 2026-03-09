@@ -53,6 +53,7 @@ export interface TaskExecutionOptions {
   baseBranch?: string;
   useWorktree?: boolean; // If false, use --direct mode (no worktree isolation)
   useLocalBranch?: boolean; // If true, use local branch directly instead of preferring origin/branch
+  pushNewBranches?: boolean; // If false, keep task worktree branches local-only
 }
 
 export interface SpecCreationMetadata {

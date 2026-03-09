@@ -29,9 +29,9 @@ function validateTaskSubtasks(task: Task): boolean {
       return false;
     }
 
-    // Description is critical - we can't show a subtask without it
-    if (!subtask.description || typeof subtask.description !== 'string' || subtask.description.trim() === '') {
-      console.warn(`[validateTaskSubtasks] Subtask at index ${i} missing description:`, subtask);
+    // Title is the primary display field
+    if (!subtask.title || typeof subtask.title !== 'string' || subtask.title.trim() === '') {
+      console.warn(`[validateTaskSubtasks] Subtask at index ${i} missing title:`, subtask);
       return false;
     }
 

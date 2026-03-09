@@ -185,7 +185,7 @@ export function GitHubIntegration({
       t,
       includeAutoDetect: {
         value: '',
-        label: t('settings:integrations.github.defaultBranch.autoDetect'),
+        label: t('settings:projectSections.github.defaultBranch.autoDetect'),
       },
     });
   }, [branches, t]);
@@ -223,6 +223,7 @@ export function GitHubIntegration({
 
   // Selected branch for Combobox value
   const selectedBranch = settings?.mainBranch || envConfig?.defaultBranch || '';
+  const pushNewBranches = settings?.pushNewBranches !== false;
 
   return (
     <div className="space-y-4">
@@ -362,11 +363,11 @@ export function GitHubIntegration({
                   <div className="flex items-center gap-2">
                     <GitBranch className="h-4 w-4 text-info" />
                     <Label className="text-sm font-medium text-foreground">
-                      {t('settings:integrations.github.defaultBranch.label')}
+                      {t('settings:projectSections.github.defaultBranch.label')}
                     </Label>
                   </div>
                   <p className="text-xs text-muted-foreground pl-6">
-                    {t('settings:integrations.github.defaultBranch.description')}
+                    {t('settings:projectSections.github.defaultBranch.description')}
                   </p>
                 </div>
                 <Button
@@ -392,9 +393,9 @@ export function GitHubIntegration({
                   options={branchOptions}
                   value={selectedBranch}
                   onValueChange={handleBranchChange}
-                  placeholder={t('settings:integrations.github.defaultBranch.autoDetect')}
-                  searchPlaceholder={t('settings:integrations.github.defaultBranch.searchPlaceholder')}
-                  emptyMessage={t('settings:integrations.github.defaultBranch.noBranchesFound')}
+                  placeholder={t('settings:projectSections.github.defaultBranch.autoDetect')}
+                  searchPlaceholder={t('settings:projectSections.github.defaultBranch.searchPlaceholder')}
+                  emptyMessage={t('settings:projectSections.github.defaultBranch.noBranchesFound')}
                   disabled={isLoadingBranches}
                   className="w-full"
                 />
@@ -402,10 +403,31 @@ export function GitHubIntegration({
 
               {selectedBranch && (
                 <p className="text-xs text-muted-foreground pl-6">
-                  {t('settings:integrations.github.defaultBranch.selectedBranchHelp', { branch: selectedBranch })}
+                  {t('settings:projectSections.github.defaultBranch.selectedBranchHelp', { branch: selectedBranch })}
                 </p>
               )}
             </div>
+          )}
+
+          {setSettings && (
+            <>
+              <Separator />
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="font-normal text-foreground">
+                    {t('settings:projectSections.github.pushNewBranches.label')}
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    {t('settings:projectSections.github.pushNewBranches.description')}
+                  </p>
+                </div>
+                <Switch
+                  checked={pushNewBranches}
+                  onCheckedChange={(checked) => setSettings(prev => ({ ...prev, pushNewBranches: checked }))}
+                />
+              </div>
+            </>
           )}
 
           <Separator />
