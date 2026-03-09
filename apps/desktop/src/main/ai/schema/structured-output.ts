@@ -242,7 +242,7 @@ export function buildValidationRetryPrompt(
     ``,
     `Common field name issues:`,
     `- Use "title" (REQUIRED) for short 3-10 word subtask summary`,
-    `- Use "description" (optional) for detailed implementation instructions`,
+    `- Use "description" (REQUIRED) for detailed implementation instructions`,
     `- Use "id" (not "subtask_id" or "task_id") for subtask identifiers`,
     `- Use "status" with value "pending" for new subtasks`,
     `- Use "name" for phase names, "subtasks" for the subtask array`,
@@ -354,7 +354,7 @@ export const IMPLEMENTATION_PLAN_SCHEMA_HINT = `\`\`\`
         {
           "id": "string (unique subtask identifier)",
           "title": "string (REQUIRED — short 3-10 word summary)",
-          "description": "string (optional — detailed implementation instructions)",
+          "description": "string (REQUIRED — detailed implementation instructions)",
           "status": "pending",
           "files_to_modify": ["string (optional)"],
           "files_to_create": ["string (optional)"],

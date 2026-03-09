@@ -1329,7 +1329,7 @@ export class UsageMonitor extends EventEmitter {
       // Step 2: Fetch current usage using the credential resolved by determineActiveProfile
       const usage = await this.fetchUsage(profileId, activeProfile.credential, activeProfile);
       if (!usage) {
-        this.debugLog('[UsageMonitor] Failed to fetch usage');
+        this.traceLog('[UsageMonitor] Failed to fetch usage (API may be rate-limited or credential unavailable)');
         return;
       }
 
@@ -2630,7 +2630,8 @@ export class UsageMonitor extends EventEmitter {
     // CLI-based usage fetching is not implemented yet.
     // The API method should handle most cases. If we need CLI fallback,
     // we would need to spawn a Claude process with /usage command and parse the output.
-    this.debugLog('[UsageMonitor] CLI fallback not implemented, API method should be used');
+    // CLI-based usage fetching is intentionally not implemented.
+    // The API method handles all cases; this fallback path is expected when API is rate-limited or unavailable.
     return null;
   }
 

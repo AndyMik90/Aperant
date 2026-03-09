@@ -95,7 +95,12 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
   const [showPRDialog, setShowPRDialog] = useState(false);
   const [isCreatingPR, setIsCreatingPR] = useState(false);
 
-  const selectedProject = useProjectStore((state) => state.getSelectedProject());
+  const currentProject = useProjectStore((state) => {
+    const currentProjectId = state.activeProjectId || state.selectedProjectId;
+    return currentProjectId
+      ? state.projects.find((project) => project.id === currentProjectId)
+      : undefined;
+  });
   const logOrder = useSettingsStore(s => s.settings.logOrder);
   const isRunning = task.status === 'in_progress';
   // isActiveTask includes ai_review for stuck detection (CHANGELOG documents this feature)
@@ -217,12 +222,12 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
 
   // Load and watch phase logs
   useEffect(() => {
-    if (!selectedProject) return;
+    if (!currentProject) return;
 
     const loadLogs = async () => {
       setIsLoadingLogs(true);
       try {
-        const result = await window.electronAPI.getTaskLogs(selectedProject.id, task.specId);
+        const result = await window.electronAPI.getTaskLogs(currentProject.id, task.specId);
         if (result.success && result.data) {
           setPhaseLogs(result.data);
           // Auto-expand active phase
@@ -243,7 +248,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     loadLogs();
 
     // Start watching for log changes
-    window.electronAPI.watchTaskLogs(selectedProject.id, task.specId);
+    window.electronAPI.watchTaskLogs(currentProject.id, task.specId);
 
     // Listen for log changes
     const unsubscribe = window.electronAPI.onTaskLogsChanged((specId, logs) => {
@@ -267,7 +272,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
       unsubscribe();
       window.electronAPI.unwatchTaskLogs(task.specId);
     };
-  }, [selectedProject, task.specId]);
+  }, [currentProject, task.specId]);
 
   // Toggle phase expansion
   const togglePhase = useCallback((phase: TaskLogPhase) => {
@@ -401,15 +406,15 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
 
       // Reload task data from store to reflect cleared staged state
       // (clearStagedState IPC already invalidated the cache)
-      if (selectedProject) {
-        await loadTasks(selectedProject.id);
+      if (currentProject) {
+        await loadTasks(currentProject.id);
       }
     } catch (err) {
       console.error('Failed to reload worktree info:', err);
     } finally {
       setIsLoadingWorktree(false);
     }
-  }, [task.id, selectedProject]);
+  }, [task.id, currentProject]);
 
   // NOTE: Merge preview is NO LONGER auto-loaded on modal open.
   // User must click "Check for Conflicts" button to trigger the expensive preview operation.
@@ -420,8 +425,8 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
    * This prevents the "Task Incomplete" infinite loop when resuming stuck tasks.
    */
   const reloadPlanForIncompleteTask = useCallback(async (): Promise<boolean> => {
-    if (!selectedProject) {
-      console.error('[reloadPlanForIncompleteTask] No selected project');
+    if (!currentProject) {
+      console.error('[reloadPlanForIncompleteTask] No current project');
       return false;
     }
 
@@ -445,7 +450,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     setIsLoadingPlan(true);
     try {
       // Reload tasks from the project to get fresh implementation plan
-      const result = await window.electronAPI.getTasks(selectedProject.id);
+      const result = await window.electronAPI.getTasks(currentProject.id);
 
       if (!result.success || !result.data) {
         console.error('[reloadPlanForIncompleteTask] Failed to reload tasks:', result.error);
@@ -488,7 +493,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     } finally {
       setIsLoadingPlan(false);
     }
-  }, [selectedProject, task, isIncomplete]);
+  }, [currentProject, task, isIncomplete]);
 
   return {
     // State
@@ -523,7 +528,7 @@ export function useTaskDetail({ task }: UseTaskDetailOptions) {
     expandedPhases,
     logsEndRef,
     logsContainerRef,
-    selectedProject,
+    selectedProject: currentProject,
     isRunning,
     needsReview,
     executionPhase,

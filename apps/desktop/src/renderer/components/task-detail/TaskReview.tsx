@@ -116,14 +116,11 @@ export function TaskReview({
         />
       )}
 
-      {/* Workspace Status - priority: loading > fresh staging success > already staged (persisted) > worktree exists > no workspace */}
+      {/* Workspace Status - priority: loading > staged (fresh or persisted) > worktree exists > no workspace */}
       {isLoadingWorktree ? (
         <LoadingMessage />
-      ) : stagedSuccess ? (
-        /* Fresh staging just completed - StagedSuccessMessage is rendered above */
-        null
-      ) : task.stagedInMainProject ? (
-        /* Task was previously staged (persisted state) - show even if worktree still exists */
+      ) : stagedSuccess || task.stagedInMainProject ? (
+        /* Changes staged (fresh or persisted) - show action buttons */
         <StagedInProjectMessage
           task={task}
           projectPath={stagedProjectPath}

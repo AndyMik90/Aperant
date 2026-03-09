@@ -263,7 +263,6 @@ describe('PlanPhaseSchema', () => {
       expect(result.data.subtasks).toHaveLength(3);
       expect(result.data.subtasks[0].id).toBe('phase_1-1');
       expect(result.data.subtasks[0].title).toBe('Add package.json and lockfile');
-      expect(result.data.subtasks[0].title).toBe('Add package.json and lockfile');
       expect(result.data.subtasks[0].status).toBe('pending');
       expect(result.data.subtasks[0].files_to_modify).toEqual([]);
       expect(result.data.subtasks[0].files_to_create).toEqual([]);

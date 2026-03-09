@@ -14,7 +14,7 @@ import { z } from 'zod';
 const SubtaskOutputSchema = z.object({
   id: z.string(),
   title: z.string(),
-  description: z.string().optional(),
+  description: z.string(),
   status: z.enum(['pending', 'in_progress', 'completed', 'blocked', 'failed']),
   files_to_create: z.array(z.string()),
   files_to_modify: z.array(z.string()),
