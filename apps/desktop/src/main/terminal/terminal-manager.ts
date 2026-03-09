@@ -17,7 +17,7 @@ import * as PtyManager from './pty-manager';
 import * as SessionHandler from './session-handler';
 import * as TerminalLifecycle from './terminal-lifecycle';
 import * as TerminalEventHandler from './terminal-event-handler';
-import * as ClaudeIntegration from './claude-integration-handler';
+import * as ClaudeIntegration from './cli-integration-handler';
 import { debugLog, debugError } from '../../shared/utils/debug-logger';
 
 export class TerminalManager {
@@ -153,13 +153,13 @@ export class TerminalManager {
   /**
    * Invoke Claude in a terminal with optional profile override (async - non-blocking)
    */
-  async invokeClaudeAsync(id: string, cwd?: string, profileId?: string, dangerouslySkipPermissions?: boolean): Promise<void> {
+  async invokeCLIAsync(id: string, cwd?: string, profileId?: string, dangerouslySkipPermissions?: boolean): Promise<void> {
     const terminal = this.terminals.get(id);
     if (!terminal) {
       return;
     }
 
-    await ClaudeIntegration.invokeClaudeAsync(
+    await ClaudeIntegration.invokeCLIAsync(
       terminal,
       cwd,
       profileId,
@@ -179,7 +179,7 @@ export class TerminalManager {
 
   /**
    * Invoke Claude in a terminal with optional profile override
-   * @deprecated Use invokeClaudeAsync for non-blocking behavior
+   * @deprecated Use invokeCLIAsync for non-blocking behavior
    */
   invokeClaude(id: string, cwd?: string, profileId?: string, dangerouslySkipPermissions?: boolean): void {
     const terminal = this.terminals.get(id);
@@ -218,7 +218,7 @@ export class TerminalManager {
       terminal,
       profileId,
       this.getWindow,
-      async (terminalId, cwd, profileId, dangerouslySkipPermissions) => this.invokeClaudeAsync(terminalId, cwd, profileId, dangerouslySkipPermissions),
+      async (terminalId, cwd, profileId, dangerouslySkipPermissions) => this.invokeCLIAsync(terminalId, cwd, profileId, dangerouslySkipPermissions),
       (terminalId) => this.lastNotifiedRateLimitReset.delete(terminalId)
     );
   }
@@ -260,7 +260,7 @@ export class TerminalManager {
 
   /**
    * Activate deferred Claude resume for a terminal
-   * Called when a terminal with pendingClaudeResume becomes active (user views it)
+   * Called when a terminal with pendingCLIResume becomes active (user views it)
    */
   async activateDeferredResume(id: string): Promise<void> {
     const terminal = this.terminals.get(id);
@@ -269,12 +269,12 @@ export class TerminalManager {
     }
 
     // Check if terminal has a pending resume
-    if (!terminal.pendingClaudeResume) {
+    if (!terminal.pendingCLIResume) {
       return;
     }
 
     // Clear the pending flag
-    terminal.pendingClaudeResume = false;
+    terminal.pendingCLIResume = false;
 
     // Now actually resume Claude
     await ClaudeIntegration.resumeClaudeAsync(terminal, undefined, this.getWindow);
@@ -386,9 +386,9 @@ export class TerminalManager {
   /**
    * Check if a terminal is in Claude mode
    */
-  isClaudeMode(id: string): boolean {
+  isCLIMode(id: string): boolean {
     const terminal = this.terminals.get(id);
-    return terminal?.isClaudeMode ?? false;
+    return terminal?.isCLIMode ?? false;
   }
 
   /**
@@ -413,7 +413,7 @@ export class TerminalManager {
         projectPath: terminal.projectPath,
         claudeSessionId: terminal.claudeSessionId,
         claudeProfileId: terminal.claudeProfileId,
-        isClaudeMode: terminal.isClaudeMode,
+        isCLIMode: terminal.isCLIMode,
         dangerouslySkipPermissions: terminal.dangerouslySkipPermissions
       });
     }

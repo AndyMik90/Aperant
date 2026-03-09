@@ -210,7 +210,7 @@ function createProject(): Project {
         onReviewNeeded: false,
         sound: false,
       },
-      graphitiMcpEnabled: false,
+      
       useClaudeMd: true,
     },
     createdAt: new Date(),

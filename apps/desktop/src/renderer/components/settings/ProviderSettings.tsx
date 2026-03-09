@@ -72,9 +72,7 @@ export function ProviderSettings({ settings, onSettingsChange }: ProviderSetting
   const { t } = useTranslation('settings');
   const { isTestingConnection } = useSettingsStore();
 
-  const [selectedProvider, setSelectedProvider] = useState<ProviderValue>(
-    (settings.graphitiLlmProvider as ProviderValue) || 'anthropic'
-  );
+  const [selectedProvider, setSelectedProvider] = useState<ProviderValue>('anthropic');
 
   const getApiKeyForProvider = (provider: ProviderValue): string => {
     const field = PROVIDER_API_KEY_MAP[provider];
@@ -86,13 +84,8 @@ export function ProviderSettings({ settings, onSettingsChange }: ProviderSetting
     (value: string) => {
       const provider = value as ProviderValue;
       setSelectedProvider(provider);
-      // graphitiLlmProvider accepts a subset; cast safely for supported providers
-      const llmProviders: readonly string[] = ['openai', 'anthropic', 'google', 'groq', 'ollama'];
-      if (llmProviders.includes(provider)) {
-        onSettingsChange({ ...settings, graphitiLlmProvider: provider as AppSettings['graphitiLlmProvider'] });
-      }
     },
-    [settings, onSettingsChange]
+    []
   );
 
   const handleApiKeyChange = useCallback(

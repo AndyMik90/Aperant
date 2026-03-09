@@ -37,8 +37,6 @@ interface OAuthProviderSpec {
   clientId: string;
   /** Rewrite the request URL (e.g., to a subscription-specific endpoint) */
   rewriteUrl?: (url: string) => string;
-  /** Transform the request body before sending (e.g., to inject required fields) */
-  transformBody?: (body: Record<string, unknown>) => Record<string, unknown>;
 }
 
 const CODEX_API_ENDPOINT = 'https://chatgpt.com/backend-api/codex/responses';
@@ -53,25 +51,6 @@ const OAUTH_PROVIDER_REGISTRY: Record<string, OAuthProviderSpec> = {
         return CODEX_API_ENDPOINT;
       }
       return url;
-    },
-    // Codex endpoint requires store=false and instructions (not system messages in input).
-    // The SDK puts the system prompt as a system/developer message in the input array,
-    // but the Codex endpoint requires it in the top-level `instructions` field instead.
-    transformBody: (body: Record<string, unknown>) => {
-      const transformed: Record<string, unknown> = { ...body, store: false };
-
-      // Extract system/developer message from input array → instructions field
-      if (!transformed.instructions && Array.isArray(transformed.input)) {
-        const input = transformed.input as Array<{ role?: string; content?: string }>;
-        const sysIdx = input.findIndex(m => m.role === 'system' || m.role === 'developer');
-        if (sysIdx !== -1) {
-          const sysMsg = input[sysIdx];
-          transformed.instructions = sysMsg.content ?? '';
-          transformed.input = input.filter((_, i) => i !== sysIdx);
-        }
-      }
-
-      return transformed;
     },
   },
   // Future OAuth providers: just add entries here
@@ -245,42 +224,6 @@ export async function ensureValidOAuthToken(
  * Data-driven: adding a new provider = adding an entry to OAUTH_PROVIDER_REGISTRY.
  */
 
-/**
- * Reassemble an SSE (Server-Sent Events) stream into the final JSON response object.
- * The Codex endpoint streams responses in SSE format. The last `response.completed` event
- * contains the full response object that matches the Responses API JSON format.
- *
- * This allows `generateText()` (which expects a JSON response) to work transparently
- * with the Codex endpoint (which requires `stream: true`).
- */
-function reassembleSSEToJSON(sseText: string): Record<string, unknown> | null {
-  // Parse SSE events — find the last response.completed event which contains the full response
-  const lines = sseText.split('\n');
-  let lastCompletedData: string | null = null;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (line.startsWith('event: response.completed')) {
-      // Next line starting with "data: " contains the JSON
-      const dataLine = lines[i + 1];
-      if (dataLine?.startsWith('data: ')) {
-        lastCompletedData = dataLine.slice(6);
-      }
-    }
-  }
-
-  if (!lastCompletedData) return null;
-
-  try {
-    const parsed = JSON.parse(lastCompletedData) as Record<string, unknown>;
-    // The event data wraps the response: { type: "response.completed", response: {...} }
-    const response = parsed.response as Record<string, unknown> | undefined;
-    return response ?? parsed;
-  } catch {
-    return null;
-  }
-}
-
 export function createOAuthProviderFetch(
   tokenFilePath: string,
   provider?: string,
@@ -322,39 +265,11 @@ export function createOAuthProviderFetch(
       debugLog(`${originalUrl} -> ${url} (token: [redacted])`);
     }
 
-    // 5. Transform request body if provider specifies a body transform
-    //    (e.g., Codex endpoint requires store=false)
-    let finalInit = { ...init, headers };
-    let wasNonStreaming = false;
-    if (providerSpec?.transformBody && url !== originalUrl && init?.body) {
-      try {
-        const bodyStr = typeof init.body === 'string' ? init.body : new TextDecoder().decode(init.body as ArrayBuffer);
-        const parsed = JSON.parse(bodyStr) as Record<string, unknown>;
-        wasNonStreaming = parsed.stream !== true;
-        const transformed = providerSpec.transformBody(parsed);
-        // Codex endpoint requires stream=true; force it even for generateText() calls
-        transformed.stream = true;
-        finalInit = { ...finalInit, body: JSON.stringify(transformed) };
-        if (DEBUG) {
-          debugLog('Transformed request body for Codex endpoint', {
-            store: transformed.store,
-            forcedStream: wasNonStreaming,
-          });
-        }
-      } catch {
-        // If body isn't JSON, send as-is
-      }
-    }
-
+    const finalInit = { ...init, headers };
     const response = await globalThis.fetch(url, finalInit);
 
     if (DEBUG) {
-      debugLog(`Response: ${response.status} ${response.statusText}`, {
-        url,
-        contentType: response.headers.get('content-type'),
-        hasBody: response.body !== null,
-      });
-      // Log error response body for 4xx errors to diagnose issues
+      debugLog(`Response: ${response.status} ${response.statusText}`, { url });
       if (response.status >= 400 && response.status < 500) {
         try {
           const cloned = response.clone();
@@ -362,34 +277,6 @@ export function createOAuthProviderFetch(
           debugLog('Error response body', errorBody.substring(0, 500));
         } catch {
           // Ignore clone/read errors
-        }
-      }
-    }
-
-    // 6. If the SDK sent a non-streaming request but we forced stream=true,
-    //    consume the SSE stream and return a synthetic JSON response so that
-    //    the SDK's doGenerate() response handler can parse it correctly.
-    if (wasNonStreaming && response.ok && response.body) {
-      try {
-        const sseText = await response.text();
-        const jsonResponse = reassembleSSEToJSON(sseText);
-        if (DEBUG) {
-          debugLog('Reassembled SSE→JSON for non-streaming caller', {
-            status: jsonResponse ? 'ok' : 'fallback',
-          });
-        }
-        if (jsonResponse) {
-          return new Response(JSON.stringify(jsonResponse), {
-            status: 200,
-            headers: {
-              'content-type': 'application/json',
-              ...Object.fromEntries(response.headers.entries()),
-            },
-          });
-        }
-      } catch (e) {
-        if (DEBUG) {
-          debugLog('SSE reassembly failed, returning original response', e);
         }
       }
     }

@@ -103,7 +103,7 @@ export function setupIpcHandlers(
   // Insights handlers
   registerInsightsHandlers(getMainWindow);
 
-  // Memory & infrastructure handlers (for Graphiti/LadybugDB)
+  // Memory & infrastructure handlers (for LadybugDB)
   registerMemoryHandlers();
 
   // App auto-update handlers

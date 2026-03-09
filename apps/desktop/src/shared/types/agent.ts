@@ -256,7 +256,7 @@ export interface TerminalProfileChangedEvent {
     /** Whether the session was successfully migrated to new profile */
     sessionMigrated?: boolean;
     /** Whether the terminal was in Claude mode (had an active Claude session) */
-    isClaudeMode?: boolean;
+    isCLIMode?: boolean;
     /** Whether Claude was invoked with --dangerously-skip-permissions (YOLO mode) */
     dangerouslySkipPermissions?: boolean;
   }>;

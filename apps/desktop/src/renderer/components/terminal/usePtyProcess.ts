@@ -172,14 +172,14 @@ export function usePtyProcess({
 
     if (isRestored && terminalState) {
       // Restored session
-      debugLog(`[usePtyProcess] Restoring session for terminal: ${terminalId}, cwd: ${terminalState.cwd}, isClaudeMode: ${terminalState.isClaudeMode}, claudeSessionId: ${terminalState.claudeSessionId || 'none'}`);
+      debugLog(`[usePtyProcess] Restoring session for terminal: ${terminalId}, cwd: ${terminalState.cwd}, isCLIMode: ${terminalState.isCLIMode}, claudeSessionId: ${terminalState.claudeSessionId || 'none'}`);
       window.electronAPI.restoreTerminalSession(
         {
           id: terminalState.id,
           title: terminalState.title,
           cwd: terminalState.cwd,
           projectPath: projectPath || '',
-          isClaudeMode: terminalState.isClaudeMode,
+          isCLIMode: terminalState.isCLIMode,
           claudeSessionId: terminalState.claudeSessionId,
           outputBuffer: '',
           createdAt: terminalState.createdAt.toISOString(),
@@ -194,7 +194,7 @@ export function usePtyProcess({
           debugLog(`[usePtyProcess] Successfully restored PTY session for terminal: ${terminalId}`);
           handleSuccess();
           const store = getStore();
-          store.setTerminalStatus(terminalId, terminalState.isClaudeMode ? 'claude-active' : 'running');
+          store.setTerminalStatus(terminalId, terminalState.isCLIMode ? 'claude-active' : 'running');
           store.updateTerminal(terminalId, { isRestored: false });
           onCreated?.();
         } else {

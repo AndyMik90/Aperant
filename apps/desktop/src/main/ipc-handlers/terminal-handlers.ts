@@ -64,7 +64,7 @@ export function registerTerminalHandlers(
   );
 
   ipcMain.on(
-    IPC_CHANNELS.TERMINAL_INVOKE_CLAUDE,
+    IPC_CHANNELS.TERMINAL_INVOKE_CLI,
     (_, id: string, cwd?: string) => {
       // Wrap in async IIFE to allow async settings read without blocking
       (async () => {
@@ -73,7 +73,7 @@ export function registerTerminalHandlers(
         const dangerouslySkipPermissions = settings?.dangerouslySkipPermissions === true;
 
         // Use async version to avoid blocking main process during CLI detection
-        await terminalManager.invokeClaudeAsync(id, cwd, undefined, dangerouslySkipPermissions);
+        await terminalManager.invokeCLIAsync(id, cwd, undefined, dangerouslySkipPermissions);
       })().catch((error) => {
         console.warn('[terminal-handlers] Failed to invoke Claude:', error);
       });
@@ -252,7 +252,7 @@ export function registerTerminalHandlers(
             id: string;
             sessionId?: string;
             sessionMigrated?: boolean;
-            isClaudeMode?: boolean;
+            isCLIMode?: boolean;
             dangerouslySkipPermissions?: boolean;
           }> = [];
 
@@ -260,7 +260,7 @@ export function registerTerminalHandlers(
           for (const terminal of terminals) {
             debugLog('[terminal-handlers:CLAUDE_PROFILE_SET_ACTIVE] Processing terminal:', {
               id: terminal.id,
-              isClaudeMode: terminal.isClaudeMode,
+              isCLIMode: terminal.isCLIMode,
               claudeSessionId: terminal.claudeSessionId,
               cwd: terminal.cwd
             });
@@ -297,7 +297,7 @@ export function registerTerminalHandlers(
               id: terminal.id,
               sessionId: terminal.claudeSessionId,
               sessionMigrated,
-              isClaudeMode: terminal.isClaudeMode,
+              isCLIMode: terminal.isCLIMode,
               dangerouslySkipPermissions: terminal.dangerouslySkipPermissions
             });
           }
@@ -632,7 +632,7 @@ export function registerTerminalHandlers(
   );
 
   // Activate deferred Claude resume when terminal becomes active
-  // This is triggered by the renderer when a terminal with pendingClaudeResume becomes the active tab
+  // This is triggered by the renderer when a terminal with pendingCLIResume becomes the active tab
   ipcMain.on(
     IPC_CHANNELS.TERMINAL_ACTIVATE_DEFERRED_RESUME,
     (_, id: string) => {

@@ -27,6 +27,7 @@ export interface ModelOption {
   label: string;
   provider: BuiltinProvider;
   description?: string;
+  apiKeyOnly?: boolean;
   capabilities?: {
     thinking: boolean;
     tools: boolean;
@@ -44,12 +45,12 @@ export const ALL_AVAILABLE_MODELS: ModelOption[] = [
   { value: 'haiku', label: 'Claude Haiku 4.5', provider: 'anthropic', description: 'Fast', capabilities: { thinking: false, tools: true, vision: true, contextWindow: 200000 } },
   // OpenAI
   { value: 'gpt-5.3-codex', label: 'GPT-5.3 Codex', provider: 'openai', description: 'Agentic coding', capabilities: { thinking: true, tools: true, vision: true, contextWindow: 1047576 } },
-  { value: 'gpt-5.2', label: 'GPT-5.2', provider: 'openai', description: 'Flagship', capabilities: { thinking: true, tools: true, vision: true, contextWindow: 400000 } },
+  { value: 'gpt-5.2', label: 'GPT-5.2', provider: 'openai', description: 'Flagship', apiKeyOnly: true, capabilities: { thinking: true, tools: true, vision: true, contextWindow: 400000 } },
   { value: 'gpt-5.2-codex', label: 'GPT-5.2 Codex', provider: 'openai', description: 'Coding', capabilities: { thinking: true, tools: true, vision: true, contextWindow: 1047576 } },
   { value: 'gpt-5.1-codex-mini', label: 'GPT-5.1 Codex Mini', provider: 'openai', description: 'Fast coding', capabilities: { thinking: true, tools: true, vision: true, contextWindow: 400000 } },
-  { value: 'gpt-5-nano', label: 'GPT-5 Nano', provider: 'openai', description: 'Fastest & cheapest (API key only)', capabilities: { thinking: false, tools: true, vision: true, contextWindow: 400000 } },
-  { value: 'o3', label: 'o3', provider: 'openai', description: 'Reasoning', capabilities: { thinking: true, tools: true, vision: true, contextWindow: 200000 } },
-  { value: 'o4-mini', label: 'o4 Mini', provider: 'openai', description: 'Fast reasoning', capabilities: { thinking: true, tools: true, vision: true, contextWindow: 200000 } },
+  { value: 'gpt-5-nano', label: 'GPT-5 Nano', provider: 'openai', description: 'Fastest & cheapest', apiKeyOnly: true, capabilities: { thinking: false, tools: true, vision: true, contextWindow: 400000 } },
+  { value: 'o3', label: 'o3', provider: 'openai', description: 'Reasoning', apiKeyOnly: true, capabilities: { thinking: true, tools: true, vision: true, contextWindow: 200000 } },
+  { value: 'o4-mini', label: 'o4 Mini', provider: 'openai', description: 'Fast reasoning', apiKeyOnly: true, capabilities: { thinking: true, tools: true, vision: true, contextWindow: 200000 } },
   // Google
   { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', provider: 'google', description: 'Advanced', capabilities: { thinking: true, tools: true, vision: true, contextWindow: 1048576 } },
   { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', provider: 'google', description: 'Fast thinking', capabilities: { thinking: true, tools: true, vision: true, contextWindow: 1048576 } },
@@ -379,7 +380,7 @@ export const PHASE_KEYS: readonly (keyof PhaseModelConfig)[] = ['spec', 'plannin
 
 export const MEMORY_BACKENDS = [
   { value: 'file', label: 'File-based (default)' },
-  { value: 'graphiti', label: 'Graphiti (LadybugDB)' }
+  { value: 'memory', label: 'Memory (LadybugDB)' }
 ] as const;
 
 // ============================================

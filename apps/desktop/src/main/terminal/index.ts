@@ -26,7 +26,7 @@ export * as PtyManager from './pty-manager';
 export * as SessionHandler from './session-handler';
 
 // Claude integration utilities
-export * as ClaudeIntegration from './claude-integration-handler';
+export * as ClaudeIntegration from './cli-integration-handler';
 
 // Terminal lifecycle utilities
 export * as TerminalLifecycle from './terminal-lifecycle';

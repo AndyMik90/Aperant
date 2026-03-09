@@ -14,14 +14,10 @@ export interface Project {
 
 export interface ProjectSettings {
   model: string;
-  memoryBackend: 'graphiti' | 'file';
+  memoryBackend: 'memory' | 'file';
   linearSync: boolean;
   linearTeamId?: string;
   notifications: NotificationSettings;
-  /** Enable Graphiti MCP server for agent-accessible knowledge graph */
-  graphitiMcpEnabled: boolean;
-  /** Graphiti MCP server URL (default: http://localhost:8000/mcp/) */
-  graphitiMcpUrl?: string;
   /** Main branch name for worktree creation (default: auto-detected or 'main') */
   mainBranch?: string;
   /** Whether newly created branches should be pushed to origin and track their remote branch (default: true) */
@@ -154,9 +150,6 @@ export interface MemorySystemStatus {
   reason?: string;
 }
 
-// Backward compatibility alias
-export type GraphitiMemoryStatus = MemorySystemStatus;
-
 // Memory Infrastructure Types
 export interface MemoryDatabaseStatus {
   kuzuInstalled: boolean;
@@ -171,8 +164,8 @@ export interface InfrastructureStatus {
   ready: boolean; // True if memory database is available
 }
 
-// Graphiti Validation Types
-export interface GraphitiValidationResult {
+// Memory Validation Types
+export interface MemoryValidationResult {
   success: boolean;
   message: string;
   details?: {
@@ -182,24 +175,20 @@ export interface GraphitiValidationResult {
   };
 }
 
-export interface GraphitiConnectionTestResult {
-  database: GraphitiValidationResult;
-  llmProvider: GraphitiValidationResult;
+export interface MemoryConnectionTestResult {
+  database: MemoryValidationResult;
+  llmProvider: MemoryValidationResult;
   ready: boolean;
 }
 
 // Memory Provider Types
 // Embedding Providers: OpenAI, Voyage AI, Azure OpenAI, Ollama (local), Google, OpenRouter
 // Note: LLM provider removed - Claude SDK handles RAG queries
-export type GraphitiEmbeddingProvider = 'openai' | 'voyage' | 'azure_openai' | 'ollama' | 'google' | 'openrouter';
+export type MemoryEmbeddingProvider = 'openai' | 'voyage' | 'azure_openai' | 'ollama' | 'google' | 'openrouter';
 
-// Legacy type aliases for backward compatibility
-export type GraphitiLLMProvider = 'openai' | 'anthropic' | 'azure_openai' | 'ollama' | 'google' | 'groq' | 'openrouter';
-export type GraphitiProviderType = GraphitiLLMProvider;
-
-export interface GraphitiProviderConfig {
+export interface MemoryProviderConfig {
   // Embedding Provider (LLM provider removed - Claude SDK handles RAG)
-  embeddingProvider: GraphitiEmbeddingProvider;
+  embeddingProvider: MemoryEmbeddingProvider;
   embeddingModel?: string;  // Embedding model, uses provider default if not specified
 
   // OpenAI Embeddings
@@ -235,8 +224,8 @@ export interface GraphitiProviderConfig {
   dbPath?: string;    // Database storage path (default: ~/.auto-claude/memories)
 }
 
-export interface GraphitiProviderInfo {
-  id: GraphitiProviderType;
+export interface MemoryProviderInfo {
+  id: string;
   name: string;
   description: string;
   requiresApiKey: boolean;
@@ -253,8 +242,6 @@ export interface MemorySystemState {
   errorLog: Array<{ timestamp: string; error: string }>;
 }
 
-// Backward compatibility alias
-export type GraphitiMemoryState = MemorySystemState;
 
 export type MemoryType =
   | 'gotcha'
@@ -344,16 +331,16 @@ export interface ProjectEnvConfig {
   // Git/Worktree Settings
   defaultBranch?: string; // Base branch for worktree creation (e.g., 'main', 'develop')
 
-  // Graphiti Memory Integration (V2 - Multi-provider support)
-  // Uses LadybugDB embedded database (no Docker required, Python 3.12+)
-  graphitiEnabled: boolean;
-  graphitiProviderConfig?: GraphitiProviderConfig;  // Provider configuration
+  // Memory Integration (V2 - Multi-provider support)
+  // Uses LadybugDB embedded database (no Docker required)
+  memoryEnabled: boolean;
+  memoryProviderConfig?: MemoryProviderConfig;  // Provider configuration
   // Legacy fields (still supported for backward compatibility)
   openaiApiKey?: string;
   // Indicates if the OpenAI key is from global settings (not project-specific)
   openaiKeyIsGlobal?: boolean;
-  graphitiDatabase?: string;
-  graphitiDbPath?: string;
+  memoryDatabase?: string;
+  memoryDbPath?: string;
 
   // UI Settings
   enableFancyUi: boolean;
@@ -362,8 +349,8 @@ export interface ProjectEnvConfig {
   mcpServers?: {
     /** Context7 documentation lookup - default: true */
     context7Enabled?: boolean;
-    /** Graphiti knowledge graph - default: true (if graphitiProviderConfig set) */
-    graphitiEnabled?: boolean;
+    /** Memory knowledge graph - default: true (if memoryProviderConfig set) */
+    memoryEnabled?: boolean;
     /** Linear MCP integration - default: follows linearEnabled */
     linearMcpEnabled?: boolean;
     /** Electron desktop automation (QA only) - default: false */

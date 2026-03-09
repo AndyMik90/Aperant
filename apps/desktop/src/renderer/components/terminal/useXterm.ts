@@ -315,7 +315,7 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
       // For initial restore (isRestored=true), we DO replay to show the saved state
       // as a loading preview while claude --continue starts.
       const terminal = useTerminalStore.getState().terminals.find(t => t.id === terminalId);
-      const isClaudeActive = terminal?.isClaudeMode || terminal?.pendingClaudeResume;
+      const isClaudeActive = terminal?.isCLIMode || terminal?.pendingCLIResume;
       const isInitialRestore = terminal?.isRestored === true;
 
       if (isClaudeActive && !isInitialRestore) {

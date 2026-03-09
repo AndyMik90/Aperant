@@ -397,7 +397,7 @@ export class AgentManager extends EventEmitter {
       oauthTokenFilePath: resolved.auth?.oauthTokenFilePath,
       mcpOptions: {
         context7Enabled: true,
-        graphitiEnabled: !!process.env.GRAPHITI_MCP_URL,
+        memoryEnabled: !!process.env.GRAPHITI_MCP_URL,
         linearEnabled: !!process.env.LINEAR_API_KEY,
       },
       toolContext: {
@@ -521,7 +521,7 @@ export class AgentManager extends EventEmitter {
       oauthTokenFilePath: resolved.auth?.oauthTokenFilePath,
       mcpOptions: {
         context7Enabled: true,
-        graphitiEnabled: !!process.env.GRAPHITI_MCP_URL,
+        memoryEnabled: !!process.env.GRAPHITI_MCP_URL,
         linearEnabled: !!process.env.LINEAR_API_KEY,
       },
       toolContext: {
@@ -624,7 +624,7 @@ export class AgentManager extends EventEmitter {
       oauthTokenFilePath: resolved.auth?.oauthTokenFilePath,
       mcpOptions: {
         context7Enabled: true,
-        graphitiEnabled: !!process.env.GRAPHITI_MCP_URL,
+        memoryEnabled: !!process.env.GRAPHITI_MCP_URL,
         linearEnabled: !!process.env.LINEAR_API_KEY,
       },
       toolContext: {

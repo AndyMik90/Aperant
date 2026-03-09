@@ -44,7 +44,7 @@ import type { Phase } from '../config/types';
 import type { ExecutionPhase } from '../../../shared/constants/phase-protocol';
 import { getPhaseThinking } from '../config/phase-config';
 import { TaskLogWriter } from '../logging/task-log-writer';
-import { loadClaudeMd, loadAgentsMd, injectContext } from '../prompts/prompt-loader';
+import { loadProjectInstructions, injectContext } from '../prompts/prompt-loader';
 import { createMcpClientsForAgent, mergeMcpTools, closeAllMcpClients } from '../mcp/client';
 import type { McpClientResult } from '../mcp/types';
 import { runProjectIndexer } from '../project/project-indexer';
@@ -199,12 +199,12 @@ let mcpClients: McpClientResult[] = [];
 // Prompt Assembly (provider-agnostic context injection)
 // =============================================================================
 
-let cachedClaudeMd: string | null | undefined;
-let cachedAgentsMd: string | null | undefined;
+let cachedProjectInstructions: string | null | undefined;
+let cachedProjectInstructionsSource: string | null = null;
 
 /**
  * Assemble a full system prompt by loading the base prompt and injecting
- * CLAUDE.md + agents.md project instruction files. Provider-agnostic —
+ * project instructions (AGENTS.md or CLAUDE.md fallback). Provider-agnostic —
  * injected for ALL AI providers, not just Anthropic.
  */
 async function assemblePrompt(
@@ -214,19 +214,22 @@ async function assemblePrompt(
   const basePrompt = loadPrompt(promptName)
     ?? buildFallbackPrompt(promptName as AgentType, session.specDir, session.projectDir);
 
-  // Load project instruction files once per worker lifetime
-  if (cachedClaudeMd === undefined) {
-    cachedClaudeMd = await loadClaudeMd(session.projectDir);
-  }
-  if (cachedAgentsMd === undefined) {
-    cachedAgentsMd = await loadAgentsMd(session.projectDir);
+  // Load project instructions once per worker lifetime
+  if (cachedProjectInstructions === undefined) {
+    const result = await loadProjectInstructions(session.projectDir);
+    cachedProjectInstructions = result?.content ?? null;
+    cachedProjectInstructionsSource = result?.source ?? null;
+    if (result) {
+      postLog(`Project instructions loaded from ${result.source} (${(result.content.length / 1024).toFixed(1)}KB)`);
+    } else {
+      postLog('No project instructions found (checked AGENTS.md, CLAUDE.md)');
+    }
   }
 
   return injectContext(basePrompt, {
     specDir: session.specDir,
     projectDir: session.projectDir,
-    claudeMd: cachedClaudeMd,
-    agentsMd: cachedAgentsMd,
+    projectInstructions: cachedProjectInstructions,
   });
 }
 
@@ -385,7 +388,7 @@ async function run(): Promise<void> {
     try {
       mcpClients = await createMcpClientsForAgent(session.agentType, {
         context7Enabled: session.mcpOptions?.context7Enabled ?? true,
-        graphitiEnabled: session.mcpOptions?.graphitiEnabled ?? false,
+        memoryEnabled: session.mcpOptions?.memoryEnabled ?? false,
         linearEnabled: session.mcpOptions?.linearEnabled ?? false,
         electronMcpEnabled: session.mcpOptions?.electronMcpEnabled ?? false,
         puppeteerMcpEnabled: session.mcpOptions?.puppeteerMcpEnabled ?? false,

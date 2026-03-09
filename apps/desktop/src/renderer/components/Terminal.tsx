@@ -77,7 +77,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
   // This ensures terminal.resize() stays in sync with PTY dimensions
   const lastPtyDimensionsRef = useRef<{ cols: number; rows: number } | null>(null);
   // Track if auto-resume has been attempted to prevent duplicate resume calls
-  // This fixes the race condition where isActive and pendingClaudeResume update timing can miss the effect trigger
+  // This fixes the race condition where isActive and pendingCLIResume update timing can miss the effect trigger
   const hasAttemptedAutoResumeRef = useRef(false);
   // Track when the last resize was sent to PTY for grace period logic
   // This prevents false positive mismatch warnings during async resize acknowledgment
@@ -102,7 +102,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
 
   // Terminal store
   const terminal = useTerminalStore((state) => state.terminals.find((t) => t.id === id));
-  const setClaudeMode = useTerminalStore((state) => state.setClaudeMode);
+  const setCLIMode = useTerminalStore((state) => state.setCLIMode);
   const updateTerminal = useTerminalStore((state) => state.updateTerminal);
   const setAssociatedTask = useTerminalStore((state) => state.setAssociatedTask);
   const setWorktreeConfig = useTerminalStore((state) => state.setWorktreeConfig);
@@ -561,7 +561,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
   // preventing all terminals from resuming simultaneously on app startup (which can crash the app)
   useEffect(() => {
     // Reset resume attempt tracking when terminal is no longer pending
-    if (!terminal?.pendingClaudeResume) {
+    if (!terminal?.pendingCLIResume) {
       hasAttemptedAutoResumeRef.current = false;
       return;
     }
@@ -572,9 +572,9 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
     }
 
     // Check if both conditions are met for auto-resume
-    if (isActive && terminal?.pendingClaudeResume) {
+    if (isActive && terminal?.pendingCLIResume) {
       // Defer the resume slightly to ensure all React state updates have propagated
-      // This fixes the race condition where isActive and pendingClaudeResume might update
+      // This fixes the race condition where isActive and pendingCLIResume might update
       // at different times during the restoration flow
       const timer = setTimeout(() => {
         if (!isMountedRef.current) return;
@@ -587,7 +587,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
 
         // Double-check conditions before resuming (state might have changed)
         const currentTerminal = useTerminalStore.getState().terminals.find((t) => t.id === id);
-        if (currentTerminal?.pendingClaudeResume) {
+        if (currentTerminal?.pendingCLIResume) {
           // Clear the pending flag and trigger the actual resume
           useTerminalStore.getState().setPendingClaudeResume(id, false);
           window.electronAPI.activateDeferredClaudeResume(id);
@@ -596,7 +596,7 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
 
       return () => clearTimeout(timer);
     }
-  }, [isActive, id, terminal?.pendingClaudeResume]);
+  }, [isActive, id, terminal?.pendingCLIResume]);
 
   // Handle keyboard shortcuts for this terminal
   useEffect(() => {
@@ -647,9 +647,9 @@ export const Terminal = forwardRef<TerminalHandle, TerminalProps>(function Termi
   }, [id, dispose, cleanupAutoNaming]);
 
   const handleInvokeClaude = useCallback(() => {
-    setClaudeMode(id, true);
-    window.electronAPI.invokeClaudeInTerminal(id, effectiveCwd);
-  }, [id, effectiveCwd, setClaudeMode]);
+    setCLIMode(id, true);
+    window.electronAPI.invokeCLIInTerminal(id, effectiveCwd);
+  }, [id, effectiveCwd, setCLIMode]);
 
   const handleClick = useCallback(() => {
     onActivate();
@@ -767,7 +767,7 @@ Please confirm you're ready by saying: I'm ready to work on ${selectedTask.title
   // Red (busy) = Claude is actively processing
   // Green (idle) = Claude is ready for input
   const isClaudeBusy = terminal?.isClaudeBusy;
-  const showClaudeBusyIndicator = terminal?.isClaudeMode && isClaudeBusy !== undefined;
+  const showClaudeBusyIndicator = terminal?.isCLIMode && isClaudeBusy !== undefined;
 
   return (
     <div
@@ -800,7 +800,7 @@ Please confirm you're ready by saying: I'm ready to work on ${selectedTask.title
         terminalId={id}
         title={terminal?.title || 'Terminal'}
         status={terminal?.status || 'idle'}
-        isClaudeMode={terminal?.isClaudeMode || false}
+        isCLIMode={terminal?.isCLIMode || false}
         tasks={tasks}
         associatedTask={associatedTask}
         onClose={onClose}
@@ -818,7 +818,7 @@ Please confirm you're ready by saying: I'm ready to work on ${selectedTask.title
         dragHandleListeners={dragHandleListeners}
         isExpanded={isExpanded}
         onToggleExpand={onToggleExpand}
-        pendingClaudeResume={terminal?.pendingClaudeResume}
+        pendingCLIResume={terminal?.pendingCLIResume}
       />
 
       <div

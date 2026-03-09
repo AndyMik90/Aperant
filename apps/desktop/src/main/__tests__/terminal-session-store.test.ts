@@ -70,7 +70,7 @@ function createTestSession(overrides: Partial<{
   title: string;
   cwd: string;
   projectPath: string;
-  isClaudeMode: boolean;
+  isCLIMode: boolean;
   outputBuffer: string;
   createdAt: string;
   lastActiveAt: string;
@@ -80,7 +80,7 @@ function createTestSession(overrides: Partial<{
     title: overrides.title ?? 'Test Terminal',
     cwd: overrides.cwd ?? TEST_PROJECT_PATH,
     projectPath: overrides.projectPath ?? TEST_PROJECT_PATH,
-    isClaudeMode: overrides.isClaudeMode ?? false,
+    isCLIMode: overrides.isCLIMode ?? false,
     outputBuffer: overrides.outputBuffer ?? 'test output',
     createdAt: overrides.createdAt ?? new Date().toISOString(),
     lastActiveAt: overrides.lastActiveAt ?? new Date().toISOString()

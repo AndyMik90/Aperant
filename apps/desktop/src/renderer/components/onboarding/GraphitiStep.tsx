@@ -25,7 +25,10 @@ import {
   SelectValue
 } from '../ui/select';
 import { useSettingsStore } from '../../stores/settings-store';
-import type { GraphitiLLMProvider, GraphitiEmbeddingProvider, AppSettings } from '../../../shared/types';
+import type { MemoryEmbeddingProvider, AppSettings } from '../../../shared/types';
+
+/** LLM provider options for memory configuration (legacy, kept for UI purposes) */
+type MemoryLLMProvider = 'openai' | 'anthropic' | 'azure_openai' | 'ollama' | 'google' | 'groq' | 'openrouter';
 
 interface GraphitiStepProps {
   onNext: () => void;
@@ -35,7 +38,7 @@ interface GraphitiStepProps {
 
 // Provider configurations with descriptions
 const LLM_PROVIDERS: Array<{
-  id: GraphitiLLMProvider;
+  id: MemoryLLMProvider;
   name: string;
   description: string;
   requiresApiKey: boolean;
@@ -50,7 +53,7 @@ const LLM_PROVIDERS: Array<{
 ];
 
 const EMBEDDING_PROVIDERS: Array<{
-  id: GraphitiEmbeddingProvider;
+  id: MemoryEmbeddingProvider;
   name: string;
   description: string;
   requiresApiKey: boolean;
@@ -67,8 +70,8 @@ interface GraphitiConfig {
   enabled: boolean;
   database: string;
   dbPath: string;
-  llmProvider: GraphitiLLMProvider;
-  embeddingProvider: GraphitiEmbeddingProvider;
+  llmProvider: MemoryLLMProvider;
+  embeddingProvider: MemoryEmbeddingProvider;
   // OpenAI
   openaiApiKey: string;
   // Anthropic
@@ -241,40 +244,27 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                      config.embeddingProvider === 'openai' ? config.openaiApiKey :
                      config.embeddingProvider === 'openrouter' ? config.openrouterApiKey : '';
 
-      const result = await window.electronAPI.testGraphitiConnection({
-        dbPath: config.dbPath || undefined,
-        database: config.database || 'auto_claude_memory',
-        llmProvider: config.llmProvider,
-        apiKey: apiKey.trim()
-      });
+      const result = await window.electronAPI.testMemoryConnection(
+        config.dbPath || undefined,
+        config.database || 'auto_claude_memory'
+      );
 
       if (result?.success && result?.data) {
         setValidationStatus({
           database: {
             tested: true,
-            success: result.data.database.success,
-            message: result.data.database.message
+            success: result.data.success,
+            message: result.data.message
           },
           provider: {
             tested: true,
-            success: result.data.llmProvider.success,
-            message: result.data.llmProvider.success
-              ? `${config.llmProvider} / ${config.embeddingProvider} providers configured`
-              : result.data.llmProvider.message
+            success: true,
+            message: `${config.embeddingProvider} embedding provider configured`
           }
         });
 
-        if (!result.data.ready) {
-          const errors: string[] = [];
-          if (!result.data.database.success) {
-            errors.push(`Database: ${result.data.database.message}`);
-          }
-          if (!result.data.llmProvider.success) {
-            errors.push(`Provider: ${result.data.llmProvider.message}`);
-          }
-          if (errors.length > 0) {
-            setError(errors.join('\n'));
-          }
+        if (!result.data.success) {
+          setError(`Database: ${result.data.message}`);
         }
       } else {
         setError(result?.error || 'Failed to test connection');
@@ -303,9 +293,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
 
     try {
       // Save the primary API keys to global settings based on providers
-      const settingsToSave: Record<string, string> = {
-        graphitiLlmProvider: config.llmProvider,
-      };
+      const settingsToSave: Record<string, string> = {};
 
       if (config.openaiApiKey.trim()) {
         settingsToSave.globalOpenAIApiKey = config.openaiApiKey.trim();
@@ -340,7 +328,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
         updateSettings(storeUpdate);
         onNext();
       } else {
-        setError(result?.error || 'Failed to save Graphiti configuration');
+        setError(result?.error || 'Failed to save memory configuration');
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error occurred');
@@ -932,7 +920,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                         </Label>
                         <Select
                           value={config.llmProvider}
-                          onValueChange={(value: GraphitiLLMProvider) => {
+                          onValueChange={(value: MemoryLLMProvider) => {
                             setConfig(prev => ({ ...prev, llmProvider: value }));
                             setValidationStatus(prev => ({ ...prev, provider: null }));
                           }}
@@ -961,7 +949,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                         </Label>
                         <Select
                           value={config.embeddingProvider}
-                          onValueChange={(value: GraphitiEmbeddingProvider) => {
+                          onValueChange={(value: MemoryEmbeddingProvider) => {
                             setConfig(prev => ({ ...prev, embeddingProvider: value }));
                             setValidationStatus(prev => ({ ...prev, provider: null }));
                           }}

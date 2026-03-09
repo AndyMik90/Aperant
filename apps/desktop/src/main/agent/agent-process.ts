@@ -238,7 +238,7 @@ export class AgentProcessManager {
     // When the active profile provides CLAUDE_CONFIG_DIR, clear CLAUDE_CODE_OAUTH_TOKEN
     // from the spawn environment. CLAUDE_CONFIG_DIR lets Claude Code resolve its own
     // OAuth tokens from the config directory, making an explicit token unnecessary.
-    // This matches the terminal pattern in claude-integration-handler.ts where
+    // This matches the terminal pattern in cli-integration-handler.ts where
     // configDir is preferred over direct token injection.
     // We check profileEnv specifically (not mergedEnv) to avoid clearing the token
     // when CLAUDE_CONFIG_DIR comes from the shell environment rather than the profile.
@@ -441,12 +441,6 @@ export class AgentProcessManager {
     const project = projects.find((p) => p.path === projectPath);
 
     if (project?.settings) {
-      // Graphiti MCP integration
-      if (project.settings.graphitiMcpEnabled) {
-        const graphitiUrl = project.settings.graphitiMcpUrl || 'http://localhost:8000/mcp/';
-        env['GRAPHITI_MCP_URL'] = graphitiUrl;
-      }
-
       // CLAUDE.md integration (enabled by default)
       if (project.settings.useClaudeMd !== false) {
         env['USE_CLAUDE_MD'] = 'true';
@@ -503,7 +497,7 @@ export class AgentProcessManager {
 
   /**
    * Load environment variables from project's .auto-claude/.env file
-   * This contains frontend-configured settings like memory/Graphiti configuration
+   * This contains frontend-configured settings like memory configuration
    */
   private loadProjectEnv(projectPath: string): Record<string, string> {
     // Find project by path to get autoBuildPath
@@ -871,9 +865,14 @@ export class AgentProcessManager {
 
     const bridge = new WorkerBridge();
 
+    const isDebug = ['true', '1', 'yes', 'on'].includes(process.env.DEBUG?.toLowerCase() ?? '');
+
     // Forward all bridge events to the main emitter (matching existing event contract)
     bridge.on('log', (tId: string, log: string, pId?: string) => {
       this.emitter.emit('log', tId, log, pId);
+      if (isDebug) {
+        console.log(`[Agent:${tId}] ${log}`);
+      }
     });
 
     bridge.on('error', (tId: string, error: string, pId?: string) => {

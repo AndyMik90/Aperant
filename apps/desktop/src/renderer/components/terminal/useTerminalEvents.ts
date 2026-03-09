@@ -53,11 +53,11 @@ export function useTerminalEvents({
         store.setTerminalStatus(terminalId, 'exited');
         // Reset Claude mode when terminal exits - the Claude process has ended
         // setTerminalStatus('exited') already sends SHELL_EXITED to XState (which handles
-        // claude_active -> exited transition), so setClaudeMode(false) here only updates Zustand
+        // claude_active -> exited transition), so setCLIMode(false) here only updates Zustand
         // (its XState guard skips CLAUDE_EXITED since the machine is already in 'exited')
         const terminal = store.getTerminal(terminalId);
-        if (terminal?.isClaudeMode) {
-          store.setClaudeMode(terminalId, false);
+        if (terminal?.isCLIMode) {
+          store.setCLIMode(terminalId, false);
         }
         onExitRef.current?.(exitCode);
 
@@ -115,7 +115,7 @@ export function useTerminalEvents({
         store.setClaudeSessionId(terminalId, sessionId);
         // Also set Claude mode to true when we receive a session ID
         // This ensures the Claude badge shows up after auto-resume
-        store.setClaudeMode(terminalId, true);
+        store.setCLIMode(terminalId, true);
         console.warn('[Terminal] Captured Claude session ID:', sessionId);
         onClaudeSessionRef.current?.(sessionId);
       }
@@ -148,9 +148,9 @@ export function useTerminalEvents({
           return;
         }
         // Reset Claude mode - Claude has exited but terminal is still running
-        // Use setClaudeMode which properly sends CLAUDE_EXITED to the XState machine,
+        // Use setCLIMode which properly sends CLAUDE_EXITED to the XState machine,
         // then clear residual Claude state separately
-        store.setClaudeMode(terminalId, false);
+        store.setCLIMode(terminalId, false);
         store.updateTerminal(terminalId, {
           isClaudeBusy: undefined,
           claudeSessionId: undefined,

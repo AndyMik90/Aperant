@@ -135,20 +135,16 @@ export function tryLoadPrompt(promptName: string): string | null {
 }
 
 // =============================================================================
-// CLAUDE.md Loading
+// Project Instructions Loading
 // =============================================================================
 
 /**
- * Load and return the content of CLAUDE.md from the project directory.
- *
- * @param projectDir - Project root directory
- * @returns Content of CLAUDE.md or null if not found
+ * Try to read a file asynchronously, returning trimmed content or null.
  */
-export async function loadClaudeMd(projectDir: string): Promise<string | null> {
-  const claudeMdPath = join(projectDir, 'CLAUDE.md');
+async function tryReadFile(filePath: string): Promise<string | null> {
   try {
     const content = await new Promise<string>((resolve, reject) => {
-      readFileAsync(claudeMdPath, 'utf-8', (err, data) => {
+      readFileAsync(filePath, 'utf-8', (err, data) => {
         if (err) reject(err);
         else resolve(data);
       });
@@ -159,27 +155,41 @@ export async function loadClaudeMd(projectDir: string): Promise<string | null> {
   }
 }
 
+/** Result of loading project instructions, includes the source filename */
+export interface ProjectInstructionsResult {
+  content: string;
+  /** Which file was loaded (e.g., "AGENTS.md", "CLAUDE.md") */
+  source: string;
+}
+
 /**
- * Load and return the content of agents.md from the project directory.
- * agents.md is a provider-agnostic agent instruction file that applies
- * to ALL AI providers (Anthropic, OpenAI, Google, etc.).
+ * Load project instructions from AGENTS.md (preferred) or CLAUDE.md (fallback).
+ *
+ * AGENTS.md is the canonical provider-agnostic instruction file.
+ * CLAUDE.md is supported for backward compatibility.
+ * Only one file is loaded — AGENTS.md takes priority if it exists.
+ * Both upper and lower case variants are tried.
  *
  * @param projectDir - Project root directory
- * @returns Content of agents.md or null if not found
+ * @returns Content of the first found instruction file, or null
  */
-export async function loadAgentsMd(projectDir: string): Promise<string | null> {
-  const agentsMdPath = join(projectDir, 'agents.md');
-  try {
-    const content = await new Promise<string>((resolve, reject) => {
-      readFileAsync(agentsMdPath, 'utf-8', (err, data) => {
-        if (err) reject(err);
-        else resolve(data);
-      });
-    });
-    return content.trim() || null;
-  } catch {
-    return null;
+export async function loadProjectInstructions(projectDir: string): Promise<ProjectInstructionsResult | null> {
+  const candidates = ['AGENTS.md', 'agents.md', 'CLAUDE.md', 'claude.md'];
+  for (const name of candidates) {
+    const content = await tryReadFile(join(projectDir, name));
+    if (content) return { content, source: name };
   }
+  return null;
+}
+
+/** @deprecated Use loadProjectInstructions() instead */
+export async function loadClaudeMd(projectDir: string): Promise<string | null> {
+  return tryReadFile(join(projectDir, 'CLAUDE.md'));
+}
+
+/** @deprecated Use loadProjectInstructions() instead */
+export async function loadAgentsMd(projectDir: string): Promise<string | null> {
+  return tryReadFile(join(projectDir, 'agents.md'));
 }
 
 // =============================================================================
@@ -224,27 +234,16 @@ export function injectContext(promptTemplate: string, context: PromptContext): s
     );
   }
 
-  // 4. CLAUDE.md injection (provider-agnostic project instructions)
-  if (context.claudeMd) {
+  // 4. Project instructions (AGENTS.md or CLAUDE.md fallback)
+  if (context.projectInstructions) {
     sections.push(
-      `## PROJECT INSTRUCTIONS (CLAUDE.md)\n\n` +
-      `The following are project-specific instructions from CLAUDE.md:\n\n` +
-      `${context.claudeMd}\n\n` +
+      `## PROJECT INSTRUCTIONS\n\n` +
+      `${context.projectInstructions}\n\n` +
       `---\n\n`
     );
   }
 
-  // 5. agents.md injection (provider-agnostic agent framework instructions)
-  if (context.agentsMd) {
-    sections.push(
-      `## AGENT INSTRUCTIONS (agents.md)\n\n` +
-      `The following are agent-specific instructions from agents.md:\n\n` +
-      `${context.agentsMd}\n\n` +
-      `---\n\n`
-    );
-  }
-
-  // 6. Base prompt
+  // 5. Base prompt
   sections.push(promptTemplate);
 
   return sections.join('');

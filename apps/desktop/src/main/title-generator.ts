@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { generateText } from 'ai';
+import { streamText } from 'ai';
 import { createSimpleClient } from './ai/client/factory';
 import { getActiveProviderFeatureSettings } from './ipc-handlers/feature-settings-helper';
 import { safeBreadcrumb, safeCaptureException } from './sentry';
@@ -69,13 +69,23 @@ export class TitleGenerator extends EventEmitter {
         thinkingLevel: namingSettings.thinkingLevel as 'low' | 'medium' | 'high' | 'xhigh',
       });
 
-      const result = await generateText({
+      // Handle Codex models the same way as runner.ts:
+      // Codex requires instructions field (not system messages in input) and store=false
+      const isCodex = client.resolvedModelId?.includes('codex') ?? false;
+
+      const result = streamText({
         model: client.model,
-        system: client.systemPrompt,
+        system: isCodex ? undefined : client.systemPrompt,
         prompt,
+        providerOptions: isCodex ? {
+          openai: {
+            ...(client.systemPrompt ? { instructions: client.systemPrompt } : {}),
+            store: false,
+          },
+        } : undefined,
       });
 
-      const raw = result.text.trim();
+      const raw = (await result.text).trim();
       if (!raw) {
         debug('AI returned empty response');
         safeBreadcrumb({

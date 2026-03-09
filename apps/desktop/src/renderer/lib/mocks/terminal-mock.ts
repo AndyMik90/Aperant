@@ -22,8 +22,8 @@ export const terminalMock = {
     return { success: true, data: { success: true } };
   },
 
-  invokeClaudeInTerminal: () => {
-    console.warn('[Browser Mock] invokeClaudeInTerminal called');
+  invokeCLIInTerminal: () => {
+    console.warn('[Browser Mock] invokeCLIInTerminal called');
   },
 
   generateTerminalName: async () => ({

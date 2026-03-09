@@ -15,7 +15,7 @@ interface TerminalHeaderProps {
   terminalId: string;
   title: string;
   status: TerminalStatus;
-  isClaudeMode: boolean;
+  isCLIMode: boolean;
   tasks: Task[];
   associatedTask?: Task;
   onClose: () => void;
@@ -42,14 +42,14 @@ interface TerminalHeaderProps {
   /** Callback to toggle expanded state */
   onToggleExpand?: () => void;
   /** Whether this terminal has a pending Claude resume (deferred until tab activated) */
-  pendingClaudeResume?: boolean;
+  pendingCLIResume?: boolean;
 }
 
 export function TerminalHeader({
   terminalId,
   title,
   status,
-  isClaudeMode,
+  isCLIMode,
   tasks,
   associatedTask,
   onClose,
@@ -67,7 +67,7 @@ export function TerminalHeader({
   dragHandleListeners,
   isExpanded,
   onToggleExpand,
-  pendingClaudeResume,
+  pendingCLIResume,
 }: TerminalHeaderProps) {
   const { t } = useTranslation(['terminal', 'common']);
   const backlogTasks = tasks.filter((t) => t.status === 'backlog');
@@ -75,7 +75,7 @@ export function TerminalHeader({
   // Check if 2+ terminals have pending Claude resume
   // Use a derived selector returning a primitive to avoid re-renders on unrelated terminal changes
   const pendingResumeCount = useTerminalStore(
-    (state) => state.terminals.filter((t) => t.pendingClaudeResume === true).length
+    (state) => state.terminals.filter((t) => t.pendingCLIResume === true).length
   );
   const showResumeAllButton = pendingResumeCount >= 2;
 
@@ -108,7 +108,7 @@ export function TerminalHeader({
             terminalCount={terminalCount}
           />
         </div>
-        {isClaudeMode && (
+        {isCLIMode && (
           <span
             className="flex items-center gap-1 text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded"
             title="Claude"
@@ -117,7 +117,7 @@ export function TerminalHeader({
             {terminalCount < 4 && <span>Claude</span>}
           </span>
         )}
-        {pendingClaudeResume && (
+        {pendingCLIResume && (
           <span
             className="flex items-center gap-1 text-[10px] font-medium text-cyan-500 bg-cyan-500/10 px-1.5 py-0.5 rounded animate-pulse"
             title={t('terminal:resume.pendingTooltip')}
@@ -126,7 +126,7 @@ export function TerminalHeader({
             {terminalCount < 4 && <span>{t('terminal:resume.pending')}</span>}
           </span>
         )}
-        {isClaudeMode && (
+        {isCLIMode && (
           <TaskSelector
             terminalId={terminalId}
             backlogTasks={backlogTasks}
@@ -200,7 +200,7 @@ export function TerminalHeader({
             {terminalCount < 4 && t('terminal:worktree.openInIDE')}
           </Button>
         )}
-        {!isClaudeMode && status !== 'exited' && (
+        {!isCLIMode && status !== 'exited' && (
           <Button
             variant="ghost"
             size={terminalCount >= 4 ? 'icon' : 'sm'}

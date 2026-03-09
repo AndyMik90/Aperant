@@ -2,7 +2,7 @@
  * Application settings types
  */
 
-import type { NotificationSettings, GraphitiEmbeddingProvider } from './project';
+import type { NotificationSettings, MemoryEmbeddingProvider } from './project';
 import type { ChangelogFormat, ChangelogAudience, ChangelogEmojiLevel } from './changelog';
 import type { SupportedLanguage } from '../constants/i18n';
 import type { ProviderAccount, BuiltinProvider } from './provider-account';
@@ -145,6 +145,15 @@ export type SupportedTerminal =
   // Custom option
   | 'custom';
 
+// CLI tools for AI-powered terminal sessions
+export type SupportedCLI =
+  | 'claude-code'   // Claude Code CLI
+  | 'gemini'        // Gemini CLI
+  | 'opencode'      // OpenCode
+  | 'kilocode'      // Kilo Code CLI
+  | 'codex'         // Codex CLI
+  | 'custom';
+
 export interface ThemePreviewColors {
   bg: string;
   accent: string;
@@ -284,12 +293,10 @@ export interface AppSettings {
   /** User overrides for model equivalence mapping per provider */
   modelOverrides?: Record<string, Partial<Record<BuiltinProvider, ProviderModelSpec>>>;
   _migratedProviderAccounts?: boolean;
-  // Graphiti LLM provider settings (legacy)
-  graphitiLlmProvider?: 'openai' | 'anthropic' | 'google' | 'groq' | 'ollama';
   ollamaBaseUrl?: string;
-  // Memory/Graphiti configuration (app-wide, set during onboarding)
+  // Memory configuration (app-wide, set during onboarding)
   memoryEnabled?: boolean;
-  memoryEmbeddingProvider?: GraphitiEmbeddingProvider;
+  memoryEmbeddingProvider?: MemoryEmbeddingProvider;
   memoryOllamaEmbeddingModel?: string;
   memoryOllamaEmbeddingDim?: number;
   memoryVoyageApiKey?: string;
@@ -297,9 +304,6 @@ export interface AppSettings {
   memoryAzureApiKey?: string;
   memoryAzureBaseUrl?: string;
   memoryAzureEmbeddingDeployment?: string;
-  // Agent Memory Access (MCP) - app-wide defaults
-  graphitiMcpEnabled?: boolean;
-  graphitiMcpUrl?: string;
   // Onboarding wizard completion state
   onboardingCompleted?: boolean;
   // Selected agent profile for preset model/thinking configurations
@@ -337,6 +341,8 @@ export interface AppSettings {
   customIDEPath?: string;      // For 'custom' IDE
   preferredTerminal?: SupportedTerminal;
   customTerminalPath?: string; // For 'custom' terminal
+  preferredCLI?: SupportedCLI;
+  customCLIPath?: string;
   // YOLO mode: invoke Claude with --dangerously-skip-permissions flag
   dangerouslySkipPermissions?: boolean;
   // Anonymous error reporting (Sentry) - enabled by default to help improve the app

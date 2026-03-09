@@ -21,7 +21,7 @@ export interface TerminalSessionState {
   cols: number;
 
   // Claude Code specific
-  isClaudeMode: boolean;
+  isCLIMode: boolean;
   claudeSessionId?: string;  // For potential /resume
 
   // Timing
@@ -54,7 +54,7 @@ export interface TerminalRecoveryInfo {
   sessions: Array<{
     id: string;
     title: string;
-    isClaudeMode: boolean;
+    isCLIMode: boolean;
     lastActiveAt: number;
     hasBuffer: boolean;
     hasDaemonPty: boolean;

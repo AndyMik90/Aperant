@@ -5,7 +5,7 @@
  * The implementation has been refactored into smaller, focused modules in the context/ subdirectory:
  *
  * - utils.ts: Shared utility functions for environment parsing and configuration
- * - memory-status-handlers.ts: Handlers for checking Graphiti/memory configuration
+ * - memory-status-handlers.ts: Handlers for checking memory configuration
  * - memory-data-handlers.ts: Handlers for getting and searching memories
  * - project-context-handlers.ts: Handlers for project context and index operations
  *

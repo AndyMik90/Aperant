@@ -21,7 +21,7 @@ export function useTerminalProfileChange(): void {
     terminalId: string,
     sessionId?: string,
     sessionMigrated?: boolean,
-    isClaudeMode?: boolean
+    isCLIMode?: boolean
   ) => {
     // Prevent duplicate recreation
     if (recreatingTerminals.current.has(terminalId)) {
@@ -124,7 +124,7 @@ export function useTerminalProfileChange(): void {
           { migratedSession: true }
         );
         debugLog('[useTerminalProfileChange] Resume initiated for terminal:', newTerminal.id);
-      } else if (isClaudeMode && sessionId && !sessionMigrated) {
+      } else if (isCLIMode && sessionId && !sessionMigrated) {
         // Session had an active Claude session but migration failed
         // Notify user that their Claude session was lost
         debugError('[useTerminalProfileChange] Session migration failed for terminal:', terminalId);
@@ -153,7 +153,7 @@ export function useTerminalProfileChange(): void {
           terminalInfo.id,
           terminalInfo.sessionId,
           terminalInfo.sessionMigrated,
-          terminalInfo.isClaudeMode
+          terminalInfo.isCLIMode
         );
       }
 

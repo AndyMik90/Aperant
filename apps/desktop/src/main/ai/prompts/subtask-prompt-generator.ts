@@ -14,7 +14,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
-import { loadPrompt, loadClaudeMd } from './prompt-loader';
+import { loadPrompt } from './prompt-loader';
 import type {
   PlannerPromptConfig,
   SubtaskPromptConfig,
@@ -157,7 +157,7 @@ function generateEnvironmentContext(projectDir: string, specDir: string): string
  * @returns Assembled planner prompt
  */
 export async function generatePlannerPrompt(config: PlannerPromptConfig): Promise<string> {
-  const { specDir, projectDir, claudeMd, planningRetryContext } = config;
+  const { specDir, projectDir, projectInstructions, planningRetryContext } = config;
 
   // Load base prompt from planner.md
   const basePlannerPrompt = loadPrompt('planner');
@@ -181,12 +181,11 @@ export async function generatePlannerPrompt(config: PlannerPromptConfig): Promis
     `---\n\n`
   );
 
-  // 3. CLAUDE.md injection
-  if (claudeMd) {
+  // 3. Project instructions injection
+  if (projectInstructions) {
     sections.push(
-      `## PROJECT INSTRUCTIONS (CLAUDE.md)\n\n` +
-      `The following are project-specific instructions:\n\n` +
-      `${claudeMd}\n\n` +
+      `## PROJECT INSTRUCTIONS\n\n` +
+      `${projectInstructions}\n\n` +
       `---\n\n`
     );
   }
@@ -221,7 +220,7 @@ export async function generateSubtaskPrompt(config: SubtaskPromptConfig): Promis
     phase,
     attemptCount = 0,
     recoveryHints,
-    claudeMd,
+    projectInstructions,
   } = config;
 
   const sections: string[] = [];
@@ -348,11 +347,11 @@ export async function generateSubtaskPrompt(config: SubtaskPromptConfig): Promis
     `- If you encounter a blocker, document it in build-progress.txt\n`
   );
 
-  // 7. CLAUDE.md injection
-  if (claudeMd) {
+  // 7. Project instructions injection
+  if (projectInstructions) {
     sections.push(
-      `\n## PROJECT INSTRUCTIONS (CLAUDE.md)\n\n` +
-      `${claudeMd}\n`
+      `\n## PROJECT INSTRUCTIONS\n\n` +
+      `${projectInstructions}\n`
     );
   }
 

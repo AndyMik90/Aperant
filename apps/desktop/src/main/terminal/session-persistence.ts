@@ -113,7 +113,7 @@ class SessionPersistence {
       sessions: sessions.map((s) => ({
         id: s.id,
         title: s.title,
-        isClaudeMode: s.isClaudeMode,
+        isCLIMode: s.isCLIMode,
         lastActiveAt: s.lastActiveAt,
         hasBuffer: !!s.bufferFile,
         hasDaemonPty: !!s.daemonPtyId,
@@ -135,7 +135,7 @@ class SessionPersistence {
    */
   updateSessionMetadata(
     id: string,
-    updates: Partial<Pick<TerminalSessionState, 'title' | 'isClaudeMode' | 'claudeSessionId' | 'daemonPtyId'>>
+    updates: Partial<Pick<TerminalSessionState, 'title' | 'isCLIMode' | 'claudeSessionId' | 'daemonPtyId'>>
   ): void {
     const session = this.sessions.get(id);
     if (!session) return;

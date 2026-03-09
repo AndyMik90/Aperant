@@ -23,9 +23,9 @@ export function useAutoNaming({ terminalId, cwd }: UseAutoNamingOptions) {
     }
 
     // Handle Claude mode vs regular terminal mode
-    if (terminal?.isClaudeMode) {
+    if (terminal?.isCLIMode) {
       // In Claude mode: only rename if autoNameClaudeTerminals is enabled AND we haven't named yet
-      if (!autoNameClaudeTerminals || terminal?.claudeNamedOnce) {
+      if (!autoNameClaudeTerminals || terminal?.cliNamedOnce) {
         return;
       }
     } else {
@@ -44,7 +44,7 @@ export function useAutoNaming({ terminalId, cwd }: UseAutoNamingOptions) {
 
     // In Claude mode, messages are natural language prompts, not shell commands
     // Skip the shell command filtering since we want to name based on the first prompt
-    if (!terminal?.isClaudeMode) {
+    if (!terminal?.isCLIMode) {
       const commandLower = command.toLowerCase();
       const firstWord = commandLower.split(/\s+/)[0];
 
@@ -89,14 +89,14 @@ export function useAutoNaming({ terminalId, cwd }: UseAutoNamingOptions) {
         // Mark Claude terminal as named once to prevent repeated renames
         // Re-fetch terminal state after async operation to avoid stale closure
         const currentTerminal = useTerminalStore.getState().terminals.find((t) => t.id === terminalId);
-        if (currentTerminal?.isClaudeMode) {
+        if (currentTerminal?.isCLIMode) {
           setClaudeNamedOnce(terminalId, true);
         }
       }
     } catch (error) {
       console.warn('[Terminal] Auto-naming failed:', error);
     }
-  }, [autoNameTerminals, autoNameClaudeTerminals, terminal?.isClaudeMode, terminal?.claudeNamedOnce, terminal?.cwd, cwd, terminalId, updateTerminal, setClaudeNamedOnce]);
+  }, [autoNameTerminals, autoNameClaudeTerminals, terminal?.isCLIMode, terminal?.cliNamedOnce, terminal?.cwd, cwd, terminalId, updateTerminal, setClaudeNamedOnce]);
 
   const handleCommandEnter = useCallback((command: string) => {
     lastCommandRef.current = command;

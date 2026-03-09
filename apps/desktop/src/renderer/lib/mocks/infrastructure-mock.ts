@@ -32,33 +32,6 @@ export const infrastructureMock = {
     }
   }),
 
-  // LLM API Validation Operations
-  validateLLMApiKey: async () => ({
-    success: true,
-    data: {
-      success: true,
-      message: 'API key is valid (mock)',
-      details: { provider: 'openai', latencyMs: 100 }
-    }
-  }),
-
-  testGraphitiConnection: async () => ({
-    success: true,
-    data: {
-      database: {
-        success: true,
-        message: 'Connected to LadybugDB database (mock)',
-        details: { latencyMs: 5 }
-      },
-      llmProvider: {
-        success: true,
-        message: 'LLM API key is valid (mock)',
-        details: { provider: 'openai', latencyMs: 100 }
-      },
-      ready: true
-    }
-  }),
-
   // Ollama Model Detection Operations
   checkOllamaStatus: async () => ({
     success: true,

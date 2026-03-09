@@ -2,7 +2,7 @@
  * API Validation Service
  *
  * Provides validation for external LLM API providers (OpenAI, Anthropic, Google, etc.)
- * Used by the Graphiti memory integration for embedding and LLM operations.
+ * Used by the memory integration for embedding operations.
  */
 
 import https from 'https';

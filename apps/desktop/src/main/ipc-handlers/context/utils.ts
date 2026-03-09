@@ -98,14 +98,17 @@ export function loadGlobalSettings(): GlobalSettings {
 }
 
 /**
- * Check if Graphiti is enabled in project or global environment
+ * Check if memory is enabled in project or global environment
  */
-export function isGraphitiEnabled(projectEnvVars: EnvironmentVars): boolean {
+export function isMemoryEnabled(projectEnvVars: EnvironmentVars): boolean {
   return (
     projectEnvVars['GRAPHITI_ENABLED']?.toLowerCase() === 'true' ||
     process.env.GRAPHITI_ENABLED?.toLowerCase() === 'true'
   );
 }
+
+/** @deprecated Use isMemoryEnabled instead */
+export const isGraphitiEnabled = isMemoryEnabled;
 
 /**
  * Check if OpenAI API key is available
@@ -205,14 +208,14 @@ export function validateEmbeddingConfiguration(
 }
 
 /**
- * Get Graphiti database details (LadybugDB - embedded database)
+ * Get memory database details (LadybugDB - embedded database)
  */
-export interface GraphitiDatabaseDetails {
+export interface MemoryDatabaseDetails {
   dbPath: string;
   database: string;
 }
 
-export function getGraphitiDatabaseDetails(projectEnvVars: EnvironmentVars): GraphitiDatabaseDetails {
+export function getMemoryDatabaseDetails(projectEnvVars: EnvironmentVars): MemoryDatabaseDetails {
   const dbPath = projectEnvVars['GRAPHITI_DB_PATH'] ||
                  process.env.GRAPHITI_DB_PATH ||
                  require('path').join(require('os').homedir(), '.auto-claude', 'memories');

@@ -49,7 +49,7 @@ const createMockTerminal = (overrides: Partial<TerminalProcess> = {}): TerminalP
   id: 'term-1',
   pty: createMockPty(),
   outputBuffer: '',
-  isClaudeMode: false,
+  isCLIMode: false,
   claudeSessionId: undefined,
   claudeProfileId: undefined,
   title: 'Terminal 1',  // Use default terminal name pattern to match production behavior
@@ -58,7 +58,7 @@ const createMockTerminal = (overrides: Partial<TerminalProcess> = {}): TerminalP
   ...overrides,
 });
 
-vi.mock('../../claude-cli-utils', () => ({
+vi.mock('../../cli-utils', () => ({
   getClaudeCliInvocation: mockGetClaudeCliInvocation,
   getClaudeCliInvocationAsync: mockGetClaudeCliInvocationAsync,
 }));
@@ -88,6 +88,11 @@ vi.mock('../session-handler', () => ({
 const mockWriteToPty = vi.fn();
 vi.mock('../pty-manager', () => ({
   writeToPty: mockWriteToPty,
+}));
+
+// Mock settings-utils so invokeCLIAsync defaults to claude-code in tests
+vi.mock('../../settings-utils', () => ({
+  readSettingsFileAsync: vi.fn(async () => undefined),
 }));
 
 vi.mock('os', async (importOriginal) => {
@@ -229,7 +234,7 @@ function getConfigDirCommand(platform: 'win32' | 'darwin' | 'linux', configDir: 
   return `CLAUDE_CONFIG_DIR='${configDir}'`;
 }
 
-describe('claude-integration-handler', () => {
+describe('cli-integration-handler', () => {
   beforeEach(() => {
     mockGetClaudeCliInvocation.mockClear();
     mockGetClaudeProfileManager.mockClear();
@@ -259,7 +264,7 @@ describe('claude-integration-handler', () => {
 
       const terminal = createMockTerminal();
 
-      const { invokeClaude } = await import('../claude-integration-handler');
+      const { invokeClaude } = await import('../cli-integration-handler');
       invokeClaude(terminal, '/tmp/project', undefined, () => null, vi.fn());
 
       const written = mockWriteToPty.mock.calls[0][1] as string;
@@ -295,7 +300,7 @@ describe('claude-integration-handler', () => {
 
       const terminal = createMockTerminal({ id: 'term-3' });
 
-      const { invokeClaude } = await import('../claude-integration-handler');
+      const { invokeClaude } = await import('../cli-integration-handler');
       invokeClaude(terminal, '/tmp/project', 'prof-1', () => null, vi.fn());
 
       const tokenPath = vi.mocked(writeFileSync).mock.calls[0]?.[0] as string;
@@ -347,7 +352,7 @@ describe('claude-integration-handler', () => {
 
       const terminal = createMockTerminal({ id: 'term-both' });
 
-      const { invokeClaude } = await import('../claude-integration-handler');
+      const { invokeClaude } = await import('../cli-integration-handler');
       invokeClaude(terminal, '/tmp/project', 'prof-both', () => null, vi.fn());
 
       // Should NOT write a temp file - configDir is used instead
@@ -384,7 +389,7 @@ describe('claude-integration-handler', () => {
 
       const terminal = createMockTerminal({ id: 'term-6' });
 
-      const { invokeClaude } = await import('../claude-integration-handler');
+      const { invokeClaude } = await import('../cli-integration-handler');
       invokeClaude(terminal, '/tmp/project', 'missing', () => null, vi.fn());
 
       const written = mockWriteToPty.mock.calls[0][1] as string;
@@ -415,7 +420,7 @@ describe('claude-integration-handler', () => {
 
       const terminal = createMockTerminal({ id: 'term-4' });
 
-      const { invokeClaude } = await import('../claude-integration-handler');
+      const { invokeClaude } = await import('../cli-integration-handler');
       invokeClaude(terminal, '/tmp/project', 'prof-2', () => null, vi.fn());
 
       const written = mockWriteToPty.mock.calls[0][1] as string;
@@ -454,7 +459,7 @@ describe('claude-integration-handler', () => {
 
       const terminal = createMockTerminal({ id: 'term-5' });
 
-      const { invokeClaude } = await import('../claude-integration-handler');
+      const { invokeClaude } = await import('../cli-integration-handler');
       invokeClaude(terminal, '/tmp/project', 'prof-3', () => null, vi.fn());
 
       const written = mockWriteToPty.mock.calls[0][1] as string;
@@ -477,7 +482,7 @@ describe('claude-integration-handler', () => {
         projectPath: '/tmp/project',
       });
 
-      const { resumeClaude } = await import('../claude-integration-handler');
+      const { resumeClaude } = await import('../cli-integration-handler');
 
       // Even when sessionId is passed, it should be ignored and --continue used
       resumeClaude(terminal, 'abc123', () => null);
@@ -488,17 +493,17 @@ describe('claude-integration-handler', () => {
       expect(resumeCall).not.toContain('--resume');
       // sessionId is cleared because --continue doesn't track specific sessions
       expect(terminal.claudeSessionId).toBeUndefined();
-      expect(terminal.isClaudeMode).toBe(true);
+      expect(terminal.isCLIMode).toBe(true);
       expect(mockPersistSession).toHaveBeenCalledWith(terminal);
 
       mockWriteToPty.mockClear();
       mockPersistSession.mockClear();
       terminal.projectPath = undefined;
-      terminal.isClaudeMode = false;
+      terminal.isCLIMode = false;
       resumeClaude(terminal, undefined, () => null);
       const continueCall = mockWriteToPty.mock.calls[0][1] as string;
       expect(continueCall).toContain(getQuotedCommand(platform, '/opt/claude/bin/claude') + ' --continue');
-      expect(terminal.isClaudeMode).toBe(true);
+      expect(terminal.isCLIMode).toBe(true);
       expect(terminal.claudeSessionId).toBeUndefined();
       expect(mockPersistSession).not.toHaveBeenCalled();
     });
@@ -518,7 +523,7 @@ describe('claude-integration-handler', () => {
 
     const terminal = createMockTerminal({ id: 'term-err' });
 
-    const { invokeClaude } = await import('../claude-integration-handler');
+    const { invokeClaude } = await import('../cli-integration-handler');
     expect(() => invokeClaude(terminal, '/tmp/project', undefined, () => null, vi.fn())).toThrow('boom');
     expect(mockReleaseSessionId).toHaveBeenCalledWith('term-err');
     expect(mockWriteToPty).not.toHaveBeenCalled();
@@ -535,7 +540,7 @@ describe('claude-integration-handler', () => {
       projectPath: '/tmp/project',
     });
 
-    const { resumeClaude } = await import('../claude-integration-handler');
+    const { resumeClaude } = await import('../cli-integration-handler');
     expect(() => resumeClaude(terminal, 'abc123', () => null)).toThrow('boom');
     expect(mockWriteToPty).not.toHaveBeenCalled();
   });
@@ -563,7 +568,7 @@ describe('claude-integration-handler', () => {
 
     const terminal = createMockTerminal({ id: 'term-err-3' });
 
-    const { invokeClaude } = await import('../claude-integration-handler');
+    const { invokeClaude } = await import('../cli-integration-handler');
     expect(() => invokeClaude(terminal, '/tmp/project', 'prof-err', () => null, vi.fn())).toThrow('disk full');
     expect(mockWriteToPty).not.toHaveBeenCalled();
   });
@@ -583,7 +588,7 @@ describe('claude-integration-handler', () => {
 
     const terminal = createMockTerminal();
 
-    const { invokeClaude } = await import('../claude-integration-handler');
+    const { invokeClaude } = await import('../cli-integration-handler');
     invokeClaude(terminal, '/tmp/project', undefined, () => null, vi.fn(), true);
 
     const written = mockWriteToPty.mock.calls[0][1] as string;
@@ -606,7 +611,7 @@ describe('claude-integration-handler', () => {
 
     const terminal = createMockTerminal();
 
-    const { invokeClaude } = await import('../claude-integration-handler');
+    const { invokeClaude } = await import('../cli-integration-handler');
     invokeClaude(terminal, '/tmp/project', undefined, () => null, vi.fn(), false);
 
     const written = mockWriteToPty.mock.calls[0][1] as string;
@@ -627,24 +632,24 @@ describe('claude-integration-handler', () => {
     mockGetClaudeProfileManager.mockReturnValue(profileManager);
 
     const terminal = createMockTerminal({
-      isClaudeMode: false,
+      isCLIMode: false,
       claudeProfileId: 'old-profile',
     });
 
-    const { invokeClaude } = await import('../claude-integration-handler');
+    const { invokeClaude } = await import('../cli-integration-handler');
     expect(() => invokeClaude(terminal, '/tmp/project', 'new-profile', () => null, vi.fn())).toThrow('CLI error');
 
     // Terminal state should be rolled back
-    expect(terminal.isClaudeMode).toBe(false);
+    expect(terminal.isCLIMode).toBe(false);
     expect(terminal.claudeProfileId).toBe('old-profile');
     expect(terminal.claudeSessionId).toBeUndefined();
   });
 });
 
 /**
- * Tests for invokeClaudeAsync() - async version with timeout protection
+ * Tests for invokeCLIAsync() - async version with timeout protection
  */
-describe('invokeClaudeAsync', () => {
+describe('invokeCLIAsync', () => {
   beforeEach(() => {
     mockGetClaudeCliInvocationAsync.mockClear();
     mockInitializeClaudeProfileManager.mockClear();
@@ -674,8 +679,8 @@ describe('invokeClaudeAsync', () => {
 
       const terminal = createMockTerminal();
 
-      const { invokeClaudeAsync } = await import('../claude-integration-handler');
-      await invokeClaudeAsync(terminal, '/tmp/project', undefined, () => null, vi.fn());
+      const { invokeCLIAsync } = await import('../cli-integration-handler');
+      await invokeCLIAsync(terminal, '/tmp/project', undefined, () => null, vi.fn());
 
       const written = mockWriteToPty.mock.calls[0][1] as string;
       expect(written).toContain(buildCdCommand('/tmp/project'));
@@ -707,8 +712,8 @@ describe('invokeClaudeAsync', () => {
 
       const terminal = createMockTerminal();
 
-      const { invokeClaudeAsync } = await import('../claude-integration-handler');
-      await invokeClaudeAsync(terminal, '/tmp/project', 'prof-config', () => null, vi.fn());
+      const { invokeCLIAsync } = await import('../cli-integration-handler');
+      await invokeCLIAsync(terminal, '/tmp/project', 'prof-config', () => null, vi.fn());
 
       const written = mockWriteToPty.mock.calls[0][1] as string;
       const clearCmd = getClearCommand(platform);
@@ -738,13 +743,13 @@ describe('invokeClaudeAsync', () => {
 
       const terminal = createMockTerminal();
 
-      const { invokeClaudeAsync } = await import('../claude-integration-handler');
+      const { invokeCLIAsync } = await import('../cli-integration-handler');
 
-      await expect(invokeClaudeAsync(terminal, '/tmp/project', undefined, () => null, vi.fn()))
+      await expect(invokeCLIAsync(terminal, '/tmp/project', undefined, () => null, vi.fn()))
         .rejects.toThrow('CLI invocation timeout after 10s');
 
       // Terminal state should be rolled back
-      expect(terminal.isClaudeMode).toBe(false);
+      expect(terminal.isCLIMode).toBe(false);
     }, 12000); // Allow 12 seconds for test (10s timeout + 2s buffer)
 
     it('should reset terminal state on async error', async () => {
@@ -758,16 +763,16 @@ describe('invokeClaudeAsync', () => {
       mockInitializeClaudeProfileManager.mockResolvedValue(profileManager);
 
       const terminal = createMockTerminal({
-        isClaudeMode: false,
+        isCLIMode: false,
         claudeProfileId: 'old-profile',
       });
 
-      const { invokeClaudeAsync } = await import('../claude-integration-handler');
-      await expect(invokeClaudeAsync(terminal, '/tmp/project', 'new-profile', () => null, vi.fn()))
+      const { invokeCLIAsync } = await import('../cli-integration-handler');
+      await expect(invokeCLIAsync(terminal, '/tmp/project', 'new-profile', () => null, vi.fn()))
         .rejects.toThrow('Async CLI error');
 
       // Terminal state should be rolled back
-      expect(terminal.isClaudeMode).toBe(false);
+      expect(terminal.isCLIMode).toBe(false);
       expect(terminal.claudeProfileId).toBe('old-profile');
       expect(terminal.claudeSessionId).toBeUndefined();
     });
@@ -787,8 +792,8 @@ describe('invokeClaudeAsync', () => {
 
       const terminal = createMockTerminal();
 
-      const { invokeClaudeAsync } = await import('../claude-integration-handler');
-      await invokeClaudeAsync(terminal, '/tmp/project', undefined, () => null, vi.fn(), true);
+      const { invokeCLIAsync } = await import('../cli-integration-handler');
+      await invokeCLIAsync(terminal, '/tmp/project', undefined, () => null, vi.fn(), true);
 
       const written = mockWriteToPty.mock.calls[0][1] as string;
       expect(written).toContain('--dangerously-skip-permissions');
@@ -812,8 +817,8 @@ describe('invokeClaudeAsync', () => {
       const mockOnSessionCapture = vi.fn();
       const startTime = Date.now();
 
-      const { invokeClaudeAsync } = await import('../claude-integration-handler');
-      await invokeClaudeAsync(terminal, '/tmp/project', undefined, () => null, mockOnSessionCapture);
+      const { invokeCLIAsync } = await import('../cli-integration-handler');
+      await invokeCLIAsync(terminal, '/tmp/project', undefined, () => null, mockOnSessionCapture);
 
       expect(mockOnSessionCapture).toHaveBeenCalledWith(
         terminal.id,
@@ -830,7 +835,7 @@ describe('invokeClaudeAsync', () => {
 /**
  * Unit tests for helper functions
  */
-describe('claude-integration-handler - Helper Functions', () => {
+describe('cli-integration-handler - Helper Functions', () => {
   describe('buildClaudeShellCommand', () => {
     describe.each(['win32', 'darwin', 'linux'] as const)('on %s', (platform) => {
       beforeEach(() => {
@@ -838,28 +843,28 @@ describe('claude-integration-handler - Helper Functions', () => {
       });
 
       it('should build default command without cwd or PATH prefix', async () => {
-        const { buildClaudeShellCommand } = await import('../claude-integration-handler');
+        const { buildClaudeShellCommand } = await import('../cli-integration-handler');
         const result = buildClaudeShellCommand('', '', "'/opt/bin/claude'", { method: 'default' });
 
         expect(result).toBe("'/opt/bin/claude'\r");
       });
 
       it('should build command with cwd', async () => {
-        const { buildClaudeShellCommand } = await import('../claude-integration-handler');
+        const { buildClaudeShellCommand } = await import('../cli-integration-handler');
         const result = buildClaudeShellCommand("cd '/tmp/project' && ", '', "'/opt/bin/claude'", { method: 'default' });
 
         expect(result).toBe("cd '/tmp/project' && '/opt/bin/claude'\r");
       });
 
       it('should build command with PATH prefix', async () => {
-        const { buildClaudeShellCommand } = await import('../claude-integration-handler');
+        const { buildClaudeShellCommand } = await import('../cli-integration-handler');
         const result = buildClaudeShellCommand('', "PATH='/custom/path' ", "'/opt/bin/claude'", { method: 'default' });
 
         expect(result).toBe("PATH='/custom/path' '/opt/bin/claude'\r");
       });
 
       it('should build temp-file method command with history-safe prefixes', async () => {
-        const { buildClaudeShellCommand } = await import('../claude-integration-handler');
+        const { buildClaudeShellCommand } = await import('../cli-integration-handler');
         const result = buildClaudeShellCommand(
           "cd '/tmp/project' && ",
           "PATH='/opt/bin' ",
@@ -885,7 +890,7 @@ describe('claude-integration-handler - Helper Functions', () => {
       });
 
       it('should build config-dir method command with CLAUDE_CONFIG_DIR', async () => {
-        const { buildClaudeShellCommand } = await import('../claude-integration-handler');
+        const { buildClaudeShellCommand } = await import('../cli-integration-handler');
         const result = buildClaudeShellCommand(
           "cd '/tmp/project' && ",
           "PATH='/opt/bin' ",
@@ -909,7 +914,7 @@ describe('claude-integration-handler - Helper Functions', () => {
       });
 
       it('should handle empty cwdCommand for temp-file method', async () => {
-        const { buildClaudeShellCommand } = await import('../claude-integration-handler');
+        const { buildClaudeShellCommand } = await import('../cli-integration-handler');
         const result = buildClaudeShellCommand(
           '',
           '',
@@ -933,7 +938,7 @@ describe('claude-integration-handler - Helper Functions', () => {
 
   describe('finalizeClaudeInvoke', () => {
     it('should set terminal title to "Claude" for default profile when terminal has default name', async () => {
-      const { finalizeClaudeInvoke } = await import('../claude-integration-handler');
+      const { finalizeClaudeInvoke } = await import('../cli-integration-handler');
       // Use a default terminal name pattern so renaming logic kicks in
       const terminal = createMockTerminal({ title: 'Terminal 1' });
       const mockWindow = {
@@ -954,7 +959,7 @@ describe('claude-integration-handler - Helper Functions', () => {
     });
 
     it('should set terminal title to "Claude (ProfileName)" for non-default profile', async () => {
-      const { finalizeClaudeInvoke } = await import('../claude-integration-handler');
+      const { finalizeClaudeInvoke } = await import('../cli-integration-handler');
       // Use a default terminal name pattern so renaming logic kicks in
       const terminal = createMockTerminal({ title: 'Terminal 2' });
       const mockWindow = {
@@ -975,7 +980,7 @@ describe('claude-integration-handler - Helper Functions', () => {
     });
 
     it('should send IPC message to renderer when terminal has default name', async () => {
-      const { finalizeClaudeInvoke } = await import('../claude-integration-handler');
+      const { finalizeClaudeInvoke } = await import('../cli-integration-handler');
       // Use a default terminal name pattern so renaming logic kicks in
       const terminal = createMockTerminal({ title: 'Terminal 3' });
       const mockSend = vi.fn();
@@ -1001,7 +1006,7 @@ describe('claude-integration-handler - Helper Functions', () => {
     });
 
     it('should NOT rename terminal when already named Claude', async () => {
-      const { finalizeClaudeInvoke } = await import('../claude-integration-handler');
+      const { finalizeClaudeInvoke } = await import('../cli-integration-handler');
       // Terminal already has Claude title - should NOT be renamed
       const terminal = createMockTerminal({ title: 'Claude' });
       const mockSend = vi.fn();
@@ -1026,7 +1031,7 @@ describe('claude-integration-handler - Helper Functions', () => {
     });
 
     it('should NOT rename terminal with user-customized name', async () => {
-      const { finalizeClaudeInvoke } = await import('../claude-integration-handler');
+      const { finalizeClaudeInvoke } = await import('../cli-integration-handler');
       // User has customized the terminal name - should NOT be renamed
       const terminal = createMockTerminal({ title: 'My Custom Terminal' });
       const mockSend = vi.fn();
@@ -1051,7 +1056,7 @@ describe('claude-integration-handler - Helper Functions', () => {
     });
 
     it('should persist session when terminal has projectPath', async () => {
-      const { finalizeClaudeInvoke } = await import('../claude-integration-handler');
+      const { finalizeClaudeInvoke } = await import('../cli-integration-handler');
       const terminal = createMockTerminal({ projectPath: '/tmp/project' });
 
       finalizeClaudeInvoke(
@@ -1067,7 +1072,7 @@ describe('claude-integration-handler - Helper Functions', () => {
     });
 
     it('should call onSessionCapture when projectPath is provided', async () => {
-      const { finalizeClaudeInvoke } = await import('../claude-integration-handler');
+      const { finalizeClaudeInvoke } = await import('../cli-integration-handler');
       const terminal = createMockTerminal();
       const mockOnSessionCapture = vi.fn();
       const startTime = Date.now();
@@ -1085,7 +1090,7 @@ describe('claude-integration-handler - Helper Functions', () => {
     });
 
     it('should not crash when getWindow returns null', async () => {
-      const { finalizeClaudeInvoke } = await import('../claude-integration-handler');
+      const { finalizeClaudeInvoke } = await import('../cli-integration-handler');
       const terminal = createMockTerminal();
 
       expect(() => {
@@ -1103,7 +1108,7 @@ describe('claude-integration-handler - Helper Functions', () => {
 
   describe('shouldAutoRenameTerminal', () => {
     it('should return true for default terminal names', async () => {
-      const { shouldAutoRenameTerminal } = await import('../claude-integration-handler');
+      const { shouldAutoRenameTerminal } = await import('../cli-integration-handler');
 
       expect(shouldAutoRenameTerminal('Terminal 1')).toBe(true);
       expect(shouldAutoRenameTerminal('Terminal 2')).toBe(true);
@@ -1112,7 +1117,7 @@ describe('claude-integration-handler - Helper Functions', () => {
     });
 
     it('should return false for terminals already named Claude', async () => {
-      const { shouldAutoRenameTerminal } = await import('../claude-integration-handler');
+      const { shouldAutoRenameTerminal } = await import('../cli-integration-handler');
 
       expect(shouldAutoRenameTerminal('Claude')).toBe(false);
       expect(shouldAutoRenameTerminal('Claude (Work)')).toBe(false);
@@ -1120,7 +1125,7 @@ describe('claude-integration-handler - Helper Functions', () => {
     });
 
     it('should return false for user-customized terminal names', async () => {
-      const { shouldAutoRenameTerminal } = await import('../claude-integration-handler');
+      const { shouldAutoRenameTerminal } = await import('../cli-integration-handler');
 
       expect(shouldAutoRenameTerminal('My Custom Terminal')).toBe(false);
       expect(shouldAutoRenameTerminal('Dev Server')).toBe(false);
@@ -1128,7 +1133,7 @@ describe('claude-integration-handler - Helper Functions', () => {
     });
 
     it('should return false for edge cases that do not match the pattern', async () => {
-      const { shouldAutoRenameTerminal } = await import('../claude-integration-handler');
+      const { shouldAutoRenameTerminal } = await import('../cli-integration-handler');
 
       // Terminal 0 is not a valid default (terminals start at 1)
       expect(shouldAutoRenameTerminal('Terminal 0')).toBe(true);  // Pattern matches \d+, so this is valid

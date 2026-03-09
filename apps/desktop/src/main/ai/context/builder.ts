@@ -2,7 +2,7 @@
  * Context Builder
  *
  * Orchestrates all context-building steps: keyword extraction → file search →
- * service matching → categorization → pattern discovery → Graphiti hints.
+ * service matching → categorization → pattern discovery → memory hints.
  *
  * See apps/desktop/src/main/ai/context/builder.ts for the TypeScript implementation.
  * Entry point: buildContext()
@@ -12,7 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { categorizeMatches } from './categorizer.js';
-import { fetchGraphHints, isGraphitiEnabled } from './graphiti-integration.js';
+import { fetchGraphHints, isMemoryEnabled } from './graphiti-integration.js';
 import { extractKeywords } from './keyword-extractor.js';
 import { discoverPatterns } from './pattern-discovery.js';
 import { searchService } from './search.js';
@@ -129,7 +129,7 @@ export interface BuildContextConfig {
   services?: string[];
   /** Override auto-extracted keywords. */
   keywords?: string[];
-  /** Whether to include Graphiti graph hints (default true). */
+  /** Whether to include memory graph hints (default true). */
   includeGraphHints?: boolean;
 }
 
@@ -191,7 +191,7 @@ export async function buildContext(config: BuildContextConfig): Promise<SubtaskC
   const patterns = toCodePatterns(rawPatterns);
 
   // Step 6: Graph hints (optional)
-  const graphHints = includeGraphHints && isGraphitiEnabled()
+  const graphHints = includeGraphHints && isMemoryEnabled()
     ? await fetchGraphHints(taskDescription, projectDir)
     : [];
 
@@ -249,7 +249,7 @@ export async function buildTaskContext(config: BuildContextConfig): Promise<Task
   const { toModify, toReference } = categorizeMatches(allMatches, taskDescription);
   const patternsDiscovered = discoverPatterns(projectDir, toReference, keywords);
 
-  const graphHints = includeGraphHints && isGraphitiEnabled()
+  const graphHints = includeGraphHints && isMemoryEnabled()
     ? await fetchGraphHints(taskDescription, projectDir)
     : [];
 

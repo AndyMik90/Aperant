@@ -72,7 +72,7 @@ export const IPC_CHANNELS = {
   TERMINAL_DESTROY: 'terminal:destroy',
   TERMINAL_INPUT: 'terminal:input',
   TERMINAL_RESIZE: 'terminal:resize',
-  TERMINAL_INVOKE_CLAUDE: 'terminal:invokeClaude',
+  TERMINAL_INVOKE_CLI: 'terminal:invokeClaude',
   TERMINAL_GENERATE_NAME: 'terminal:generateName',
   TERMINAL_SET_TITLE: 'terminal:setTitle',  // Renderer -> Main: user renamed terminal
   TERMINAL_SET_WORKTREE_CONFIG: 'terminal:setWorktreeConfig',  // Renderer -> Main: worktree association changed
@@ -462,13 +462,8 @@ export const IPC_CHANNELS = {
   GITHUB_TRIAGE_ERROR: 'github:triage:error',
 
   // Memory Infrastructure status (LadybugDB - no Docker required)
-  MEMORY_STATUS: 'memory:status',
   MEMORY_LIST_DATABASES: 'memory:listDatabases',
   MEMORY_TEST_CONNECTION: 'memory:testConnection',
-
-  // Graphiti validation
-  GRAPHITI_VALIDATE_LLM: 'graphiti:validateLlm',
-  GRAPHITI_TEST_CONNECTION: 'graphiti:testConnection',
 
   // Ollama model detection and management
   OLLAMA_CHECK_STATUS: 'ollama:checkStatus',

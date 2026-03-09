@@ -10,7 +10,7 @@
  * Tool lists are organized by category:
  * - Base tools: Core file operations (Read, Write, Edit, etc.)
  * - Web tools: Documentation and research (WebFetch, WebSearch)
- * - MCP tools: External integrations (Context7, Linear, Graphiti, etc.)
+ * - MCP tools: External integrations (Context7, Linear, Memory, etc.)
  * - Auto-Claude tools: Custom build management tools
  */
 
@@ -76,14 +76,17 @@ export const LINEAR_TOOLS = [
   'mcp__linear-server__get_user',
 ] as const;
 
-/** Graphiti MCP tools for knowledge graph memory (when GRAPHITI_MCP_URL is set) */
-export const GRAPHITI_MCP_TOOLS = [
+/** Memory MCP tools for knowledge graph memory (when GRAPHITI_MCP_URL is set) */
+export const MEMORY_MCP_TOOLS = [
   'mcp__graphiti-memory__search_nodes',
   'mcp__graphiti-memory__search_facts',
   'mcp__graphiti-memory__add_episode',
   'mcp__graphiti-memory__get_episodes',
   'mcp__graphiti-memory__get_entity_edge',
 ] as const;
+
+/** @deprecated Use MEMORY_MCP_TOOLS instead */
+export const GRAPHITI_MCP_TOOLS = MEMORY_MCP_TOOLS;
 
 // =============================================================================
 // Browser Automation MCP Tools (QA agents only)
@@ -243,7 +246,7 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
    */
   build_orchestrator: {
     tools: [...ALL_BUILTIN_TOOLS, 'SpawnSubagent'],
-    mcpServers: ['context7', 'graphiti', 'auto-claude'],
+    mcpServers: ['context7', 'memory', 'auto-claude'],
     mcpServersOptional: ['linear'],
     autoClaudeTools: [
       TOOL_GET_BUILD_PROGRESS,
@@ -255,12 +258,12 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
   },
 
   // ═══════════════════════════════════════════════════════════════════════
-  // BUILD PHASES (Full tools + Graphiti memory)
+  // BUILD PHASES (Full tools + memory)
   // Note: "linear" is conditional on project setting "update_linear_with_tasks"
   // ═══════════════════════════════════════════════════════════════════════
   planner: {
     tools: [...ALL_BUILTIN_TOOLS],
-    mcpServers: ['context7', 'graphiti', 'auto-claude'],
+    mcpServers: ['context7', 'memory', 'auto-claude'],
     mcpServersOptional: ['linear'],
     autoClaudeTools: [
       TOOL_GET_BUILD_PROGRESS,
@@ -271,7 +274,7 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
   },
   coder: {
     tools: [...ALL_BUILTIN_TOOLS],
-    mcpServers: ['context7', 'graphiti', 'auto-claude'],
+    mcpServers: ['context7', 'memory', 'auto-claude'],
     mcpServersOptional: ['linear'],
     autoClaudeTools: [
       TOOL_UPDATE_SUBTASK_STATUS,
@@ -284,11 +287,11 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
   },
 
   // ═══════════════════════════════════════════════════════════════════════
-  // QA PHASES (Read + test + browser + Graphiti memory)
+  // QA PHASES (Read + test + browser + memory)
   // ═══════════════════════════════════════════════════════════════════════
   qa_reviewer: {
     tools: [...ALL_BUILTIN_TOOLS],
-    mcpServers: ['context7', 'graphiti', 'auto-claude', 'browser'],
+    mcpServers: ['context7', 'memory', 'auto-claude', 'browser'],
     mcpServersOptional: ['linear'],
     autoClaudeTools: [
       TOOL_GET_BUILD_PROGRESS,
@@ -299,7 +302,7 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
   },
   qa_fixer: {
     tools: [...ALL_BUILTIN_TOOLS],
-    mcpServers: ['context7', 'graphiti', 'auto-claude', 'browser'],
+    mcpServers: ['context7', 'memory', 'auto-claude', 'browser'],
     mcpServersOptional: ['linear'],
     autoClaudeTools: [
       TOOL_UPDATE_SUBTASK_STATUS,
@@ -473,8 +476,9 @@ export function getDefaultThinkingLevel(agentType: AgentType): ThinkingLevel {
  */
 const MCP_SERVER_NAME_MAP: Record<string, string> = {
   context7: 'context7',
-  'graphiti-memory': 'graphiti',
-  graphiti: 'graphiti',
+  'graphiti-memory': 'memory',
+  graphiti: 'memory',
+  memory: 'memory',
   linear: 'linear',
   electron: 'electron',
   puppeteer: 'puppeteer',
@@ -511,8 +515,8 @@ export interface McpServerResolveOptions {
   };
   /** Whether Linear integration is enabled for this project */
   linearEnabled?: boolean;
-  /** Whether Graphiti is available (GRAPHITI_MCP_URL is set) */
-  graphitiEnabled?: boolean;
+  /** Whether memory MCP is available (GRAPHITI_MCP_URL is set) */
+  memoryEnabled?: boolean;
   /** Whether Electron MCP is enabled */
   electronMcpEnabled?: boolean;
   /** Whether Puppeteer MCP is enabled */
@@ -533,7 +537,7 @@ export interface McpServerResolveOptions {
  * Handles dynamic server selection:
  * - "browser" → electron (if is_electron) or puppeteer (if is_web_frontend)
  * - "linear" → only if in mcpServersOptional AND linearEnabled is true
- * - "graphiti" → only if graphitiEnabled is true
+ * - "memory" → only if memoryEnabled is true
  * - Applies per-agent ADD/REMOVE overrides
  *
  * @param agentType - The agent type identifier
@@ -573,9 +577,9 @@ export function getRequiredMcpServers(
     }
   }
 
-  // Filter graphiti if not enabled
-  if (!options.graphitiEnabled) {
-    const idx = servers.indexOf('graphiti');
+  // Filter memory if not enabled
+  if (!options.memoryEnabled) {
+    const idx = servers.indexOf('memory');
     if (idx !== -1) servers.splice(idx, 1);
   }
 

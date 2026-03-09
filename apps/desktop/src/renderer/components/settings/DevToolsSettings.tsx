@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Button } from '../ui/button';
 import { Switch } from '../ui/switch';
 import { SettingsSection } from './SettingsSection';
-import type { AppSettings, SupportedIDE, SupportedTerminal } from '../../../shared/types';
+import type { AppSettings, SupportedIDE, SupportedTerminal, SupportedCLI } from '../../../shared/types';
 
 interface DevToolsSettingsProps {
   settings: AppSettings;
@@ -24,6 +24,7 @@ interface DetectedTool {
 interface DetectedTools {
   ides: DetectedTool[];
   terminals: DetectedTool[];
+  clis: DetectedTool[];
 }
 
 // IDE display names - alphabetically sorted for easy scanning
@@ -49,6 +50,16 @@ const IDE_NAMES: Partial<Record<SupportedIDE, string>> = {
   xcode: 'Xcode',
   zed: 'Zed',
   custom: 'Custom...'  // Always last
+};
+
+// CLI display names
+const CLI_NAMES: Partial<Record<SupportedCLI, string>> = {
+  'claude-code': 'Claude Code',
+  gemini: 'Gemini CLI',
+  opencode: 'OpenCode',
+  kilocode: 'Kilo Code CLI',
+  codex: 'Codex CLI',
+  custom: 'Custom...'
 };
 
 // Terminal display names - alphabetically sorted
@@ -144,6 +155,21 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
     });
   };
 
+  const handleCLIChange = (cli: SupportedCLI) => {
+    onSettingsChange({
+      ...settings,
+      preferredCLI: cli,
+      customCLIPath: cli === 'custom' ? settings.customCLIPath : undefined
+    });
+  };
+
+  const handleCustomCLIPathChange = (path: string) => {
+    onSettingsChange({
+      ...settings,
+      customCLIPath: path
+    });
+  };
+
   // Build IDE options with detection status
   const ideOptions: Array<{ value: SupportedIDE; label: string; detected: boolean }> = [];
 
@@ -211,6 +237,32 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
 
   // Add custom option last
   terminalOptions.push({ value: 'custom', label: 'Custom...', detected: false });
+
+  // Build CLI options with detection status
+  const cliOptions: Array<{ value: SupportedCLI; label: string; detected: boolean }> = [];
+
+  if (detectedTools?.clis) {
+    for (const tool of detectedTools.clis) {
+      cliOptions.push({
+        value: tool.id as SupportedCLI,
+        label: tool.name,
+        detected: true
+      });
+    }
+  }
+
+  const detectedCLIIds = new Set(detectedTools?.clis?.map(t => t.id) || []);
+  for (const [id, name] of Object.entries(CLI_NAMES)) {
+    if (id !== 'custom' && !detectedCLIIds.has(id)) {
+      cliOptions.push({
+        value: id as SupportedCLI,
+        label: name,
+        detected: false
+      });
+    }
+  }
+
+  cliOptions.push({ value: 'custom', label: 'Custom...', detected: false });
 
   return (
     <SettingsSection
@@ -365,6 +417,68 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
           )}
         </div>
 
+        {/* CLI Selection */}
+        <div className="space-y-2">
+          <Label htmlFor="preferred-cli" className="flex items-center gap-2">
+            <Terminal className="h-4 w-4" />
+            {t('devtools.cli.label', 'Preferred CLI')}
+          </Label>
+          <Select
+            value={settings.preferredCLI || 'claude-code'}
+            onValueChange={(value) => handleCLIChange(value as SupportedCLI)}
+          >
+            <SelectTrigger id="preferred-cli">
+              <SelectValue placeholder={t('devtools.cli.placeholder', 'Select CLI...')} />
+            </SelectTrigger>
+            <SelectContent>
+              {cliOptions.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  <div className="flex items-center gap-2">
+                    <span>{option.label}</span>
+                    {option.detected && (
+                      <Check className="h-3 w-3 text-green-500" />
+                    )}
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            {t('devtools.cli.description', 'CLI tool used for AI-powered terminal sessions')}
+          </p>
+
+          {/* Custom CLI Path */}
+          {settings.preferredCLI === 'custom' && (
+            <div className="mt-3 space-y-2">
+              <Label htmlFor="custom-cli-path">
+                {t('devtools.customPath', 'Custom path')}
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  id="custom-cli-path"
+                  value={settings.customCLIPath || ''}
+                  onChange={(e) => handleCustomCLIPathChange(e.target.value)}
+                  placeholder="/path/to/your/cli"
+                  className="flex-1"
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={async () => {
+                    const result = await window.electronAPI.selectDirectory();
+                    if (result) {
+                      handleCustomCLIPathChange(result);
+                    }
+                  }}
+                  aria-label={t('common:accessibility.browseFilesAriaLabel')}
+                >
+                  <FolderOpen className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Auto-name Claude Terminals Toggle */}
         <div className="space-y-3 pt-2 border-t border-border">
           <div className="flex items-center justify-between">
@@ -432,7 +546,10 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
               {detectedTools.terminals.filter(t => t.id !== 'system').map((term) => (
                 <li key={term.id}>{term.name}</li>
               ))}
-              {detectedTools.ides.length === 0 && detectedTools.terminals.filter(t => t.id !== 'system').length === 0 && (
+              {detectedTools.clis?.filter(c => c.installed).map((cli) => (
+                <li key={cli.id}>{cli.name}</li>
+              ))}
+              {detectedTools.ides.length === 0 && detectedTools.terminals.filter(t => t.id !== 'system').length === 0 && (!detectedTools.clis || detectedTools.clis.length === 0) && (
                 <li>{t('devtools.noToolsDetected', 'No additional tools detected')}</li>
               )}
             </ul>

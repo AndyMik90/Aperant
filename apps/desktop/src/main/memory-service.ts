@@ -1,7 +1,7 @@
 /**
  * Memory Service
  *
- * Queries the LadybugDB graph database for memories stored by Graphiti.
+ * Queries the LadybugDB graph database for memories.
  * Uses Python subprocess to communicate with the embedded database.
  *
  * LadybugDB stores data in Kuzu format at ~/.auto-claude/memories/<database>/
@@ -103,7 +103,7 @@ export function getDefaultDbPath(): string {
 
 /**
  * Get the path to the query_memory.py script.
- * NOTE: The Graphiti Python sidecar has been replaced by the TypeScript memory system
+ * NOTE: The Python sidecar has been replaced by the TypeScript memory system
  * in apps/desktop/src/main/ai/memory/. This function remains for legacy LadybugDB
  * compatibility but may return null if the script is not present.
  */
@@ -612,7 +612,7 @@ export class MemoryService {
    * Add an episode to the memory database
    *
    * This allows the Electron app to save memories (like PR review insights)
-   * directly to LadybugDB without going through the full Graphiti system.
+   * directly to LadybugDB.
    *
    * @param name Episode name/title
    * @param content Episode content (will be JSON stringified if object)

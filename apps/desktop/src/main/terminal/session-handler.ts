@@ -156,7 +156,7 @@ function createSessionObject(terminal: TerminalProcess): TerminalSession {
     title: terminal.title,
     cwd: terminal.cwd,
     projectPath: terminal.projectPath!,
-    isClaudeMode: terminal.isClaudeMode,
+    isCLIMode: terminal.isCLIMode,
     claudeSessionId: terminal.claudeSessionId,
     outputBuffer: terminal.outputBuffer,
     createdAt: new Date().toISOString(),
@@ -325,7 +325,7 @@ export function captureClaudeSessionId(
     attempts++;
 
     const terminal = terminals.get(terminalId);
-    if (!terminal || !terminal.isClaudeMode) {
+    if (!terminal || !terminal.isCLIMode) {
       debugLog('[SessionHandler] Terminal no longer in Claude mode, stopping session capture:', terminalId);
       return;
     }

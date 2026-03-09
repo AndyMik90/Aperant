@@ -1,6 +1,6 @@
 import { ipcMain, BrowserWindow, shell, app } from 'electron';
 import { IPC_CHANNELS, AUTO_BUILD_PATHS, DEFAULT_APP_SETTINGS, DEFAULT_FEATURE_MODELS, DEFAULT_FEATURE_THINKING, MODEL_ID_MAP, THINKING_BUDGET_MAP, getSpecsDir } from '../../../shared/constants';
-import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem, WorktreeCreatePROptions, WorktreeCreatePRResult, SupportedIDE, SupportedTerminal, AppSettings } from '../../../shared/types';
+import type { IPCResult, WorktreeStatus, WorktreeDiff, WorktreeDiffFile, WorktreeMergeResult, WorktreeDiscardResult, WorktreeListResult, WorktreeListItem, WorktreeCreatePROptions, WorktreeCreatePRResult, SupportedIDE, SupportedTerminal, SupportedCLI, AppSettings } from '../../../shared/types';
 import path from 'path';
 import { minimatch } from 'minimatch';
 import { existsSync, readdirSync, statSync, readFileSync, promises as fsPromises } from 'fs';
@@ -288,6 +288,7 @@ interface DetectedTool {
 interface DetectedTools {
   ides: DetectedTool[];
   terminals: DetectedTool[];
+  clis: DetectedTool[];
 }
 
 // IDE detection paths (macOS, Windows, Linux)
@@ -889,6 +890,55 @@ const TERMINAL_DETECTION: Partial<Record<SupportedTerminal, { name: string; path
   }
 };
 
+// CLI detection for AI-powered terminal tools
+const CLI_DETECTION: Partial<Record<SupportedCLI, { name: string; paths: Record<string, string[]>; commands: Record<string, string> }>> = {
+  'claude-code': {
+    name: 'Claude Code',
+    paths: {
+      darwin: [],
+      win32: [],
+      linux: []
+    },
+    commands: { darwin: 'claude', win32: 'claude.cmd', linux: 'claude' }
+  },
+  gemini: {
+    name: 'Gemini CLI',
+    paths: {
+      darwin: [],
+      win32: [],
+      linux: []
+    },
+    commands: { darwin: 'gemini', win32: 'gemini.cmd', linux: 'gemini' }
+  },
+  opencode: {
+    name: 'OpenCode',
+    paths: {
+      darwin: [],
+      win32: [],
+      linux: []
+    },
+    commands: { darwin: 'opencode', win32: 'opencode.cmd', linux: 'opencode' }
+  },
+  kilocode: {
+    name: 'Kilo Code CLI',
+    paths: {
+      darwin: [],
+      win32: [],
+      linux: []
+    },
+    commands: { darwin: 'kilocode', win32: 'kilocode.cmd', linux: 'kilocode' }
+  },
+  codex: {
+    name: 'Codex CLI',
+    paths: {
+      darwin: [],
+      win32: [],
+      linux: []
+    },
+    commands: { darwin: 'codex', win32: 'codex.cmd', linux: 'codex' }
+  }
+};
+
 /**
  * Security helper functions for safe path handling
  */
@@ -1197,8 +1247,33 @@ async function detectInstalledTools(): Promise<DetectedTools> {
     });
   }
 
-  console.log(`[DevTools] Detection complete: ${ides.length} IDEs, ${terminals.length} terminals`);
-  return { ides, terminals };
+  // Detect CLIs using command checks (CLIs are command-line tools, not GUI apps)
+  const clis: DetectedTool[] = [];
+  for (const [id, config] of Object.entries(CLI_DETECTION)) {
+    if (id === 'custom' || !config) continue;
+
+    const command = config.commands[platform];
+    if (!command) continue;
+
+    try {
+      if (platform === 'win32') {
+        await execAsync(`where ${command}`, { timeout: 2000 });
+      } else {
+        await execAsync(`which ${command}`, { timeout: 2000 });
+      }
+      clis.push({
+        id,
+        name: config.name,
+        path: command,
+        installed: true
+      });
+    } catch {
+      // Command not found
+    }
+  }
+
+  console.log(`[DevTools] Detection complete: ${ides.length} IDEs, ${terminals.length} terminals, ${clis.length} CLIs`);
+  return { ides, terminals, clis };
 }
 
 /**

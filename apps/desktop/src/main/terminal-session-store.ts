@@ -12,7 +12,7 @@ export interface TerminalSession {
   title: string;
   cwd: string;
   projectPath: string;  // Which project this terminal belongs to
-  isClaudeMode: boolean;
+  isCLIMode: boolean;
   claudeSessionId?: string;  // Claude session ID for resume functionality
   outputBuffer: string;  // Last 100KB of output for replay
   createdAt: string;  // ISO timestamp
@@ -395,7 +395,7 @@ export class TerminalSessionStore {
     const incomingBufferLen = session.outputBuffer?.length ?? 0;
     debugLog('[TerminalSessionStore] Updating session in memory:', session.id,
       'incoming outputBuffer:', incomingBufferLen, 'bytes',
-      'isClaudeMode:', session.isClaudeMode);
+      'isCLIMode:', session.isCLIMode);
 
     // Update existing or add new
     const existingIndex = todaySessions[projectPath].findIndex(s => s.id === session.id);
@@ -477,7 +477,7 @@ export class TerminalSessionStore {
       for (const session of todaySessions[projectPath]) {
         const bufferLen = session.outputBuffer?.length ?? 0;
         debugLog('[TerminalSessionStore] Session', session.id, 'outputBuffer:', bufferLen, 'bytes',
-          'isClaudeMode:', session.isClaudeMode,
+          'isCLIMode:', session.isCLIMode,
           'hasBuffer:', bufferLen > 0);
       }
       // Validate worktree configs before returning
@@ -507,7 +507,7 @@ export class TerminalSessionStore {
         const bufferLen = session.outputBuffer?.length ?? 0;
         debugLog('[TerminalSessionStore] Migrating session', session.id, 'from', mostRecentDate,
           'outputBuffer:', bufferLen, 'bytes',
-          'isClaudeMode:', session.isClaudeMode,
+          'isCLIMode:', session.isCLIMode,
           'hasBuffer:', bufferLen > 0);
       }
 
@@ -730,7 +730,7 @@ export class TerminalSessionStore {
     const session = sessions.find(s => s.id === terminalId);
     if (session) {
       session.claudeSessionId = claudeSessionId;
-      session.isClaudeMode = true;
+      session.isCLIMode = true;
       this.save();
       console.warn('[TerminalSessionStore] Saved Claude session ID:', claudeSessionId, 'for terminal:', terminalId);
     }

@@ -32,7 +32,7 @@ describe('claude-cli-utils', () => {
     mockGetToolPath.mockReturnValue(command);
     mockGetAugmentedEnv.mockReturnValue(env);
 
-    const { getClaudeCliInvocation } = await import('../claude-cli-utils');
+    const { getClaudeCliInvocation } = await import('../cli-utils');
     const result = getClaudeCliInvocation();
 
     const separator = process.platform === 'win32' ? ';' : ':';
@@ -49,7 +49,7 @@ describe('claude-cli-utils', () => {
     mockGetToolPath.mockReturnValue(command);
     mockGetAugmentedEnv.mockReturnValue(env);
 
-    const { getClaudeCliInvocation } = await import('../claude-cli-utils');
+    const { getClaudeCliInvocation } = await import('../cli-utils');
     const result = getClaudeCliInvocation();
 
     expect(result.env.PATH).toBe(path.dirname(command));
@@ -63,7 +63,7 @@ describe('claude-cli-utils', () => {
     mockGetToolPath.mockReturnValue(command);
     mockGetAugmentedEnv.mockReturnValue(env);
 
-    const { getClaudeCliInvocation } = await import('../claude-cli-utils');
+    const { getClaudeCliInvocation } = await import('../cli-utils');
     const result = getClaudeCliInvocation();
 
     expect(result.env.PATH).toBe(path.dirname(command));
@@ -78,7 +78,7 @@ describe('claude-cli-utils', () => {
     mockGetToolPath.mockReturnValue('claude');
     mockGetAugmentedEnv.mockReturnValue(env);
 
-    const { getClaudeCliInvocation } = await import('../claude-cli-utils');
+    const { getClaudeCliInvocation } = await import('../cli-utils');
     const result = getClaudeCliInvocation();
 
     expect(result.command).toBe('claude');
@@ -96,7 +96,7 @@ describe('claude-cli-utils', () => {
     mockGetToolPath.mockReturnValue(command);
     mockGetAugmentedEnv.mockReturnValue(env);
 
-    const { getClaudeCliInvocation } = await import('../claude-cli-utils');
+    const { getClaudeCliInvocation } = await import('../cli-utils');
     const result = getClaudeCliInvocation();
 
     expect(result.env.PATH).toBe(env.PATH);
@@ -113,7 +113,7 @@ describe('claude-cli-utils', () => {
       mockGetToolPath.mockReturnValue(command);
       mockGetAugmentedEnv.mockReturnValue(env);
 
-      const { getClaudeCliInvocation } = await import('../claude-cli-utils');
+      const { getClaudeCliInvocation } = await import('../cli-utils');
       const result = getClaudeCliInvocation();
 
       expect(result.env.PATH).toBe(env.PATH);

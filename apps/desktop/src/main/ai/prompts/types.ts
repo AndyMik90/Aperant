@@ -16,10 +16,8 @@ export interface PromptContext {
   specDir: string;
   /** Absolute path to the project root */
   projectDir: string;
-  /** Content of CLAUDE.md (if loaded) */
-  claudeMd?: string | null;
-  /** Content of agents.md (provider-agnostic agent instruction file) */
-  agentsMd?: string | null;
+  /** Project instructions from AGENTS.md (preferred) or CLAUDE.md (fallback) */
+  projectInstructions?: string | null;
   /** Base branch name for git comparisons (e.g., "main", "develop") */
   baseBranch?: string;
   /** Human input from HUMAN_INPUT.md (for coder prompts) */
@@ -112,8 +110,8 @@ export interface PlannerPromptConfig {
   specDir: string;
   /** Project root directory */
   projectDir: string;
-  /** Content of CLAUDE.md (if available) */
-  claudeMd?: string | null;
+  /** Project instructions from AGENTS.md or CLAUDE.md */
+  projectInstructions?: string | null;
   /** Planning retry context if replanning after validation failure */
   planningRetryContext?: string;
   /** Attempt number (0 = first try) */
@@ -138,8 +136,8 @@ export interface SubtaskPromptConfig {
   attemptCount?: number;
   /** Hints from previous failed attempts */
   recoveryHints?: string[];
-  /** Content of CLAUDE.md (if available) */
-  claudeMd?: string | null;
+  /** Project instructions from AGENTS.md or CLAUDE.md */
+  projectInstructions?: string | null;
 }
 
 // =============================================================================
@@ -166,8 +164,8 @@ export interface QAPromptConfig {
   specDir: string;
   /** Project root directory */
   projectDir: string;
-  /** Content of CLAUDE.md (if available) */
-  claudeMd?: string | null;
+  /** Project instructions from AGENTS.md or CLAUDE.md */
+  projectInstructions?: string | null;
   /** Base branch for git comparisons */
   baseBranch?: string;
   /** Project capabilities for injecting MCP tool docs */

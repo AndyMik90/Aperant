@@ -2,7 +2,7 @@
  * Knowledge Graph Module
  *
  * Layer 1: AST-extracted structural code intelligence.
- * Fully TypeScript. Replaces the Python Graphiti sidecar.
+ * Fully TypeScript. Replaces the Python sidecar.
  */
 
 export { TreeSitterLoader } from './tree-sitter-loader';

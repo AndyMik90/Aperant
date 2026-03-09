@@ -1297,7 +1297,7 @@ export function registerClaudeCodeHandlers(): void {
         }
 
         // Generate terminal ID with pattern: claude-login-{profileId}-{timestamp}
-        // This pattern is used by claude-integration-handler.ts to identify
+        // This pattern is used by cli-integration-handler.ts to identify
         // which profile to save captured OAuth tokens to
         const terminalId = `claude-login-${profileId}-${Date.now()}`;
         console.warn('[Claude Code] Generated terminal ID:', terminalId);

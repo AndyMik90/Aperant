@@ -87,9 +87,6 @@ export const DEFAULT_PROJECT_SETTINGS = {
     onReviewNeeded: true,
     sound: false
   },
-  // Graphiti MCP server for agent-accessible knowledge graph (enabled by default)
-  graphitiMcpEnabled: true,
-  graphitiMcpUrl: 'http://localhost:8000/mcp/',
   // Include CLAUDE.md instructions in agent context (enabled by default)
   useClaudeMd: true
 };
@@ -118,7 +115,7 @@ export const AUTO_BUILD_PATHS = {
   IDEATION_FILE: 'ideation.json',
   IDEATION_CONTEXT: 'ideation_context.json',
   PROJECT_INDEX: '.auto-claude/project_index.json',
-  GRAPHITI_STATE: '.graphiti_state.json'
+  MEMORY_STATE: '.memory_state.json'
 } as const;
 
 /**

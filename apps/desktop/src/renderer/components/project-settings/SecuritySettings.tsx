@@ -19,7 +19,7 @@ import {
 } from '../ui/select';
 import { Separator } from '../ui/separator';
 import { OllamaModelSelector } from '../onboarding/OllamaModelSelector';
-import type { ProjectEnvConfig, ProjectSettings as ProjectSettingsType, GraphitiEmbeddingProvider } from '../../../shared/types';
+import type { ProjectEnvConfig, ProjectSettings as ProjectSettingsType, MemoryEmbeddingProvider } from '../../../shared/types';
 
 interface SecuritySettingsProps {
   envConfig: ProjectEnvConfig | null;
@@ -59,7 +59,7 @@ export function SecuritySettings({
     setShowApiKey(prev => ({ ...prev, openai: showOpenAIKey }));
   }, [showOpenAIKey]);
 
-  const embeddingProvider = envConfig?.graphitiProviderConfig?.embeddingProvider || 'ollama';
+  const embeddingProvider = envConfig?.memoryProviderConfig?.embeddingProvider || 'ollama';
 
   // Toggle API key visibility
   const toggleShowApiKey = (key: string) => {
@@ -74,8 +74,8 @@ export function SecuritySettings({
   // Handle Ollama model selection
   const handleOllamaModelSelect = (modelName: string, dim: number) => {
     updateEnvConfig({
-      graphitiProviderConfig: {
-        ...envConfig?.graphitiProviderConfig,
+      memoryProviderConfig: {
+        ...envConfig?.memoryProviderConfig,
         embeddingProvider: 'ollama',
         ollamaEmbeddingModel: modelName,
         ollamaEmbeddingDim: dim,
@@ -149,10 +149,10 @@ export function SecuritySettings({
           <div className="relative">
             <Input
               type={showApiKey['voyage'] ? 'text' : 'password'}
-              value={envConfig.graphitiProviderConfig?.voyageApiKey || ''}
+              value={envConfig.memoryProviderConfig?.voyageApiKey || ''}
               onChange={(e) => updateEnvConfig({
-                graphitiProviderConfig: {
-                  ...envConfig.graphitiProviderConfig,
+                memoryProviderConfig: {
+                  ...envConfig.memoryProviderConfig,
                   embeddingProvider: 'voyage',
                   voyageApiKey: e.target.value || undefined,
                 }
@@ -179,10 +179,10 @@ export function SecuritySettings({
             <Label className="text-xs text-muted-foreground">Embedding Model (optional)</Label>
             <Input
               placeholder="voyage-3"
-              value={envConfig.graphitiProviderConfig?.voyageEmbeddingModel || ''}
+              value={envConfig.memoryProviderConfig?.voyageEmbeddingModel || ''}
               onChange={(e) => updateEnvConfig({
-                graphitiProviderConfig: {
-                  ...envConfig.graphitiProviderConfig,
+                memoryProviderConfig: {
+                  ...envConfig.memoryProviderConfig,
                   embeddingProvider: 'voyage',
                   voyageEmbeddingModel: e.target.value || undefined,
                 }
@@ -204,10 +204,10 @@ export function SecuritySettings({
           <div className="relative">
             <Input
               type={showApiKey['google'] ? 'text' : 'password'}
-              value={envConfig.graphitiProviderConfig?.googleApiKey || ''}
+              value={envConfig.memoryProviderConfig?.googleApiKey || ''}
               onChange={(e) => updateEnvConfig({
-                graphitiProviderConfig: {
-                  ...envConfig.graphitiProviderConfig,
+                memoryProviderConfig: {
+                  ...envConfig.memoryProviderConfig,
                   embeddingProvider: 'google',
                   googleApiKey: e.target.value || undefined,
                 }
@@ -244,10 +244,10 @@ export function SecuritySettings({
             <div className="relative">
               <Input
                 type={showApiKey['azure'] ? 'text' : 'password'}
-                value={envConfig.graphitiProviderConfig?.azureOpenaiApiKey || ''}
+                value={envConfig.memoryProviderConfig?.azureOpenaiApiKey || ''}
                 onChange={(e) => updateEnvConfig({
-                  graphitiProviderConfig: {
-                    ...envConfig.graphitiProviderConfig,
+                  memoryProviderConfig: {
+                    ...envConfig.memoryProviderConfig,
                     embeddingProvider: 'azure_openai',
                     azureOpenaiApiKey: e.target.value || undefined,
                   }
@@ -269,10 +269,10 @@ export function SecuritySettings({
             <Label className="text-xs text-muted-foreground">Base URL</Label>
             <Input
               placeholder="https://your-resource.openai.azure.com"
-              value={envConfig.graphitiProviderConfig?.azureOpenaiBaseUrl || ''}
+              value={envConfig.memoryProviderConfig?.azureOpenaiBaseUrl || ''}
               onChange={(e) => updateEnvConfig({
-                graphitiProviderConfig: {
-                  ...envConfig.graphitiProviderConfig,
+                memoryProviderConfig: {
+                  ...envConfig.memoryProviderConfig,
                   embeddingProvider: 'azure_openai',
                   azureOpenaiBaseUrl: e.target.value || undefined,
                 }
@@ -283,10 +283,10 @@ export function SecuritySettings({
             <Label className="text-xs text-muted-foreground">Embedding Deployment Name</Label>
             <Input
               placeholder="text-embedding-ada-002"
-              value={envConfig.graphitiProviderConfig?.azureOpenaiEmbeddingDeployment || ''}
+              value={envConfig.memoryProviderConfig?.azureOpenaiEmbeddingDeployment || ''}
               onChange={(e) => updateEnvConfig({
-                graphitiProviderConfig: {
-                  ...envConfig.graphitiProviderConfig,
+                memoryProviderConfig: {
+                  ...envConfig.memoryProviderConfig,
                   embeddingProvider: 'azure_openai',
                   azureOpenaiEmbeddingDeployment: e.target.value || undefined,
                 }
@@ -305,10 +305,10 @@ export function SecuritySettings({
             <Label className="text-xs text-muted-foreground">Base URL</Label>
             <Input
               placeholder="http://localhost:11434"
-              value={envConfig.graphitiProviderConfig?.ollamaBaseUrl || 'http://localhost:11434'}
+              value={envConfig.memoryProviderConfig?.ollamaBaseUrl || 'http://localhost:11434'}
               onChange={(e) => updateEnvConfig({
-                graphitiProviderConfig: {
-                  ...envConfig.graphitiProviderConfig,
+                memoryProviderConfig: {
+                  ...envConfig.memoryProviderConfig,
                   embeddingProvider: 'ollama',
                   ollamaBaseUrl: e.target.value,
                 }
@@ -319,8 +319,8 @@ export function SecuritySettings({
           <div className="space-y-2">
             <Label className="text-sm font-medium text-foreground">Select Embedding Model</Label>
             <OllamaModelSelector
-              selectedModel={envConfig.graphitiProviderConfig?.ollamaEmbeddingModel || ''}
-              baseUrl={envConfig.graphitiProviderConfig?.ollamaBaseUrl}
+              selectedModel={envConfig.memoryProviderConfig?.ollamaEmbeddingModel || ''}
+              baseUrl={envConfig.memoryProviderConfig?.ollamaBaseUrl}
               onModelSelect={handleOllamaModelSelect}
             />
           </div>
@@ -341,11 +341,11 @@ export function SecuritySettings({
           <Database className="h-4 w-4" />
           Memory
           <span className={`px-2 py-0.5 text-xs rounded-full ${
-            envConfig.graphitiEnabled
+            envConfig.memoryEnabled
               ? 'bg-success/10 text-success'
               : 'bg-muted text-muted-foreground'
           }`}>
-            {envConfig.graphitiEnabled ? 'Enabled' : 'Disabled'}
+            {envConfig.memoryEnabled ? 'Enabled' : 'Disabled'}
           </span>
         </div>
         {expanded ? (
@@ -365,15 +365,15 @@ export function SecuritySettings({
               </p>
             </div>
             <Switch
-              checked={envConfig.graphitiEnabled}
+              checked={envConfig.memoryEnabled}
               onCheckedChange={(checked) => {
-                updateEnvConfig({ graphitiEnabled: checked });
-                setSettings({ ...settings, memoryBackend: checked ? 'graphiti' : 'file' });
+                updateEnvConfig({ memoryEnabled: checked });
+                setSettings({ ...settings, memoryBackend: checked ? 'memory' : 'file' });
               }}
             />
           </div>
 
-          {!envConfig.graphitiEnabled && (
+          {!envConfig.memoryEnabled && (
             <div className="rounded-lg border border-border bg-muted/30 p-3">
               <p className="text-xs text-muted-foreground">
                 Using file-based memory. Session insights are stored locally in JSON files.
@@ -382,40 +382,8 @@ export function SecuritySettings({
             </div>
           )}
 
-          {envConfig.graphitiEnabled && (
+          {envConfig.memoryEnabled && (
             <>
-              {/* Graphiti MCP Server Toggle */}
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="font-normal text-foreground">Enable Agent Memory Access</Label>
-                  <p className="text-xs text-muted-foreground">
-                    Allow agents to search and add to the knowledge graph via MCP
-                  </p>
-                </div>
-                <Switch
-                  checked={settings.graphitiMcpEnabled}
-                  onCheckedChange={(checked) =>
-                    setSettings({ ...settings, graphitiMcpEnabled: checked })
-                  }
-                />
-              </div>
-
-              {settings.graphitiMcpEnabled && (
-                <div className="space-y-2 ml-6">
-                  <Label className="text-sm font-medium text-foreground">Graphiti MCP Server URL</Label>
-                  <p className="text-xs text-muted-foreground">
-                    URL of the Graphiti MCP server for agent memory access
-                  </p>
-                  <Input
-                    placeholder="http://localhost:8000/mcp/"
-                    value={settings.graphitiMcpUrl || ''}
-                    onChange={(e) => setSettings({ ...settings, graphitiMcpUrl: e.target.value || undefined })}
-                  />
-                </div>
-              )}
-
-              <Separator />
-
               {/* Embedding Provider Selection */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-foreground">Embedding Provider</Label>
@@ -424,10 +392,10 @@ export function SecuritySettings({
                 </p>
                 <Select
                   value={embeddingProvider}
-                  onValueChange={(value: GraphitiEmbeddingProvider) => {
+                  onValueChange={(value: MemoryEmbeddingProvider) => {
                     updateEnvConfig({
-                      graphitiProviderConfig: {
-                        ...envConfig.graphitiProviderConfig,
+                      memoryProviderConfig: {
+                        ...envConfig.memoryProviderConfig,
                         embeddingProvider: value,
                       }
                     });
@@ -459,8 +427,8 @@ export function SecuritySettings({
                 </p>
                 <Input
                   placeholder="auto_claude_memory"
-                  value={envConfig.graphitiDatabase || ''}
-                  onChange={(e) => updateEnvConfig({ graphitiDatabase: e.target.value })}
+                  value={envConfig.memoryDatabase || ''}
+                  onChange={(e) => updateEnvConfig({ memoryDatabase: e.target.value })}
                 />
               </div>
 
@@ -471,8 +439,8 @@ export function SecuritySettings({
                 </p>
                 <Input
                   placeholder="~/.auto-claude/memories"
-                  value={envConfig.graphitiDbPath || ''}
-                  onChange={(e) => updateEnvConfig({ graphitiDbPath: e.target.value || undefined })}
+                  value={envConfig.memoryDbPath || ''}
+                  onChange={(e) => updateEnvConfig({ memoryDbPath: e.target.value || undefined })}
                 />
               </div>
             </>

@@ -94,9 +94,9 @@ export function AuthChoiceStep({ onNext, onBack, onSkip, onAPIKeyPathComplete }:
 
     setIsProfileDialogOpen(open);
 
-    // If dialog closed and profile was created (was empty, now has profiles), skip to graphiti step
+    // If dialog closed and profile was created (was empty, now has profiles), skip to memory step
     if (!open && wasEmpty && hasProfilesNow && onAPIKeyPathComplete) {
-      // Call the callback to skip oauth and go directly to graphiti
+      // Call the callback to skip oauth and go directly to memory config
       onAPIKeyPathComplete();
     }
   };

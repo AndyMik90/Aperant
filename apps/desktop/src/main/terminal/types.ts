@@ -11,7 +11,7 @@ export type { WindowsShellType } from '../../shared/types';
 export interface TerminalProcess {
   id: string;
   pty: pty.IPty;
-  isClaudeMode: boolean;
+  isCLIMode: boolean;
   projectPath?: string;
   cwd: string;
   claudeSessionId?: string;
@@ -21,7 +21,7 @@ export interface TerminalProcess {
   /** Associated worktree configuration (persisted across restarts) */
   worktreeConfig?: TerminalWorktreeConfig;
   /** Whether this terminal has a pending Claude resume that should be triggered on activation */
-  pendingClaudeResume?: boolean;
+  pendingCLIResume?: boolean;
   /** Whether Claude was invoked with --dangerously-skip-permissions (YOLO mode) */
   dangerouslySkipPermissions?: boolean;
   /** Shell type for Windows (affects command chaining syntax) */
@@ -100,6 +100,6 @@ export interface TerminalProfileChangeInfo {
   projectPath?: string;
   claudeSessionId?: string;
   claudeProfileId?: string;
-  isClaudeMode: boolean;
+  isCLIMode: boolean;
   dangerouslySkipPermissions?: boolean;
 }

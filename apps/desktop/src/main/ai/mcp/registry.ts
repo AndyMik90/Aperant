@@ -49,14 +49,14 @@ const LINEAR_SERVER: McpServerConfig = {
 };
 
 /**
- * Graphiti MCP server - knowledge graph memory.
+ * Memory MCP server - knowledge graph memory.
  * Conditionally enabled when GRAPHITI_MCP_URL is set.
- * Connects via StreamableHTTP to the running Graphiti sidecar.
+ * Connects via StreamableHTTP to the running memory sidecar.
  */
-function createGraphitiServer(url: string): McpServerConfig {
+function createMemoryServer(url: string): McpServerConfig {
   return {
-    id: 'graphiti',
-    name: 'Graphiti Memory',
+    id: 'memory',
+    name: 'Memory',
     description: 'Knowledge graph memory for cross-session insights',
     enabledByDefault: false,
     transport: {
@@ -126,8 +126,8 @@ function createAutoClaudeServer(specDir: string): McpServerConfig {
 export interface McpRegistryOptions {
   /** Spec directory for auto-claude MCP server */
   specDir?: string;
-  /** Graphiti MCP server URL (if enabled) */
-  graphitiMcpUrl?: string;
+  /** Memory MCP server URL (if enabled) */
+  memoryMcpUrl?: string;
   /** Linear API key (if available) */
   linearApiKey?: string;
   /** Environment variables for server processes */
@@ -163,10 +163,10 @@ export function getMcpServerConfig(
       return server;
     }
 
-    case 'graphiti': {
-      const url = options.graphitiMcpUrl ?? options.env?.GRAPHITI_MCP_URL;
+    case 'memory': {
+      const url = options.memoryMcpUrl ?? options.env?.GRAPHITI_MCP_URL;
       if (!url) return null;
-      return createGraphitiServer(url);
+      return createMemoryServer(url);
     }
 
     case 'electron':

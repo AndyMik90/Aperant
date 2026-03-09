@@ -8,7 +8,7 @@ import {
   mapMcpServerName,
   CONTEXT7_TOOLS,
   LINEAR_TOOLS,
-  GRAPHITI_MCP_TOOLS,
+  MEMORY_MCP_TOOLS, GRAPHITI_MCP_TOOLS,
   PUPPETEER_TOOLS,
   ELECTRON_TOOLS,
   type AgentType,
@@ -87,10 +87,10 @@ describe('AGENT_CONFIGS', () => {
     expect(config.thinkingDefault).toBe('low');
   });
 
-  it('should configure planner with graphiti and auto-claude MCP', () => {
+  it('should configure planner with memory and auto-claude MCP', () => {
     const config = AGENT_CONFIGS.planner;
     expect(config.mcpServers).toContain('context7');
-    expect(config.mcpServers).toContain('graphiti');
+    expect(config.mcpServers).toContain('memory');
     expect(config.mcpServers).toContain('auto-claude');
     expect(config.mcpServersOptional).toContain('linear');
     expect(config.thinkingDefault).toBe('high');
@@ -146,8 +146,8 @@ describe('MCP tool arrays', () => {
     expect(LINEAR_TOOLS).toHaveLength(16);
   });
 
-  it('GRAPHITI_MCP_TOOLS should have 5 tools', () => {
-    expect(GRAPHITI_MCP_TOOLS).toHaveLength(5);
+  it('MEMORY_MCP_TOOLS should have 5 tools', () => {
+    expect(MEMORY_MCP_TOOLS).toHaveLength(5);
   });
 
   it('PUPPETEER_TOOLS should have 8 tools', () => {
@@ -194,8 +194,8 @@ describe('getDefaultThinkingLevel', () => {
 describe('mapMcpServerName', () => {
   it('should map known server names', () => {
     expect(mapMcpServerName('context7')).toBe('context7');
-    expect(mapMcpServerName('graphiti')).toBe('graphiti');
-    expect(mapMcpServerName('graphiti-memory')).toBe('graphiti');
+    expect(mapMcpServerName('graphiti')).toBe('memory');
+    expect(mapMcpServerName('graphiti-memory')).toBe('memory');
     expect(mapMcpServerName('linear')).toBe('linear');
     expect(mapMcpServerName('auto-claude')).toBe('auto-claude');
   });
@@ -210,7 +210,7 @@ describe('mapMcpServerName', () => {
 
   it('should be case-insensitive', () => {
     expect(mapMcpServerName('Context7')).toBe('context7');
-    expect(mapMcpServerName('GRAPHITI')).toBe('graphiti');
+    expect(mapMcpServerName('GRAPHITI')).toBe('memory');
   });
 
   it('should accept custom server IDs', () => {
@@ -231,20 +231,20 @@ describe('getRequiredMcpServers', () => {
     expect(servers).toEqual([]);
   });
 
-  it('should filter graphiti when not enabled', () => {
-    const servers = getRequiredMcpServers('coder', { graphitiEnabled: false });
-    expect(servers).not.toContain('graphiti');
+  it('should filter memory when not enabled', () => {
+    const servers = getRequiredMcpServers('coder', { memoryEnabled: false });
+    expect(servers).not.toContain('memory');
   });
 
-  it('should include graphiti when enabled', () => {
-    const servers = getRequiredMcpServers('coder', { graphitiEnabled: true });
-    expect(servers).toContain('graphiti');
+  it('should include memory when enabled', () => {
+    const servers = getRequiredMcpServers('coder', { memoryEnabled: true });
+    expect(servers).toContain('memory');
   });
 
   it('should add linear when optional and enabled', () => {
     const servers = getRequiredMcpServers('planner', {
       linearEnabled: true,
-      graphitiEnabled: true,
+      memoryEnabled: true,
     });
     expect(servers).toContain('linear');
   });
@@ -252,14 +252,14 @@ describe('getRequiredMcpServers', () => {
   it('should not add linear when not enabled', () => {
     const servers = getRequiredMcpServers('planner', {
       linearEnabled: false,
-      graphitiEnabled: true,
+      memoryEnabled: true,
     });
     expect(servers).not.toContain('linear');
   });
 
   it('should resolve browser to electron for electron projects', () => {
     const servers = getRequiredMcpServers('qa_reviewer', {
-      graphitiEnabled: true,
+      memoryEnabled: true,
       projectCapabilities: { is_electron: true },
       electronMcpEnabled: true,
     });
@@ -269,7 +269,7 @@ describe('getRequiredMcpServers', () => {
 
   it('should resolve browser to puppeteer for web frontend projects', () => {
     const servers = getRequiredMcpServers('qa_reviewer', {
-      graphitiEnabled: true,
+      memoryEnabled: true,
       projectCapabilities: { is_web_frontend: true, is_electron: false },
       puppeteerMcpEnabled: true,
     });
@@ -293,10 +293,10 @@ describe('getRequiredMcpServers', () => {
 
   it('should support per-agent MCP removals but never remove auto-claude', () => {
     const servers = getRequiredMcpServers('coder', {
-      graphitiEnabled: true,
-      agentMcpRemove: 'auto-claude,graphiti',
+      memoryEnabled: true,
+      agentMcpRemove: 'auto-claude,memory',
     });
     expect(servers).toContain('auto-claude');
-    expect(servers).not.toContain('graphiti');
+    expect(servers).not.toContain('memory');
   });
 });

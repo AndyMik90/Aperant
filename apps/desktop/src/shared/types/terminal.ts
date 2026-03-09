@@ -36,7 +36,7 @@ export interface TerminalSession {
   title: string;
   cwd: string;
   projectPath: string;
-  isClaudeMode: boolean;
+  isCLIMode: boolean;
   claudeSessionId?: string;  // Claude Code session ID for --resume
   outputBuffer: string;
   createdAt: string;

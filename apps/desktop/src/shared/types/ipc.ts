@@ -19,8 +19,8 @@ import type {
   RendererMemory,
   ProjectEnvConfig,
   InfrastructureStatus,
-  GraphitiValidationResult,
-  GraphitiConnectionTestResult,
+  MemoryValidationResult,
+  MemoryConnectionTestResult,
   GitStatus,
   CustomMcpServer,
   McpHealthCheckResult,
@@ -244,7 +244,7 @@ export interface ElectronAPI {
   destroyTerminal: (id: string) => Promise<IPCResult>;
   sendTerminalInput: (id: string, data: string) => void;
   resizeTerminal: (id: string, cols: number, rows: number) => Promise<IPCResult<{ success: boolean }>>;
-  invokeClaudeInTerminal: (id: string, cwd?: string) => void;
+  invokeCLIInTerminal: (id: string, cwd?: string) => void;
   generateTerminalName: (command: string, cwd?: string) => Promise<IPCResult<string>>;
   setTerminalTitle: (id: string, title: string) => void;
   setTerminalWorktreeConfig: (id: string, config: TerminalWorktreeConfig | undefined) => void;
@@ -490,16 +490,7 @@ export interface ElectronAPI {
   // Memory Infrastructure operations (LadybugDB - no Docker required)
   getMemoryInfrastructureStatus: (dbPath?: string) => Promise<IPCResult<InfrastructureStatus>>;
   listMemoryDatabases: (dbPath?: string) => Promise<IPCResult<string[]>>;
-  testMemoryConnection: (dbPath?: string, database?: string) => Promise<IPCResult<GraphitiValidationResult>>;
-
-  // Graphiti validation operations
-  validateLLMApiKey: (provider: string, apiKey: string) => Promise<IPCResult<GraphitiValidationResult>>;
-  testGraphitiConnection: (config: {
-    dbPath?: string;
-    database?: string;
-    llmProvider: string;
-    apiKey: string;
-  }) => Promise<IPCResult<GraphitiConnectionTestResult>>;
+  testMemoryConnection: (dbPath?: string, database?: string) => Promise<IPCResult<MemoryValidationResult>>;
 
   // Linear integration operations
   getLinearTeams: (projectId: string) => Promise<IPCResult<LinearTeam[]>>;

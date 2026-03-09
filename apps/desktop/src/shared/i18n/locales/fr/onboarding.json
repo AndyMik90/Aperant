@@ -1,11 +1,11 @@
 {
   "wizard": {
     "title": "Assistant de configuration",
-    "description": "Configurez votre environnement Auto Claude en quelques étapes simples",
+    "description": "Configurez votre environnement Aperant en quelques étapes simples",
     "helpText": "Cet assistant vous aidera à configurer votre environnement en quelques étapes. Vous pouvez configurer votre token OAuth Claude, activer les fonctionnalités de mémoire et créer votre première tâche."
   },
   "welcome": {
-    "title": "Bienvenue sur Auto Claude",
+    "title": "Bienvenue sur Aperant",
     "subtitle": "Construisez des logiciels de manière autonome avec des agents IA",
     "getStarted": "Commencer",
     "skip": "Passer la configuration",
@@ -16,7 +16,7 @@
       },
       "specDriven": {
         "title": "Workflow basé sur les specs",
-        "description": "Définissez des tâches avec des spécifications claires et laissez Auto Claude gérer l'implémentation"
+        "description": "Définissez des tâches avec des spécifications claires et laissez Aperant gérer l'implémentation"
       },
       "memory": {
         "title": "Mémoire & Contexte",
@@ -84,14 +84,10 @@
   "memory": {
     "title": "Mémoire",
     "description": "Configurer la mémoire persistante entre sessions pour les agents",
-    "contextDescription": "La mémoire Auto Claude aide à retenir le contexte entre vos sessions de code",
+    "contextDescription": "La mémoire Aperant aide à retenir le contexte entre vos sessions de code",
     "enableMemory": "Activer la mémoire",
-    "enableMemoryDescription": "Mémoire persistante entre sessions utilisant LadybugDB (base de données intégrée)",
+    "enableMemoryDescription": "Mémoire persistante entre sessions utilisant une base de données intégrée",
     "memoryDisabledInfo": "La mémoire est désactivée. Les informations de session seront stockées uniquement dans des fichiers locaux. Activez la mémoire pour un contexte persistant entre sessions avec recherche sémantique.",
-    "enableAgentAccess": "Activer l'accès mémoire des agents",
-    "enableAgentAccessDescription": "Permettre aux agents de rechercher et d'ajouter au graphe de connaissances via MCP",
-    "mcpServerUrl": "URL du serveur Graphiti MCP",
-    "mcpServerUrlDescription": "URL du serveur Graphiti MCP pour l'accès mémoire des agents",
     "embeddingProvider": "Fournisseur d'embeddings",
     "embeddingProviderDescription": "Fournisseur pour la recherche sémantique (optionnel - la recherche par mots-clés fonctionne sans)",
     "selectEmbeddingModel": "Sélectionner le modèle d'embedding",
@@ -107,7 +103,7 @@
     "azureApiKey": "Clé API",
     "azureBaseUrl": "URL de base",
     "azureEmbeddingDeployment": "Nom du déploiement d'embedding",
-    "memoryInfo": "La mémoire stocke les découvertes, motifs et informations sur votre codebase pour que les futures sessions démarrent avec le contexte déjà chargé. Pas de Docker requis - utilise une base de données intégrée.",
+    "memoryInfo": "La mémoire stocke les découvertes, motifs et informations sur votre codebase pour que les futures sessions démarrent avec le contexte déjà chargé.",
     "learnMore": "En savoir plus sur la mémoire",
     "back": "Retour",
     "skip": "Passer",
@@ -132,13 +128,13 @@
   },
   "completion": {
     "title": "Vous êtes prêt !",
-    "subtitle": "Auto Claude est prêt à vous aider à construire des logiciels incroyables",
+    "subtitle": "Aperant est prêt à vous aider à construire des logiciels incroyables",
     "setupComplete": "Configuration terminée",
     "setupCompleteDescription": "Votre environnement est configuré et prêt. Vous pouvez commencer à créer des tâches immédiatement ou explorer l'application à votre rythme.",
     "whatsNext": "Et maintenant ?",
     "createTask": {
       "title": "Créer une tâche",
-      "description": "Commencez par créer votre première tâche pour voir Auto Claude en action.",
+      "description": "Commencez par créer votre première tâche pour voir Aperant en action.",
       "action": "Ouvrir le créateur de tâches"
     },
     "customizeSettings": {
@@ -155,16 +151,14 @@
   },
   "steps": {
     "welcome": "Bienvenue",
-    "authChoice": "Méthode d'auth",
-    "auth": "Auth",
-    "claudeCode": "CLI",
+    "accounts": "Comptes",
     "devtools": "Outils dev",
     "privacy": "Confidentialité",
     "memory": "Mémoire",
     "done": "Terminé"
   },
   "privacy": {
-    "title": "Aidez à améliorer Auto Claude",
+    "title": "Aidez à améliorer Aperant",
     "subtitle": "Les rapports d'erreurs anonymes nous aident à corriger les bugs plus rapidement",
     "whatWeCollect": {
       "title": "Ce que nous collectons",
@@ -190,7 +184,7 @@
     "detecting": "Vérification de l'installation de Claude Code...",
     "info": {
       "title": "Qu'est-ce que Claude Code ?",
-      "description": "Claude Code est le CLI officiel d'Anthropic qui alimente les fonctionnalités IA d'Auto Claude. Il fournit une authentification sécurisée et un accès direct aux modèles Claude."
+      "description": "Claude Code est le CLI officiel d'Anthropic qui alimente les fonctionnalités IA d'Aperant. Il fournit une authentification sécurisée et un accès direct aux modèles Claude."
     },
     "status": {
       "installed": "Installé",
@@ -212,25 +206,39 @@
   },
   "devtools": {
     "title": "Outils de développement",
-    "description": "Choisissez votre IDE et terminal préférés pour travailler avec les worktrees Auto Claude",
+    "description": "Choisissez votre IDE, terminal et CLI préférés pour travailler avec les worktrees Aperant",
     "detecting": "Détection des outils installés...",
     "detectAgain": "Détecter à nouveau",
     "whyConfigure": "Pourquoi configurer ceci ?",
-    "whyConfigureDescription": "Quand Auto Claude construit des fonctionnalités dans des worktrees isolés, vous pouvez les ouvrir directement dans votre IDE ou terminal préféré pour tester et réviser les changements.",
+    "whyConfigureDescription": "Quand Aperant construit des fonctionnalités dans des worktrees isolés, vous pouvez les ouvrir directement dans votre IDE ou terminal préféré pour tester et réviser les changements.",
     "ide": {
       "label": "IDE préféré",
-      "description": "Auto Claude ouvrira les worktrees dans cet éditeur",
+      "description": "Aperant ouvrira les worktrees dans cet éditeur",
       "customPath": "Chemin IDE personnalisé"
     },
     "terminal": {
       "label": "Terminal préféré",
-      "description": "Auto Claude ouvrira les sessions terminal ici",
+      "description": "Aperant ouvrira les sessions terminal ici",
       "customPath": "Chemin terminal personnalisé"
+    },
+    "cli": {
+      "label": "CLI préféré",
+      "description": "Outil CLI utilisé pour les sessions terminal assistées par IA",
+      "customPath": "Chemin CLI personnalisé"
     },
     "detectedSummary": "Détecté sur votre système :",
     "noToolsDetected": "Aucun outil supplémentaire détecté (VS Code et le terminal système seront utilisés)",
     "custom": "Personnalisé...",
     "saveAndContinue": "Enregistrer et continuer"
+  },
+  "accounts": {
+    "title": "Ajoutez vos comptes IA",
+    "description": "Connectez vos comptes de fournisseurs IA. Vous pouvez en ajouter d'autres plus tard dans les paramètres.",
+    "buttons": {
+      "back": "Retour",
+      "continue": "Continuer",
+      "skip": "Passer pour le moment"
+    }
   },
   "ollama": {
     "notInstalled": {

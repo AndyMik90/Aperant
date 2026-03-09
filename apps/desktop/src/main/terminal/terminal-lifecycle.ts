@@ -107,7 +107,7 @@ export async function createTerminal(
     const terminal: TerminalProcess = {
       id,
       pty: ptyProcess,
-      isClaudeMode: false,
+      isCLIMode: false,
       hasExited: false,
       projectPath,
       cwd: terminalCwd,
@@ -153,18 +153,18 @@ export async function restoreTerminal(
   cols = 80,
   rows = 24
 ): Promise<TerminalOperationResult> {
-  // Look up the stored session to get the correct isClaudeMode value
-  // The renderer may pass isClaudeMode: false (by design), but we need the stored value
+  // Look up the stored session to get the correct isCLIMode value
+  // The renderer may pass isCLIMode: false (by design), but we need the stored value
   // to determine whether to auto-resume Claude
   const storedSessions = SessionHandler.getSavedSessions(session.projectPath);
   const storedSession = storedSessions.find(s => s.id === session.id);
-  const storedIsClaudeMode = storedSession?.isClaudeMode ?? session.isClaudeMode;
+  const storedIsClaudeMode = storedSession?.isCLIMode ?? session.isCLIMode;
   const storedClaudeSessionId = storedSession?.claudeSessionId ?? session.claudeSessionId;
   // Get worktreeConfig from stored session (authoritative) since renderer-passed value may be stale
   const storedWorktreeConfig = storedSession?.worktreeConfig ?? session.worktreeConfig;
 
   debugLog('[TerminalLifecycle] Restoring terminal session:', session.id,
-    'Passed Claude mode:', session.isClaudeMode,
+    'Passed Claude mode:', session.isCLIMode,
     'Stored Claude mode:', storedIsClaudeMode,
     'Stored session ID:', storedClaudeSessionId);
 
@@ -235,15 +235,15 @@ export async function restoreTerminal(
   // which can cause crashes and resource contention.
   //
   // Use storedIsClaudeMode which comes from the persisted store,
-  // not the renderer-passed values (renderer always passes isClaudeMode: false)
+  // not the renderer-passed values (renderer always passes isCLIMode: false)
   if (options.resumeClaudeSession && storedIsClaudeMode) {
     // Set Claude mode so it persists correctly across app restarts
     // Without this, storedIsClaudeMode would be false on next restore
     terminal.claudeSessionId = storedClaudeSessionId;
-    terminal.isClaudeMode = true;
+    terminal.isCLIMode = true;
     // Mark terminal as having a pending Claude resume
     // The actual resume will be triggered when the terminal becomes active
-    terminal.pendingClaudeResume = true;
+    terminal.pendingCLIResume = true;
     debugLog('[TerminalLifecycle] Marking terminal for deferred Claude resume:', terminal.id);
 
     // Notify renderer that this terminal has a pending Claude resume

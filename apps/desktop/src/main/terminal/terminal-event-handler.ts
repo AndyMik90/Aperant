@@ -4,7 +4,7 @@
  */
 
 import * as OutputParser from './output-parser';
-import * as ClaudeIntegration from './claude-integration-handler';
+import * as ClaudeIntegration from './cli-integration-handler';
 import type { TerminalProcess, WindowGetter } from './types';
 import { IPC_CHANNELS } from '../../shared/constants';
 import { safeSendToRenderer } from '../ipc-handlers/utils';
@@ -33,7 +33,7 @@ export function handleTerminalData(
   callbacks: EventHandlerCallbacks
 ): void {
   // Try to extract Claude session ID
-  if (terminal.isClaudeMode && !terminal.claudeSessionId) {
+  if (terminal.isCLIMode && !terminal.claudeSessionId) {
     const sessionId = OutputParser.extractClaudeSessionId(data);
     if (sessionId) {
       callbacks.onClaudeSessionId(terminal, sessionId);
@@ -41,7 +41,7 @@ export function handleTerminalData(
   }
 
   // Check for rate limit messages
-  if (terminal.isClaudeMode) {
+  if (terminal.isCLIMode) {
     callbacks.onRateLimit(terminal, data);
   }
 
@@ -52,7 +52,7 @@ export function handleTerminalData(
   callbacks.onOnboardingComplete(terminal, data);
 
   // Detect Claude busy state changes (only when in Claude mode)
-  if (terminal.isClaudeMode) {
+  if (terminal.isCLIMode) {
     const busyState = OutputParser.detectClaudeBusyState(data);
     if (busyState !== null) {
       const isBusy = busyState === 'busy';

@@ -124,7 +124,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
   const removeTerminal = useTerminalStore((state) => state.removeTerminal);
   const setActiveTerminal = useTerminalStore((state) => state.setActiveTerminal);
   const canAddTerminal = useTerminalStore((state) => state.canAddTerminal);
-  const setClaudeMode = useTerminalStore((state) => state.setClaudeMode);
+  const setCLIMode = useTerminalStore((state) => state.setCLIMode);
   const reorderTerminals = useTerminalStore((state) => state.reorderTerminals);
 
   // Get tasks from task store for task selection dropdown in terminals
@@ -324,12 +324,12 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
 
   const handleInvokeClaudeAll = useCallback(() => {
     terminals.forEach((terminal) => {
-      if (terminal.status === 'running' && !terminal.isClaudeMode) {
-        setClaudeMode(terminal.id, true);
-        window.electronAPI.invokeClaudeInTerminal(terminal.id, terminal.cwd || projectPath);
+      if (terminal.status === 'running' && !terminal.isCLIMode) {
+        setCLIMode(terminal.id, true);
+        window.electronAPI.invokeCLIInTerminal(terminal.id, terminal.cwd || projectPath);
       }
     });
-  }, [terminals, setClaudeMode, projectPath]);
+  }, [terminals, setCLIMode, projectPath]);
 
   // Handle drag start - store dragged item data
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -529,7 +529,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
               <Settings className="h-3 w-3" />
               {t('actions.settings')}
             </Button>
-            {terminals.some((t) => t.status === 'running' && !t.isClaudeMode) && (
+            {terminals.some((t) => t.status === 'running' && !t.isCLIMode) && (
               <Button
                 variant="outline"
                 size="sm"

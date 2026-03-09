@@ -11,7 +11,7 @@ import type { AppSettings } from '../shared/types/settings';
 import { getMemoriesDir } from './config-paths';
 
 /**
- * Build environment variables for memory/Graphiti configuration from app settings.
+ * Build environment variables for memory configuration from app settings.
  *
  * @param settings - App-wide settings from settings.json
  * @returns Record of environment variables to inject into agent processes
@@ -24,7 +24,7 @@ export function buildMemoryEnvVars(settings: AppSettings): Record<string, string
     return env;
   }
 
-  // Enable Graphiti
+  // Enable memory (GRAPHITI_ENABLED env var kept for backward compat with Python sidecar)
   env.GRAPHITI_ENABLED = 'true';
 
   // Set database path and name (where LadybugDB stores data)

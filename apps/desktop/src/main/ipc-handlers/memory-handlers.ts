@@ -1,7 +1,7 @@
 /**
  * Memory Infrastructure IPC Handlers
  *
- * Provides memory database status and validation for the Graphiti integration.
+ * Provides memory database status and validation.
  * Uses LadybugDB (embedded Kuzu-based database) - no Docker required.
  */
 
@@ -18,9 +18,7 @@ const __dirname = path.dirname(__filename);
 import { IPC_CHANNELS } from '../../shared/constants';
 import type {
   IPCResult,
-  InfrastructureStatus,
-  GraphitiValidationResult,
-  GraphitiConnectionTestResult,
+  MemoryValidationResult,
 } from '../../shared/types';
 import {
   getMemoryServiceStatus,
@@ -28,7 +26,6 @@ import {
   getDefaultDbPath,
   isKuzuAvailable,
 } from '../memory-service';
-import { validateOpenAIApiKey } from '../api-validation-service';
 import { openTerminalWithCommand } from './claude-code-handlers';
 
 /**
@@ -310,40 +307,16 @@ async function listOllamaModelsNative(baseUrl?: string): Promise<OllamaModel[]> 
  * Register all memory-related IPC handlers.
  * Sets up handlers for:
  * - Memory infrastructure status and management
- * - Graphiti LLM/Embedding provider validation
  * - Ollama model discovery and downloads with real-time progress tracking
  *
  * These handlers allow the renderer process to:
  * 1. Check memory system status (Kuzu database, LadybugDB)
- * 2. Validate API keys for LLM and embedding providers
- * 3. Discover, list, and download Ollama models
- * 4. Subscribe to real-time download progress events
+ * 2. Discover, list, and download Ollama models
+ * 3. Subscribe to real-time download progress events
  *
  * @returns {void}
  */
 export function registerMemoryHandlers(): void {
-  // Get memory infrastructure status
-  ipcMain.handle(
-    IPC_CHANNELS.MEMORY_STATUS,
-    async (_): Promise<IPCResult<InfrastructureStatus>> => {
-      try {
-        const status = getMemoryServiceStatus();
-        return {
-          success: true,
-          data: {
-            memory: status,
-            ready: status.kuzuInstalled && status.databaseExists,
-          },
-        };
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : 'Failed to check memory status',
-        };
-      }
-    }
-  );
-
   // List available databases
   ipcMain.handle(
     IPC_CHANNELS.MEMORY_LIST_DATABASES,
@@ -363,7 +336,7 @@ export function registerMemoryHandlers(): void {
   // Test memory database connection
   ipcMain.handle(
     IPC_CHANNELS.MEMORY_TEST_CONNECTION,
-    async (_, dbPath?: string, database?: string): Promise<IPCResult<GraphitiValidationResult>> => {
+    async (_, dbPath?: string, database?: string): Promise<IPCResult<MemoryValidationResult>> => {
       try {
         if (!isKuzuAvailable()) {
           return {
@@ -386,121 +359,6 @@ export function registerMemoryHandlers(): void {
         return {
           success: false,
           error: error instanceof Error ? error.message : 'Failed to test connection',
-        };
-      }
-    }
-  );
-
-  // ============================================
-  // Graphiti Validation Handlers
-  // ============================================
-
-  // Validate LLM provider API key (OpenAI, Anthropic, etc.)
-  ipcMain.handle(
-    IPC_CHANNELS.GRAPHITI_VALIDATE_LLM,
-    async (_, provider: string, apiKey: string): Promise<IPCResult<GraphitiValidationResult>> => {
-      try {
-        // For now, we only validate OpenAI - other providers can be added later
-        if (provider === 'openai') {
-          const result = await validateOpenAIApiKey(apiKey);
-          return { success: true, data: result };
-        }
-
-        // For other providers, do basic validation
-        if (!apiKey || !apiKey.trim()) {
-          return {
-            success: true,
-            data: {
-              success: false,
-              message: 'API key is required',
-            },
-          };
-        }
-
-        return {
-          success: true,
-          data: {
-            success: true,
-            message: `${provider} API key format appears valid`,
-            details: { provider },
-          },
-        };
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : 'Failed to validate API key',
-        };
-      }
-    }
-  );
-
-  // Test full Graphiti connection (Database + LLM provider)
-  ipcMain.handle(
-    IPC_CHANNELS.GRAPHITI_TEST_CONNECTION,
-    async (
-      _,
-      config: {
-        dbPath?: string;
-        database?: string;
-        llmProvider: string;
-        apiKey: string;
-      }
-    ): Promise<IPCResult<GraphitiConnectionTestResult>> => {
-      try {
-        // Test database connection
-        let databaseResult: GraphitiValidationResult;
-
-        if (!isKuzuAvailable()) {
-          databaseResult = {
-            success: false,
-            message: 'kuzu-node is not installed. Memory features require Python 3.12+ with LadybugDB.',
-          };
-        } else {
-          const service = getMemoryService({
-            dbPath: config.dbPath || getDefaultDbPath(),
-            database: config.database || 'auto_claude_memory',
-          });
-          databaseResult = await service.testConnection();
-        }
-
-        // Test LLM provider
-        let llmResult: GraphitiValidationResult;
-
-        if (config.llmProvider === 'openai') {
-          llmResult = await validateOpenAIApiKey(config.apiKey);
-        } else if (config.llmProvider === 'ollama') {
-          // Ollama doesn't need API key validation
-          llmResult = {
-            success: true,
-            message: 'Ollama (local) does not require API key validation',
-            details: { provider: 'ollama' },
-          };
-        } else {
-          // Basic validation for other providers
-          llmResult = config.apiKey?.trim()
-            ? {
-                success: true,
-                message: `${config.llmProvider} API key format appears valid`,
-                details: { provider: config.llmProvider },
-              }
-            : {
-                success: false,
-                message: 'API key is required',
-              };
-        }
-
-        return {
-          success: true,
-          data: {
-            database: databaseResult,
-            llmProvider: llmResult,
-            ready: databaseResult.success && llmResult.success,
-          },
-        };
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : 'Failed to test Graphiti connection',
         };
       }
     }

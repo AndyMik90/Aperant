@@ -11,7 +11,7 @@ export { searchService } from './search.js';
 export { suggestServices } from './service-matcher.js';
 export { categorizeMatches } from './categorizer.js';
 export { discoverPatterns } from './pattern-discovery.js';
-export { isGraphitiEnabled, fetchGraphHints } from './graphiti-integration.js';
+export { isMemoryEnabled, isGraphitiEnabled, fetchGraphHints } from './graphiti-integration.js';
 export type {
   ContextFile,
   SubtaskContext,

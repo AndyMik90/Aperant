@@ -65,7 +65,7 @@ const mockTerminalManager = {
   create: vi.fn(),
   write: vi.fn(),
   destroy: vi.fn(),
-  isClaudeMode: vi.fn(() => false),
+  isCLIMode: vi.fn(() => false),
   getActiveTerminalIds: vi.fn(() => []),
   switchClaudeProfile: vi.fn(),
   setTitle: vi.fn(),
@@ -91,7 +91,7 @@ vi.mock('../../shared/utils/shell-escape', () => ({
 }));
 
 // Mock claude CLI utils
-vi.mock('../../main/claude-cli-utils', () => ({
+vi.mock('../../main/cli-utils', () => ({
   getClaudeCliInvocationAsync: vi.fn(async () => ({
     command: '/usr/local/bin/claude'
   }))

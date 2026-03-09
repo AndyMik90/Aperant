@@ -18,4 +18,3 @@ export { CollapsibleSection } from './CollapsibleSection';
 export { PasswordInput } from './PasswordInput';
 export { StatusBadge } from './StatusBadge';
 export { ConnectionStatus } from './ConnectionStatus';
-export { InfrastructureStatus } from './InfrastructureStatus';

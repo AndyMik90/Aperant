@@ -152,7 +152,7 @@ const AGENT_CONFIGS: Record<string, AgentConfig> = {
     description: 'Creates implementation plan with subtasks',
     category: 'build',
     tools: ['Read', 'Glob', 'Grep', 'Write', 'Edit', 'Bash', 'WebFetch', 'WebSearch'],
-    mcp_servers: ['context7', 'graphiti-memory', 'auto-claude'],
+    mcp_servers: ['context7', 'memory', 'auto-claude'],
     mcp_optional: ['linear'],
     settingsSource: { type: 'phase', phase: 'planning' },
   },
@@ -161,7 +161,7 @@ const AGENT_CONFIGS: Record<string, AgentConfig> = {
     description: 'Implements individual subtasks',
     category: 'build',
     tools: ['Read', 'Glob', 'Grep', 'Write', 'Edit', 'Bash', 'WebFetch', 'WebSearch'],
-    mcp_servers: ['context7', 'graphiti-memory', 'auto-claude'],
+    mcp_servers: ['context7', 'memory', 'auto-claude'],
     mcp_optional: ['linear'],
     settingsSource: { type: 'phase', phase: 'coding' },
   },
@@ -172,7 +172,7 @@ const AGENT_CONFIGS: Record<string, AgentConfig> = {
     description: 'Validates acceptance criteria. Uses Electron or Puppeteer based on project type.',
     category: 'qa',
     tools: ['Read', 'Glob', 'Grep', 'Bash', 'WebFetch', 'WebSearch'],
-    mcp_servers: ['context7', 'graphiti-memory', 'auto-claude'],
+    mcp_servers: ['context7', 'memory', 'auto-claude'],
     mcp_optional: ['linear', 'electron', 'puppeteer'],
     settingsSource: { type: 'phase', phase: 'qa' },
   },
@@ -181,7 +181,7 @@ const AGENT_CONFIGS: Record<string, AgentConfig> = {
     description: 'Fixes QA-reported issues. Uses Electron or Puppeteer based on project type.',
     category: 'qa',
     tools: ['Read', 'Glob', 'Grep', 'Write', 'Edit', 'Bash', 'WebFetch', 'WebSearch'],
-    mcp_servers: ['context7', 'graphiti-memory', 'auto-claude'],
+    mcp_servers: ['context7', 'memory', 'auto-claude'],
     mcp_optional: ['linear', 'electron', 'puppeteer'],
     settingsSource: { type: 'phase', phase: 'qa' },
   },
@@ -273,9 +273,10 @@ const MCP_SERVERS: Record<string, { name: string; description: string; icon: Rea
     icon: Search,
     tools: ['mcp__context7__resolve-library-id', 'mcp__context7__query-docs'],
   },
-  'graphiti-memory': {
-    name: 'Graphiti Memory',
+  'memory': {
+    name: 'Memory',
     description: 'Knowledge graph for cross-session context. Requires GRAPHITI_MCP_URL env var.',
+    // Note: mcp__graphiti-memory__ tool names are the external MCP server's protocol names
     icon: Brain,
     tools: [
       'mcp__graphiti-memory__search_nodes',
@@ -342,7 +343,7 @@ const MCP_SERVERS: Record<string, { name: string; description: string; icon: Rea
 // All available MCP servers that can be added to agents
 const ALL_MCP_SERVERS = [
   'context7',
-  'graphiti-memory',
+  'memory',
   'linear',
   'electron',
   'puppeteer',
@@ -404,7 +405,7 @@ function AgentCard({ id, config, modelLabel, thinkingLabel, overrides, mcpServer
       if (customServers.some(s => s.id === mcp)) return true;
       switch (mcp) {
         case 'context7': return mcpServerStates.context7Enabled !== false;
-        case 'graphiti-memory': return mcpServerStates.graphitiEnabled !== false;
+        case 'memory': return mcpServerStates.memoryEnabled !== false;
         case 'linear': return mcpServerStates.linearMcpEnabled !== false;
         case 'electron': return mcpServerStates.electronEnabled !== false;
         case 'puppeteer': return mcpServerStates.puppeteerEnabled !== false;
@@ -981,7 +982,7 @@ export function AgentTools() {
   // Count enabled MCP servers
   const enabledCount = [
     mcpServers.context7Enabled !== false,
-    mcpServers.graphitiEnabled && envConfig?.graphitiProviderConfig,
+    mcpServers.memoryEnabled && envConfig?.memoryProviderConfig,
     mcpServers.linearMcpEnabled !== false && envConfig?.linearEnabled,
     mcpServers.electronEnabled,
     mcpServers.puppeteerEnabled,
@@ -1102,23 +1103,23 @@ export function AgentTools() {
                   />
                 </div>
 
-                {/* Graphiti Memory */}
+                {/* Memory */}
                 <div className="flex items-center justify-between py-2 border-b border-border last:border-0">
                   <div className="flex items-center gap-3">
                     <Brain className="h-4 w-4 text-muted-foreground" />
                     <div>
-                      <span className="text-sm font-medium">{t('settings:mcp.servers.graphiti.name')}</span>
+                      <span className="text-sm font-medium">{t('settings:mcp.servers.memory.name')}</span>
                       <p className="text-xs text-muted-foreground">
-                        {envConfig.graphitiProviderConfig
-                          ? t('settings:mcp.servers.graphiti.description')
-                          : t('settings:mcp.servers.graphiti.notConfigured')}
+                        {envConfig.memoryProviderConfig
+                          ? t('settings:mcp.servers.memory.description')
+                          : t('settings:mcp.servers.memory.notConfigured')}
                       </p>
                     </div>
                   </div>
                   <Switch
-                    checked={mcpServers.graphitiEnabled !== false && !!envConfig.graphitiProviderConfig}
-                    onCheckedChange={(checked) => updateMcpServer('graphitiEnabled', checked)}
-                    disabled={!envConfig.graphitiProviderConfig}
+                    checked={mcpServers.memoryEnabled !== false && !!envConfig.memoryProviderConfig}
+                    onCheckedChange={(checked) => updateMcpServer('memoryEnabled', checked)}
+                    disabled={!envConfig.memoryProviderConfig}
                   />
                 </div>
 

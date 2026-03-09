@@ -24,8 +24,7 @@ function createTestProject(overrides: Partial<Project> = {}): Project {
         onTaskFailed: true,
         onReviewNeeded: true,
         sound: false
-      },
-      graphitiMcpEnabled: false
+      }
     },
     createdAt: new Date(),
     updatedAt: new Date(),
