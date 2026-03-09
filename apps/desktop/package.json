@@ -45,7 +45,7 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit --incremental"
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "^4.0.61",

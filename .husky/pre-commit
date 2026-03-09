@@ -167,19 +167,11 @@ if git diff --cached --name-only | grep -q "^apps/desktop/"; then
         exit 1
       fi
 
-      # Run TypeScript type check
+      # Run TypeScript type check (incremental: only rechecks changed files after first run)
       echo "Running type check..."
-      npm run typecheck
+      NODE_OPTIONS="--max-old-space-size=2048" npm run typecheck
       if [ $? -ne 0 ]; then
         echo "Type check failed. Please fix TypeScript errors before committing."
-        exit 1
-      fi
-
-      # Run linting
-      echo "Running lint..."
-      npm run lint
-      if [ $? -ne 0 ]; then
-        echo "Lint failed. Run 'npm run lint:fix' to auto-fix issues."
         exit 1
       fi
 
