@@ -53,7 +53,7 @@ describe('getProviderPresetOrFallback', () => {
 
   it('returns openai balanced preset exactly when available', () => {
     const result = getProviderPresetOrFallback('openai', 'balanced');
-    expect(result.primaryModel).toBe('gpt-5.2');
+    expect(result.primaryModel).toBe('gpt-5.2-codex');
     expect(result.primaryThinking).toBe('medium');
   });
 

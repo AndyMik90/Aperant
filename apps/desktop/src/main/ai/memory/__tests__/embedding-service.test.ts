@@ -147,11 +147,14 @@ describe('EmbeddingService (none / degraded fallback)', () => {
     expect(service.getProvider()).toBe('none');
   });
 
-  it('embed returns a number array of length 384', async () => {
+  it('embed returns a number array matching the requested dimension', async () => {
     const embedding = await service.embed('test text');
     expect(Array.isArray(embedding)).toBe(true);
-    expect(embedding.length).toBe(384);
+    expect(embedding.length).toBe(1024); // default dims=1024
     expect(embedding.every((v) => typeof v === 'number')).toBe(true);
+
+    const embedding256 = await service.embed('test text 256', 256);
+    expect(embedding256.length).toBe(256);
   });
 
   it('embed produces normalized vectors', async () => {
@@ -185,7 +188,7 @@ describe('EmbeddingService (none / degraded fallback)', () => {
     expect(embeddings).toHaveLength(3);
     for (const emb of embeddings) {
       expect(Array.isArray(emb)).toBe(true);
-      expect(emb.length).toBe(384);
+      expect(emb.length).toBe(1024);
     }
   });
 

@@ -20,7 +20,7 @@ import {
 import { getGitHubConfig, githubFetch, normalizeRepoReference } from "./utils";
 import { readSettingsFile } from "../../settings-utils";
 import { getAugmentedEnv } from "../../env-utils";
-import { getMemoryService, getDefaultDbPath } from "../../memory-service";
+import { getMemoryService } from "../context/memory-service-factory";
 import type { Project, AppSettings } from "../../../shared/types";
 import { createContextLogger } from "./utils/logger";
 import { withProjectOrNull } from "./utils/project-middleware";
@@ -399,13 +399,7 @@ async function savePRReviewToMemory(
   }
 
   try {
-    const memoryService = getMemoryService({
-      dbPath: getDefaultDbPath(),
-      database: "auto_claude_memory",
-    });
-
-    // Build the memory content with comprehensive insights
-    // We want to capture ALL meaningful findings so the AI can learn from patterns
+    const memoryService = await getMemoryService();
 
     // Prioritize findings: critical > high > medium > low
     // Include all critical/high, top 5 medium, top 3 low
@@ -423,7 +417,7 @@ async function savePRReviewToMemory(
       severity: f.severity,
       category: f.category,
       title: f.title,
-      description: f.description.substring(0, 500), // Truncate for storage
+      description: f.description.substring(0, 500),
       file: f.file,
       line: f.line,
     }));
@@ -454,51 +448,46 @@ async function savePRReviewToMemory(
       .filter(([_, count]) => count >= 2)
       .map(([category, count]) => `${category}: ${count} occurrences`);
 
-    const memoryContent: PRReviewMemory = {
-      prNumber: result.prNumber,
-      repo,
-      verdict: result.overallStatus || "unknown",
-      timestamp: new Date().toISOString(),
-      summary: {
-        verdict: result.overallStatus || "unknown",
-        finding_counts: {
-          critical: criticalFindings.length,
-          high: highFindings.length,
-          medium: result.findings.filter((f) => f.severity === "medium").length,
-          low: result.findings.filter((f) => f.severity === "low").length,
-        },
-        total_findings: result.findings.length,
-      },
-      keyFindings: keyFindingsToSave,
-      patterns: patternsToSave,
-      gotchas: gotchasToSave,
-      isFollowup,
-    };
-
-    // Add follow-up specific info if applicable
-    if (isFollowup && result.resolvedFindings && result.unresolvedFindings) {
-      memoryContent.summary.verdict_reasoning = `Resolved: ${result.resolvedFindings.length}, Unresolved: ${result.unresolvedFindings.length}`;
-    }
-
-    // Save to memory as a pr_review episode
+    // Build content string for new memory system
     const episodeName = `PR #${result.prNumber} ${isFollowup ? "Follow-up " : ""}Review - ${repo}`;
-    const saveResult = await memoryService.addEpisode(
+    const contentParts = [
       episodeName,
-      memoryContent,
-      "pr_review",
-      `pr_review_${repo.replace("/", "_")}`
-    );
+      `Verdict: ${result.overallStatus || "unknown"}`,
+      `Findings: ${result.findings.length} total (${criticalFindings.length} critical, ${highFindings.length} high)`,
+    ];
 
-    if (saveResult.success) {
-      debugLog("PR review saved to memory", {
-        prNumber: result.prNumber,
-        episodeId: saveResult.id,
-      });
-    } else {
-      debugLog("Failed to save PR review to memory", { error: saveResult.error });
+    if (patternsToSave.length > 0) {
+      contentParts.push(`Patterns: ${patternsToSave.join('; ')}`);
     }
+
+    if (gotchasToSave.length > 0) {
+      contentParts.push(`Gotchas: ${gotchasToSave.slice(0, 3).join('; ')}`);
+    }
+
+    if (keyFindingsToSave.length > 0) {
+      contentParts.push(`Key findings: ${keyFindingsToSave.slice(0, 5).map(f => `[${f.severity}] ${f.title}`).join('; ')}`);
+    }
+
+    if (isFollowup && result.resolvedFindings && result.unresolvedFindings) {
+      contentParts.push(`Resolved: ${result.resolvedFindings.length}, Unresolved: ${result.unresolvedFindings.length}`);
+    }
+
+    const contentString = contentParts.join('\n');
+
+    // Store using the new memory service
+    await memoryService.store({
+      type: 'module_insight',
+      content: contentString,
+      source: 'agent_explicit',
+      confidence: 0.8,
+      projectId: repo,
+      relatedFiles: keyFindingsToSave.map(f => f.file).filter(Boolean).slice(0, 10),
+      relatedModules: [],
+      tags: ['pr_review', repo.replace('/', '_'), `pr_${result.prNumber}`],
+    });
+
+    debugLog("PR review saved to memory", { prNumber: result.prNumber });
   } catch (error) {
-    // Don't fail the review if memory save fails
     debugLog("Error saving PR review to memory", {
       error: error instanceof Error ? error.message : error,
     });

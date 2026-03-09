@@ -7,13 +7,34 @@
 
 import { getMemoryClient } from '../../ai/memory/db';
 import { EmbeddingService } from '../../ai/memory/embedding-service';
+import type { EmbeddingConfig } from '../../ai/memory/embedding-service';
 import { RetrievalPipeline } from '../../ai/memory/retrieval/pipeline';
 import { Reranker } from '../../ai/memory/retrieval/reranker';
 import { MemoryServiceImpl } from '../../ai/memory/memory-service';
+import { readSettingsFile } from '../../settings-utils';
 
 let _instance: MemoryServiceImpl | null = null;
 let _initPromise: Promise<MemoryServiceImpl> | null = null;
 let _embeddingProvider: string | null = null;
+
+function buildEmbeddingConfig(): EmbeddingConfig | undefined {
+  const settings = readSettingsFile();
+  if (!settings?.memoryEmbeddingProvider) return undefined;
+  return {
+    provider: settings.memoryEmbeddingProvider as EmbeddingConfig['provider'],
+    openaiApiKey: settings.globalOpenAIApiKey as string | undefined,
+    openaiEmbeddingModel: settings.memoryOpenaiEmbeddingModel as string | undefined,
+    googleApiKey: settings.globalGoogleApiKey as string | undefined,
+    googleEmbeddingModel: settings.memoryGoogleEmbeddingModel as string | undefined,
+    azureApiKey: settings.memoryAzureApiKey as string | undefined,
+    azureBaseUrl: settings.memoryAzureBaseUrl as string | undefined,
+    azureDeployment: settings.memoryAzureEmbeddingDeployment as string | undefined,
+    voyageApiKey: settings.memoryVoyageApiKey as string | undefined,
+    voyageModel: settings.memoryVoyageEmbeddingModel as string | undefined,
+    ollamaBaseUrl: settings.ollamaBaseUrl as string | undefined,
+    ollamaModel: settings.memoryOllamaEmbeddingModel as string | undefined,
+  };
+}
 
 /**
  * Get or create the singleton MemoryServiceImpl.
@@ -25,7 +46,7 @@ export async function getMemoryService(): Promise<MemoryServiceImpl> {
 
   _initPromise = (async () => {
     const db = await getMemoryClient();
-    const embeddingService = new EmbeddingService(db);
+    const embeddingService = new EmbeddingService(db, buildEmbeddingConfig());
     await embeddingService.initialize();
     _embeddingProvider = embeddingService.getProvider();
     const reranker = new Reranker();

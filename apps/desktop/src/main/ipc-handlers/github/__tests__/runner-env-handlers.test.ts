@@ -99,13 +99,24 @@ vi.mock('../utils/project-middleware', () => ({
   },
 }));
 
-// Mock the TypeScript PR review engine — use importOriginal to preserve exports used by sub-modules
+// Mock the TypeScript PR review engine
 vi.mock('../../../ai/runners/github/pr-review-engine', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../ai/runners/github/pr-review-engine')>();
   return {
     ...actual,
     runMultiPassReview: (...args: unknown[]) => mockRunMultiPassReview(...args),
   };
+});
+
+// Mock the parallel orchestrator reviewer (current PR review flow)
+const mockOrchestratorReview = vi.fn();
+vi.mock('../../../ai/runners/github/parallel-orchestrator', () => {
+  class MockParallelOrchestratorReviewer {
+    review(...args: unknown[]) {
+      return mockOrchestratorReview(...args);
+    }
+  }
+  return { ParallelOrchestratorReviewer: MockParallelOrchestratorReviewer };
 });
 
 // Mock the TypeScript triage engine
@@ -152,14 +163,46 @@ vi.mock('../../../env-utils', () => ({
   getAugmentedEnv: vi.fn(() => ({})),
 }));
 
-vi.mock('../../../memory-service', () => ({
-  getMemoryService: vi.fn(() => ({ save: vi.fn() })),
-  getDefaultDbPath: vi.fn(() => '/tmp/memory.db'),
-}));
-
 vi.mock('../../../sentry', () => ({
   safeBreadcrumb: vi.fn(),
   safeCaptureException: vi.fn(),
+}));
+
+vi.mock('../../../../shared/utils/sentry-privacy', () => ({
+  sanitizeForSentry: vi.fn((data: unknown) => data),
+}));
+
+vi.mock('../../../pr-review-state-manager', () => {
+  class MockPRReviewStateManager {
+    handleStartReview = vi.fn();
+    handleProgress = vi.fn();
+    handleComplete = vi.fn();
+    handleError = vi.fn();
+    getState = vi.fn(() => null);
+  }
+  return { PRReviewStateManager: MockPRReviewStateManager };
+});
+
+vi.mock('../utils/logger', () => ({
+  createContextLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    trace: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  })),
+}));
+
+vi.mock('../../../ai/runners/github/parallel-followup', () => ({
+  ParallelFollowupReviewer: vi.fn().mockImplementation(() => ({
+    review: vi.fn().mockResolvedValue({ findings: [], verdict: 'approve' }),
+  })),
+}));
+
+vi.mock('../../context/memory-service-factory', () => ({
+  getMemoryService: vi.fn(() => Promise.resolve({ store: vi.fn() })),
+  getEmbeddingProvider: vi.fn(() => null),
+  resetMemoryService: vi.fn(),
 }));
 
 // Mock child_process (used by fetchPRContext to call gh pr diff)
@@ -236,7 +279,7 @@ describe('GitHub TypeScript runner usage', () => {
     tempDirs.length = 0;
   });
 
-  it('calls TypeScript runMultiPassReview for PR review', async () => {
+  it('calls ParallelOrchestratorReviewer for PR review', async () => {
     const { githubFetch } = await import('../utils');
     const githubFetchMock = vi.mocked(githubFetch);
 
@@ -271,16 +314,13 @@ describe('GitHub TypeScript runner usage', () => {
       return {};
     });
 
-    // Return the shape that runMultiPassReview produces (MultiPassResult)
-    mockRunMultiPassReview.mockResolvedValue({
+    // Return the shape that ParallelOrchestratorReviewer.review() produces
+    mockOrchestratorReview.mockResolvedValue({
       findings: [],
       structuralIssues: [],
-      scanResult: {
-        verdict: 'approve',
-        findings: [],
-        summary: 'LGTM',
-      },
-      totalPasses: 1,
+      verdict: 'ready_to_merge',
+      summary: 'LGTM',
+      agentsInvoked: ['security', 'logic'],
     });
 
     const { registerPRHandlers } = await import('../pr-handlers');
@@ -288,8 +328,8 @@ describe('GitHub TypeScript runner usage', () => {
 
     await mockIpcMain.emit(IPC_CHANNELS.GITHUB_PR_REVIEW, projectRef.current?.id, 123);
 
-    // The handler should have called runMultiPassReview (TypeScript runner)
-    expect(mockRunMultiPassReview).toHaveBeenCalled();
+    // The handler should have called ParallelOrchestratorReviewer.review()
+    expect(mockOrchestratorReview).toHaveBeenCalled();
   });
 
   it('calls TypeScript triageBatchIssues for triage', async () => {

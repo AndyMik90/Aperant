@@ -88,4 +88,8 @@ export {
   type ImplementationPlanOutput,
   QASignoffOutputSchema,
   type QASignoffOutput,
+  TriageResultOutputSchema,
+  type TriageResultOutput,
+  ExtractedInsightsOutputSchema,
+  type ExtractedInsightsOutput,
 } from './output';

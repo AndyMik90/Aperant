@@ -9,7 +9,7 @@
  * Supports multi-pass review: quick scan → parallel security/quality/structural/deep analysis.
  */
 
-import { generateText } from 'ai';
+import { generateText, Output } from 'ai';
 import { z } from 'zod';
 
 import { createSimpleClient } from '../../client/factory';
@@ -21,6 +21,12 @@ import {
   StructuralIssueSchema,
   AICommentTriageSchema,
 } from '../../schema/pr-review';
+import {
+  ScanResultOutputSchema,
+  ReviewFindingsOutputSchema,
+  StructuralIssuesOutputSchema,
+  AICommentTriagesOutputSchema,
+} from '../../schema/output/pr-review.output';
 
 // =============================================================================
 // Enums & Types
@@ -511,14 +517,27 @@ ${diff}
     thinkingLevel,
   });
 
+  if (reviewPass === ReviewPass.QUICK_SCAN) {
+    const result = await generateText({
+      model: client.model,
+      system: client.systemPrompt,
+      prompt: fullPrompt,
+      output: Output.object({ schema: ScanResultOutputSchema }),
+    });
+    if (result.output) {
+      return result.output as ScanResult;
+    }
+    return parseScanResult(result.text);
+  }
+
   const result = await generateText({
     model: client.model,
     system: client.systemPrompt,
     prompt: fullPrompt,
+    output: Output.object({ schema: ReviewFindingsOutputSchema }),
   });
-
-  if (reviewPass === ReviewPass.QUICK_SCAN) {
-    return parseScanResult(result.text);
+  if (result.output) {
+    return result.output.findings as PRReviewFinding[];
   }
   return parseFindings(result.text);
 }
@@ -545,7 +564,11 @@ async function runStructuralPass(
       model: client.model,
       system: client.systemPrompt,
       prompt: fullPrompt,
+      output: Output.object({ schema: StructuralIssuesOutputSchema }),
     });
+    if (result.output) {
+      return result.output.issues as StructuralIssue[];
+    }
     return parseStructuralIssues(result.text);
   } catch {
     return [];
@@ -577,7 +600,11 @@ async function runAITriagePass(
       model: client.model,
       system: client.systemPrompt,
       prompt: fullPrompt,
+      output: Output.object({ schema: AICommentTriagesOutputSchema }),
     });
+    if (result.output) {
+      return result.output.triages as AICommentTriage[];
+    }
     return parseAICommentTriages(result.text);
   } catch {
     return [];

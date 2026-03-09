@@ -15,13 +15,37 @@
 
 import { createHash } from 'crypto';
 import type { Client } from '@libsql/client';
+import { embed, embedMany } from 'ai';
+import { createOpenAI } from '@ai-sdk/openai';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createAzure } from '@ai-sdk/azure';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import type { Memory } from './types';
+import type { MemoryEmbeddingProvider } from '../../../shared/types/project';
 
 // ============================================================
 // TYPES
 // ============================================================
 
-export type EmbeddingProvider = 'ollama-8b' | 'ollama-4b' | 'ollama-0.6b' | 'ollama-generic' | 'none';
+export type EmbeddingProvider =
+  | 'openai' | 'google' | 'azure' | 'voyage'
+  | 'ollama-8b' | 'ollama-4b' | 'ollama-0.6b' | 'ollama-generic'
+  | 'none';
+
+export interface EmbeddingConfig {
+  provider?: MemoryEmbeddingProvider;
+  openaiApiKey?: string;
+  openaiEmbeddingModel?: string;
+  googleApiKey?: string;
+  googleEmbeddingModel?: string;
+  azureApiKey?: string;
+  azureBaseUrl?: string;
+  azureDeployment?: string;
+  voyageApiKey?: string;
+  voyageModel?: string;
+  ollamaBaseUrl?: string;
+  ollamaModel?: string;
+}
 
 /** Contextual text prefix for AST chunks before embedding */
 export interface ASTChunk {
@@ -159,9 +183,9 @@ interface OllamaTagsResponse {
   models: Array<{ name: string }>;
 }
 
-async function checkOllamaAvailable(): Promise<OllamaTagsResponse | null> {
+async function checkOllamaAvailable(baseUrl = OLLAMA_BASE_URL): Promise<OllamaTagsResponse | null> {
   try {
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`, {
+    const response = await fetch(`${baseUrl}/api/tags`, {
       signal: AbortSignal.timeout(2000),
     });
     if (!response.ok) return null;
@@ -181,8 +205,8 @@ async function getSystemRamGb(): Promise<number> {
   }
 }
 
-async function ollamaEmbed(model: string, text: string): Promise<number[]> {
-  const response = await fetch(`${OLLAMA_BASE_URL}/api/embeddings`, {
+async function ollamaEmbed(model: string, text: string, baseUrl = OLLAMA_BASE_URL): Promise<number[]> {
+  const response = await fetch(`${baseUrl}/api/embeddings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ model, prompt: text }),
@@ -194,9 +218,9 @@ async function ollamaEmbed(model: string, text: string): Promise<number[]> {
   return data.embedding;
 }
 
-async function ollamaEmbedBatch(model: string, texts: string[]): Promise<number[][]> {
+async function ollamaEmbedBatch(model: string, texts: string[], baseUrl = OLLAMA_BASE_URL): Promise<number[][]> {
   // Ollama doesn't have native batch API — run concurrently
-  return Promise.all(texts.map((text) => ollamaEmbed(model, text)));
+  return Promise.all(texts.map((text) => ollamaEmbed(model, text, baseUrl)));
 }
 
 // ============================================================
@@ -225,23 +249,58 @@ export class EmbeddingService {
   private readonly cache: EmbeddingCache;
   private ollamaModel = 'qwen3-embedding:4b';
   private initialized = false;
+  private readonly config: EmbeddingConfig | undefined;
 
-  constructor(dbClient: Client) {
+  constructor(dbClient: Client, config?: EmbeddingConfig) {
     this.cache = new EmbeddingCache(dbClient);
+    this.config = config;
   }
 
   /**
    * Auto-detect the best available embedding provider.
-   * Priority: Ollama (RAM-based model selection) > OpenAI > ONNX stub
+   * Priority: configured cloud provider > Ollama (RAM-based model selection) > hash fallback
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;
     this.initialized = true;
 
-    // Try Ollama first
-    const ollamaTags = await checkOllamaAvailable();
+    // If a cloud provider is configured with its required API key, use it directly
+    if (this.config?.provider) {
+      const p = this.config.provider;
+      if (p === 'openai' && this.config.openaiApiKey) {
+        this.provider = 'openai';
+        return;
+      }
+      if (p === 'google' && this.config.googleApiKey) {
+        this.provider = 'google';
+        return;
+      }
+      if (p === 'azure_openai' && this.config.azureApiKey && this.config.azureDeployment) {
+        this.provider = 'azure';
+        return;
+      }
+      if (p === 'voyage' && this.config.voyageApiKey) {
+        this.provider = 'voyage';
+        return;
+      }
+      // If config.provider === 'ollama', fall through to Ollama auto-detect below
+    }
+
+    // Ollama auto-detection
+    const ollamaBaseUrl = this.config?.ollamaBaseUrl ?? OLLAMA_BASE_URL;
+    const ollamaTags = await checkOllamaAvailable(ollamaBaseUrl);
     if (ollamaTags) {
       const modelNames = ollamaTags.models.map((m) => m.name);
+
+      // If a specific Ollama model is configured, use it directly
+      if (this.config?.ollamaModel) {
+        const configuredModel = this.config.ollamaModel;
+        if (modelNames.some((n) => n === configuredModel || n.startsWith(`${configuredModel}:`))) {
+          this.provider = 'ollama-generic';
+          this.ollamaModel = configuredModel;
+          return;
+        }
+      }
 
       const ramGb = await getSystemRamGb();
 
@@ -368,6 +427,14 @@ export class EmbeddingService {
 
   private getModelId(dims: 256 | 1024): string {
     switch (this.provider) {
+      case 'openai':
+        return `openai:${this.config?.openaiEmbeddingModel ?? 'text-embedding-3-small'}-d${dims}`;
+      case 'google':
+        return `google:${this.config?.googleEmbeddingModel ?? 'gemini-embedding-001'}-d${dims}`;
+      case 'azure':
+        return `azure:${this.config?.azureDeployment}-d${dims}`;
+      case 'voyage':
+        return `voyage:${this.config?.voyageModel ?? 'voyage-3'}-d${dims}`;
       case 'ollama-8b':
         return `qwen3-embedding:8b-d${dims}`;
       case 'ollama-4b':
@@ -381,34 +448,113 @@ export class EmbeddingService {
     }
   }
 
+  private createEmbeddingModel() {
+    switch (this.provider) {
+      case 'openai': {
+        const openai = createOpenAI({ apiKey: this.config!.openaiApiKey });
+        return openai.embedding(this.config?.openaiEmbeddingModel ?? 'text-embedding-3-small');
+      }
+      case 'google': {
+        const google = createGoogleGenerativeAI({ apiKey: this.config!.googleApiKey });
+        return google.embedding(this.config?.googleEmbeddingModel ?? 'gemini-embedding-001');
+      }
+      case 'azure': {
+        const azure = createAzure({ apiKey: this.config!.azureApiKey, baseURL: this.config!.azureBaseUrl });
+        return azure.embedding(this.config!.azureDeployment!);
+      }
+      case 'voyage': {
+        const voyage = createOpenAICompatible({
+          name: 'voyage',
+          apiKey: this.config!.voyageApiKey,
+          baseURL: 'https://api.voyageai.com/v1',
+        });
+        return voyage.textEmbeddingModel(this.config?.voyageModel ?? 'voyage-3');
+      }
+      default:
+        return undefined;
+    }
+  }
+
   private async computeEmbed(text: string, dims: 256 | 1024): Promise<number[]> {
     switch (this.provider) {
+      case 'openai':
+      case 'azure': {
+        const model = this.createEmbeddingModel();
+        const { embedding } = await embed({
+          model: model!,
+          value: text,
+          providerOptions: { openai: { dimensions: dims } },
+        });
+        return embedding;
+      }
+      case 'google': {
+        const model = this.createEmbeddingModel();
+        const { embedding } = await embed({
+          model: model!,
+          value: text,
+          providerOptions: { google: { outputDimensionality: dims } },
+        });
+        return embedding;
+      }
+      case 'voyage': {
+        const model = this.createEmbeddingModel();
+        const { embedding } = await embed({ model: model!, value: text });
+        return dims === 256 ? truncateToDim(embedding, 256) : embedding;
+      }
+
       case 'ollama-8b':
       case 'ollama-4b':
       case 'ollama-0.6b':
       case 'ollama-generic': {
-        const raw = await ollamaEmbed(this.ollamaModel, text);
+        const ollamaBaseUrl = this.config?.ollamaBaseUrl ?? OLLAMA_BASE_URL;
+        const raw = await ollamaEmbed(this.ollamaModel, text, ollamaBaseUrl);
         return dims === 256 ? truncateToDim(raw, 256) : raw;
       }
 
       case 'none': {
-        return this.degradedEmbed(text);
+        return this.degradedEmbed(text, dims);
       }
     }
   }
 
   private async computeEmbedBatch(texts: string[], dims: 256 | 1024): Promise<number[][]> {
     switch (this.provider) {
+      case 'openai':
+      case 'azure': {
+        const model = this.createEmbeddingModel();
+        const { embeddings } = await embedMany({
+          model: model!,
+          values: texts,
+          providerOptions: { openai: { dimensions: dims } },
+        });
+        return embeddings;
+      }
+      case 'google': {
+        const model = this.createEmbeddingModel();
+        const { embeddings } = await embedMany({
+          model: model!,
+          values: texts,
+          providerOptions: { google: { outputDimensionality: dims } },
+        });
+        return embeddings;
+      }
+      case 'voyage': {
+        const model = this.createEmbeddingModel();
+        const { embeddings } = await embedMany({ model: model!, values: texts });
+        return dims === 256 ? embeddings.map((e) => truncateToDim(e, 256)) : embeddings;
+      }
+
       case 'ollama-8b':
       case 'ollama-4b':
       case 'ollama-0.6b':
       case 'ollama-generic': {
-        const raws = await ollamaEmbedBatch(this.ollamaModel, texts);
+        const ollamaBaseUrl = this.config?.ollamaBaseUrl ?? OLLAMA_BASE_URL;
+        const raws = await ollamaEmbedBatch(this.ollamaModel, texts, ollamaBaseUrl);
         return dims === 256 ? raws.map((r) => truncateToDim(r, 256)) : raws;
       }
 
       case 'none': {
-        return Promise.all(texts.map((t) => this.degradedEmbed(t)));
+        return Promise.all(texts.map((t) => this.degradedEmbed(t, dims)));
       }
     }
   }
@@ -420,7 +566,7 @@ export class EmbeddingService {
    * NOT suitable for semantic search — similar texts will NOT have similar embeddings.
    * Users should install an Ollama embedding model or set OPENAI_API_KEY for real search.
    */
-  private degradedEmbed(text: string): number[] {
+  private degradedEmbed(text: string, dims: 256 | 1024 = 1024): number[] {
     if (!this.degradedEmbedWarned) {
       console.warn(
         '[EmbeddingService] No embedding provider available. ' +
@@ -432,7 +578,6 @@ export class EmbeddingService {
     // Deterministic fallback: hash text to produce consistent pseudo-embedding
     // NOT suitable for semantic search — similar texts won't have similar embeddings
     const hash = createHash('sha256').update(text).digest();
-    const dims = 384;
     const embedding: number[] = [];
     for (let i = 0; i < dims; i++) {
       embedding.push((hash[i % hash.length] / 255) * 2 - 1);

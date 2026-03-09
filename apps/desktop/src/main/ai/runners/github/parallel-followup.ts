@@ -16,13 +16,17 @@
  * - Uses createSimpleClient() for lightweight parallel sessions
  */
 
-import { generateText } from 'ai';
+import { generateText, Output } from 'ai';
 import * as crypto from 'node:crypto';
 
 import { createSimpleClient } from '../../client/factory';
 import type { ModelShorthand, ThinkingLevel } from '../../config/types';
 import { safeParseJson } from '../../../utils/json-repair';
 import { ResolutionVerificationSchema, ReviewFindingsArraySchema } from '../../schema/pr-review';
+import {
+  ResolutionVerificationOutputSchema,
+  ReviewFindingsOutputSchema,
+} from '../../schema/output/pr-review.output';
 import type {
   PRReviewFinding,
   ProgressCallback,
@@ -610,13 +614,38 @@ export class ParallelFollowupReviewer {
       thinkingLevel,
     });
 
+    // Use Output.object() with the schema appropriate for this specialist type.
+    // ResolutionVerificationOutputSchema returns { verifications: [...] }.
+    // ReviewFindingsOutputSchema returns { findings: [...] }.
+    // Each branch uses the concrete schema type so TypeScript can infer the output type.
+    if (type === 'resolution-verifier') {
+      const result = await generateText({
+        model: client.model,
+        system: client.systemPrompt,
+        prompt,
+        output: Output.object({ schema: ResolutionVerificationOutputSchema }),
+        abortSignal,
+      });
+      // Use structured output if available; serialize so downstream parsing is unchanged.
+      if (result.output) {
+        return { type, result: JSON.stringify(result.output) };
+      }
+      return { type, result: result.text };
+    }
+
+    // new-code-reviewer and comment-analyzer both return { findings: [...] }
     const result = await generateText({
       model: client.model,
       system: client.systemPrompt,
       prompt,
+      output: Output.object({ schema: ReviewFindingsOutputSchema }),
       abortSignal,
     });
-
+    // Use structured output if available; serialize so downstream parsing is unchanged.
+    if (result.output) {
+      return { type, result: JSON.stringify(result.output) };
+    }
+    // Fall back to raw text for providers that don't support Output.object()
     return { type, result: result.text };
   }
 

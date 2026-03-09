@@ -20,6 +20,7 @@ export interface MemoryPanelConfig {
   embeddingProvider: MemoryEmbeddingProvider;
   // OpenAI
   openaiApiKey: string;
+  openaiEmbeddingModel: string;
   // Azure OpenAI
   azureOpenaiApiKey: string;
   azureOpenaiBaseUrl: string;
@@ -29,6 +30,7 @@ export interface MemoryPanelConfig {
   voyageEmbeddingModel: string;
   // Google
   googleApiKey: string;
+  googleEmbeddingModel: string;
   // Ollama
   ollamaBaseUrl: string;
   ollamaEmbeddingModel: string;
@@ -127,6 +129,22 @@ export function MemoryConfigPanel({ config, onChange, disabled = false }: Memory
                 onChange={(value) => onChange({ openaiApiKey: value })}
                 placeholder="sk-..."
               />
+              <div className="space-y-1 mt-2">
+                <Label className="text-xs text-muted-foreground">{t('memory.embeddingModel')}</Label>
+                <Select
+                  value={config.openaiEmbeddingModel || 'text-embedding-3-small'}
+                  onValueChange={(value) => onChange({ openaiEmbeddingModel: value })}
+                  disabled={disabled}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="text-embedding-3-small">text-embedding-3-small (default, cheapest)</SelectItem>
+                    <SelectItem value="text-embedding-3-large">text-embedding-3-large (higher quality)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <p className="text-xs text-muted-foreground">
                 {t('memory.openaiGetKey')}{' '}
                 <a
@@ -184,6 +202,22 @@ export function MemoryConfigPanel({ config, onChange, disabled = false }: Memory
                 onChange={(value) => onChange({ googleApiKey: value })}
                 placeholder="AIza..."
               />
+              <div className="space-y-1 mt-2">
+                <Label className="text-xs text-muted-foreground">{t('memory.embeddingModel')}</Label>
+                <Select
+                  value={config.googleEmbeddingModel || 'gemini-embedding-001'}
+                  onValueChange={(value) => onChange({ googleEmbeddingModel: value })}
+                  disabled={disabled}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="gemini-embedding-001">gemini-embedding-001 (default)</SelectItem>
+                    <SelectItem value="text-embedding-004">text-embedding-004</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <p className="text-xs text-muted-foreground">
                 {t('memory.openaiGetKey')}{' '}
                 <a

@@ -18,7 +18,7 @@
  * - Uses createSimpleClient() for lightweight parallel sessions
  */
 
-import { streamText, stepCountIs } from 'ai';
+import { streamText, stepCountIs, Output } from 'ai';
 import type { Tool as AITool } from 'ai';
 import * as crypto from 'node:crypto';
 
@@ -28,6 +28,11 @@ import type { ModelShorthand, ThinkingLevel } from '../../config/types';
 import { buildThinkingProviderOptions } from '../../config/types';
 import { parseLLMJson } from '../../schema/structured-output';
 import { SpecialistOutputSchema, SynthesisResultSchema, FindingValidationArraySchema } from '../../schema/pr-review';
+import {
+  SpecialistOutputOutputSchema,
+  SynthesisResultOutputSchema,
+  FindingValidationsOutputSchema,
+} from '../../schema/output/pr-review.output';
 import type {
   PRContext,
   PRReviewFinding,
@@ -217,27 +222,36 @@ Before producing your final JSON output, you MUST complete these steps:
 
 function parseSpecialistOutput(
   _name: string,
-  text: string,
+  input: string | { findings: Array<Record<string, unknown>>; summary: string },
 ): PRReviewFinding[] {
-  const parsed = parseLLMJson(text, SpecialistOutputSchema);
+  // Accept either a structured object (from Output.object()) or raw text (fallback)
+  let parsed: { findings: Array<Record<string, unknown>>; summary?: string } | null;
+  if (typeof input === 'string') {
+    parsed = parseLLMJson(input, SpecialistOutputSchema);
+  } else {
+    parsed = input as unknown as { findings: Array<Record<string, unknown>>; summary?: string };
+  }
   if (!parsed) return [];
 
   const findings: PRReviewFinding[] = [];
   for (const f of parsed.findings) {
-    if (!f.title || !f.file) continue;
-    const id = generateFindingId(f.file, f.line ?? 0, f.title);
+    const title = f.title as string | undefined;
+    const file = f.file as string | undefined;
+    if (!title || !file) continue;
+    const line = (f.line as number) ?? 0;
+    const id = generateFindingId(file, line, title);
     findings.push({
       id,
-      severity: mapSeverity(f.severity ?? 'medium'),
-      category: mapCategory(f.category ?? 'quality'),
-      title: f.title,
-      description: f.description ?? '',
-      file: f.file,
-      line: f.line ?? 0,
-      endLine: f.endLine,
-      suggestedFix: f.suggestedFix,
-      fixable: f.fixable ?? false,
-      evidence: f.evidence,
+      severity: mapSeverity((f.severity as string) ?? 'medium'),
+      category: mapCategory((f.category as string) ?? 'quality'),
+      title,
+      description: (f.description as string) ?? '',
+      file,
+      line,
+      endLine: f.endLine as number | undefined,
+      suggestedFix: f.suggestedFix as string | undefined,
+      fixable: (f.fixable as boolean) ?? false,
+      evidence: f.evidence as string | undefined,
     });
   }
   return findings;
@@ -544,13 +558,15 @@ export class ParallelOrchestratorReviewer {
       let toolCallCount = 0;
       const toolsUsed = new Set<string>();
 
-      // Use streamText instead of generateText — Codex endpoint only supports streaming
+      // Use streamText instead of generateText — Codex endpoint only supports streaming.
+      // Output.object() generates structured output as a final step after all tool calls.
       const stream = streamText({
         model: client.model,
         system: genOptions.system,
         messages: [{ role: 'user' as const, content: userMessage }],
         tools,
         stopWhen: stepCountIs(100),
+        output: Output.object({ schema: SpecialistOutputOutputSchema }),
         abortSignal,
         ...(genOptions.providerOptions ? { providerOptions: genOptions.providerOptions } : {}),
         onStepFinish: ({ toolCalls }) => {
@@ -570,8 +586,14 @@ export class ParallelOrchestratorReviewer {
         },
       });
 
-      const text = await stream.text;
-      const findings = parseSpecialistOutput(config.name, text);
+      // Consume the stream (required before accessing output/text)
+      for await (const _part of stream.fullStream) { /* consume */ }
+
+      // Use structured output if available, fall back to text parsing
+      const structuredOutput = await stream.output;
+      const findings = structuredOutput
+        ? parseSpecialistOutput(config.name, structuredOutput)
+        : parseSpecialistOutput(config.name, await stream.text);
 
       const toolSummary = toolCallCount > 0
         ? ` (${toolCallCount} tool calls: ${Array.from(toolsUsed).join(', ')})`
@@ -733,13 +755,15 @@ Validate each finding by reading the actual code at the specified file and line.
     try {
       let validatorToolCalls = 0;
 
-      // Use streamText — Codex endpoint only supports streaming
+      // Use streamText — Codex endpoint only supports streaming.
+      // Output.object() generates the validation array (wrapped in { validations: [...] }) as a final step.
       const stream = streamText({
         model: client.model,
         system: genOptions.system,
         messages: [{ role: 'user' as const, content: userMessage }],
         tools,
         stopWhen: stepCountIs(150),
+        output: Output.object({ schema: FindingValidationsOutputSchema }),
         abortSignal,
         ...(genOptions.providerOptions ? { providerOptions: genOptions.providerOptions } : {}),
         onStepFinish: ({ toolCalls }) => {
@@ -755,14 +779,29 @@ Validate each finding by reading the actual code at the specified file and line.
         },
       });
 
-      const text = await stream.text;
-      const validations = parseLLMJson(text, FindingValidationArraySchema);
-      if (!validations || !Array.isArray(validations) || validations.length === 0) {
+      // Consume stream before reading output
+      for await (const _part of stream.fullStream) { /* consume */ }
+
+      // Use structured output if available, fall back to text parsing
+      const structuredOutput = await stream.output;
+      let rawValidations: Array<{ findingId: string; validationStatus: string; explanation: string }>;
+      if (structuredOutput) {
+        rawValidations = structuredOutput.validations;
+      } else {
+        const text = await stream.text;
+        const parsed = parseLLMJson(text, FindingValidationArraySchema);
+        if (!parsed || !Array.isArray(parsed) || parsed.length === 0) {
+          return findings; // Fail-safe: keep all findings
+        }
+        rawValidations = parsed;
+      }
+
+      if (rawValidations.length === 0) {
         return findings; // Fail-safe: keep all findings
       }
 
       const validationMap = new Map<string, { validationStatus: string; explanation: string }>();
-      for (const v of validations) {
+      for (const v of rawValidations) {
         if (v.findingId) {
           validationMap.set(v.findingId, v);
         }
@@ -874,17 +913,30 @@ Validate each finding by reading the actual code at the specified file and line.
     };
 
     try {
-      // Use streamText — Codex endpoint only supports streaming
+      // Use streamText — Codex endpoint only supports streaming.
+      // Output.object() generates the structured verdict as a final step.
       const stream = streamText({
         model: client.model,
         system: genOptions.system,
         prompt,
+        output: Output.object({ schema: SynthesisResultOutputSchema }),
         abortSignal,
         ...(genOptions.providerOptions ? { providerOptions: genOptions.providerOptions } : {}),
       });
 
-      const text = await stream.text;
-      const data = parseLLMJson(text, SynthesisResultSchema);
+      // Consume stream before reading output
+      for await (const _part of stream.fullStream) { /* consume */ }
+
+      // Use structured output if available, fall back to text parsing
+      const structuredOutput = await stream.output;
+      let data: { verdict: string; verdictReasoning: string; removedFindingIds: string[] } | null;
+      if (structuredOutput) {
+        data = structuredOutput;
+      } else {
+        const text = await stream.text;
+        data = parseLLMJson(text, SynthesisResultSchema);
+      }
+
       if (!data) {
         throw new Error('Failed to parse synthesis result');
       }

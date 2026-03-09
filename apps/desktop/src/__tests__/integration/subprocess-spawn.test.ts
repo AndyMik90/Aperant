@@ -173,10 +173,6 @@ vi.mock('../../main/settings-utils', () => ({
   readSettingsFile: vi.fn(() => ({})),
 }));
 
-vi.mock('../../main/memory-env-builder', () => ({
-  buildMemoryEnvVars: vi.fn(() => ({})),
-}));
-
 vi.mock('../../main/agent/env-utils', () => ({
   getOAuthModeClearVars: vi.fn(() => ({})),
   normalizeEnvPathKey: vi.fn((k: string) => k),

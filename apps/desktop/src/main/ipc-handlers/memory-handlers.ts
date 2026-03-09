@@ -1,31 +1,18 @@
 /**
  * Memory Infrastructure IPC Handlers
  *
- * Provides memory database status and validation.
- * Uses LadybugDB (embedded Kuzu-based database) - no Docker required.
+ * Provides Ollama model discovery, download, and memory-related IPC handlers.
  */
 
-import { ipcMain, app } from 'electron';
+import { ipcMain } from 'electron';
 import { execFileSync } from 'child_process';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
 import * as fs from 'fs';
 import { getOllamaExecutablePaths, getOllamaInstallCommand as getPlatformOllamaInstallCommand, getWhichCommand, getCurrentOS } from '../platform';
-
-// ESM-compatible __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 import { IPC_CHANNELS } from '../../shared/constants';
 import type {
   IPCResult,
-  MemoryValidationResult,
 } from '../../shared/types';
-import {
-  getMemoryServiceStatus,
-  getMemoryService,
-  getDefaultDbPath,
-  isKuzuAvailable,
-} from '../memory-service';
 import { openTerminalWithCommand } from './claude-code-handlers';
 
 /**
@@ -317,53 +304,6 @@ async function listOllamaModelsNative(baseUrl?: string): Promise<OllamaModel[]> 
  * @returns {void}
  */
 export function registerMemoryHandlers(): void {
-  // List available databases
-  ipcMain.handle(
-    IPC_CHANNELS.MEMORY_LIST_DATABASES,
-    async (_, dbPath?: string): Promise<IPCResult<string[]>> => {
-      try {
-        const status = getMemoryServiceStatus(dbPath);
-        return { success: true, data: status.databases };
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : 'Failed to list databases',
-        };
-      }
-    }
-  );
-
-  // Test memory database connection
-  ipcMain.handle(
-    IPC_CHANNELS.MEMORY_TEST_CONNECTION,
-    async (_, dbPath?: string, database?: string): Promise<IPCResult<MemoryValidationResult>> => {
-      try {
-        if (!isKuzuAvailable()) {
-          return {
-            success: true,
-            data: {
-              success: false,
-              message: 'kuzu-node is not installed. Memory features require Python 3.12+ with LadybugDB.',
-            },
-          };
-        }
-
-        const service = getMemoryService({
-          dbPath: dbPath || getDefaultDbPath(),
-          database: database || 'auto_claude_memory',
-        });
-
-        const result = await service.testConnection();
-        return { success: true, data: result };
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : 'Failed to test connection',
-        };
-      }
-    }
-  );
-
   // ============================================
   // Ollama Model Detection Handlers
   // ============================================
@@ -416,12 +356,8 @@ export function registerMemoryHandlers(): void {
     async (): Promise<IPCResult<{ command: string }>> => {
       try {
         const command = getOllamaInstallCommand();
-        console.log('[Ollama] Platform:', getCurrentOS());
-        console.log('[Ollama] Install command:', command);
-        console.log('[Ollama] Opening terminal...');
 
         await openTerminalWithCommand(command);
-        console.log('[Ollama] Terminal opened successfully');
 
         return {
           success: true,
@@ -429,9 +365,6 @@ export function registerMemoryHandlers(): void {
         };
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-        const errorStack = error instanceof Error ? error.stack : '';
-        console.error('[Ollama] Install failed:', errorMsg);
-        console.error('[Ollama] Error stack:', errorStack);
         return {
           success: false,
           error: `Failed to open terminal for installation: ${errorMsg}`,
@@ -623,18 +556,8 @@ export function registerMemoryHandlers(): void {
     'memory:search',
     async (_event, query: string, filters: Record<string, unknown>) => {
       try {
-        const { getMemoryClient } = await import('../ai/memory/db');
-        const { EmbeddingService } = await import('../ai/memory/embedding-service');
-        const { Reranker } = await import('../ai/memory/retrieval/reranker');
-        const { RetrievalPipeline } = await import('../ai/memory/retrieval/pipeline');
-        const { MemoryServiceImpl } = await import('../ai/memory/memory-service');
-
-        const client = await getMemoryClient();
-        const embeddingService = new EmbeddingService(client);
-        await embeddingService.initialize();
-        const reranker = new Reranker();
-        const pipeline = new RetrievalPipeline(client, embeddingService, reranker);
-        const service = new MemoryServiceImpl(client, embeddingService, pipeline);
+        const { getMemoryService } = await import('./context/memory-service-factory');
+        const service = await getMemoryService();
 
         const memories = await service.search({
           query: query || undefined,
@@ -656,18 +579,8 @@ export function registerMemoryHandlers(): void {
     'memory:insert-user-taught',
     async (_event, content: string, projectId: string, tags: string[]) => {
       try {
-        const { getMemoryClient } = await import('../ai/memory/db');
-        const { EmbeddingService } = await import('../ai/memory/embedding-service');
-        const { Reranker } = await import('../ai/memory/retrieval/reranker');
-        const { RetrievalPipeline } = await import('../ai/memory/retrieval/pipeline');
-        const { MemoryServiceImpl } = await import('../ai/memory/memory-service');
-
-        const client = await getMemoryClient();
-        const embeddingService = new EmbeddingService(client);
-        await embeddingService.initialize();
-        const reranker = new Reranker();
-        const pipeline = new RetrievalPipeline(client, embeddingService, reranker);
-        const service = new MemoryServiceImpl(client, embeddingService, pipeline);
+        const { getMemoryService } = await import('./context/memory-service-factory');
+        const service = await getMemoryService();
 
         const id = await service.insertUserTaught(content, projectId, tags);
         return { success: true, id };

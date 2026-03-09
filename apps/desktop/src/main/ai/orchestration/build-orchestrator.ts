@@ -137,6 +137,8 @@ export interface SessionRunConfig {
   abortSignal?: AbortSignal;
   cliModel?: string;
   cliThinking?: string;
+  /** Optional Zod schema for structured output (uses AI SDK Output.object()) */
+  outputSchema?: import('zod').ZodSchema;
 }
 
 /** Events emitted by the build orchestrator */
@@ -327,6 +329,7 @@ export class BuildOrchestrator extends EventEmitter {
         abortSignal: this.config.abortSignal,
         cliModel: this.config.cliModel,
         cliThinking: this.config.cliThinking,
+        outputSchema: ImplementationPlanOutputSchema,
       });
 
       this.emitTyped('session-complete', result, 'planning');
@@ -337,6 +340,18 @@ export class BuildOrchestrator extends EventEmitter {
 
       if (result.outcome === 'error' || result.outcome === 'auth_failure' || result.outcome === 'rate_limited') {
         return { success: false, error: result.error?.message ?? 'Planning session failed' };
+      }
+
+      // If the provider returned structured output via constrained decoding,
+      // write it to the plan file — this is guaranteed to match the schema.
+      if (result.structuredOutput) {
+        const structuredPlanPath = join(this.config.specDir, 'implementation_plan.json');
+        try {
+          await writeFile(structuredPlanPath, JSON.stringify(result.structuredOutput, null, 2));
+          this.emitTyped('log', 'Wrote implementation plan from structured output (schema-guaranteed)');
+        } catch {
+          // Non-fatal — fall through to file-based validation
+        }
       }
 
       // Validate + normalize the implementation plan using Zod schema.

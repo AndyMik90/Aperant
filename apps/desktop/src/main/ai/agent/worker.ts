@@ -595,6 +595,7 @@ async function runBuildOrchestrator(
         registry,
         kickoffMessage,
         true, // skipPhaseLogging — orchestrator manages phase start/end
+        runConfig.outputSchema,
       );
     },
   });

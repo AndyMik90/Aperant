@@ -14,7 +14,7 @@
  * into the next phase's kickoff message, eliminating redundant file re-reads.
  */
 
-import { readFile, access } from 'node:fs/promises';
+import { readFile, writeFile, access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { EventEmitter } from 'events';
 
@@ -26,6 +26,7 @@ import {
   ComplexityAssessmentSchema,
   ImplementationPlanSchema,
   ComplexityAssessmentOutputSchema,
+  ImplementationPlanOutputSchema,
   buildValidationRetryPrompt,
   IMPLEMENTATION_PLAN_SCHEMA_HINT,
 } from '../schema';
@@ -435,6 +436,13 @@ export class SpecOrchestrator extends EventEmitter {
         schemaRetryContext,
       });
 
+      // For planning and quick_spec phases, pass the output schema so providers
+      // with native structured output (OpenAI, Anthropic) use constrained decoding
+      // to guarantee the implementation plan matches the schema. The structured
+      // output is generated as a final step after all tool calls complete.
+      const isPlanningPhase = phase === 'planning' || phase === 'quick_spec';
+      const outputSchema = isPlanningPhase ? ImplementationPlanOutputSchema : undefined;
+
       const result = await this.config.runSession({
         agentType,
         phase: 'spec',
@@ -448,6 +456,7 @@ export class SpecOrchestrator extends EventEmitter {
         cliThinking: this.config.cliThinking,
         priorPhaseOutputs: phaseOutputs,
         projectIndex: this.config.projectIndex,
+        ...(outputSchema ? { outputSchema } : {}),
       });
 
       this.emitTyped('session-complete', result, phase);
@@ -457,6 +466,18 @@ export class SpecOrchestrator extends EventEmitter {
       }
 
       if (result.outcome === 'completed' || result.outcome === 'max_steps' || result.outcome === 'context_window') {
+        // If the provider returned structured output (via constrained decoding),
+        // write it to implementation_plan.json — this is guaranteed to match the
+        // schema, overriding whatever the agent wrote via the Write tool.
+        if (isPlanningPhase && result.structuredOutput) {
+          const planPath = join(this.config.specDir, 'implementation_plan.json');
+          try {
+            await writeFile(planPath, JSON.stringify(result.structuredOutput, null, 2));
+            this.emitTyped('log', `Wrote implementation plan from structured output (schema-guaranteed)`);
+          } catch (writeErr) {
+            this.emitTyped('log', `Failed to write structured output plan: ${writeErr}`);
+          }
+        }
         // Validate that expected output files were actually created.
         // Some models (e.g., GLM-5) may complete a session without calling
         // any tools, producing no output files despite a successful stream.

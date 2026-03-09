@@ -7,8 +7,6 @@ import type {
   InitializationResult,
   AutoBuildVersionInfo,
   ProjectEnvConfig,
-  InfrastructureStatus,
-  MemoryValidationResult,
   GitStatus,
   KanbanPreferences,
   GitBranchDetail
@@ -66,11 +64,6 @@ export interface ProjectAPI {
     initGit: boolean
   ) => Promise<IPCResult<import('../../shared/types').CreateProjectFolderResult>>;
   getDefaultProjectLocation: () => Promise<string | null>;
-
-  // Memory Infrastructure Operations (LadybugDB - no Docker required)
-  getMemoryInfrastructureStatus: (dbPath?: string) => Promise<IPCResult<InfrastructureStatus>>;
-  listMemoryDatabases: (dbPath?: string) => Promise<IPCResult<string[]>>;
-  testMemoryConnection: (dbPath?: string, database?: string) => Promise<IPCResult<MemoryValidationResult>>;
 
    // Ollama Model Management
    scanOllamaModels: (baseUrl: string) => Promise<IPCResult<{
@@ -228,16 +221,6 @@ export const createProjectAPI = (): ProjectAPI => ({
 
   getDefaultProjectLocation: (): Promise<string | null> =>
     ipcRenderer.invoke(IPC_CHANNELS.DIALOG_GET_DEFAULT_PROJECT_LOCATION),
-
-  // Memory Infrastructure Operations (LadybugDB - no Docker required)
-  getMemoryInfrastructureStatus: (dbPath?: string): Promise<IPCResult<InfrastructureStatus>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.MEMORY_LIST_DATABASES, dbPath),
-
-  listMemoryDatabases: (dbPath?: string): Promise<IPCResult<string[]>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.MEMORY_LIST_DATABASES, dbPath),
-
-  testMemoryConnection: (dbPath?: string, database?: string): Promise<IPCResult<MemoryValidationResult>> =>
-    ipcRenderer.invoke(IPC_CHANNELS.MEMORY_TEST_CONNECTION, dbPath, database),
 
   // Ollama Model Management
   scanOllamaModels: (baseUrl: string): Promise<IPCResult<{

@@ -11,7 +11,7 @@
  * Uses `createSimpleClient()` with no tools (single-turn text generation).
  */
 
-import { generateText } from 'ai';
+import { generateText, Output } from 'ai';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -19,6 +19,7 @@ import { createSimpleClient } from '../client/factory';
 import type { ModelShorthand, ThinkingLevel } from '../config/types';
 import { parseLLMJson } from '../schema/structured-output';
 import { ExtractedInsightsSchema } from '../schema/insight-extractor';
+import { ExtractedInsightsOutputSchema } from '../schema/output';
 
 // =============================================================================
 // Constants
@@ -259,8 +260,25 @@ export async function extractSessionInsights(
       model: client.model,
       system: client.systemPrompt,
       prompt,
+      output: Output.object({ schema: ExtractedInsightsOutputSchema }),
     });
 
+    if (result.output) {
+      const o = result.output;
+      return {
+        file_insights: o.file_insights,
+        patterns_discovered: o.patterns_discovered,
+        gotchas_discovered: o.gotchas_discovered,
+        approach_outcome: o.approach_outcome,
+        recommendations: o.recommendations,
+        subtask_id: subtaskId,
+        session_num: sessionNum,
+        success,
+        changed_files: changedFiles,
+      };
+    }
+
+    // Fallback for providers without constrained decoding
     const parsed = parseInsights(result.text);
 
     if (parsed) {

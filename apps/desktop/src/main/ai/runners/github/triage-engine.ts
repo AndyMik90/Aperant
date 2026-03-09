@@ -8,12 +8,13 @@
  * Uses `createSimpleClient()` with `generateText()` for single-turn triage.
  */
 
-import { generateText } from 'ai';
+import { generateText, Output } from 'ai';
 
 import { createSimpleClient } from '../../client/factory';
 import type { ModelShorthand, ThinkingLevel } from '../../config/types';
 import { parseLLMJson } from '../../schema/structured-output';
 import { TriageResultSchema } from '../../schema/triage';
+import { TriageResultOutputSchema } from '../../schema/output';
 
 // =============================================================================
 // Enums & Types
@@ -233,8 +234,29 @@ export async function triageSingleIssue(
       model: client.model,
       system: client.systemPrompt,
       prompt: fullPrompt,
+      output: Output.object({ schema: TriageResultOutputSchema }),
     });
 
+    if (result.output) {
+      const o = result.output;
+      return {
+        issueNumber: issue.number,
+        repo: config.repo,
+        category: o.category as TriageCategory,
+        confidence: o.confidence,
+        labelsToAdd: o.labels_to_add,
+        labelsToRemove: o.labels_to_remove,
+        isDuplicate: o.is_duplicate,
+        duplicateOf: o.duplicate_of,
+        isSpam: o.is_spam,
+        isFeatureCreep: o.is_feature_creep,
+        suggestedBreakdown: o.suggested_breakdown,
+        priority: o.priority,
+        comment: o.comment,
+      };
+    }
+
+    // Fallback for providers without constrained decoding
     return parseTriageResult(issue, result.text, config.repo);
   } catch {
     return {

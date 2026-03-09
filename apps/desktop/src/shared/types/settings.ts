@@ -304,6 +304,9 @@ export interface AppSettings {
   memoryAzureApiKey?: string;
   memoryAzureBaseUrl?: string;
   memoryAzureEmbeddingDeployment?: string;
+  memoryGoogleApiKey?: string;
+  memoryOpenaiEmbeddingModel?: string;
+  memoryGoogleEmbeddingModel?: string;
   // Onboarding wizard completion state
   onboardingCompleted?: boolean;
   // Selected agent profile for preset model/thinking configurations

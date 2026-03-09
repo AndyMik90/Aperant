@@ -18,6 +18,7 @@ import { AgentManager } from '../agent';
 import type { BrowserWindow } from 'electron';
 import { setUpdateChannel, setUpdateChannelWithDowngradeCheck } from '../app-updater';
 import { getSettingsPath, readSettingsFile } from '../settings-utils';
+import { resetMemoryService } from './context/memory-service-factory';
 import { configureTools, getToolPath, getToolInfo, isPathFromWrongPlatform, preWarmToolCache } from '../cli-tool-manager';
 import type { ProviderAccount } from '../../shared/types/provider-account';
 import type { APIProfile } from '../../shared/types/profile';
@@ -473,6 +474,20 @@ export function registerSettingsHandlers(
           preWarmToolCache(['claude']).catch((error) => {
             console.warn('[SETTINGS_SAVE] Failed to re-warm CLI cache:', error);
           });
+        }
+
+        // Reset memory service singleton when memory-related settings change
+        if (
+          settings.memoryEmbeddingProvider !== undefined ||
+          settings.memoryEnabled !== undefined ||
+          settings.globalOpenAIApiKey !== undefined ||
+          settings.globalGoogleApiKey !== undefined ||
+          settings.memoryVoyageApiKey !== undefined ||
+          settings.memoryAzureApiKey !== undefined ||
+          settings.ollamaBaseUrl !== undefined ||
+          settings.memoryOllamaEmbeddingModel !== undefined
+        ) {
+          resetMemoryService();
         }
 
         // Update auto-updater channel if betaUpdates setting changed

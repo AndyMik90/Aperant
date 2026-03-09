@@ -19,9 +19,6 @@ import { detectRateLimit, createSDKRateLimitInfo, getBestAvailableProfileEnv, de
 import { getAPIProfileEnv } from '../services/profile';
 import { projectStore } from '../project-store';
 import { getClaudeProfileManager } from '../claude-profile-manager';
-import { buildMemoryEnvVars } from '../memory-env-builder';
-import { readSettingsFile } from '../settings-utils';
-import type { AppSettings } from '../../shared/types/settings';
 import { getOAuthModeClearVars } from './env-utils';
 import { getAugmentedEnv } from '../env-utils';
 import { getToolInfo, getClaudeCliPathForSdk } from '../cli-tool-manager';
@@ -1043,18 +1040,9 @@ export class AgentProcessManager {
    * 4. Project settings (useClaudeMd) - Runtime overrides
    */
   getCombinedEnv(projectPath: string): Record<string, string> {
-    // Load app-wide memory settings from settings.json
-    // This bridges onboarding config to backend agents
-    const appSettings = (readSettingsFile() || {}) as Partial<AppSettings>;
-    const memoryEnv = buildMemoryEnvVars(appSettings as AppSettings);
-
-    // Existing env sources
     const autoBuildEnv = this.loadAutoBuildEnv();
     const projectFileEnv = this.loadProjectEnv(projectPath);
     const projectSettingsEnv = this.getProjectEnvVars(projectPath);
-
-    // Priority: app-wide memory -> backend .env -> project .env -> project settings
-    // Later sources override earlier ones
-    return { ...memoryEnv, ...autoBuildEnv, ...projectFileEnv, ...projectSettingsEnv };
+    return { ...autoBuildEnv, ...projectFileEnv, ...projectSettingsEnv };
   }
 }
