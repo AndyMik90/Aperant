@@ -1,5 +1,5 @@
 import path from 'path';
-import { existsSync, mkdirSync, appendFileSync, readdirSync, readFileSync, writeFileSync, statSync } from 'fs';
+import { existsSync, mkdirSync, appendFileSync, readdirSync, readFileSync, writeFileSync } from 'fs';
 
 export interface LogSession {
   sessionId: string;
@@ -199,7 +199,6 @@ export class LogService {
 
     return files.map(file => {
       const filePath = path.join(logsDir, file);
-      const stats = statSync(filePath);
       const sessionId = file.replace('session-', '').replace('.log', '');
 
       // Parse session ID back to date
@@ -212,16 +211,17 @@ export class LogService {
 
       const startedAt = new Date(dateStr);
 
-      // Count lines (approximate)
+      // Read file once and derive both size and line count to avoid TOCTOU race
       const content = readFileSync(filePath, 'utf-8');
       const lineCount = content.split('\n').length;
+      const sizeBytes = Buffer.byteLength(content, 'utf-8');
 
       return {
         sessionId,
         startedAt,
         logFile: filePath,
         lineCount,
-        sizeBytes: stats.size
+        sizeBytes
       };
     });
   }

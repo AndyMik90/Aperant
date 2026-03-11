@@ -74,16 +74,11 @@ export async function readSettingsFileAsync(): Promise<Record<string, unknown> |
   const settingsPath = getSettingsPath();
 
   try {
-    await fsPromises.access(settingsPath);
-  } catch {
-    return undefined;
-  }
-
-  try {
+    // Read directly — no separate access() check to avoid TOCTOU race
     const content = await fsPromises.readFile(settingsPath, 'utf-8');
     return JSON.parse(content);
   } catch {
-    // Return undefined on parse error - caller will use defaults
+    // Return undefined if file doesn't exist or has parse errors — caller will use defaults
     return undefined;
   }
 }

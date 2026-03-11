@@ -310,7 +310,7 @@ The JSON must contain: vision, target_audience (object with "primary" key), phas
         }
       }
 
-      // Validate and merge
+      // Validate and merge — read file once, then operate on in-memory data
       let roadmapRaw: string | null = null;
       try {
         roadmapRaw = readFileSync(roadmapFile, 'utf-8');
@@ -330,10 +330,11 @@ The JSON must contain: vision, target_audience (object with "primary" key), phas
           }
 
           if (missing.length === 0 && featureCount >= 3) {
-            // Merge preserved features
+            // Merge preserved features — write back from in-memory data (no re-read)
             if (preservedFeatures.length > 0) {
               data.features = mergeFeatures(data.features as Record<string, unknown>[], preservedFeatures);
-              writeFileSync(roadmapFile, JSON.stringify(data, null, 2), 'utf-8');
+              const merged = JSON.stringify(data, null, 2);
+              writeFileSync(roadmapFile, merged, 'utf-8');
             }
             return { phase: 'features', success: true, outputs: [roadmapFile], errors: [] };
           }

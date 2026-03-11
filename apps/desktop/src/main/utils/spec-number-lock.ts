@@ -53,42 +53,42 @@ export class SpecNumberLock {
     while (true) {
       try {
         // Try to create lock file exclusively using 'wx' flag
-        // This will throw if file already exists
-        if (!existsSync(this.lockFile)) {
-          writeFileSync(this.lockFile, String(process.pid), { flag: 'wx' });
-          this.acquired = true;
-          return;
-        }
+        // 'wx' is atomic — it fails with EEXIST if file already exists, no pre-check needed
+        writeFileSync(this.lockFile, String(process.pid), { flag: 'wx' });
+        this.acquired = true;
+        return;
       } catch (error: unknown) {
-        // EEXIST means file was created by another process between check and create
+        // EEXIST means file was created by another process — expected, continue to wait
         if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
           throw error;
         }
       }
 
-      // Lock file exists - check if holder is still running
-      if (existsSync(this.lockFile)) {
-        try {
-          const pidStr = readFileSync(this.lockFile, 'utf-8').trim();
-          const pid = parseInt(pidStr, 10);
+      // Lock file exists — check if holder is still running (read directly, no pre-check)
+      try {
+        const pidStr = readFileSync(this.lockFile, 'utf-8').trim();
+        const pid = parseInt(pidStr, 10);
 
-          if (!Number.isNaN(pid) && !this.isProcessRunning(pid)) {
-            // Stale lock - remove it
-            try {
-              unlinkSync(this.lockFile);
-              continue;
-            } catch {
-              // Another process may have removed it
-            }
-          }
-        } catch {
-          // Invalid lock file - try to remove
+        if (!Number.isNaN(pid) && !this.isProcessRunning(pid)) {
+          // Stale lock - remove it
           try {
             unlinkSync(this.lockFile);
             continue;
           } catch {
-            // Ignore removal errors
+            // Another process may have removed it
           }
+        }
+      } catch (err: unknown) {
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+          // Lock file was removed between wx attempt and here — retry
+          continue;
+        }
+        // Invalid lock file - try to remove
+        try {
+          unlinkSync(this.lockFile);
+          continue;
+        } catch {
+          // Ignore removal errors
         }
       }
 

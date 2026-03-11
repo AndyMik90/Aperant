@@ -45,22 +45,24 @@ describe('restampExecutionPhase', () => {
     await writeFile(planPath, JSON.stringify(plan, null, 2));
 
     // Record the mtime before calling the function
-    const { mtimeMs: beforeMs } = await (await import('node:fs/promises')).stat(planPath);
+    const fsp = await import('node:fs/promises');
+    const { mtimeMs: beforeMs } = await fsp.stat(planPath);
 
     await restampExecutionPhase(tmpDir, 'coding');
 
-    const { mtimeMs: afterMs } = await (await import('node:fs/promises')).stat(planPath);
+    // Re-read file atomically — derive mtime and content from the same fd to avoid TOCTOU
+    const fd = await fsp.open(planPath, 'r');
+    try {
+      const fstat = await fd.stat();
+      const rawContent = await fd.readFile('utf-8');
+      const written = JSON.parse(rawContent) as Record<string, unknown>;
+      expect(written.executionPhase).toBe('coding');
 
-    // File should not have been touched (mtime unchanged on most systems within a tight window)
-    // We verify by content — executionPhase is still 'coding' and no extra write occurred
-    // Use try/catch instead of relying on the preceding stat for existence (avoids TOCTOU)
-    const rawContent = await readFile(planPath, 'utf-8');
-    const written = JSON.parse(rawContent) as Record<string, unknown>;
-    expect(written.executionPhase).toBe('coding');
-
-    // The mtime should not have advanced (no write occurred).
-    // Allow a tiny epsilon for filesystem resolution differences.
-    expect(afterMs).toBe(beforeMs);
+      // The mtime should not have advanced (no write occurred).
+      expect(fstat.mtimeMs).toBe(beforeMs);
+    } finally {
+      await fd.close();
+    }
   });
 
   it('handles a missing file gracefully without throwing', async () => {
