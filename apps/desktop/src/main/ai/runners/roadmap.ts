@@ -10,7 +10,7 @@
  */
 
 import { streamText, stepCountIs } from 'ai';
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, openSync, closeSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createSimpleClient } from '../client/factory';
@@ -310,12 +310,16 @@ The JSON must contain: vision, target_audience (object with "primary" key), phas
         }
       }
 
-      // Validate and merge — read file once, then operate on in-memory data
+      // Validate and merge — read via fd to avoid TOCTOU between read and write
       let roadmapRaw: string | null = null;
+      let roadmapFd: number | null = null;
       try {
-        roadmapRaw = readFileSync(roadmapFile, 'utf-8');
+        roadmapFd = openSync(roadmapFile, 'r');
+        roadmapRaw = readFileSync(roadmapFd, 'utf-8');
       } catch (err: unknown) {
         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+      } finally {
+        if (roadmapFd !== null) closeSync(roadmapFd);
       }
       if (roadmapRaw !== null) {
         const data = safeParseJson<Record<string, unknown>>(roadmapRaw);
@@ -330,7 +334,7 @@ The JSON must contain: vision, target_audience (object with "primary" key), phas
           }
 
           if (missing.length === 0 && featureCount >= 3) {
-            // Merge preserved features — write back from in-memory data (no re-read)
+            // Merge preserved features — write from in-memory data
             if (preservedFeatures.length > 0) {
               data.features = mergeFeatures(data.features as Record<string, unknown>[], preservedFeatures);
               const merged = JSON.stringify(data, null, 2);

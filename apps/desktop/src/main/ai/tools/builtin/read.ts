@@ -111,64 +111,67 @@ export const readTool = Tool.define({
     // Security: ensure path is within project boundary
     const { resolvedPath } = assertPathContained(file_path, context.projectDir);
 
-    // Stat the file (handles both "not found" and "is directory" without a separate existsSync check)
-    let stat: fs.Stats;
+    // Open fd once — all subsequent stat/read go through this fd to avoid TOCTOU
+    let fd: number;
     try {
-      stat = fs.statSync(resolvedPath);
+      fd = fs.openSync(resolvedPath, 'r');
     } catch (err: unknown) {
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === 'ENOENT') {
         return `Error: File not found: ${file_path}`;
+      }
+      if (code === 'EISDIR') {
+        return `Error: '${file_path}' is a directory, not a file. Use the Bash tool with ls to list directory contents.`;
       }
       throw err;
     }
-    if (stat.isDirectory()) {
-      return `Error: '${file_path}' is a directory, not a file. Use the Bash tool with ls to list directory contents.`;
-    }
-
-    // Image files — read atomically to avoid TOCTOU with stat above
-    if (isImageFile(resolvedPath)) {
-      const buffer = fs.readFileSync(resolvedPath); // re-read is atomic; stat was only for isDirectory check
-      const base64 = buffer.toString('base64');
-      const ext = path.extname(resolvedPath).toLowerCase().slice(1);
-      const mimeType =
-        ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
-      return `[Image file: ${path.basename(resolvedPath)}]\ndata:${mimeType};base64,${base64}`;
-    }
-
-    // PDF files — use stat.size from the same fstat to avoid TOCTOU
-    if (isPdfFile(resolvedPath)) {
-      if (pages) {
-        return `[PDF file: ${path.basename(resolvedPath)}, pages: ${pages}]\nPDF reading requires external tooling. File exists at: ${resolvedPath}`;
+    try {
+      const stat = fs.fstatSync(fd);
+      if (stat.isDirectory()) {
+        return `Error: '${file_path}' is a directory, not a file. Use the Bash tool with ls to list directory contents.`;
       }
-      const fd = fs.openSync(resolvedPath, 'r');
-      try {
-        const fstat = fs.fstatSync(fd);
-        const fileSizeKb = Math.round(fstat.size / 1024);
+
+      // Image files — read from same fd
+      if (isImageFile(resolvedPath)) {
+        const buffer = fs.readFileSync(fd);
+        const base64 = buffer.toString('base64');
+        const ext = path.extname(resolvedPath).toLowerCase().slice(1);
+        const mimeType =
+          ext === 'svg' ? 'image/svg+xml' : `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+        return `[Image file: ${path.basename(resolvedPath)}]\ndata:${mimeType};base64,${base64}`;
+      }
+
+      // PDF files — size from same fstat
+      if (isPdfFile(resolvedPath)) {
+        if (pages) {
+          return `[PDF file: ${path.basename(resolvedPath)}, pages: ${pages}]\nPDF reading requires external tooling. File exists at: ${resolvedPath}`;
+        }
+        const fileSizeKb = Math.round(stat.size / 1024);
         return `[PDF file: ${path.basename(resolvedPath)}, size: ${fileSizeKb}KB]\nUse the 'pages' parameter to read specific page ranges.`;
-      } finally {
-        fs.closeSync(fd);
       }
+
+      // Text files — read from same fd
+      const content = fs.readFileSync(fd, 'utf-8');
+
+      if (content.length === 0) {
+        return `[File exists but is empty: ${file_path}]`;
+      }
+
+      const lines = content.split(/\r?\n/);
+      const startLine = offset ?? 0;
+      const lineLimit = limit ?? DEFAULT_LINE_LIMIT;
+
+      const sliced = lines.slice(startLine, startLine + lineLimit);
+      const result = formatWithLineNumbers(sliced.join('\n'), startLine);
+
+      const totalLines = lines.length;
+      if (startLine + lineLimit < totalLines) {
+        return `${result}\n\n[Showing lines ${startLine + 1}-${startLine + lineLimit} of ${totalLines} total lines]`;
+      }
+
+      return result;
+    } finally {
+      fs.closeSync(fd);
     }
-
-    // Text files — read directly (atomic)
-    const content = fs.readFileSync(resolvedPath, 'utf-8');
-
-    if (content.length === 0) {
-      return `[File exists but is empty: ${file_path}]`;
-    }
-
-    const lines = content.split(/\r?\n/);
-    const startLine = offset ?? 0;
-    const lineLimit = limit ?? DEFAULT_LINE_LIMIT;
-
-    const sliced = lines.slice(startLine, startLine + lineLimit);
-    const result = formatWithLineNumbers(sliced.join('\n'), startLine);
-
-    const totalLines = lines.length;
-    if (startLine + lineLimit < totalLines) {
-      return `${result}\n\n[Showing lines ${startLine + 1}-${startLine + lineLimit} of ${totalLines} total lines]`;
-    }
-
-    return result;
   },
 });
