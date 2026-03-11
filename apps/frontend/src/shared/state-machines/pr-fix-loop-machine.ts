@@ -246,7 +246,13 @@ export const prFixLoopMachine = createMachine(
         },
         updatedAt: () => new Date().toISOString(),
         progress: () => null,
-        error: ({ event }) => ('error' in event && event.error ? event.error : null),
+        error: ({ event }) => {
+          const resultEvent = event as Extract<
+            PRFixLoopEvent,
+            { type: 'FIX_COMPLETE' | 'FIX_FAILED_RESULT' | 'FIX_HANDOFF' }
+          >;
+          return resultEvent.result.error ?? ('error' in event && event.error ? event.error : null);
+        },
         iteration: ({ context, event }) => {
           const resultEvent = event as Extract<
             PRFixLoopEvent,

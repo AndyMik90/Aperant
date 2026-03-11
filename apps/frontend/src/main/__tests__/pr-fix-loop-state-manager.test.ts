@@ -113,12 +113,17 @@ describe('PRFixLoopStateManager', () => {
 
   it('transitions to failed on handleFailureResult', () => {
     manager.handleStartLoop(projectId, prNumber, { maxIterations: 3 });
-    const result = createMockResult({ state: 'failed', reason: 'No convergence' });
+    const result = createMockResult({
+      state: 'failed',
+      reason: 'No convergence',
+      error: 'push failed'
+    });
     manager.handleFailureResult(projectId, prNumber, result);
 
     const snapshot = manager.getState(projectId, prNumber);
     expect(String(snapshot!.value)).toBe('failed');
     expect(snapshot!.context.result?.state).toBe('failed');
+    expect(snapshot!.context.error).toBe('push failed');
   });
 
   it('transitions to failed on handleError', () => {

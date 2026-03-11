@@ -355,6 +355,22 @@ async def cmd_fix_pr(args) -> int:
     if hasattr(sys.stderr, "reconfigure"):
         sys.stderr.reconfigure(line_buffering=True)
 
+    project_dir = Path(args.project)
+    if not project_dir.is_dir():
+        safe_print("JSON Output")
+        safe_print(
+            json.dumps(
+                {
+                    "pr_number": args.pr_number,
+                    "status": "failed",
+                    "reason": f"Project directory does not exist: {project_dir}",
+                    "error": "invalid_project_dir",
+                },
+                ensure_ascii=False,
+            )
+        )
+        return 0
+
     config = get_config(args)
 
     try:
@@ -362,7 +378,6 @@ async def cmd_fix_pr(args) -> int:
     except ImportError:
         from .services.pr_fix_loop_service import PRFixLoopService
 
-    project_dir = Path(args.project)
     github_dir = project_dir / ".auto-claude" / "github"
     github_dir.mkdir(parents=True, exist_ok=True)
 

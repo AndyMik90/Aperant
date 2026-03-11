@@ -94,7 +94,12 @@ describe('prFixLoopMachine', () => {
   });
 
   it('transitions to failed on FIX_FAILED_RESULT', () => {
-    const failedResult = { ...mockResult, state: 'failed' as const, reason: 'No convergence' };
+    const failedResult = {
+      ...mockResult,
+      state: 'failed' as const,
+      reason: 'No convergence',
+      error: 'push failed'
+    };
     const snapshot = runEvents([
       { type: 'START_FIX_LOOP', prNumber: 42, projectId: 'proj-1' },
       { type: 'FIX_FAILED_RESULT', result: failedResult }
@@ -102,6 +107,7 @@ describe('prFixLoopMachine', () => {
 
     expect(snapshot.value).toBe('failed');
     expect(snapshot.context.result?.state).toBe('failed');
+    expect(snapshot.context.error).toBe('push failed');
   });
 
   it('transitions to failed on FIX_ERROR', () => {
