@@ -310,7 +310,7 @@ export class InsightsExecutor extends EventEmitter {
             error
           } as InsightsStreamChunk);
 
-          this.emit('error', projectId, error);
+          this.emit('error', projectId, error, sessionId);
           reject(new Error(error));
         }
       });
@@ -319,7 +319,7 @@ export class InsightsExecutor extends EventEmitter {
         this.activeSessions.delete(projectId);
         cleanupTempFiles();
 
-        this.emit('error', projectId, err.message);
+        this.emit('error', projectId, err.message, sessionId);
         reject(err);
       });
     });

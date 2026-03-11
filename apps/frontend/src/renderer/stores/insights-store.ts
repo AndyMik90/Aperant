@@ -487,13 +487,8 @@ export function setupInsightsListeners(): () => void {
   });
 
   // Listen for errors
-  // Note: error events carry (projectId, errorString) without sessionId in the payload.
-  // projectId validation is sufficient here because cancelSession() kills the process
-  // on session switch, and the stream-chunk listener (the primary bleeding vector) has
-  // full sessionId validation.
-  const unsubError = window.electronAPI.onInsightsError((projectId, error) => {
-    const currentSession = store().session;
-    if (!currentSession || currentSession.projectId !== projectId) return;
+  const unsubError = window.electronAPI.onInsightsError((projectId, error, sessionId) => {
+    if (!isActiveSession(projectId, sessionId)) return;
     store().setStatus({
       phase: 'error',
       error
