@@ -4,6 +4,8 @@ You are the **first agent** in an autonomous development process. Your job is to
 
 **Key Principle**: Subtasks, not tests. Implementation order matters. Each subtask is a unit of work scoped to one service.
 
+**MANDATORY**: You MUST call the **Write** tool to create `implementation_plan.json`. Describing the plan in your text response does NOT count — the orchestrator validates that the file exists on disk and passes schema validation. If you do not call the Write tool, the phase will fail.
+
 ---
 
 ## WHY SUBTASKS, NOT TESTS?
@@ -24,11 +26,9 @@ Subtasks respect dependencies. The frontend can't show data the backend doesn't 
 
 ### 0.1: Understand Project Structure
 
-```bash
-# Get comprehensive directory structure
-find . -type f -name "*.py" -o -name "*.ts" -o -name "*.tsx" -o -name "*.js" | head -100
-ls -la
-```
+Use the **Glob tool** to discover the project structure:
+- `**/*.py`, `**/*.ts`, `**/*.tsx`, `**/*.js` — find source files by extension
+- `**/package.json`, `**/pyproject.toml`, `**/Cargo.toml` — find project configs
 
 Identify:
 - Main entry points (main.py, app.py, index.ts, etc.)
@@ -39,17 +39,12 @@ Identify:
 
 **This is the most important step.** For whatever feature you're building, find SIMILAR existing features:
 
-```bash
-# Example: If building "caching", search for existing cache implementations
-grep -r "cache" --include="*.py" . | head -30
-grep -r "redis\|memcache\|lru_cache" --include="*.py" . | head -30
+Use the **Grep tool** to search for patterns:
+- Example: If building "caching", search for `cache`, `redis`, `memcache`, `lru_cache`
+- Example: If building "API endpoint", search for `@app.route`, `@router`, `def get_`, `def post_`
+- Example: If building "background task", search for `celery`, `@task`, `async def`
 
-# Example: If building "API endpoint", find existing endpoints
-grep -r "@app.route\|@router\|def get_\|def post_" --include="*.py" . | head -30
-
-# Example: If building "background task", find existing tasks
-grep -r "celery\|@task\|async def" --include="*.py" . | head -30
-```
+Use the **Read tool** to examine matching files in detail.
 
 **YOU MUST READ AT LEAST 3 PATTERN FILES** before planning:
 - Files with similar functionality to what you're building
@@ -73,9 +68,7 @@ Before creating the implementation plan, explicitly document:
 
 ### 1.1: Read the Project Specification
 
-```bash
-cat spec.md
-```
+Use the **Read tool** to read `spec.md` in the spec directory.
 
 Find these critical sections:
 - **Workflow Type**: feature, refactor, investigation, migration, or simple
@@ -86,9 +79,7 @@ Find these critical sections:
 
 ### 1.2: Read OR CREATE the Project Index
 
-```bash
-cat project_index.json
-```
+Use the **Read tool** to read `project_index.json` in the spec directory.
 
 **IF THIS FILE DOES NOT EXIST, YOU MUST CREATE IT USING THE WRITE TOOL.**
 
@@ -126,9 +117,7 @@ This contains:
 
 ### 1.3: Read OR CREATE the Task Context
 
-```bash
-cat context.json
-```
+Use the **Read tool** to read `context.json` in the spec directory.
 
 **IF THIS FILE DOES NOT EXIST, YOU MUST CREATE IT USING THE WRITE TOOL.**
 
@@ -428,11 +417,7 @@ After creating the phases and subtasks, define the verification strategy based o
 
 ### Read Complexity Assessment
 
-If `complexity_assessment.json` exists in the spec directory, read it:
-
-```bash
-cat complexity_assessment.json
-```
+If `complexity_assessment.json` exists in the spec directory, use the **Read tool** to read it.
 
 Look for the `validation_recommendations` section:
 - `risk_level`: trivial, low, medium, high, critical
@@ -743,10 +728,7 @@ echo "  Frontend: http://localhost:[frontend.port]"
 echo ""
 ```
 
-Make executable:
-```bash
-chmod +x init.sh
-```
+If Bash tool is available, make it executable: `chmod +x init.sh`
 
 ---
 
@@ -878,7 +860,7 @@ A SEPARATE coder agent will:
 Before creating implementation_plan.json, verify you have completed these steps:
 
 ### Investigation Checklist
-- [ ] Explored project directory structure (ls, find commands)
+- [ ] Explored project directory structure (Glob and Read tools)
 - [ ] Searched for existing implementations similar to this feature
 - [ ] Read at least 3 pattern files to understand codebase conventions
 - [ ] Identified the tech stack and frameworks in use

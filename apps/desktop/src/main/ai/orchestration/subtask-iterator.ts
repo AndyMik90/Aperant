@@ -235,6 +235,12 @@ export async function iterateSubtasks(
     if (result.outcome === 'completed' || result.outcome === 'max_steps' || result.outcome === 'context_window') {
       await ensureSubtaskMarkedCompleted(config.specDir, subtask.id);
 
+      // Re-stamp executionPhase on the worktree plan after the coder session.
+      // The coder model's Edit/Write calls can overwrite executionPhase with a
+      // stale value (read before persistPlanPhaseSync ran). Since the model is
+      // no longer writing, we can safely correct it here.
+      await restampExecutionPhase(config.specDir, 'coding');
+
       // Sync updated phases to main project plan (worktree mode).
       // This keeps the main plan current during execution, not just on exit.
       if (config.sourceSpecDir) {
@@ -310,6 +316,37 @@ async function ensureSubtaskMarkedCompleted(
     }
   } catch {
     // Non-fatal: if we can't update the plan the loop will retry or mark stuck
+  }
+}
+
+/**
+ * Re-stamp executionPhase on the plan file after a coder session.
+ *
+ * During a coder session, the model reads implementation_plan.json, edits
+ * subtask statuses, and writes the file back. If the model read the plan
+ * before persistPlanPhaseSync set executionPhase to 'coding', the model's
+ * write overwrites executionPhase with the stale value (e.g., 'planning').
+ *
+ * This function runs AFTER the session ends (no more model writes) and
+ * corrects executionPhase to the actual current phase.
+ */
+async function restampExecutionPhase(
+  specDir: string,
+  phase: string,
+): Promise<void> {
+  const planPath = join(specDir, 'implementation_plan.json');
+  try {
+    const raw = await readFile(planPath, 'utf-8');
+    const plan = safeParseJson<Record<string, unknown>>(raw);
+    if (!plan) return;
+
+    if (plan.executionPhase !== phase) {
+      plan.executionPhase = phase;
+      plan.updated_at = new Date().toISOString();
+      await writeFile(planPath, JSON.stringify(plan, null, 2));
+    }
+  } catch {
+    // Non-fatal
   }
 }
 

@@ -74,7 +74,7 @@ const PHASE_AGENT_MAP: Record<SpecPhase, AgentType> = {
   context: 'spec_context',
   spec_writing: 'spec_writer',
   self_critique: 'spec_critic',
-  planning: 'spec_writer',
+  planning: 'planner',
   validation: 'spec_validation',
   quick_spec: 'spec_writer',
 } as const;
@@ -412,6 +412,8 @@ export class SpecOrchestrator extends EventEmitter {
     const agentType = PHASE_AGENT_MAP[phase];
     const errors: string[] = [];
     let schemaRetryContext: string | undefined;
+    /** Set when a retry is needed because the model didn't call any tools */
+    let toolUseRetryContext: string | undefined;
 
     this.emitTyped('phase-start', phase, phaseNumber, totalPhases);
 
@@ -433,8 +435,11 @@ export class SpecOrchestrator extends EventEmitter {
         projectIndex: this.config.projectIndex,
         priorPhaseOutputs: phaseOutputs,
         attemptCount: attempt,
-        schemaRetryContext,
+        // Carry both schema and tool-use retry context (at most one is set at a time)
+        schemaRetryContext: schemaRetryContext ?? toolUseRetryContext,
       });
+      // Clear single-use retry context
+      toolUseRetryContext = undefined;
 
       // For planning and quick_spec phases, pass the output schema so providers
       // with native structured output (OpenAI, Anthropic) use constrained decoding
@@ -479,7 +484,7 @@ export class SpecOrchestrator extends EventEmitter {
           }
         }
         // Validate that expected output files were actually created.
-        // Some models (e.g., GLM-5) may complete a session without calling
+        // Some models (e.g., GLM-5, Codex) may complete a session without calling
         // any tools, producing no output files despite a successful stream.
         const missingFiles = await this.validatePhaseOutputs(phase);
         if (missingFiles.length > 0) {
@@ -491,6 +496,26 @@ export class SpecOrchestrator extends EventEmitter {
           this.emitTyped('log', `Phase ${phase} output validation failed (attempt ${attempt + 1}): ${detail}`);
 
           if (attempt < MAX_PHASE_RETRIES) {
+            // Build a directive retry prompt when the model hallucinated tool usage.
+            // This is common with Codex models that generate text claiming to have
+            // written files without actually invoking the Write tool.
+            if (noToolCalls) {
+              const fileList = missingFiles.map(f => `${this.config.specDir}/${f}`).join(', ');
+              toolUseRetryContext = [
+                'CRITICAL — TOOL USE REQUIRED',
+                '',
+                'Your previous attempt failed because you did NOT call any tools.',
+                'You MUST use the Write tool to create the required output file(s).',
+                'Do NOT describe file contents in your text response — you must invoke the Write tool.',
+                '',
+                `Missing file(s) that MUST be created using the Write tool: ${fileList}`,
+                '',
+                'Steps:',
+                `1. Use the Write tool to create each missing file listed above`,
+                '2. Include the full file content in the Write tool call',
+                '3. Do NOT skip tool calls or assume files were already created',
+              ].join('\n');
+            }
             continue; // Retry the phase
           }
           // All retries exhausted — fall through to failure

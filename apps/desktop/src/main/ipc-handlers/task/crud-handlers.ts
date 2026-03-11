@@ -322,6 +322,7 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
         subtasks: [],
         logs: [],
         metadata: taskMetadata,
+        specsPath: specDir,
         createdAt: new Date(),
         updatedAt: new Date()
       };
@@ -414,6 +415,13 @@ export function registerTaskCRUDHandlers(agentManager: AgentManager): void {
           // Continue with other locations even if one fails
         }
       }
+
+      // Clear in-memory XState actor and related state for this task.
+      // Without this, recreating a task with the same spec ID would hit the
+      // stale actor (stuck in a terminal state like 'human_review'), causing
+      // the new task's events to be silently dropped and the task to appear
+      // stuck forever.
+      taskStateManager.clearTask(taskId);
 
       // Invalidate cache since a task was deleted
       projectStore.invalidateTasksCache(project.id);

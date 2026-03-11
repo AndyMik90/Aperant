@@ -108,19 +108,22 @@ export function TaskReview({
       {/* Section divider */}
       <div className="section-divider-gradient" />
 
-      {/* Staged Success Message */}
-      {stagedSuccess && (
+      {/* Workspace Status - priority: loading > staged fresh > staged persisted > worktree exists > no workspace */}
+      {isLoadingWorktree ? (
+        <LoadingMessage />
+      ) : stagedSuccess ? (
+        /* Fresh staging success - show commit message and next steps */
         <StagedSuccessMessage
           stagedSuccess={stagedSuccess}
           suggestedCommitMessage={suggestedCommitMessage}
+          task={task}
+          hasWorktree={worktreeStatus?.exists || false}
+          projectPath={stagedProjectPath}
+          onClose={onClose}
+          onReviewAgain={onReviewAgain}
         />
-      )}
-
-      {/* Workspace Status - priority: loading > staged (fresh or persisted) > worktree exists > no workspace */}
-      {isLoadingWorktree ? (
-        <LoadingMessage />
-      ) : stagedSuccess || task.stagedInMainProject ? (
-        /* Changes staged (fresh or persisted) - show action buttons */
+      ) : task.stagedInMainProject ? (
+        /* Previously staged (persisted) - show action buttons */
         <StagedInProjectMessage
           task={task}
           projectPath={stagedProjectPath}

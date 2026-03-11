@@ -251,11 +251,12 @@ export class BuildOrchestrator extends EventEmitter {
         if (!planResult.success) {
           return this.buildOutcome(false, Date.now() - startTime, planResult.error);
         }
-        // Reset subtask statuses to "pending" after planning —
-        // some models pre-set statuses to "completed" which would
-        // cause isBuildComplete() to skip the coding phase entirely.
-        await this.resetSubtaskStatuses();
       }
+
+      // Always reset subtask statuses to "pending" before coding — the spec
+      // pipeline or planner may have created the plan with pre-set "completed"
+      // statuses, which would cause isBuildComplete() to skip coding entirely.
+      await this.resetSubtaskStatuses();
 
       // Validate and normalize the plan before coding.
       // This is critical when the spec_orchestrator creates the plan (before the

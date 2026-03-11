@@ -607,10 +607,11 @@ async function runBuildOrchestrator(
     if (logWriter && logPhase) {
       logWriter.startPhase(logPhase, message);
     }
-    // Emit XState-compatible task events for QA phase transitions
+    // Emit XState-compatible task events for phase transitions
     // so the state machine tracks the build lifecycle correctly.
-    // Without these, XState stays in 'coding' and can't handle QA failure events.
-    if (phase === 'qa_review') {
+    if (phase === 'coding') {
+      postTaskEvent('CODING_STARTED', { subtaskId: '', subtaskDescription: 'Starting coding phase' });
+    } else if (phase === 'qa_review') {
       postTaskEvent('QA_STARTED', { iteration: 0, maxIterations: 3 });
     } else if (phase === 'qa_fixing') {
       postTaskEvent('QA_FIXING_STARTED', { iteration: 0 });
@@ -640,6 +641,23 @@ async function runBuildOrchestrator(
         phaseProgress: 0,
         overallProgress: 0,
         message: `Iteration ${iteration} (${phase})`,
+      },
+      projectId: config.projectId,
+    });
+  });
+
+  orchestrator.on('session-complete', (_result: SessionResult, phase: string) => {
+    // Notify the main process that a session (subtask) completed.
+    // This triggers persistPlanPhaseSync → invalidateTasksCache so the frontend
+    // sees updated subtask statuses in the implementation plan.
+    postMessage({
+      type: 'execution-progress',
+      taskId: config.taskId,
+      data: {
+        phase: phase as ExecutionPhase,
+        phaseProgress: 0,
+        overallProgress: 0,
+        message: `Session complete (${phase})`,
       },
       projectId: config.projectId,
     });
@@ -1131,7 +1149,7 @@ function specPhaseToPromptName(phase: SpecPhase): string {
     case 'historical_context': return 'spec_writer';
     case 'spec_writing': return 'spec_writer';
     case 'self_critique': return 'spec_critic';
-    case 'planning': return 'spec_writer';
+    case 'planning': return 'planner';
     case 'quick_spec': return 'spec_quick';
     case 'validation': return 'spec_writer';
     default: return 'spec_writer';
@@ -1157,25 +1175,28 @@ function buildSpecKickoffMessage(
   // Spec phase takes priority over agentType for kickoff routing
   // (e.g., complexity_assessment uses spec_gatherer agentType but needs a different kickoff)
   if (specPhase === 'complexity_assessment') {
-    baseMessage = `Assess the complexity of the following task and write your assessment to ${specDir}/complexity_assessment.json. Task: ${taskDescription}. Project root: ${projectDir}. Determine if this is a SIMPLE, STANDARD, or COMPLEX task based on the scope of changes required.`;
+    baseMessage = `Assess the complexity of the following task and write your assessment to ${specDir}/complexity_assessment.json. Task: ${taskDescription}. Project root: ${projectDir}. Determine if this is a SIMPLE, STANDARD, or COMPLEX task based on the scope of changes required.\n\nIMPORTANT: This is the FIRST phase of the spec pipeline. No spec.md or other spec files exist yet — do NOT attempt to read them. Assess complexity based on the task description and the project structure at ${projectDir} only.`;
   } else switch (agentType) {
     case 'spec_discovery':
-      baseMessage = `Analyze the project structure at ${projectDir} to understand the codebase architecture, tech stack, and conventions. Write your findings to ${specDir}/context.json. Task context: ${taskDescription}`;
+      baseMessage = `Analyze the project structure at ${projectDir} to understand the codebase architecture, tech stack, and conventions. Write your findings to ${specDir}/context.json. Task context: ${taskDescription}\n\nIMPORTANT: This is an early phase of the spec pipeline. No spec.md exists yet — do NOT attempt to read it. Analyze the project source code at ${projectDir} directly.`;
       break;
     case 'spec_gatherer':
-      baseMessage = `Gather and validate requirements for the following task: ${taskDescription}. Project root: ${projectDir}. Write requirements to ${specDir}/requirements.json.`;
+      baseMessage = `Gather and validate requirements for the following task: ${taskDescription}. Project root: ${projectDir}. Write requirements to ${specDir}/requirements.json.\n\nIMPORTANT: This is an early phase of the spec pipeline. No spec.md exists yet — do NOT attempt to read it. Derive requirements from the task description and the project source code at ${projectDir}.`;
       break;
     case 'spec_researcher':
       baseMessage = `Research implementation approaches for: ${taskDescription}. Review relevant code in ${projectDir} and document your findings in ${specDir}/research.json.`;
       break;
     case 'spec_writer':
-      baseMessage = `Write the specification for: ${taskDescription}. Write spec.md and implementation_plan.json to ${specDir}. Project root: ${projectDir}.`;
+      baseMessage = `Write the specification for: ${taskDescription}. Write spec.md to ${specDir}. Project root: ${projectDir}.`;
+      break;
+    case 'planner':
+      baseMessage = `Create a detailed implementation plan for: ${taskDescription}. Read the spec at ${specDir}/spec.md and create ${specDir}/implementation_plan.json with concrete coding subtasks. Project root: ${projectDir}.`;
       break;
     case 'spec_critic':
       baseMessage = `Review and critique the specification at ${specDir}/spec.md for completeness, clarity, and technical feasibility. Write your critique findings back to ${specDir}/spec.md with improvements.`;
       break;
     case 'spec_context':
-      baseMessage = `Gather project context relevant to: ${taskDescription}. Analyze the codebase at ${projectDir} and write context to ${specDir}/context.json.`;
+      baseMessage = `Gather project context relevant to: ${taskDescription}. Analyze the codebase at ${projectDir} and write context to ${specDir}/context.json.\n\nIMPORTANT: This is an early phase of the spec pipeline. No spec.md exists yet — do NOT attempt to read it. Analyze the project source code at ${projectDir} directly.`;
       break;
     case 'spec_validation':
       baseMessage = `Validate that ${specDir}/spec.md and ${specDir}/implementation_plan.json are complete, consistent, and ready for implementation. Fix any issues found.`;

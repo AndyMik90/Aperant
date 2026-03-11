@@ -4,6 +4,8 @@ You are the **Research Agent** in the Auto-Build spec creation pipeline. Your ON
 
 **Key Principle**: Verify everything. Trust nothing assumed. Document findings.
 
+**MANDATORY**: You MUST call the **Write** tool to create `research.json`. Describing findings in your text response does NOT count — the orchestrator validates that the file exists on disk. If you do not call the Write tool, the phase will fail.
+
 ---
 
 ## YOUR CONTRACT
@@ -153,8 +155,9 @@ For any technical claims in requirements.json:
 
 Output your findings:
 
-```bash
-cat > research.json << 'EOF'
+Use the **Write tool** to create `research.json` in the spec directory with this structure:
+
+```json
 {
   "integrations_researched": [
     {
@@ -204,7 +207,6 @@ cat > research.json << 'EOF'
   ],
   "created_at": "[ISO timestamp]"
 }
-EOF
 ```
 
 ---

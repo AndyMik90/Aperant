@@ -82,6 +82,34 @@ function runSecurityHooks(
 }
 
 // ---------------------------------------------------------------------------
+// File Path Sanitization
+// ---------------------------------------------------------------------------
+
+/**
+ * Pattern matching trailing JSON artifact characters that some models
+ * (e.g., gpt-5.3-codex) leak into tool call string arguments.
+ * Matches sequences like `'}},{`, `"}`, `'},` etc. at the end of a path.
+ */
+const TRAILING_JSON_ARTIFACT_RE = /['"}\],{]+$/;
+
+/**
+ * Sanitize file_path (and similar path-like) arguments in tool input.
+ * Strips trailing JSON structural characters that models sometimes
+ * include when generating tool call arguments with malformed JSON.
+ *
+ * Mutates the input object in place for efficiency.
+ */
+function sanitizeFilePathArg(input: Record<string, unknown>): void {
+  const filePath = input.file_path;
+  if (typeof filePath !== 'string') return;
+
+  const cleaned = filePath.replace(TRAILING_JSON_ARTIFACT_RE, '');
+  if (cleaned !== filePath) {
+    input.file_path = cleaned;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Tool.define()
 // ---------------------------------------------------------------------------
 
@@ -105,6 +133,11 @@ function define<TInput extends z.ZodType, TOutput>(
       // Concrete types resolve correctly when Tool.define() is called
       // with a specific Zod schema.
       const executeWithHooks = async (input: Input): Promise<TOutput> => {
+        // Sanitize file_path arguments: strip trailing JSON artifact characters
+        // that some models (e.g., gpt-5.3-codex) leak into string tool arguments.
+        // E.g., "spec.md'}},{" → "spec.md"
+        sanitizeFilePathArg(input as Record<string, unknown>);
+
         if (metadata.permission !== ToolPermission.ReadOnly) {
           runSecurityHooks(
             metadata.name,

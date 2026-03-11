@@ -349,17 +349,29 @@ async function executeStream(
     : undefined;
 
   // Execute streamText — prepareStep is only added when memory context exists
-  // When outputSchema is provided, use Output.object() for provider-agnostic
-  // structured output validation. This counts as one step in the agent loop.
+  //
+  // IMPORTANT: Output.object() must NOT be combined with tools in the same streamText()
+  // call. This is a known AI SDK limitation (GitHub #8354, #8984, #12016):
+  // - Anthropic: tools are silently ignored when output schema is present
+  // - Bedrock: tools are ignored with a runtime warning
+  // - OpenAI: NoOutputGeneratedError if tool calls are the last step
+  //
+  // When both tools and outputSchema are requested, we run the tool loop first
+  // (without output schema), then extract structured output from the response text
+  // after the stream completes. The orchestrators' file-based validation
+  // (validateAndNormalizeJsonFile + repairJsonWithLLM) handle the rest.
+  const hasTools = tools != null && Object.keys(tools).length > 0;
+  const useOutputSchema = config.outputSchema != null && !hasTools;
+
   const result = streamText({
     model: config.model,
     system: isCodex ? undefined : config.systemPrompt,
     messages: aiMessages,
     tools: tools ?? {},
-    ...(config.outputSchema ? { output: Output.object({ schema: config.outputSchema }) } : {}),
+    ...(useOutputSchema ? { output: Output.object({ schema: config.outputSchema! }) } : {}),
     stopWhen: stopCondition,
     abortSignal: mergedAbortSignal,
-    ...((thinkingOptions || isCodex || (config.outputSchema && isAnthropicModel)) ? {
+    ...((thinkingOptions || isCodex || (useOutputSchema && isAnthropicModel)) ? {
       providerOptions: {
         ...(thinkingOptions ?? {}),
         ...(isCodex ? {
@@ -369,7 +381,7 @@ async function executeStream(
             store: false,
           },
         } : {}),
-        ...(config.outputSchema && isAnthropicModel ? {
+        ...(useOutputSchema && isAnthropicModel ? {
           anthropic: { structuredOutputMode: 'outputFormat' },
         } : {}),
       },
@@ -557,18 +569,40 @@ async function executeStream(
     // all text deltas, so this is just the final concatenated text.
   }
 
-  // Extract structured output if schema was provided
+  // Extract structured output if schema was provided.
+  // When Output.object() was used (no tools), extract from the AI SDK result.
+  // When tools were present (Output.object() skipped), try to parse response text
+  // as JSON and validate against the schema as a best-effort fallback.
   let structuredOutput: Record<string, unknown> | undefined;
   if (config.outputSchema) {
-    try {
-      // AI SDK validates the output against the schema and returns typed data
-      const output = await withTimeout(result.output, POST_STREAM_TIMEOUT_MS, 'result.output');
-      if (output) {
-        structuredOutput = output as Record<string, unknown>;
+    if (useOutputSchema) {
+      // Output.object() was active — extract from AI SDK result
+      try {
+        const output = await withTimeout(result.output, POST_STREAM_TIMEOUT_MS, 'result.output');
+        if (output) {
+          structuredOutput = output as Record<string, unknown>;
+        }
+      } catch {
+        // Structured output extraction failed — non-fatal.
       }
-    } catch {
-      // Structured output extraction failed — this is non-fatal.
-      // The caller can fall back to parsing responseText as JSON.
+    } else if (responseText) {
+      // Tools were present so Output.object() was skipped.
+      // Try to parse the response text as JSON and validate against the schema.
+      // This catches models that output the structured data as their final text.
+      try {
+        // Extract JSON from response text (may be wrapped in markdown code fences)
+        const jsonMatch = responseText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/) ?? [null, responseText];
+        const jsonStr = jsonMatch[1]?.trim();
+        if (jsonStr) {
+          const parsed = JSON.parse(jsonStr);
+          const validated = config.outputSchema.safeParse(parsed);
+          if (validated.success) {
+            structuredOutput = validated.data as Record<string, unknown>;
+          }
+        }
+      } catch {
+        // JSON parsing failed — non-fatal. Caller uses file-based validation.
+      }
     }
   }
 

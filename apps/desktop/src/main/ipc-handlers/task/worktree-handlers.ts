@@ -2224,19 +2224,34 @@ export function registerWorktreeHandlers(
               debug('Merge result. isStageOnly:', isStageOnly, 'newStatus:', newStatus, 'staged:', staged);
               const reviewReason = newStatus === 'human_review' ? 'completed' : undefined;
 
-              // Read suggested commit message if staging succeeded
-              // OPTIMIZATION: Use async I/O to prevent blocking
+              // Generate AI commit message if staging succeeded
               let suggestedCommitMessage: string | undefined;
               if (staged) {
-                const commitMsgPath = path.join(specDir, 'suggested_commit_message.txt');
                 try {
-                  if (existsSync(commitMsgPath)) {
-                    const { promises: fsPromises } = require('fs');
-                    suggestedCommitMessage = (await fsPromises.readFile(commitMsgPath, 'utf-8')).trim();
-                    debug('Read suggested commit message:', suggestedCommitMessage?.substring(0, 100));
+                  // Get diff summary and changed files for context
+                  let diffSummary = '';
+                  let filesChangedList: string[] = [];
+
+                  if (isGitWorkTree(project.path)) {
+                    try {
+                      diffSummary = execFileSync(getToolPath('git'), ['diff', '--staged', '--stat'], { cwd: project.path, encoding: 'utf-8' }).trim();
+                      const nameOnly = execFileSync(getToolPath('git'), ['diff', '--staged', '--name-only'], { cwd: project.path, encoding: 'utf-8' }).trim();
+                      filesChangedList = nameOnly ? nameOnly.split('\n') : [];
+                    } catch (e) {
+                      debug('Failed to get staged diff for commit message:', e);
+                    }
                   }
+
+                  const { generateCommitMessage } = await import('../../ai/runners/commit-message');
+                  suggestedCommitMessage = await generateCommitMessage({
+                    projectDir: project.path,
+                    specName: task.specId,
+                    diffSummary,
+                    filesChanged: filesChangedList,
+                  });
+                  debug('Generated commit message:', suggestedCommitMessage?.substring(0, 100));
                 } catch (e) {
-                  debug('Failed to read suggested commit message:', e);
+                  debug('Failed to generate commit message:', e);
                 }
               }
 

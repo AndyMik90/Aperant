@@ -61,20 +61,19 @@ export interface SessionConfig {
   /** Context window limit in tokens for reactive compaction guard */
   contextWindowLimit?: number;
   /**
-   * Optional Zod schema for structured output via AI SDK's Output.object().
+   * Optional Zod schema for structured output.
    *
-   * When provided, the agent's final text response is validated against this
-   * schema by the AI SDK at the provider level. For providers with native
-   * structured output support (OpenAI, Anthropic), the schema is enforced
-   * server-side. For others (Ollama, etc.), it falls back to client-side
-   * JSON parsing + validation.
+   * Behavior depends on whether the session has tools:
    *
-   * Use this for agents that return structured data as text (complexity
-   * assessor, PR scan, etc.). For agents that write files via tools (planner,
-   * roadmap), use post-session file validation with validateJsonFile() instead.
+   * - **Without tools**: Uses AI SDK `Output.object()` for provider-level
+   *   constrained decoding (OpenAI, Anthropic enforce server-side).
    *
-   * Structured output counts as one step in the agent loop — account for
-   * this in maxSteps when combining with tools.
+   * - **With tools**: `Output.object()` is intentionally SKIPPED to avoid
+   *   a known AI SDK conflict where structured output suppresses tool calling
+   *   (GitHub #8354, #8984, #12016). Instead, the runner attempts to parse
+   *   the model's response text as JSON and validate against the schema
+   *   after the stream completes. Callers should still use file-based
+   *   validation (validateAndNormalizeJsonFile) as the primary path.
    */
   outputSchema?: ZodSchema;
 }
