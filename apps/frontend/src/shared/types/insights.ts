@@ -217,6 +217,7 @@ export interface InsightsSessionSummary {
 
 export interface InsightsChatStatus {
   phase: 'idle' | 'thinking' | 'streaming' | 'complete' | 'error';
+  sessionId?: string;
   message?: string;
   error?: string;
 }

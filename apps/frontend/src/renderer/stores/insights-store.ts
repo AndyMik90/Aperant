@@ -408,10 +408,11 @@ export function setupInsightsListeners(): () => void {
   const isActiveSession = (projectId: string, sessionId?: string): boolean => {
     const currentSession = store().session;
     if (!currentSession) return false;
-    // Validate projectId matches
     if (currentSession.projectId !== projectId) return false;
-    // If sessionId is provided in the chunk, validate it matches too
-    if (sessionId && currentSession.id !== sessionId) return false;
+    // Require sessionId to match when present; reject events without sessionId
+    // as a defensive measure against stale events from code paths that don't
+    // set it (sessionId is optional in the type for backward compatibility)
+    if (!sessionId || currentSession.id !== sessionId) return false;
     return true;
   };
 
@@ -481,12 +482,15 @@ export function setupInsightsListeners(): () => void {
 
   // Listen for status updates
   const unsubStatus = window.electronAPI.onInsightsStatus((projectId, status) => {
-    const currentSession = store().session;
-    if (!currentSession || currentSession.projectId !== projectId) return;
+    if (!isActiveSession(projectId, status.sessionId)) return;
     store().setStatus(status);
   });
 
   // Listen for errors
+  // Note: error events carry (projectId, errorString) without sessionId in the payload.
+  // projectId validation is sufficient here because cancelSession() kills the process
+  // on session switch, and the stream-chunk listener (the primary bleeding vector) has
+  // full sessionId validation.
   const unsubError = window.electronAPI.onInsightsError((projectId, error) => {
     const currentSession = store().session;
     if (!currentSession || currentSession.projectId !== projectId) return;

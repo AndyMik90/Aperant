@@ -96,6 +96,7 @@ export class InsightsExecutor extends EventEmitter {
     // Emit thinking status
     this.emit('status', projectId, {
       phase: 'thinking',
+      sessionId,
       message: 'Processing your message...'
     } as InsightsChatStatus);
 
@@ -288,7 +289,8 @@ export class InsightsExecutor extends EventEmitter {
           } as InsightsStreamChunk);
 
           this.emit('status', projectId, {
-            phase: 'complete'
+            phase: 'complete',
+            sessionId
           } as InsightsChatStatus);
 
           resolve({
