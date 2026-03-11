@@ -158,12 +158,17 @@ function normalizeStatus(value: unknown): string {
  */
 export function autoFixPlan(specDir: string): boolean {
   const planFile = join(specDir, 'implementation_plan.json');
-  if (!existsSync(planFile)) return false;
 
   let plan: Record<string, unknown> | null = null;
   let jsonRepaired = false;
 
-  const content = readFileSync(planFile, 'utf-8');
+  let content: string;
+  try {
+    content = readFileSync(planFile, 'utf-8');
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw err;
+  }
   plan = safeParseJson<Record<string, unknown>>(content);
   if (!plan) {
     // Try local repairJsonSyntax as a secondary pass
@@ -328,13 +333,17 @@ export function validateContext(specDir: string): ValidationResult {
 
   const contextFile = join(specDir, 'context.json');
 
-  if (!existsSync(contextFile)) {
-    errors.push('context.json not found');
-    fixes.push('Regenerate context.json');
-    return { valid: false, checkpoint: 'context', errors, warnings, fixes };
+  let raw: string;
+  try {
+    raw = readFileSync(contextFile, 'utf-8');
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      errors.push('context.json not found');
+      fixes.push('Regenerate context.json');
+      return { valid: false, checkpoint: 'context', errors, warnings, fixes };
+    }
+    throw err;
   }
-
-  const raw = readFileSync(contextFile, 'utf-8');
   const context = safeParseJson<Record<string, unknown>>(raw);
   if (!context) {
     errors.push('context.json is invalid JSON');
@@ -369,13 +378,17 @@ export function validateSpecDocument(specDir: string): ValidationResult {
 
   const specFile = join(specDir, 'spec.md');
 
-  if (!existsSync(specFile)) {
-    errors.push('spec.md not found');
-    fixes.push('Create spec.md with required sections');
-    return { valid: false, checkpoint: 'spec', errors, warnings, fixes };
+  let content: string;
+  try {
+    content = readFileSync(specFile, 'utf-8');
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      errors.push('spec.md not found');
+      fixes.push('Create spec.md with required sections');
+      return { valid: false, checkpoint: 'spec', errors, warnings, fixes };
+    }
+    throw err;
   }
-
-  const content = readFileSync(specFile, 'utf-8');
 
   for (const section of SPEC_REQUIRED_SECTIONS) {
     const escaped = section.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -414,13 +427,17 @@ export function validateImplementationPlan(specDir: string): ValidationResult {
 
   const planFile = join(specDir, 'implementation_plan.json');
 
-  if (!existsSync(planFile)) {
-    errors.push('implementation_plan.json not found');
-    fixes.push('Run the planning phase to generate implementation_plan.json');
-    return { valid: false, checkpoint: 'plan', errors, warnings, fixes };
+  let raw: string;
+  try {
+    raw = readFileSync(planFile, 'utf-8');
+  } catch (err: unknown) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+      errors.push('implementation_plan.json not found');
+      fixes.push('Run the planning phase to generate implementation_plan.json');
+      return { valid: false, checkpoint: 'plan', errors, warnings, fixes };
+    }
+    throw err;
   }
-
-  const raw = readFileSync(planFile, 'utf-8');
   const plan = safeParseJson<Record<string, unknown>>(raw);
   if (!plan) {
     errors.push('implementation_plan.json is invalid JSON');
@@ -728,25 +745,19 @@ function buildFixerPrompt(specDir: string, checkpoint: string, errors: string[])
 
   if (checkpoint === 'context') {
     const cf = join(specDir, 'context.json');
-    if (existsSync(cf)) {
-      try {
-        fileContents.push(`## context.json (current):\n\`\`\`json\n${readFileSync(cf, 'utf-8')}\n\`\`\``);
-      } catch { /* ignore */ }
-    }
+    try {
+      fileContents.push(`## context.json (current):\n\`\`\`json\n${readFileSync(cf, 'utf-8')}\n\`\`\``);
+    } catch { /* ignore */ }
   } else if (checkpoint === 'spec') {
     const sf = join(specDir, 'spec.md');
-    if (existsSync(sf)) {
-      try {
-        fileContents.push(`## spec.md (current):\n\`\`\`markdown\n${readFileSync(sf, 'utf-8').slice(0, 5000)}\n\`\`\``);
-      } catch { /* ignore */ }
-    }
+    try {
+      fileContents.push(`## spec.md (current):\n\`\`\`markdown\n${readFileSync(sf, 'utf-8').slice(0, 5000)}\n\`\`\``);
+    } catch { /* ignore */ }
   } else if (checkpoint === 'plan') {
     const pf = join(specDir, 'implementation_plan.json');
-    if (existsSync(pf)) {
-      try {
-        fileContents.push(`## implementation_plan.json (current):\n\`\`\`json\n${readFileSync(pf, 'utf-8').slice(0, 8000)}\n\`\`\``);
-      } catch { /* ignore */ }
-    }
+    try {
+      fileContents.push(`## implementation_plan.json (current):\n\`\`\`json\n${readFileSync(pf, 'utf-8').slice(0, 8000)}\n\`\`\``);
+    } catch { /* ignore */ }
   }
 
   return `Fix the following validation errors in the spec directory: ${specDir}

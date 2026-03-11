@@ -111,12 +111,16 @@ export const readTool = Tool.define({
     // Security: ensure path is within project boundary
     const { resolvedPath } = assertPathContained(file_path, context.projectDir);
 
-    // Check file exists
-    if (!fs.existsSync(resolvedPath)) {
-      return `Error: File not found: ${file_path}`;
+    // Stat the file (handles both "not found" and "is directory" without a separate existsSync check)
+    let stat: fs.Stats;
+    try {
+      stat = fs.statSync(resolvedPath);
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        return `Error: File not found: ${file_path}`;
+      }
+      throw err;
     }
-
-    const stat = fs.statSync(resolvedPath);
     if (stat.isDirectory()) {
       return `Error: '${file_path}' is a directory, not a file. Use the Bash tool with ls to list directory contents.`;
     }

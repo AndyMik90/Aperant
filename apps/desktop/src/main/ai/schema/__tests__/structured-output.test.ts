@@ -4,7 +4,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { z } from 'zod';
-import { writeFileSync, mkdirSync, rmSync } from 'node:fs';
+import { writeFileSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
@@ -40,10 +40,10 @@ describe('validateStructuredOutput', () => {
 });
 
 describe('validateJsonFile', () => {
-  const testDir = join(tmpdir(), `schema-test-${Date.now()}`);
+  let testDir: string;
 
   beforeEach(() => {
-    mkdirSync(testDir, { recursive: true });
+    testDir = mkdtempSync(join(tmpdir(), 'schema-test-'));
   });
 
   afterEach(() => {
@@ -94,10 +94,10 @@ describe('validateJsonFile', () => {
 });
 
 describe('validateAndNormalizeJsonFile', () => {
-  const testDir = join(tmpdir(), `normalize-test-${Date.now()}`);
+  let testDir: string;
 
   beforeEach(() => {
-    mkdirSync(testDir, { recursive: true });
+    testDir = mkdtempSync(join(tmpdir(), 'normalize-test-'));
   });
 
   afterEach(() => {
@@ -179,10 +179,10 @@ describe('buildValidationRetryPrompt', () => {
 });
 
 describe('end-to-end: validation → retry → self-correction', () => {
-  const testDir = join(tmpdir(), `e2e-validation-${Date.now()}`);
+  let testDir: string;
 
   beforeEach(() => {
-    mkdirSync(testDir, { recursive: true });
+    testDir = mkdtempSync(join(tmpdir(), 'e2e-validation-'));
   });
 
   afterEach(() => {

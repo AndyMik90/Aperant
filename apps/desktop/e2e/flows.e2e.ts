@@ -9,26 +9,25 @@
  * To run: npx playwright test --config=e2e/playwright.config.ts
  */
 import { test, expect, _electron as electron, ElectronApplication, Page } from '@playwright/test';
-import { mkdirSync, rmSync, existsSync, writeFileSync, readFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, rmSync, existsSync, writeFileSync, readFileSync } from 'fs';
 import path from 'path';
+import os from 'os';
 
-// Test data directory
-const TEST_DATA_DIR = '/tmp/auto-claude-ui-e2e';
-const TEST_PROJECT_DIR = path.join(TEST_DATA_DIR, 'test-project');
+// Test data directory - set during setup using a secure random temp dir
+let TEST_DATA_DIR: string;
+let TEST_PROJECT_DIR: string;
 
 // Setup test environment
 function setupTestEnvironment(): void {
-  if (existsSync(TEST_DATA_DIR)) {
-    rmSync(TEST_DATA_DIR, { recursive: true, force: true });
-  }
-  mkdirSync(TEST_DATA_DIR, { recursive: true });
+  TEST_DATA_DIR = mkdtempSync(path.join(os.tmpdir(), 'auto-claude-ui-e2e-'));
+  TEST_PROJECT_DIR = path.join(TEST_DATA_DIR, 'test-project');
   mkdirSync(TEST_PROJECT_DIR, { recursive: true });
   mkdirSync(path.join(TEST_PROJECT_DIR, 'auto-claude', 'specs'), { recursive: true });
 }
 
 // Cleanup test environment
 function cleanupTestEnvironment(): void {
-  if (existsSync(TEST_DATA_DIR)) {
+  if (TEST_DATA_DIR && existsSync(TEST_DATA_DIR)) {
     rmSync(TEST_DATA_DIR, { recursive: true, force: true });
   }
 }
@@ -123,7 +122,7 @@ test.describe('Add Project Flow', () => {
     await app.evaluate(({ dialog }) => {
       dialog.showOpenDialog = async () => ({
         canceled: false,
-        filePaths: ['/tmp/auto-claude-ui-e2e/test-project']
+        filePaths: [TEST_PROJECT_DIR]
       });
     });
 

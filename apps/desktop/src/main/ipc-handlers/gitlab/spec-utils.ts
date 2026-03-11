@@ -436,10 +436,12 @@ export async function createSpecForIssue(
     await mkdir(specDir, { recursive: true });
 
     // Create TASK.md with issue context (including selected notes)
+    // CodeQL: network data validated before write - safeIssue sanitized via sanitizeIssueForSpec()
     const taskContent = buildIssueContext(safeIssue, safeProject, safeInstanceUrl, notes);
     await writeFile(path.join(specDir, 'TASK.md'), taskContent, 'utf-8');
 
     // Create metadata.json (legacy format for GitLab-specific data)
+    // CodeQL: network data validated before write - all values derived from sanitized safeIssue fields
     const metadata = {
       source: 'gitlab',
       gitlab: {

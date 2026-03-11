@@ -51,8 +51,15 @@ export const recordGotchaTool = Tool.define({
       const now = new Date();
       const timestamp = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}-${String(now.getUTCDate()).padStart(2, '0')} ${String(now.getUTCHours()).padStart(2, '0')}:${String(now.getUTCMinutes()).padStart(2, '0')}`;
 
-      // Create header if file doesn't exist or is empty
-      const isNew = !fs.existsSync(gotchasFile) || fs.statSync(gotchasFile).size === 0;
+      // Determine whether file is new or empty without a separate existsSync check
+      let isNew: boolean;
+      try {
+        const stat = fs.statSync(gotchasFile);
+        isNew = stat.size === 0;
+      } catch (err: unknown) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+        isNew = true;
+      }
       const header = isNew ? '# Gotchas & Pitfalls\n\nThings to watch out for in this codebase.\n' : '';
 
       let entry = `\n## [${timestamp}]\n${gotcha}`;

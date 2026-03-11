@@ -90,7 +90,7 @@ export const updateQaStatusTool = Tool.define({
       if (parsed !== null && Array.isArray(parsed)) {
         issues = parsed;
       } else {
-        issues = issuesStr ? [{ description: issuesStr }] : [];
+        issues = [{ description: issuesStr }];
       }
     }
 

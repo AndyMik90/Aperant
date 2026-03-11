@@ -153,7 +153,6 @@ export async function runAgentSession(
   const startTime = Date.now();
 
   let authRetries = 0;
-  let lastError: SessionError | undefined;
   let activeConfig = config;
   let activeAccountId = currentAccountId;
 
@@ -222,7 +221,6 @@ export async function runAgentSession(
       }
 
       // Non-retryable error or retries exhausted
-      lastError = sessionError;
       return buildErrorResult(outcome, sessionError, startTime);
     }
   }
@@ -230,7 +228,7 @@ export async function runAgentSession(
   // Should not reach here, but guard against it
   return buildErrorResult(
     'auth_failure',
-    lastError ?? {
+    {
       code: 'auth_failure',
       message: 'Authentication failed after retries',
       retryable: false,

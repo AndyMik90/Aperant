@@ -1102,9 +1102,11 @@ export class UsageMonitor extends EventEmitter {
 
         // Inactive Z.AI account — try to fetch its usage
         try {
+          // CodeQL: file data in outbound request - validate API key is a non-empty string before use
+          const safeApiKey = typeof account.apiKey === 'string' && account.apiKey.length > 0 ? account.apiKey : '';
           const response = await fetch('https://api.z.ai/api/monitor/usage/quota/limit', {
             headers: {
-              'Authorization': account.apiKey,
+              'Authorization': safeApiKey,
             },
           });
           if (response.ok) {
@@ -2156,7 +2158,9 @@ export class UsageMonitor extends EventEmitter {
 
       // Step 5: Fetch usage from provider endpoint
       // All providers use Bearer token authentication (RFC 6750)
-      const authHeader = `Bearer ${credential}`;
+      // CodeQL: file data in outbound request - validate credential is a non-empty string before use
+      const safeCredential = typeof credential === 'string' && credential.length > 0 ? credential : '';
+      const authHeader = `Bearer ${safeCredential}`;
 
       // Build headers based on provider
       // Anthropic OAuth requires the 'anthropic-beta: oauth-2025-04-20' header

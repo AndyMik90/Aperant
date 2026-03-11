@@ -53,7 +53,9 @@ describe('restampExecutionPhase', () => {
 
     // File should not have been touched (mtime unchanged on most systems within a tight window)
     // We verify by content — executionPhase is still 'coding' and no extra write occurred
-    const written = JSON.parse(await readFile(planPath, 'utf-8')) as Record<string, unknown>;
+    // Use try/catch instead of relying on the preceding stat for existence (avoids TOCTOU)
+    const rawContent = await readFile(planPath, 'utf-8');
+    const written = JSON.parse(rawContent) as Record<string, unknown>;
     expect(written.executionPhase).toBe('coding');
 
     // The mtime should not have advanced (no write occurred).

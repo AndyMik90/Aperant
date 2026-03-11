@@ -55,11 +55,15 @@ export const editTool = Tool.define({
     }
 
     // Read the file
-    if (!fs.existsSync(resolvedPath)) {
-      return `Error: File not found: ${file_path}`;
+    let content: string;
+    try {
+      content = fs.readFileSync(resolvedPath, 'utf-8');
+    } catch (err: unknown) {
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        return `Error: File not found: ${file_path}`;
+      }
+      throw err;
     }
-
-    const content = fs.readFileSync(resolvedPath, 'utf-8');
 
     // Check old_string exists
     if (!content.includes(old_string)) {

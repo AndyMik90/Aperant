@@ -328,7 +328,7 @@ export class MergeOrchestrator {
         const result = await this.mergeFile(filePath, [snapshot], targetBranch);
 
         // Handle DIRECT_COPY
-        if (result.decision === MergeDecision.DIRECT_COPY && resolvedWorktreePath) {
+        if (result.decision === MergeDecision.DIRECT_COPY) {
           const worktreeFile = path.join(resolvedWorktreePath, filePath);
           if (fs.existsSync(worktreeFile)) {
             try {

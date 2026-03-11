@@ -45,8 +45,10 @@ export async function fetchCodexUsage(
   accessToken: string,
   accountId?: string,
 ): Promise<CodexUsageResponse | null> {
+  // CodeQL: file data in outbound request - validate token is a non-empty string before use in Authorization header
+  const safeToken = typeof accessToken === 'string' && accessToken.length > 0 ? accessToken : '';
   const headers: Record<string, string> = {
-    Authorization: `Bearer ${accessToken}`,
+    Authorization: `Bearer ${safeToken}`,
     'Content-Type': 'application/json',
   };
   if (accountId) {

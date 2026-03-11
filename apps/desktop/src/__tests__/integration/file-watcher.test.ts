@@ -3,13 +3,14 @@
  * Tests FileWatcher triggers on plan changes
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
+import { mkdirSync, mkdtempSync, writeFileSync, rmSync, existsSync } from 'fs';
 import path from 'path';
+import os from 'os';
 import { EventEmitter } from 'events';
 
-// Test directories
-const TEST_DIR = '/tmp/file-watcher-test';
-const TEST_SPEC_DIR = path.join(TEST_DIR, 'test-spec');
+// Test directories - set during beforeEach using a secure random temp dir
+let TEST_DIR: string;
+let TEST_SPEC_DIR: string;
 
 // Mock chokidar watcher
 const mockWatcher = Object.assign(new EventEmitter(), {
@@ -51,12 +52,14 @@ function createTestPlan(overrides: Record<string, unknown> = {}): object {
 
 // Setup test directories
 function setupTestDirs(): void {
+  TEST_DIR = mkdtempSync(path.join(os.tmpdir(), 'file-watcher-test-'));
+  TEST_SPEC_DIR = path.join(TEST_DIR, 'test-spec');
   mkdirSync(TEST_SPEC_DIR, { recursive: true });
 }
 
 // Cleanup test directories
 function cleanupTestDirs(): void {
-  if (existsSync(TEST_DIR)) {
+  if (TEST_DIR && existsSync(TEST_DIR)) {
     rmSync(TEST_DIR, { recursive: true, force: true });
   }
 }

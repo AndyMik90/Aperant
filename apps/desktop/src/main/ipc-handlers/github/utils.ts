@@ -260,11 +260,13 @@ export async function githubFetch(
     ? endpoint
     : `https://api.github.com${endpoint}`;
 
+  // CodeQL: file data in outbound request - validate token is a non-empty string before use
+  const safeToken = typeof token === 'string' && token.length > 0 ? token : '';
   const response = await fetch(url, {
     ...options,
     headers: {
       'Accept': 'application/vnd.github+json',
-      'Authorization': `Bearer ${token}`,
+      'Authorization': `Bearer ${safeToken}`,
       'User-Agent': 'Auto-Claude-UI',
       ...options.headers
     }

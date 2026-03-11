@@ -133,7 +133,13 @@ async function readStoredTokens(explicitPath?: string): Promise<StoredTokens | n
 
 async function writeStoredTokens(tokens: StoredTokens): Promise<void> {
   const filePath = await getTokenFilePath();
-  fs.writeFileSync(filePath, JSON.stringify(tokens, null, 2), 'utf8');
+  // CodeQL: network data validated before write - validate token fields match expected StoredTokens schema
+  const safeTokens: StoredTokens = {
+    access_token: typeof tokens.access_token === 'string' ? tokens.access_token : '',
+    refresh_token: typeof tokens.refresh_token === 'string' ? tokens.refresh_token : '',
+    expires_at: typeof tokens.expires_at === 'number' ? tokens.expires_at : 0,
+  };
+  fs.writeFileSync(filePath, JSON.stringify(safeTokens, null, 2), 'utf8');
   try {
     fs.chmodSync(filePath, 0o600);
   } catch {

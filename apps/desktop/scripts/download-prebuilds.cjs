@@ -236,7 +236,8 @@ async function downloadPrebuilds() {
     if (fs.existsSync(tempDir)) {
       fs.rmSync(tempDir, { recursive: true, force: true });
     }
-    console.log(`[prebuilds] Download/extract failed: ${err.message}`);
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally matching control chars for sanitization
+    console.log(`[prebuilds] Download/extract failed: ${String(err.message).replace(/[\r\n\x00-\x1f]/g, '')}`);
     return { success: false, reason: 'install-failed', error: err.message };
   }
 }

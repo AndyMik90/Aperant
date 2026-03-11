@@ -558,7 +558,8 @@ async function fetchLatestStableRelease(): Promise<AppUpdateInfo | null> {
           });
         } catch (e) {
           // Sanitize error message for logging (prevent log injection from malformed JSON)
-          const safeError = e instanceof Error ? e.message : 'Unknown parse error';
+          // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally matching control chars for sanitization
+          const safeError = (e instanceof Error ? e.message : 'Unknown parse error').replace(/[\r\n\x00-\x1f]/g, '');
           console.error('[app-updater] Failed to parse releases JSON:', safeError);
           resolve(null);
         }
@@ -566,8 +567,9 @@ async function fetchLatestStableRelease(): Promise<AppUpdateInfo | null> {
     });
 
     request.on('error', (error) => {
-      // Sanitize error message for logging (use only the message property)
-      const safeErrorMessage = error instanceof Error ? error.message : 'Unknown error';
+      // Sanitize error message for logging (use only the message property, strip control chars)
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: Intentionally matching control chars for sanitization
+      const safeErrorMessage = (error instanceof Error ? error.message : 'Unknown error').replace(/[\r\n\x00-\x1f]/g, '');
       console.error('[app-updater] Failed to fetch releases:', safeErrorMessage);
       resolve(null);
     });

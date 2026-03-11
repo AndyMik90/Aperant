@@ -1806,12 +1806,13 @@ function updateLinuxFileCredentials(
 
     // Build new credential JSON with all fields
     // IMPORTANT: Preserve subscriptionType and rateLimitTier from existing credentials
+    // CodeQL: network data validated before write - validate token fields are expected types before writing
     const newCredentialData = {
       claudeAiOauth: {
-        accessToken: credentials.accessToken,
-        refreshToken: credentials.refreshToken,
-        expiresAt: credentials.expiresAt,
-        scopes: credentials.scopes || existing.scopes || [],
+        accessToken: typeof credentials.accessToken === 'string' ? credentials.accessToken : '',
+        refreshToken: typeof credentials.refreshToken === 'string' ? credentials.refreshToken : '',
+        expiresAt: typeof credentials.expiresAt === 'number' ? credentials.expiresAt : 0,
+        scopes: Array.isArray(credentials.scopes) ? credentials.scopes.filter(s => typeof s === 'string') : (existing.scopes || []),
         email: existing.email || undefined,
         emailAddress: existing.email || undefined,
         subscriptionType: existing.subscriptionType || undefined,
@@ -2062,12 +2063,13 @@ function updateWindowsFileCredentials(
     const existing = getFullCredentialsFromWindowsFile(configDir);
 
     // Build new credential JSON with all fields
+    // CodeQL: network data validated before write - validate token fields are expected types before writing
     const newCredentialData = {
       claudeAiOauth: {
-        accessToken: credentials.accessToken,
-        refreshToken: credentials.refreshToken,
-        expiresAt: credentials.expiresAt,
-        scopes: credentials.scopes || existing.scopes || [],
+        accessToken: typeof credentials.accessToken === 'string' ? credentials.accessToken : '',
+        refreshToken: typeof credentials.refreshToken === 'string' ? credentials.refreshToken : '',
+        expiresAt: typeof credentials.expiresAt === 'number' ? credentials.expiresAt : 0,
+        scopes: Array.isArray(credentials.scopes) ? credentials.scopes.filter(s => typeof s === 'string') : (existing.scopes || []),
         email: existing.email || undefined,
         emailAddress: existing.email || undefined,
         subscriptionType: existing.subscriptionType || undefined,

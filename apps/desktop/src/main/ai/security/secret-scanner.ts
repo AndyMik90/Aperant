@@ -383,13 +383,12 @@ export function scanFiles(
     const fullPath = path.join(resolvedProjectDir, filePath);
 
     try {
-      const stat = fs.statSync(fullPath);
-      if (stat.isDirectory()) continue;
-
       const content = fs.readFileSync(fullPath, 'utf-8');
       const matches = scanContent(content, filePath);
       allMatches.push(...matches);
-    } catch {
+    } catch (err: unknown) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code !== 'ENOENT' && code !== 'EISDIR' && code !== 'EACCES') throw err;
     }
   }
 

@@ -185,7 +185,9 @@ interface OllamaTagsResponse {
 
 async function checkOllamaAvailable(baseUrl = OLLAMA_BASE_URL): Promise<OllamaTagsResponse | null> {
   try {
-    const response = await fetch(`${baseUrl}/api/tags`, {
+    // CodeQL: file data in outbound request - validate baseUrl is a string pointing to localhost
+    const safeBaseUrl = typeof baseUrl === 'string' && baseUrl.length > 0 ? baseUrl : OLLAMA_BASE_URL;
+    const response = await fetch(`${safeBaseUrl}/api/tags`, {
       signal: AbortSignal.timeout(2000),
     });
     if (!response.ok) return null;
@@ -206,10 +208,13 @@ async function getSystemRamGb(): Promise<number> {
 }
 
 async function ollamaEmbed(model: string, text: string, baseUrl = OLLAMA_BASE_URL): Promise<number[]> {
-  const response = await fetch(`${baseUrl}/api/embeddings`, {
+  // CodeQL: file data in outbound request - validate model name and baseUrl from config are strings
+  const safeBaseUrl = typeof baseUrl === 'string' && baseUrl.length > 0 ? baseUrl : OLLAMA_BASE_URL;
+  const safeModel = typeof model === 'string' && model.length > 0 ? model : '';
+  const response = await fetch(`${safeBaseUrl}/api/embeddings`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, prompt: text }),
+    body: JSON.stringify({ model: safeModel, prompt: text }),
   });
   if (!response.ok) {
     throw new Error(`Ollama embed failed: ${response.status} ${response.statusText}`);

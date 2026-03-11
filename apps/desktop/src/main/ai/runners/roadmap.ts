@@ -311,8 +311,14 @@ The JSON must contain: vision, target_audience (object with "primary" key), phas
       }
 
       // Validate and merge
-      if (existsSync(roadmapFile)) {
-        const data = safeParseJson<Record<string, unknown>>(readFileSync(roadmapFile, 'utf-8'));
+      let roadmapRaw: string | null = null;
+      try {
+        roadmapRaw = readFileSync(roadmapFile, 'utf-8');
+      } catch (err: unknown) {
+        if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
+      }
+      if (roadmapRaw !== null) {
+        const data = safeParseJson<Record<string, unknown>>(roadmapRaw);
         if (data) {
           const required = ['phases', 'features', 'vision', 'target_audience'];
           const missing = required.filter((k) => !(k in data));

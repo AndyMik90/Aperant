@@ -264,8 +264,6 @@ export class QALoop extends EventEmitter {
         this.emitTyped('qa-review-complete', iteration, status, issues);
 
         if (status === 'approved') {
-          consecutiveErrors = 0;
-          lastErrorContext = undefined;
           await this.recordIteration(iteration, 'approved', [], iterationDuration);
           await this.writeReports('approved');
           return this.outcome(true, iteration, Date.now() - startTime);
