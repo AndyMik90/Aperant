@@ -158,7 +158,9 @@ class PRFixLoopService:
         )
         self._with_working_dir = create_working_dir_injector(self.project_dir)
 
-    def _report_progress(self, phase: str, progress: int, message: str, **kwargs) -> None:
+    def _report_progress(
+        self, phase: str, progress: int, message: str, **kwargs
+    ) -> None:
         if self.progress_callback:
             import sys
 
@@ -217,8 +219,10 @@ class PRFixLoopService:
             )
 
     async def _get_diff_stats(self) -> tuple[list[str], int, int]:
-        files = await self._run_git("diff", "--name-only")
-        numstat = await self._run_git("diff", "--numstat")
+        # Diff against HEAD so we account for both staged and unstaged edits
+        # before deciding whether the auto-fix stayed within the safety rails.
+        files = await self._run_git("diff", "--name-only", "HEAD")
+        numstat = await self._run_git("diff", "--numstat", "HEAD")
         changed_files = [line.strip() for line in files.splitlines() if line.strip()]
 
         added = 0
@@ -239,19 +243,27 @@ class PRFixLoopService:
         pr_number: int,
         since_timestamp: str,
     ) -> tuple[str, dict[str, int], list[str]]:
-        comments_payload = await self.gh_client.get_comments_since(pr_number, since_timestamp)
+        comments_payload = await self.gh_client.get_comments_since(
+            pr_number, since_timestamp
+        )
         reviews = await self.gh_client.get_reviews_since(pr_number, since_timestamp)
 
         review_comments = comments_payload.get("review_comments", [])
         issue_comments = comments_payload.get("issue_comments", [])
 
-        comment_fingerprints = [
-            f"review_comment:{comment.get('id')}" for comment in review_comments if comment.get("id")
-        ] + [
-            f"issue_comment:{comment.get('id')}" for comment in issue_comments if comment.get("id")
-        ] + [
-            f"review:{review.get('id')}" for review in reviews if review.get("id")
-        ]
+        comment_fingerprints = (
+            [
+                f"review_comment:{comment.get('id')}"
+                for comment in review_comments
+                if comment.get("id")
+            ]
+            + [
+                f"issue_comment:{comment.get('id')}"
+                for comment in issue_comments
+                if comment.get("id")
+            ]
+            + [f"review:{review.get('id')}" for review in reviews if review.get("id")]
+        )
 
         sections: list[str] = []
         if review_comments:
@@ -281,7 +293,9 @@ class PRFixLoopService:
             sections.append("### New formal reviews\n" + "\n".join(lines))
 
         return (
-            "\n\n".join(sections) if sections else "No new GitHub comments or reviews since the last review.",
+            "\n\n".join(sections)
+            if sections
+            else "No new GitHub comments or reviews since the last review.",
             {
                 "review_comments": len(review_comments),
                 "issue_comments": len(issue_comments),
@@ -348,7 +362,9 @@ class PRFixLoopService:
         model_short = self.config.model or "sonnet"
         model = resolve_model_id(model_short)
         betas = get_model_betas(model_short)
-        thinking_kwargs = get_thinking_kwargs_for_model(model, self.config.thinking_level)
+        thinking_kwargs = get_thinking_kwargs_for_model(
+            model, self.config.thinking_level
+        )
 
         client = create_client(
             project_dir=self.project_dir,
@@ -427,11 +443,13 @@ class PRFixLoopService:
             )
 
         candidates, skipped = select_fix_candidates(review, severity_threshold)
-        comment_context, comment_counts, comment_fingerprints = (
-            await self._collect_comment_context(
-                pr_number,
-                review.posted_at or review.reviewed_at,
-            )
+        (
+            comment_context,
+            comment_counts,
+            comment_fingerprints,
+        ) = await self._collect_comment_context(
+            pr_number,
+            review.posted_at or review.reviewed_at,
         )
         attempt_signature = build_attempt_signature(
             review.reviewed_commit_sha,
@@ -522,7 +540,10 @@ class PRFixLoopService:
                 error="protected_file_modified",
             )
 
-        if len(changed_files) > self.max_changed_files or (loc_added + loc_removed) > self.max_total_loc:
+        if (
+            len(changed_files) > self.max_changed_files
+            or (loc_added + loc_removed) > self.max_total_loc
+        ):
             return PRFixResult(
                 pr_number=pr_number,
                 status="handoff",

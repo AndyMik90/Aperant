@@ -7,7 +7,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
 from runners.github.models import (
     GitHubRunnerConfig,
     PRReviewFinding,
@@ -69,7 +68,9 @@ def test_select_fix_candidates_filters_to_low_risk_fixable_items():
                 severity=ReviewSeverity.LOW,
                 category=ReviewCategory.STYLE,
             ),
-            create_finding("test-unfixable", category=ReviewCategory.TEST, fixable=False),
+            create_finding(
+                "test-unfixable", category=ReviewCategory.TEST, fixable=False
+            ),
         ],
     )
 
@@ -83,7 +84,9 @@ def test_attempt_signature_changes_with_comment_fingerprints():
     candidates = [create_finding("a"), create_finding("b")]
 
     base_signature = build_attempt_signature("abc123", candidates, ["review:1"])
-    changed_signature = build_attempt_signature("abc123", candidates, ["review:1", "review:2"])
+    changed_signature = build_attempt_signature(
+        "abc123", candidates, ["review:1", "review:2"]
+    )
 
     assert base_signature != changed_signature
     assert base_signature == build_attempt_signature("abc123", candidates, ["review:1"])
@@ -106,7 +109,9 @@ def test_find_protected_files_detects_sensitive_paths():
 async def test_fix_pr_returns_noop_for_repeated_attempt_signature(temp_git_repo: Path):
     repo = temp_git_repo
     (repo / ".gitignore").write_text(".auto-claude/\n", encoding="utf-8")
-    subprocess.run(["git", "add", ".gitignore"], cwd=repo, capture_output=True, check=True)
+    subprocess.run(
+        ["git", "add", ".gitignore"], cwd=repo, capture_output=True, check=True
+    )
     subprocess.run(
         ["git", "commit", "-m", "Ignore Auto-Claude runtime state"],
         cwd=repo,
@@ -117,7 +122,9 @@ async def test_fix_pr_returns_noop_for_repeated_attempt_signature(temp_git_repo:
     github_dir = repo / ".auto-claude" / "github"
     github_dir.mkdir(parents=True, exist_ok=True)
 
-    head_sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repo, text=True).strip()
+    head_sha = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=repo, text=True
+    ).strip()
     review = create_review(head_sha, [create_finding("quality-medium")])
     await review.save(github_dir)
 
@@ -128,13 +135,82 @@ async def test_fix_pr_returns_noop_for_repeated_attempt_signature(temp_git_repo:
     )
 
     async def fake_collect_comment_context(_pr_number: int, _since_timestamp: str):
-        return "No new comments.", {"review_comments": 0, "issue_comments": 0, "reviews": 0}, []
+        return (
+            "No new comments.",
+            {"review_comments": 0, "issue_comments": 0, "reviews": 0},
+            [],
+        )
 
     service._collect_comment_context = fake_collect_comment_context  # type: ignore[method-assign]
 
-    signature = build_attempt_signature(head_sha, [create_finding("quality-medium")], [])
-    result = await service.fix_pr(123, severity_threshold="medium", last_attempt_signature=signature)
+    signature = build_attempt_signature(
+        head_sha, [create_finding("quality-medium")], []
+    )
+    result = await service.fix_pr(
+        123, severity_threshold="medium", last_attempt_signature=signature
+    )
 
     assert result.status == "noop"
     assert result.attempt_signature == signature
     assert result.reason.startswith("This fix attempt matches the previous signature")
+
+
+@pytest.mark.asyncio
+async def test_fix_pr_handoffs_when_staged_protected_file_is_present(
+    temp_git_repo: Path,
+):
+    repo = temp_git_repo
+    (repo / ".gitignore").write_text(".auto-claude/\n", encoding="utf-8")
+    (repo / "src").mkdir()
+    (repo / "src" / "example.ts").write_text(
+        "export const value = 1;\n", encoding="utf-8"
+    )
+    subprocess.run(
+        ["git", "add", ".gitignore", "src/example.ts"],
+        cwd=repo,
+        capture_output=True,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-m", "Seed PR fix repo"],
+        cwd=repo,
+        capture_output=True,
+        check=True,
+    )
+
+    github_dir = repo / ".auto-claude" / "github"
+    github_dir.mkdir(parents=True, exist_ok=True)
+
+    head_sha = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=repo, text=True
+    ).strip()
+    review = create_review(head_sha, [create_finding("quality-medium")])
+    await review.save(github_dir)
+
+    service = PRFixLoopService(
+        project_dir=repo,
+        github_dir=github_dir,
+        config=GitHubRunnerConfig(token="token", repo="owner/repo"),
+    )
+
+    async def fake_collect_comment_context(_pr_number: int, _since_timestamp: str):
+        return (
+            "No new comments.",
+            {"review_comments": 0, "issue_comments": 0, "reviews": 0},
+            [],
+        )
+
+    async def fake_run_fix_agent(_prompt: str):
+        (repo / ".env").write_text("SECRET=test\n", encoding="utf-8")
+        await service._run_git("add", "--", ".env")
+        return {}
+
+    service._collect_comment_context = fake_collect_comment_context  # type: ignore[method-assign]
+    service._run_fix_agent = fake_run_fix_agent  # type: ignore[method-assign]
+
+    result = await service.fix_pr(123, severity_threshold="medium")
+
+    assert result.status == "handoff"
+    assert result.error == "protected_file_modified"
+    assert result.changed_files == [".env"]
+    assert result.reason == "Protected files changed during auto-fix: .env"

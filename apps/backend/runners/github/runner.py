@@ -381,7 +381,7 @@ async def cmd_fix_pr(args) -> int:
 
     safe_print("JSON Output")
     safe_print(json.dumps(result.to_dict(), ensure_ascii=False))
-    return 0 if result.status in {"fixed", "noop", "handoff"} else 1
+    return 0
 
 
 async def cmd_triage(args) -> int:
