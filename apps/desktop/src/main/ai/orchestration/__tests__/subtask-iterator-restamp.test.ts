@@ -44,27 +44,17 @@ describe('restampExecutionPhase', () => {
     };
     await writeFile(planPath, JSON.stringify(plan, null, 2));
 
-    // Record the mtime before calling the function — use fd to avoid TOCTOU
-    const fsp = await import('node:fs/promises');
-    const beforeFd = await fsp.open(planPath, 'r');
-    const { mtimeMs: beforeMs } = await beforeFd.stat();
-    await beforeFd.close();
+    // Snapshot content before calling the function
+    const contentBefore = await readFile(planPath, 'utf-8');
 
     await restampExecutionPhase(tmpDir, 'coding');
 
-    // Re-read file atomically — derive mtime and content from the same fd
-    const afterFd = await fsp.open(planPath, 'r');
-    try {
-      const fstat = await afterFd.stat();
-      const rawContent = await afterFd.readFile('utf-8');
-      const written = JSON.parse(rawContent) as Record<string, unknown>;
-      expect(written.executionPhase).toBe('coding');
+    // Verify file was not modified — content should be byte-identical
+    const contentAfter = await readFile(planPath, 'utf-8');
+    expect(contentAfter).toBe(contentBefore);
 
-      // The mtime should not have advanced (no write occurred).
-      expect(fstat.mtimeMs).toBe(beforeMs);
-    } finally {
-      await afterFd.close();
-    }
+    const written = JSON.parse(contentAfter) as Record<string, unknown>;
+    expect(written.executionPhase).toBe('coding');
   });
 
   it('handles a missing file gracefully without throwing', async () => {

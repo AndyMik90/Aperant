@@ -115,21 +115,25 @@ function updatePackageJson(newVersion) {
   const frontendPath = path.join(__dirname, '..', 'apps', 'desktop', 'package.json');
   const rootPath = path.join(__dirname, '..', 'package.json');
 
-  if (!fs.existsSync(frontendPath)) {
-    error(`package.json not found at ${frontendPath}`);
+  // Update frontend package.json — read directly, no pre-existence check (avoids TOCTOU)
+  let frontendJson;
+  try {
+    frontendJson = JSON.parse(fs.readFileSync(frontendPath, 'utf8'));
+  } catch (err) {
+    if (err.code === 'ENOENT') error(`package.json not found at ${frontendPath}`);
+    throw err;
   }
-
-  // Update frontend package.json
-  const frontendJson = JSON.parse(fs.readFileSync(frontendPath, 'utf8'));
   const oldVersion = frontendJson.version;
   frontendJson.version = newVersion;
   fs.writeFileSync(frontendPath, JSON.stringify(frontendJson, null, 2) + '\n');
 
-  // Update root package.json if it exists
-  if (fs.existsSync(rootPath)) {
+  // Update root package.json if it exists — read directly with ENOENT handling
+  try {
     const rootJson = JSON.parse(fs.readFileSync(rootPath, 'utf8'));
     rootJson.version = newVersion;
     fs.writeFileSync(rootPath, JSON.stringify(rootJson, null, 2) + '\n');
+  } catch (err) {
+    if (err.code !== 'ENOENT') throw err;
   }
 
   return { oldVersion, packagePath: frontendPath };

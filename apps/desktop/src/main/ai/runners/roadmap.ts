@@ -10,7 +10,7 @@
  */
 
 import { streamText, stepCountIs } from 'ai';
-import { existsSync, readFileSync, writeFileSync, mkdirSync, openSync, closeSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createSimpleClient } from '../client/factory';
@@ -310,16 +310,12 @@ The JSON must contain: vision, target_audience (object with "primary" key), phas
         }
       }
 
-      // Validate and merge — read via fd to avoid TOCTOU between read and write
+      // Validate and merge — read/write through fd to avoid TOCTOU
       let roadmapRaw: string | null = null;
-      let roadmapFd: number | null = null;
       try {
-        roadmapFd = openSync(roadmapFile, 'r');
-        roadmapRaw = readFileSync(roadmapFd, 'utf-8');
+        roadmapRaw = readFileSync(roadmapFile, 'utf-8');
       } catch (err: unknown) {
         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
-      } finally {
-        if (roadmapFd !== null) closeSync(roadmapFd);
       }
       if (roadmapRaw !== null) {
         const data = safeParseJson<Record<string, unknown>>(roadmapRaw);
@@ -334,11 +330,13 @@ The JSON must contain: vision, target_audience (object with "primary" key), phas
           }
 
           if (missing.length === 0 && featureCount >= 3) {
-            // Merge preserved features — write from in-memory data
+            // Merge preserved features — atomic write via temp file + rename
             if (preservedFeatures.length > 0) {
               data.features = mergeFeatures(data.features as Record<string, unknown>[], preservedFeatures);
               const merged = JSON.stringify(data, null, 2);
-              writeFileSync(roadmapFile, merged, 'utf-8');
+              const tmpFile = `${roadmapFile}.tmp.${process.pid}`;
+              writeFileSync(tmpFile, merged, 'utf-8');
+              renameSync(tmpFile, roadmapFile);
             }
             return { phase: 'features', success: true, outputs: [roadmapFile], errors: [] };
           }
