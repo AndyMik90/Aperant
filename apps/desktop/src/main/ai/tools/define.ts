@@ -98,8 +98,10 @@ const TRAILING_JSON_ARTIFACT_RE = /['"}\],{]+$/;
  * include when generating tool call arguments with malformed JSON.
  *
  * Mutates the input object in place for efficiency.
+ *
+ * @internal Exported for unit testing only.
  */
-function sanitizeFilePathArg(input: Record<string, unknown>): void {
+export function sanitizeFilePathArg(input: Record<string, unknown>): void {
   const filePath = input.file_path;
   if (typeof filePath !== 'string') return;
 

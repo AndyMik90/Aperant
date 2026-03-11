@@ -2234,8 +2234,12 @@ export function registerWorktreeHandlers(
 
                   if (isGitWorkTree(project.path)) {
                     try {
-                      diffSummary = execFileSync(getToolPath('git'), ['diff', '--staged', '--stat'], { cwd: project.path, encoding: 'utf-8' }).trim();
-                      const nameOnly = execFileSync(getToolPath('git'), ['diff', '--staged', '--name-only'], { cwd: project.path, encoding: 'utf-8' }).trim();
+                      const [diffResult, nameOnlyResult] = await Promise.all([
+                        execFileAsync(getToolPath('git'), ['diff', '--staged', '--stat'], { cwd: project.path, encoding: 'utf-8' }),
+                        execFileAsync(getToolPath('git'), ['diff', '--staged', '--name-only'], { cwd: project.path, encoding: 'utf-8' }),
+                      ]);
+                      diffSummary = diffResult.stdout.trim();
+                      const nameOnly = nameOnlyResult.stdout.trim();
                       filesChangedList = nameOnly ? nameOnly.split('\n') : [];
                     } catch (e) {
                       debug('Failed to get staged diff for commit message:', e);

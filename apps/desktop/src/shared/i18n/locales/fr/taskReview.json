@@ -116,6 +116,32 @@
     "completionMessage": "Toutes les modifications ont été fusionnées avec succès.",
     "errorMessage": "Une erreur s'est produite pendant le processus de fusion."
   },
+  "stagedSuccess": {
+    "title": "Modifications préparées avec succès",
+    "aiCommitMessage": "Message de commit généré par l'IA",
+    "copied": "Copié !",
+    "copy": "Copier",
+    "editHint": "Modifiez si nécessaire, puis copiez et utilisez avec",
+    "nextSteps": "Étapes suivantes :",
+    "reviewChanges": "Vérifiez les modifications préparées avec",
+    "commitWhenReady": "Commitez quand vous êtes prêt :",
+    "pushToRemote": "Poussez vers le dépôt distant quand vous êtes satisfait",
+    "cleaningUp": "Nettoyage en cours...",
+    "markingDone": "Marquage en cours...",
+    "resetting": "Réinitialisation...",
+    "deleteWorktreeAndMarkDone": "Supprimer le Worktree & Marquer Terminé",
+    "markDoneOnly": "Marquer Terminé Seulement",
+    "markAsDone": "Marquer comme terminé",
+    "reviewAgain": "Réviser à nouveau",
+    "commitMessagePlaceholder": "Message de commit...",
+    "worktreeExplanation": "\"Supprimer le Worktree & Marquer Terminé\" nettoie l'espace de travail isolé. \"Marquer Terminé Seulement\" le conserve pour référence.",
+    "errors": {
+      "failedToDeleteWorktree": "Échec de la suppression du worktree",
+      "worktreeDeletedButStatusFailed": "Worktree supprimé mais échec de la mise à jour du statut : {{error}}",
+      "failedToMarkAsDone": "Échec du marquage comme terminé",
+      "failedToResetStagedState": "Échec de la réinitialisation de l'état préparé"
+    }
+  },
   "bulkPR": {
     "title": "Créer des Pull Requests",
     "description": "Créer des pull requests pour {{count}} tâches sélectionnées",

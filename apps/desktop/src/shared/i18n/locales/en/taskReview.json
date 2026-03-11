@@ -116,6 +116,32 @@
     "completionMessage": "All changes have been merged successfully.",
     "errorMessage": "An error occurred during the merge process."
   },
+  "stagedSuccess": {
+    "title": "Changes Staged Successfully",
+    "aiCommitMessage": "AI-generated commit message",
+    "copied": "Copied!",
+    "copy": "Copy",
+    "editHint": "Edit as needed, then copy and use with",
+    "nextSteps": "Next steps:",
+    "reviewChanges": "Review staged changes with",
+    "commitWhenReady": "Commit when ready:",
+    "pushToRemote": "Push to remote when satisfied",
+    "cleaningUp": "Cleaning up...",
+    "markingDone": "Marking done...",
+    "resetting": "Resetting...",
+    "deleteWorktreeAndMarkDone": "Delete Worktree & Mark Done",
+    "markDoneOnly": "Mark Done Only",
+    "markAsDone": "Mark as Done",
+    "reviewAgain": "Review Again",
+    "commitMessagePlaceholder": "Commit message...",
+    "worktreeExplanation": "\"Delete Worktree & Mark Done\" cleans up the isolated workspace. \"Mark Done Only\" keeps it for reference.",
+    "errors": {
+      "failedToDeleteWorktree": "Failed to delete worktree",
+      "worktreeDeletedButStatusFailed": "Worktree deleted but failed to update task status: {{error}}",
+      "failedToMarkAsDone": "Failed to mark as done",
+      "failedToResetStagedState": "Failed to reset staged state"
+    }
+  },
   "bulkPR": {
     "title": "Create Pull Requests",
     "description": "Create pull requests for {{count}} selected tasks",

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { GitMerge, Copy, Check, Sparkles, Loader2, RotateCcw } from 'lucide-react';
 import { Button } from '../../ui/button';
 import { Textarea } from '../../ui/textarea';
@@ -27,6 +28,7 @@ export function StagedSuccessMessage({
   onClose,
   onReviewAgain
 }: StagedSuccessMessageProps) {
+  const { t } = useTranslation(['taskReview']);
   const [commitMessage, setCommitMessage] = useState(suggestedCommitMessage || '');
   const [copied, setCopied] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -53,20 +55,20 @@ export function StagedSuccessMessage({
       const result = await window.electronAPI.discardWorktree(task.id, true);
 
       if (!result.success) {
-        setError(result.error || 'Failed to delete worktree');
+        setError(result.error || t('taskReview:stagedSuccess.errors.failedToDeleteWorktree'));
         return;
       }
 
       const statusResult = await persistTaskStatus(task.id, 'done');
       if (!statusResult.success) {
-        setError('Worktree deleted but failed to update task status: ' + (statusResult.error || 'Unknown error'));
+        setError(t('taskReview:stagedSuccess.errors.worktreeDeletedButStatusFailed', { error: statusResult.error || 'Unknown error' }));
         return;
       }
 
       onClose?.();
     } catch (err) {
       console.error('Error deleting worktree:', err);
-      setError(err instanceof Error ? err.message : 'Failed to delete worktree');
+      setError(err instanceof Error ? err.message : t('taskReview:stagedSuccess.errors.failedToDeleteWorktree'));
     } finally {
       setIsDeleting(false);
     }
@@ -79,13 +81,13 @@ export function StagedSuccessMessage({
     try {
       const result = await persistTaskStatus(task.id, 'done', { keepWorktree: true });
       if (!result.success) {
-        setError(result.error || 'Failed to mark as done');
+        setError(result.error || t('taskReview:stagedSuccess.errors.failedToMarkAsDone'));
         return;
       }
       onClose?.();
     } catch (err) {
       console.error('Error marking task as done:', err);
-      setError(err instanceof Error ? err.message : 'Failed to mark as done');
+      setError(err instanceof Error ? err.message : t('taskReview:stagedSuccess.errors.failedToMarkAsDone'));
     } finally {
       setIsMarkingDone(false);
     }
@@ -101,14 +103,14 @@ export function StagedSuccessMessage({
       const result = await window.electronAPI.clearStagedState(task.id);
 
       if (!result.success) {
-        setError(result.error || 'Failed to reset staged state');
+        setError(result.error || t('taskReview:stagedSuccess.errors.failedToResetStagedState'));
         return;
       }
 
       onReviewAgain();
     } catch (err) {
       console.error('Error resetting staged state:', err);
-      setError(err instanceof Error ? err.message : 'Failed to reset staged state');
+      setError(err instanceof Error ? err.message : t('taskReview:stagedSuccess.errors.failedToResetStagedState'));
     } finally {
       setIsResetting(false);
     }
@@ -120,7 +122,7 @@ export function StagedSuccessMessage({
     <div className="rounded-xl border border-success/30 bg-success/10 p-4">
       <h3 className="font-medium text-sm text-foreground mb-2 flex items-center gap-2">
         <GitMerge className="h-4 w-4 text-success" />
-        Changes Staged Successfully
+        {t('taskReview:stagedSuccess.title')}
       </h3>
       <p className="text-sm text-muted-foreground mb-3">
         {stagedSuccess}
@@ -132,7 +134,7 @@ export function StagedSuccessMessage({
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs text-muted-foreground flex items-center gap-1.5">
               <Sparkles className="h-3 w-3 text-purple-400" />
-              AI-generated commit message
+              {t('taskReview:stagedSuccess.aiCommitMessage')}
             </p>
             <Button
               variant="ghost"
@@ -144,12 +146,12 @@ export function StagedSuccessMessage({
               {copied ? (
                 <>
                   <Check className="h-3 w-3 mr-1 text-success" />
-                  Copied!
+                  {t('taskReview:stagedSuccess.copied')}
                 </>
               ) : (
                 <>
                   <Copy className="h-3 w-3 mr-1" />
-                  Copy
+                  {t('taskReview:stagedSuccess.copy')}
                 </>
               )}
             </Button>
@@ -158,20 +160,20 @@ export function StagedSuccessMessage({
             value={commitMessage}
             onChange={(e) => setCommitMessage(e.target.value)}
             className="font-mono text-xs min-h-[100px] bg-background/80 resize-y"
-            placeholder="Commit message..."
+            placeholder={t('taskReview:stagedSuccess.commitMessagePlaceholder')}
           />
           <p className="text-[10px] text-muted-foreground mt-1.5">
-            Edit as needed, then copy and use with <code className="bg-background px-1 rounded">git commit -m "..."</code>
+            {t('taskReview:stagedSuccess.editHint')} <code className="bg-background px-1 rounded">git commit -m "..."</code>
           </p>
         </div>
       )}
 
       <div className="bg-background/50 rounded-lg p-3 mb-3">
-        <p className="text-xs text-muted-foreground mb-2">Next steps:</p>
+        <p className="text-xs text-muted-foreground mb-2">{t('taskReview:stagedSuccess.nextSteps')}</p>
         <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
-          <li>Review staged changes with <code className="bg-background px-1 rounded">git status</code> and <code className="bg-background px-1 rounded">git diff --staged</code></li>
-          <li>Commit when ready: <code className="bg-background px-1 rounded">git commit -m "your message"</code></li>
-          <li>Push to remote when satisfied</li>
+          <li>{t('taskReview:stagedSuccess.reviewChanges')} <code className="bg-background px-1 rounded">git status</code> and <code className="bg-background px-1 rounded">git diff --staged</code></li>
+          <li>{t('taskReview:stagedSuccess.commitWhenReady')} <code className="bg-background px-1 rounded">git commit -m "your message"</code></li>
+          <li>{t('taskReview:stagedSuccess.pushToRemote')}</li>
         </ol>
       </div>
 
@@ -189,12 +191,12 @@ export function StagedSuccessMessage({
               {isDeleting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Cleaning up...
+                  {t('taskReview:stagedSuccess.cleaningUp')}
                 </>
               ) : (
                 <>
                   <Check className="h-4 w-4 mr-2" />
-                  Delete Worktree & Mark Done
+                  {t('taskReview:stagedSuccess.deleteWorktreeAndMarkDone')}
                 </>
               )}
             </Button>
@@ -209,12 +211,12 @@ export function StagedSuccessMessage({
               {isMarkingDone ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Marking done...
+                  {t('taskReview:stagedSuccess.markingDone')}
                 </>
               ) : (
                 <>
                   <Check className="h-4 w-4 mr-2" />
-                  Mark as Done
+                  {t('taskReview:stagedSuccess.markAsDone')}
                 </>
               )}
             </Button>
@@ -234,12 +236,12 @@ export function StagedSuccessMessage({
               {isMarkingDone ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Marking done...
+                  {t('taskReview:stagedSuccess.markingDone')}
                 </>
               ) : (
                 <>
                   <Check className="h-4 w-4 mr-2" />
-                  Mark Done Only
+                  {t('taskReview:stagedSuccess.markDoneOnly')}
                 </>
               )}
             </Button>
@@ -256,12 +258,12 @@ export function StagedSuccessMessage({
               {isResetting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Resetting...
+                  {t('taskReview:stagedSuccess.resetting')}
                 </>
               ) : (
                 <>
                   <RotateCcw className="h-4 w-4 mr-2" />
-                  Review Again
+                  {t('taskReview:stagedSuccess.reviewAgain')}
                 </>
               )}
             </Button>
@@ -274,7 +276,7 @@ export function StagedSuccessMessage({
 
         {hasWorktree && (
           <p className="text-xs text-muted-foreground">
-            "Delete Worktree & Mark Done" cleans up the isolated workspace. "Mark Done Only" keeps it for reference.
+            {t('taskReview:stagedSuccess.worktreeExplanation')}
           </p>
         )}
       </div>

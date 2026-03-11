@@ -329,8 +329,10 @@ async function ensureSubtaskMarkedCompleted(
  *
  * This function runs AFTER the session ends (no more model writes) and
  * corrects executionPhase to the actual current phase.
+ *
+ * @internal Exported for unit testing only.
  */
-async function restampExecutionPhase(
+export async function restampExecutionPhase(
   specDir: string,
   phase: string,
 ): Promise<void> {
@@ -338,7 +340,10 @@ async function restampExecutionPhase(
   try {
     const raw = await readFile(planPath, 'utf-8');
     const plan = safeParseJson<Record<string, unknown>>(raw);
-    if (!plan) return;
+    if (!plan) {
+      console.warn(`[restampExecutionPhase] Could not parse implementation_plan.json in ${specDir} — skipping restamp`);
+      return;
+    }
 
     if (plan.executionPhase !== phase) {
       plan.executionPhase = phase;
