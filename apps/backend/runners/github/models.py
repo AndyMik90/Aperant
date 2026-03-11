@@ -722,6 +722,75 @@ class PRReviewResult:
 
 
 @dataclass
+class PRFixResult:
+    """Structured result from a single PR auto-fix attempt."""
+
+    pr_number: int
+    status: str  # fixed, noop, handoff, failed
+    reason: str = ""
+    reviewed_commit_sha: str | None = None
+    head_sha_before: str | None = None
+    head_sha_after: str | None = None
+    parent_sha: str | None = None
+    commit_sha: str | None = None
+    push_succeeded: bool = False
+    changed_files: list[str] = field(default_factory=list)
+    loc_added: int = 0
+    loc_removed: int = 0
+    candidate_finding_ids: list[str] = field(default_factory=list)
+    attempted_finding_ids: list[str] = field(default_factory=list)
+    skipped_finding_ids: list[str] = field(default_factory=list)
+    attempt_signature: str | None = None
+    comment_context: dict[str, int] = field(default_factory=dict)
+    error: str | None = None
+
+    def to_dict(self) -> dict:
+        return {
+            "pr_number": self.pr_number,
+            "status": self.status,
+            "reason": self.reason,
+            "reviewed_commit_sha": self.reviewed_commit_sha,
+            "head_sha_before": self.head_sha_before,
+            "head_sha_after": self.head_sha_after,
+            "parent_sha": self.parent_sha,
+            "commit_sha": self.commit_sha,
+            "push_succeeded": self.push_succeeded,
+            "changed_files": self.changed_files,
+            "loc_added": self.loc_added,
+            "loc_removed": self.loc_removed,
+            "candidate_finding_ids": self.candidate_finding_ids,
+            "attempted_finding_ids": self.attempted_finding_ids,
+            "skipped_finding_ids": self.skipped_finding_ids,
+            "attempt_signature": self.attempt_signature,
+            "comment_context": self.comment_context,
+            "error": self.error,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> PRFixResult:
+        return cls(
+            pr_number=data["pr_number"],
+            status=data["status"],
+            reason=data.get("reason", ""),
+            reviewed_commit_sha=data.get("reviewed_commit_sha"),
+            head_sha_before=data.get("head_sha_before"),
+            head_sha_after=data.get("head_sha_after"),
+            parent_sha=data.get("parent_sha"),
+            commit_sha=data.get("commit_sha"),
+            push_succeeded=data.get("push_succeeded", False),
+            changed_files=data.get("changed_files", []),
+            loc_added=data.get("loc_added", 0),
+            loc_removed=data.get("loc_removed", 0),
+            candidate_finding_ids=data.get("candidate_finding_ids", []),
+            attempted_finding_ids=data.get("attempted_finding_ids", []),
+            skipped_finding_ids=data.get("skipped_finding_ids", []),
+            attempt_signature=data.get("attempt_signature"),
+            comment_context=data.get("comment_context", {}),
+            error=data.get("error"),
+        )
+
+
+@dataclass
 class FollowupReviewContext:
     """Context for a follow-up review."""
 

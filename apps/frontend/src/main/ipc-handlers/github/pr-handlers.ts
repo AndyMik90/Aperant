@@ -27,6 +27,7 @@ import type { Project, AppSettings } from "../../../shared/types";
 import { createContextLogger } from "./utils/logger";
 import { withProjectOrNull } from "./utils/project-middleware";
 import { PRReviewStateManager } from "../../pr-review-state-manager";
+import { PRFixLoopStateManager } from "../../pr-fix-loop-state-manager";
 import { getRunnerEnv } from "./utils/runner-env";
 import {
   runPythonSubprocess,
@@ -34,6 +35,7 @@ import {
   getRunnerPath,
   validateGitHubModule,
   buildRunnerArgs,
+  parseJSONFromOutput,
 } from "./utils/subprocess-runner";
 import { getPRStatusPoller } from "../../services/pr-status-poller";
 import { safeBreadcrumb, safeCaptureException } from "../../sentry";
@@ -43,6 +45,12 @@ import type {
   StopPollingRequest,
   PollingMetadata,
 } from "../../../shared/types/pr-status";
+import type {
+  PRFixLoopOptions,
+  PRFixLoopProgress,
+  PRFixLoopResult,
+  PRFixLoopStatePayload,
+} from "../../../preload/api/modules/github-api";
 
 /**
  * GraphQL response type for PR list query
@@ -234,6 +242,13 @@ type CIWaitPlaceholder = typeof CI_WAIT_PLACEHOLDER;
  */
 const runningReviews = new Map<string, import("child_process").ChildProcess | CIWaitPlaceholder>();
 
+interface RunningFixLoop {
+  cancelled: boolean;
+  currentProcess: import("child_process").ChildProcess | null;
+}
+
+const runningFixLoops = new Map<string, RunningFixLoop>();
+
 /**
  * Registry of abort controllers for CI wait cancellation
  * Key format: `${projectId}:${prNumber}`
@@ -287,6 +302,9 @@ export interface PRReviewResult {
   reviewId?: number;
   reviewedAt: string;
   error?: string;
+  verdict?: "ready_to_merge" | "merge_with_changes" | "needs_revision" | "blocked";
+  verdictReasoning?: string;
+  blockers?: string[];
   // Follow-up review fields
   reviewedCommitSha?: string;
   reviewedFileBlobs?: Record<string, string>; // filename → blob SHA for rebase-resistant follow-ups
@@ -337,6 +355,42 @@ export interface MergeReadiness {
   /** List of blockers that contradict a "ready to merge" verdict */
   blockers: string[];
 }
+
+interface PRFixCommandResult {
+  pr_number: number;
+  status: "fixed" | "noop" | "handoff" | "failed";
+  reason?: string;
+  reviewed_commit_sha?: string;
+  head_sha_before?: string;
+  head_sha_after?: string;
+  parent_sha?: string;
+  commit_sha?: string;
+  push_succeeded?: boolean;
+  changed_files?: string[];
+  loc_added?: number;
+  loc_removed?: number;
+  candidate_finding_ids?: string[];
+  attempted_finding_ids?: string[];
+  skipped_finding_ids?: string[];
+  attempt_signature?: string;
+  comment_context?: Record<string, number>;
+  error?: string;
+}
+
+interface PersistedPRFixLoopState extends PRFixLoopStatePayload {
+  history?: Array<{
+    state: PRFixLoopStatePayload["state"];
+    iteration: number;
+    timestamp: string;
+    message?: string;
+    reason?: string;
+    error?: string;
+    lastCommitSha?: string | null;
+    lastAttemptSignature?: string | null;
+  }>;
+}
+
+type PersistedPRFixLoopHistoryEntry = NonNullable<PersistedPRFixLoopState["history"]>[number];
 
 /**
  * PR review memory stored in the memory layer
@@ -823,6 +877,188 @@ async function performCIWaitCheck(
  */
 function getGitHubDir(project: Project): string {
   return path.join(project.path, ".auto-claude", "github");
+}
+
+function getFixLoopStatePath(project: Project, prNumber: number): string {
+  return path.join(getGitHubDir(project), "pr", `fixloop_${prNumber}.json`);
+}
+
+function loadPersistedFixLoopState(project: Project, prNumber: number): PersistedPRFixLoopState | null {
+  const statePath = getFixLoopStatePath(project, prNumber);
+  if (!fs.existsSync(statePath)) {
+    return null;
+  }
+
+  try {
+    const raw = fs.readFileSync(statePath, "utf-8");
+    return JSON.parse(sanitizeNetworkData(raw)) as PersistedPRFixLoopState;
+  } catch {
+    return null;
+  }
+}
+
+function savePersistedFixLoopState(
+  project: Project,
+  payload: PRFixLoopStatePayload,
+  historyEntry?: PersistedPRFixLoopHistoryEntry
+): void {
+  const statePath = getFixLoopStatePath(project, payload.prNumber);
+  fs.mkdirSync(path.dirname(statePath), { recursive: true });
+
+  const existing = loadPersistedFixLoopState(project, payload.prNumber);
+  const history = [...(existing?.history ?? [])];
+  if (historyEntry) {
+    history.push(historyEntry);
+  }
+
+  fs.writeFileSync(
+    statePath,
+    JSON.stringify({ ...payload, history }, null, 2),
+    "utf-8"
+  );
+}
+
+function snapshotToFixLoopStatePayload(
+  snapshot: ReturnType<PRFixLoopStateManager["getState"]>
+): PRFixLoopStatePayload | null {
+  if (!snapshot) {
+    return null;
+  }
+
+  const state = String(snapshot.value) as PRFixLoopStatePayload["state"];
+  const ctx = snapshot.context;
+  return {
+    state,
+    prNumber: ctx.prNumber ?? 0,
+    projectId: ctx.projectId ?? "",
+    isRunning: !["idle", "done", "failed", "cancelled", "handoff_required"].includes(state),
+    startedAt: ctx.startedAt ?? null,
+    updatedAt: ctx.updatedAt ?? null,
+    iteration: ctx.iteration,
+    maxIterations: ctx.maxIterations,
+    progress: ctx.progress ?? null,
+    result: ctx.result ?? null,
+    error: ctx.error ?? null,
+    lastCommitSha: ctx.lastCommitSha ?? null,
+    lastParentSha: ctx.lastParentSha ?? null,
+    lastAttemptSignature: ctx.lastAttemptSignature ?? null,
+  };
+}
+
+function persistFixLoopStateFromManager(
+  project: Project,
+  prFixLoopStateManager: PRFixLoopStateManager,
+  projectId: string,
+  prNumber: number,
+  message?: string
+): void {
+  const payload = snapshotToFixLoopStatePayload(prFixLoopStateManager.getState(projectId, prNumber));
+  if (!payload) {
+    return;
+  }
+
+  savePersistedFixLoopState(project, payload, {
+    state: payload.state,
+    iteration: payload.iteration,
+    timestamp: payload.updatedAt ?? new Date().toISOString(),
+    message,
+    error: payload.error ?? undefined,
+    reason: payload.result?.reason,
+    lastCommitSha: payload.lastCommitSha,
+    lastAttemptSignature: payload.lastAttemptSignature,
+  });
+}
+
+function getSeverityRank(severity: PRReviewFinding["severity"]): number {
+  return { critical: 4, high: 3, medium: 2, low: 1 }[severity] ?? 0;
+}
+
+function getBlockingFindingsCount(result: PRReviewResult | null): number {
+  if (!result) {
+    return 0;
+  }
+
+  return result.findings.filter((finding) => getSeverityRank(finding.severity) >= 2).length;
+}
+
+function isReviewMergeReady(result: PRReviewResult | null): boolean {
+  if (!result) {
+    return false;
+  }
+
+  if (result.verdict) {
+    return result.verdict === "ready_to_merge";
+  }
+
+  if ((result.blockers?.length ?? 0) > 0) {
+    return false;
+  }
+
+  return getBlockingFindingsCount(result) === 0;
+}
+
+function mapFixCommandToTerminalResult(
+  projectId: string,
+  prNumber: number,
+  iteration: number,
+  maxIterations: number,
+  state: PRFixLoopResult["state"],
+  fixResult: PRFixCommandResult,
+  extras?: {
+    reviewResult?: PRReviewResult | null;
+    mergeReadiness?: MergeReadiness | null;
+  }
+): PRFixLoopResult {
+  return {
+    state,
+    prNumber,
+    projectId,
+    iteration,
+    maxIterations,
+    completedAt: new Date().toISOString(),
+    reason: fixResult.reason,
+    error: fixResult.error,
+    lastCommitSha: fixResult.commit_sha ?? null,
+    lastParentSha: fixResult.parent_sha ?? null,
+    lastAttemptSignature: fixResult.attempt_signature ?? null,
+    reviewResult: extras?.reviewResult ?? null,
+    mergeReadiness: extras?.mergeReadiness ?? null,
+  };
+}
+
+function createCancelledFixLoopResult(
+  projectId: string,
+  prNumber: number,
+  iteration: number,
+  maxIterations: number
+): PRFixLoopResult {
+  return {
+    state: "cancelled",
+    prNumber,
+    projectId,
+    iteration,
+    maxIterations,
+    completedAt: new Date().toISOString(),
+    reason: "Fix loop cancelled by user",
+  };
+}
+
+function createFixLoopProgress(
+  phase: PRFixLoopProgress["phase"],
+  prNumber: number,
+  iteration: number,
+  maxIterations: number,
+  progress: number,
+  message: string
+): PRFixLoopProgress {
+  return {
+    phase,
+    prNumber,
+    iteration,
+    maxIterations,
+    progress,
+    message,
+  };
 }
 
 /**
@@ -1355,6 +1591,9 @@ function getReviewResult(project: Project, prNumber: number): PRReviewResult | n
       reviewId: data.review_id,
       reviewedAt: data.reviewed_at ?? new Date().toISOString(),
       error: data.error,
+      verdict: data.verdict,
+      verdictReasoning: data.verdict_reasoning,
+      blockers: data.blockers ?? [],
       // Follow-up review fields (snake_case -> camelCase)
       reviewedCommitSha: data.reviewed_commit_sha,
       reviewedFileBlobs: data.reviewed_file_blobs,
@@ -1403,6 +1642,142 @@ function sendReviewStateUpdate(
       error: uiError instanceof Error ? uiError.message : uiError,
     });
   }
+}
+
+async function checkPRMergeReadiness(project: Project, prNumber: number): Promise<MergeReadiness> {
+  const defaultResult: MergeReadiness = {
+    isDraft: false,
+    mergeable: "UNKNOWN",
+    isBehind: false,
+    ciStatus: "none",
+    blockers: [],
+  };
+
+  const config = getGitHubConfig(project);
+  if (!config) {
+    return defaultResult;
+  }
+
+  try {
+    const pr = (await githubFetch(
+      config.token,
+      `/repos/${config.repo}/pulls/${prNumber}`
+    )) as {
+      draft: boolean;
+      mergeable: boolean | null;
+      mergeable_state: string;
+      head: { sha: string };
+    };
+
+    let mergeable: MergeReadiness["mergeable"] = "UNKNOWN";
+    if (pr.mergeable === true) {
+      mergeable = "MERGEABLE";
+    } else if (pr.mergeable === false || pr.mergeable_state === "dirty") {
+      mergeable = "CONFLICTING";
+    }
+
+    const isBehind = pr.mergeable_state === "behind";
+
+    let ciStatus: MergeReadiness["ciStatus"] = "none";
+    try {
+      const status = (await githubFetch(
+        config.token,
+        `/repos/${config.repo}/commits/${pr.head.sha}/status`
+      )) as {
+        state: "success" | "pending" | "failure" | "error";
+        total_count: number;
+      };
+
+      if (status.total_count === 0) {
+        const checkRuns = (await githubFetch(
+          config.token,
+          `/repos/${config.repo}/commits/${pr.head.sha}/check-runs`
+        )) as {
+          total_count: number;
+          check_runs: Array<{ conclusion: string | null; status: string }>;
+        };
+
+        if (checkRuns.total_count > 0) {
+          const hasFailing = checkRuns.check_runs.some(
+            (cr) => cr.conclusion === "failure" || cr.conclusion === "cancelled"
+          );
+          const hasPending = checkRuns.check_runs.some((cr) => cr.status !== "completed");
+
+          if (hasFailing) {
+            ciStatus = "failing";
+          } else if (hasPending) {
+            ciStatus = "pending";
+          } else {
+            ciStatus = "passing";
+          }
+        }
+      } else if (status.state === "success") {
+        ciStatus = "passing";
+      } else if (status.state === "pending") {
+        ciStatus = "pending";
+      } else {
+        ciStatus = "failing";
+      }
+    } catch (err) {
+      debugLog("Failed to fetch CI status", {
+        prNumber,
+        error: err instanceof Error ? err.message : err,
+      });
+    }
+
+    const blockers: string[] = [];
+    if (pr.draft) {
+      blockers.push("PR is in draft mode");
+    }
+    if (mergeable === "CONFLICTING") {
+      blockers.push("Merge conflicts detected");
+    }
+    if (isBehind) {
+      blockers.push("Branch is out of date with base branch. Update to check for conflicts.");
+    }
+    if (ciStatus === "failing") {
+      blockers.push("CI checks are failing");
+    }
+
+    return {
+      isDraft: pr.draft,
+      mergeable,
+      isBehind,
+      ciStatus,
+      blockers,
+    };
+  } catch (error) {
+    debugLog("Failed to check merge readiness", {
+      prNumber,
+      error: error instanceof Error ? error.message : error,
+    });
+    return defaultResult;
+  }
+}
+
+async function ensureCleanGitWorktree(project: Project): Promise<void> {
+  const { execFile } = await import("child_process");
+  const { promisify } = await import("util");
+  const execFileAsync = promisify(execFile);
+  const { stdout } = await execFileAsync("git", ["status", "--porcelain"], {
+    cwd: project.path,
+    env: getAugmentedEnv(),
+  });
+
+  if (stdout.trim()) {
+    throw new Error("Working tree is not clean. Commit or stash local changes before running PR fix loop.");
+  }
+}
+
+async function checkoutPRBranch(project: Project, prNumber: number): Promise<void> {
+  const { execFile } = await import("child_process");
+  const { promisify } = await import("util");
+  const execFileAsync = promisify(execFile);
+
+  await execFileAsync("gh", ["pr", "checkout", String(prNumber)], {
+    cwd: project.path,
+    env: getAugmentedEnv(),
+  });
 }
 
 /**
@@ -1612,6 +1987,143 @@ async function runPRReview(
   }
 }
 
+async function runFollowupReviewSubprocess(
+  project: Project,
+  prNumber: number,
+  mainWindow: BrowserWindow,
+  prReviewStateManager: PRReviewStateManager,
+  options?: { onDuplicate?: "return" | "throw" }
+): Promise<PRReviewResult | null> {
+  const projectId = project.id;
+  const reviewKey = getReviewKey(projectId, prNumber);
+  const sendProgress = (progress: PRReviewProgress): void => {
+    prReviewStateManager.handleProgress(projectId, prNumber, progress);
+  };
+
+  if (runningReviews.has(reviewKey)) {
+    if (options?.onDuplicate === "throw") {
+      throw new Error("Follow-up review is already running for this PR");
+    }
+
+    const currentSnapshot = prReviewStateManager.getState(projectId, prNumber);
+    const currentProgress = currentSnapshot?.context?.progress?.progress ?? 50;
+    sendProgress({
+      phase: "analyzing",
+      prNumber,
+      progress: currentProgress,
+      message: "Follow-up review is already in progress. Reconnecting to ongoing review...",
+    });
+    return null;
+  }
+
+  const previousResult = getReviewResult(project, prNumber) ?? undefined;
+  prReviewStateManager.handleStartFollowupReview(projectId, prNumber, previousResult);
+
+  const validation = await validateGitHubModule(project);
+  if (!validation.valid) {
+    prReviewStateManager.handleError(projectId, prNumber, validation.error || "GitHub module validation failed");
+    return null;
+  }
+
+  const backendPath = validation.backendPath!;
+  runningReviews.set(reviewKey, CI_WAIT_PLACEHOLDER);
+  const abortController = new AbortController();
+  ciWaitAbortControllers.set(reviewKey, abortController);
+
+  try {
+    sendProgress({
+      phase: "fetching",
+      prNumber,
+      progress: 5,
+      message: "Starting follow-up review...",
+    });
+
+    const config = getGitHubConfig(project);
+    if (config) {
+      const shouldProceed = await performCIWaitCheck(
+        config,
+        prNumber,
+        sendProgress,
+        "follow-up review",
+        abortController.signal
+      );
+      if (!shouldProceed) {
+        return null;
+      }
+    }
+
+    ciWaitAbortControllers.delete(reviewKey);
+
+    const { model, thinkingLevel } = getGitHubPRSettings();
+    const args = buildRunnerArgs(
+      getRunnerPath(backendPath),
+      project.path,
+      "followup-review-pr",
+      [prNumber.toString()],
+      { model, thinkingLevel }
+    );
+
+    const repo = config?.repo || project.name || "unknown";
+    const logCollector = new PRLogCollector(project, prNumber, repo, true, mainWindow);
+    const followupEnv = await getRunnerEnv(getClaudeMdEnv(project));
+
+    const { process: childProcess, promise } = runPythonSubprocess<PRReviewResult>({
+      pythonPath: getPythonPath(backendPath),
+      args,
+      cwd: backendPath,
+      env: followupEnv,
+      onProgress: (percent, message) => {
+        sendProgress({
+          phase: "analyzing",
+          prNumber,
+          progress: percent,
+          message,
+        });
+      },
+      onStdout: (line) => {
+        debugLog("STDOUT:", line);
+        logCollector.processLine(line);
+      },
+      onStderr: (line) => debugLog("STDERR:", line),
+      onAuthFailure: (authFailureInfo: AuthFailureInfo) => {
+        debugLog("Auth failure detected in follow-up PR review", authFailureInfo);
+        mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+      },
+      onComplete: () => {
+        const reviewResult = getReviewResult(project, prNumber);
+        if (!reviewResult) {
+          throw new Error("Follow-up review completed but result not found");
+        }
+        return reviewResult;
+      },
+      operationRegistration: {
+        operationId: `pr-followup-review:${reviewKey}`,
+        operationType: "pr-review",
+        metadata: { projectId: project.id, prNumber, repo, isFollowup: true },
+      },
+    });
+
+    runningReviews.set(reviewKey, childProcess);
+
+    const result = await promise;
+    if (!result.success) {
+      logCollector.finalize(false);
+      throw new Error(result.error ?? "Follow-up review failed");
+    }
+
+    logCollector.finalize(true);
+    savePRReviewToMemory(result.data!, repo, true).catch((err) => {
+      debugLog("Failed to save follow-up PR review to memory", { error: err.message });
+    });
+
+    prReviewStateManager.handleComplete(projectId, prNumber, result.data!);
+    return result.data!;
+  } finally {
+    runningReviews.delete(reviewKey);
+    ciWaitAbortControllers.delete(reviewKey);
+  }
+}
+
 /**
  * Shared helper to fetch PRs via GraphQL API.
  * Used by both listPRs and listMorePRs handlers to avoid code duplication.
@@ -1682,6 +2194,7 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
 
   // Create the XState-based PR review state manager
   const prReviewStateManager = new PRReviewStateManager(getMainWindow);
+  const prFixLoopStateManager = new PRFixLoopStateManager(getMainWindow);
 
   // Clear all PR review actors when GitHub auth changes (account swap)
   ipcMain.on(IPC_CHANNELS.GITHUB_AUTH_CHANGED, () => {
@@ -1702,8 +2215,18 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
       }
     }
     runningReviews.clear();
+    for (const [, controller] of runningFixLoops) {
+      controller.cancelled = true;
+      try {
+        controller.currentProcess?.kill("SIGTERM");
+      } catch {
+        // Ignore kill failures during auth reset.
+      }
+    }
+    runningFixLoops.clear();
     ciWaitAbortControllers.clear();
     prReviewStateManager.handleAuthChange();
+    prFixLoopStateManager.handleAuthChange();
   });
 
   // List open PRs - fetches up to 100 open PRs at once, returns hasNextPage and endCursor from API
@@ -1897,6 +2420,500 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
       return withProjectOrNull(projectId, async (project) => {
         return loadPRLogs(project, prNumber);
       });
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_FIX_GET_STATE,
+    async (_, projectId: string, prNumber: number): Promise<PRFixLoopStatePayload | null> => {
+      return withProjectOrNull(projectId, async (project) => {
+        const inMemory = snapshotToFixLoopStatePayload(prFixLoopStateManager.getState(projectId, prNumber));
+        if (inMemory) {
+          return inMemory;
+        }
+
+        const persisted = loadPersistedFixLoopState(project, prNumber);
+        if (!persisted) {
+          return null;
+        }
+
+        if (persisted.isRunning) {
+          const interruptedResult: PRFixLoopResult = {
+            state: "failed",
+            prNumber,
+            projectId,
+            iteration: persisted.iteration,
+            maxIterations: persisted.maxIterations,
+            completedAt: new Date().toISOString(),
+            reason: "Fix loop was interrupted before it reached a terminal state.",
+            error: "interrupted",
+            lastCommitSha: persisted.lastCommitSha,
+            lastParentSha: persisted.lastParentSha,
+            lastAttemptSignature: persisted.lastAttemptSignature,
+            reviewResult: persisted.result?.reviewResult ?? null,
+            mergeReadiness: persisted.result?.mergeReadiness ?? null,
+          };
+
+          const interruptedState: PRFixLoopStatePayload = {
+            ...persisted,
+            state: "failed",
+            isRunning: false,
+            updatedAt: new Date().toISOString(),
+            progress: null,
+            result: interruptedResult,
+            error: "Fix loop was interrupted before it reached a terminal state.",
+          };
+          savePersistedFixLoopState(project, interruptedState, {
+            state: "failed",
+            iteration: interruptedState.iteration,
+            timestamp: interruptedState.updatedAt ?? new Date().toISOString(),
+            reason: interruptedResult.reason,
+            error: interruptedState.error ?? undefined,
+            lastCommitSha: interruptedState.lastCommitSha,
+            lastAttemptSignature: interruptedState.lastAttemptSignature,
+          });
+          return interruptedState;
+        }
+
+        return persisted;
+      });
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_FIX_CANCEL,
+    async (_, projectId: string, prNumber: number): Promise<boolean> => {
+      const reviewKey = getReviewKey(projectId, prNumber);
+      const controller = runningFixLoops.get(reviewKey);
+      if (!controller) {
+        return false;
+      }
+
+      controller.cancelled = true;
+      try {
+        controller.currentProcess?.kill("SIGTERM");
+      } catch {
+        // Ignore process kill errors during cancellation.
+      }
+
+      const runningReviewEntry = runningReviews.get(reviewKey);
+      if (runningReviewEntry === CI_WAIT_PLACEHOLDER) {
+        ciWaitAbortControllers.get(reviewKey)?.abort();
+        ciWaitAbortControllers.delete(reviewKey);
+        runningReviews.delete(reviewKey);
+      } else if (runningReviewEntry) {
+        try {
+          runningReviewEntry.kill("SIGTERM");
+        } catch {
+          // Ignore review kill errors during cancellation.
+        }
+        runningReviews.delete(reviewKey);
+      }
+      prReviewStateManager.handleCancel(projectId, prNumber);
+
+      const snapshot = prFixLoopStateManager.getState(projectId, prNumber);
+      const iteration = snapshot?.context.iteration ?? 0;
+      const maxIterations = snapshot?.context.maxIterations ?? 0;
+      const result = createCancelledFixLoopResult(projectId, prNumber, iteration, maxIterations);
+      prFixLoopStateManager.handleCancel(projectId, prNumber, result);
+
+      const payload = snapshotToFixLoopStatePayload(prFixLoopStateManager.getState(projectId, prNumber));
+      if (payload) {
+        await withProjectOrNull(projectId, async (project) => {
+          savePersistedFixLoopState(project, payload, {
+            state: "cancelled",
+            iteration: payload.iteration,
+            timestamp: payload.updatedAt ?? new Date().toISOString(),
+            reason: result.reason,
+          });
+        });
+      }
+
+      runningFixLoops.delete(reviewKey);
+      return true;
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.GITHUB_PR_FIX,
+    async (_, projectId: string, prNumber: number, options?: PRFixLoopOptions): Promise<boolean> => {
+      const mainWindow = getMainWindow();
+      if (!mainWindow) {
+        return false;
+      }
+
+      const reviewKey = getReviewKey(projectId, prNumber);
+      if (runningFixLoops.has(reviewKey)) {
+        return true;
+      }
+
+      const fixLoopController: RunningFixLoop = {
+        cancelled: false,
+        currentProcess: null,
+      };
+      runningFixLoops.set(reviewKey, fixLoopController);
+
+      try {
+        await withProjectOrNull(projectId, async (project) => {
+          if (runningReviews.has(reviewKey)) {
+            throw new Error("A PR review or follow-up review is already running for this PR.");
+          }
+
+          const maxIterations = options?.maxIterations ?? 3;
+          const severityThreshold = options?.severityThreshold ?? "medium";
+
+          prFixLoopStateManager.handleStartLoop(projectId, prNumber, options);
+          persistFixLoopStateFromManager(project, prFixLoopStateManager, projectId, prNumber, "Fix loop started");
+          prFixLoopStateManager.handleProgress(
+            projectId,
+            prNumber,
+            createFixLoopProgress("validating", prNumber, 1, maxIterations, 5, "Validating PR fix loop prerequisites...")
+          );
+          persistFixLoopStateFromManager(project, prFixLoopStateManager, projectId, prNumber, "Validating prerequisites");
+
+          await ensureCleanGitWorktree(project);
+          await checkoutPRBranch(project, prNumber);
+
+          const initialMergeReadiness = await checkPRMergeReadiness(project, prNumber);
+          if (!options?.allowDraft && initialMergeReadiness.isDraft) {
+            const result: PRFixLoopResult = {
+              state: "handoff_required",
+              prNumber,
+              projectId,
+              iteration: 0,
+              maxIterations,
+              completedAt: new Date().toISOString(),
+              reason: "PR is in draft mode. Convert it to ready-for-review before running the fix loop.",
+              mergeReadiness: initialMergeReadiness,
+            };
+            prFixLoopStateManager.handleHandoff(projectId, prNumber, result);
+            persistFixLoopStateFromManager(project, prFixLoopStateManager, projectId, prNumber, result.reason);
+            return;
+          }
+
+          let lastAttemptSignature = loadPersistedFixLoopState(project, prNumber)?.lastAttemptSignature ?? null;
+
+          for (let iteration = 1; iteration <= maxIterations; iteration += 1) {
+            if (fixLoopController.cancelled) {
+              const cancelledResult = createCancelledFixLoopResult(projectId, prNumber, iteration, maxIterations);
+              prFixLoopStateManager.handleCancel(projectId, prNumber, cancelledResult);
+              persistFixLoopStateFromManager(project, prFixLoopStateManager, projectId, prNumber, cancelledResult.reason);
+              return;
+            }
+
+            prFixLoopStateManager.handleProgress(
+              projectId,
+              prNumber,
+              createFixLoopProgress(
+                "validating",
+                prNumber,
+                iteration,
+                maxIterations,
+                10,
+                `Checking current review status before fix iteration ${iteration}/${maxIterations}...`
+              ),
+              { iteration, maxIterations, lastAttemptSignature }
+            );
+            persistFixLoopStateFromManager(project, prFixLoopStateManager, projectId, prNumber, "Checking current review status");
+
+            const currentReview = getReviewResult(project, prNumber);
+            const currentMergeReadiness = await checkPRMergeReadiness(project, prNumber);
+            if (currentReview && isReviewMergeReady(currentReview) && currentMergeReadiness.blockers.length === 0) {
+              const result: PRFixLoopResult = {
+                state: "done",
+                prNumber,
+                projectId,
+                iteration: Math.max(iteration - 1, 0),
+                maxIterations,
+                completedAt: new Date().toISOString(),
+                reason: "PR review already indicates the branch is ready to merge.",
+                reviewResult: currentReview,
+                mergeReadiness: currentMergeReadiness,
+              };
+              prFixLoopStateManager.handleComplete(projectId, prNumber, result);
+              persistFixLoopStateFromManager(project, prFixLoopStateManager, projectId, prNumber, result.reason);
+              return;
+            }
+
+            const validation = await validateGitHubModule(project);
+            if (!validation.valid) {
+              throw new Error(validation.error || "GitHub module validation failed");
+            }
+            const backendPath = validation.backendPath!;
+            const { model, thinkingLevel } = getGitHubPRSettings();
+            const fixArgs = buildRunnerArgs(
+              getRunnerPath(backendPath),
+              project.path,
+              "fix-pr",
+              [
+                prNumber.toString(),
+                "--severity-threshold",
+                severityThreshold,
+                ...(lastAttemptSignature ? ["--last-attempt-signature", lastAttemptSignature] : []),
+              ],
+              { model, thinkingLevel }
+            );
+
+            prFixLoopStateManager.handleProgress(
+              projectId,
+              prNumber,
+              createFixLoopProgress(
+                "fixing",
+                prNumber,
+                iteration,
+                maxIterations,
+                30,
+                `Applying auto-fix iteration ${iteration}/${maxIterations}...`
+              ),
+              { iteration, maxIterations, lastAttemptSignature }
+            );
+            persistFixLoopStateFromManager(project, prFixLoopStateManager, projectId, prNumber, "Applying auto-fix");
+
+            const fixEnv = await getRunnerEnv(getClaudeMdEnv(project));
+            const { process: childProcess, promise } = runPythonSubprocess<PRFixCommandResult>({
+              pythonPath: getPythonPath(backendPath),
+              args: fixArgs,
+              cwd: backendPath,
+              env: fixEnv,
+              onProgress: (percent, message) => {
+                const phase = /push/i.test(message) ? "pushing" : "fixing";
+                prFixLoopStateManager.handleProgress(
+                  projectId,
+                  prNumber,
+                  createFixLoopProgress(
+                    phase,
+                    prNumber,
+                    iteration,
+                    maxIterations,
+                    Math.min(Math.max(percent, 20), 80),
+                    message
+                  ),
+                  { iteration, maxIterations, lastAttemptSignature }
+                );
+                persistFixLoopStateFromManager(project, prFixLoopStateManager, projectId, prNumber, message);
+              },
+              onStdout: (line) => debugLog("fix-pr STDOUT:", line),
+              onStderr: (line) => debugLog("fix-pr STDERR:", line),
+              onAuthFailure: (authFailureInfo: AuthFailureInfo) => {
+                mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
+              },
+              onComplete: (stdout: string) => parseJSONFromOutput<PRFixCommandResult>(stdout),
+            });
+
+            fixLoopController.currentProcess = childProcess;
+            const fixResult = await promise;
+            fixLoopController.currentProcess = null;
+
+            if (!fixResult.success || !fixResult.data) {
+              throw new Error(fixResult.error ?? "fix-pr command failed");
+            }
+
+            const fixData = fixResult.data;
+            lastAttemptSignature = fixData.attempt_signature ?? lastAttemptSignature;
+            prFixLoopStateManager.handleProgress(
+              projectId,
+              prNumber,
+              createFixLoopProgress(
+                "pushing",
+                prNumber,
+                iteration,
+                maxIterations,
+                80,
+                fixData.reason ?? "Fix round finished."
+              ),
+              {
+                iteration,
+                maxIterations,
+                lastCommitSha: fixData.commit_sha ?? null,
+                lastParentSha: fixData.parent_sha ?? null,
+                lastAttemptSignature,
+              }
+            );
+            persistFixLoopStateFromManager(project, prFixLoopStateManager, projectId, prNumber, fixData.reason);
+
+            if (fixData.status === "failed") {
+              const result = mapFixCommandToTerminalResult(
+                projectId,
+                prNumber,
+                iteration,
+                maxIterations,
+                "failed",
+                fixData
+              );
+              prFixLoopStateManager.handleFailureResult(projectId, prNumber, result);
+              persistFixLoopStateFromManager(project, prFixLoopStateManager, projectId, prNumber, result.reason);
+              return;
+            }
+
+            if (fixData.status === "handoff") {
+              const result = mapFixCommandToTerminalResult(
+                projectId,
+                prNumber,
+                iteration,
+                maxIterations,
+                "handoff_required",
+                fixData
+              );
+              prFixLoopStateManager.handleHandoff(projectId, prNumber, result);
+              persistFixLoopStateFromManager(project, prFixLoopStateManager, projectId, prNumber, result.reason);
+              return;
+            }
+
+            if (fixData.status === "noop") {
+              const result = mapFixCommandToTerminalResult(
+                projectId,
+                prNumber,
+                iteration,
+                maxIterations,
+                currentReview && isReviewMergeReady(currentReview) && currentMergeReadiness.blockers.length === 0
+                  ? "done"
+                  : "handoff_required",
+                fixData,
+                { reviewResult: currentReview, mergeReadiness: currentMergeReadiness }
+              );
+
+              if (result.state === "done") {
+                prFixLoopStateManager.handleComplete(projectId, prNumber, result);
+              } else {
+                prFixLoopStateManager.handleHandoff(projectId, prNumber, result);
+              }
+              persistFixLoopStateFromManager(project, prFixLoopStateManager, projectId, prNumber, result.reason);
+              return;
+            }
+
+            if (fixLoopController.cancelled) {
+              const cancelledResult = createCancelledFixLoopResult(projectId, prNumber, iteration, maxIterations);
+              prFixLoopStateManager.handleCancel(projectId, prNumber, cancelledResult);
+              persistFixLoopStateFromManager(project, prFixLoopStateManager, projectId, prNumber, cancelledResult.reason);
+              return;
+            }
+
+            prFixLoopStateManager.handleProgress(
+              projectId,
+              prNumber,
+              createFixLoopProgress(
+                "followup_reviewing",
+                prNumber,
+                iteration,
+                maxIterations,
+                85,
+                `Running follow-up review after auto-fix iteration ${iteration}/${maxIterations}...`
+              ),
+              {
+                iteration,
+                maxIterations,
+                lastCommitSha: fixData.commit_sha ?? null,
+                lastParentSha: fixData.parent_sha ?? null,
+                lastAttemptSignature,
+              }
+            );
+            persistFixLoopStateFromManager(project, prFixLoopStateManager, projectId, prNumber, "Running follow-up review");
+
+            const followupResult = await runFollowupReviewSubprocess(
+              project,
+              prNumber,
+              mainWindow,
+              prReviewStateManager,
+              { onDuplicate: "throw" }
+            );
+            if (!followupResult) {
+              throw new Error("Follow-up review did not produce a result");
+            }
+
+            prFixLoopStateManager.handleProgress(
+              projectId,
+              prNumber,
+              createFixLoopProgress(
+                "judging",
+                prNumber,
+                iteration,
+                maxIterations,
+                95,
+                `Judging follow-up review outcome for iteration ${iteration}/${maxIterations}...`
+              ),
+              {
+                iteration,
+                maxIterations,
+                lastCommitSha: fixData.commit_sha ?? null,
+                lastParentSha: fixData.parent_sha ?? null,
+                lastAttemptSignature,
+              }
+            );
+            persistFixLoopStateFromManager(project, prFixLoopStateManager, projectId, prNumber, "Judging follow-up review");
+
+            const mergeReadiness = await checkPRMergeReadiness(project, prNumber);
+            if (mergeReadiness.ciStatus === "pending") {
+              const result: PRFixLoopResult = {
+                state: "handoff_required",
+                prNumber,
+                projectId,
+                iteration,
+                maxIterations,
+                completedAt: new Date().toISOString(),
+                reason: "CI is still pending after the auto-fix push. Handing off for manual follow-up.",
+                lastCommitSha: fixData.commit_sha ?? null,
+                lastParentSha: fixData.parent_sha ?? null,
+                lastAttemptSignature,
+                reviewResult: followupResult,
+                mergeReadiness,
+              };
+              prFixLoopStateManager.handleHandoff(projectId, prNumber, result);
+              persistFixLoopStateFromManager(project, prFixLoopStateManager, projectId, prNumber, result.reason);
+              return;
+            }
+
+            if (isReviewMergeReady(followupResult) && mergeReadiness.blockers.length === 0) {
+              const result: PRFixLoopResult = {
+                state: "done",
+                prNumber,
+                projectId,
+                iteration,
+                maxIterations,
+                completedAt: new Date().toISOString(),
+                reason: "No blocking findings remain and merge readiness checks are clear.",
+                lastCommitSha: fixData.commit_sha ?? null,
+                lastParentSha: fixData.parent_sha ?? null,
+                lastAttemptSignature,
+                reviewResult: followupResult,
+                mergeReadiness,
+              };
+              prFixLoopStateManager.handleComplete(projectId, prNumber, result);
+              persistFixLoopStateFromManager(project, prFixLoopStateManager, projectId, prNumber, result.reason);
+              return;
+            }
+
+            if (iteration >= maxIterations) {
+              const result: PRFixLoopResult = {
+                state: "failed",
+                prNumber,
+                projectId,
+                iteration,
+                maxIterations,
+                completedAt: new Date().toISOString(),
+                reason: `Reached the maximum number of fix iterations (${maxIterations}) without convergence.`,
+                lastCommitSha: fixData.commit_sha ?? null,
+                lastParentSha: fixData.parent_sha ?? null,
+                lastAttemptSignature,
+                reviewResult: followupResult,
+                mergeReadiness,
+              };
+              prFixLoopStateManager.handleFailureResult(projectId, prNumber, result);
+              persistFixLoopStateFromManager(project, prFixLoopStateManager, projectId, prNumber, result.reason);
+              return;
+            }
+          }
+        });
+        return true;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to run PR fix loop";
+        prFixLoopStateManager.handleError(projectId, prNumber, message);
+        await withProjectOrNull(projectId, async (project) => {
+          persistFixLoopStateFromManager(project, prFixLoopStateManager, projectId, prNumber, message);
+        });
+        return false;
+      } finally {
+        runningFixLoops.delete(reviewKey);
+      }
     }
   );
 
@@ -2727,140 +3744,19 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
     IPC_CHANNELS.GITHUB_PR_CHECK_MERGE_READINESS,
     async (_, projectId: string, prNumber: number): Promise<MergeReadiness> => {
       debugLog("checkMergeReadiness handler called", { projectId, prNumber });
+      const result = await withProjectOrNull(projectId, async (project) => {
+        const readiness = await checkPRMergeReadiness(project, prNumber);
+        debugLog("checkMergeReadiness result", { prNumber, ...readiness });
+        return readiness;
+      });
 
-      const defaultResult: MergeReadiness = {
+      return result ?? {
         isDraft: false,
         mergeable: "UNKNOWN",
         isBehind: false,
         ciStatus: "none",
         blockers: [],
       };
-
-      const result = await withProjectOrNull(projectId, async (project) => {
-        const config = getGitHubConfig(project);
-        if (!config) {
-          debugLog("No GitHub config found for checkMergeReadiness");
-          return defaultResult;
-        }
-
-        try {
-          // Fetch PR data including mergeable status
-          const pr = (await githubFetch(
-            config.token,
-            `/repos/${config.repo}/pulls/${prNumber}`
-          )) as {
-            draft: boolean;
-            mergeable: boolean | null;
-            mergeable_state: string;
-            head: { sha: string };
-          };
-
-          // Determine mergeable status
-          let mergeable: MergeReadiness["mergeable"] = "UNKNOWN";
-          if (pr.mergeable === true) {
-            mergeable = "MERGEABLE";
-          } else if (pr.mergeable === false || pr.mergeable_state === "dirty") {
-            mergeable = "CONFLICTING";
-          }
-
-          // Check if branch is behind base (out of date)
-          // GitHub's mergeable_state can be: 'behind', 'blocked', 'clean', 'dirty', 'has_hooks', 'unknown', 'unstable'
-          const isBehind = pr.mergeable_state === "behind";
-
-          // Fetch combined commit status for CI
-          let ciStatus: MergeReadiness["ciStatus"] = "none";
-          try {
-            const status = (await githubFetch(
-              config.token,
-              `/repos/${config.repo}/commits/${pr.head.sha}/status`
-            )) as {
-              state: "success" | "pending" | "failure" | "error";
-              total_count: number;
-            };
-
-            if (status.total_count === 0) {
-              // No status checks, check for check runs (GitHub Actions)
-              const checkRuns = (await githubFetch(
-                config.token,
-                `/repos/${config.repo}/commits/${pr.head.sha}/check-runs`
-              )) as {
-                total_count: number;
-                check_runs: Array<{ conclusion: string | null; status: string }>;
-              };
-
-              if (checkRuns.total_count > 0) {
-                const hasFailing = checkRuns.check_runs.some(
-                  (cr) => cr.conclusion === "failure" || cr.conclusion === "cancelled"
-                );
-                const hasPending = checkRuns.check_runs.some((cr) => cr.status !== "completed");
-
-                if (hasFailing) {
-                  ciStatus = "failing";
-                } else if (hasPending) {
-                  ciStatus = "pending";
-                } else {
-                  ciStatus = "passing";
-                }
-              }
-            } else {
-              // Use combined status
-              if (status.state === "success") {
-                ciStatus = "passing";
-              } else if (status.state === "pending") {
-                ciStatus = "pending";
-              } else {
-                ciStatus = "failing";
-              }
-            }
-          } catch (err) {
-            debugLog("Failed to fetch CI status", {
-              prNumber,
-              error: err instanceof Error ? err.message : err,
-            });
-            // Continue without CI status
-          }
-
-          // Build blockers list
-          const blockers: string[] = [];
-          if (pr.draft) {
-            blockers.push("PR is in draft mode");
-          }
-          if (mergeable === "CONFLICTING") {
-            blockers.push("Merge conflicts detected");
-          }
-          if (isBehind) {
-            blockers.push("Branch is out of date with base branch. Update to check for conflicts.");
-          }
-          if (ciStatus === "failing") {
-            blockers.push("CI checks are failing");
-          }
-
-          debugLog("checkMergeReadiness result", {
-            prNumber,
-            isDraft: pr.draft,
-            mergeable,
-            isBehind,
-            ciStatus,
-            blockers,
-          });
-
-          return {
-            isDraft: pr.draft,
-            mergeable,
-            isBehind,
-            ciStatus,
-            blockers,
-          };
-        } catch (error) {
-          debugLog("Failed to check merge readiness", {
-            prNumber,
-            error: error instanceof Error ? error.message : error,
-          });
-          return defaultResult;
-        }
-      });
-
-      return result ?? defaultResult;
     }
   );
 
@@ -2933,227 +3829,28 @@ export function registerPRHandlers(getMainWindow: () => BrowserWindow | null): v
         debugLog("No main window available");
         return;
       }
+      const activeMainWindow = mainWindow;
 
       try {
         await withProjectOrNull(projectId, async (project) => {
-          const sendProgress = (progress: PRReviewProgress): void => {
-            prReviewStateManager.handleProgress(projectId, prNumber, progress);
-          };
-
-          const reviewKey = getReviewKey(projectId, prNumber);
-
-          // Check if already running — notify renderer so it can display ongoing logs
-          if (runningReviews.has(reviewKey)) {
-            debugLog("Follow-up review already running, notifying renderer", { reviewKey });
-            const currentSnapshot = prReviewStateManager.getState(projectId, prNumber);
-            const currentProgress = currentSnapshot?.context?.progress?.progress ?? 50;
-            sendProgress({
-              phase: "analyzing",
-              prNumber,
-              progress: currentProgress,
-              message: "Follow-up review is already in progress. Reconnecting to ongoing review...",
-            });
-            return;
-          }
-
-          // Get previous result for followup context
-          const previousResult = getReviewResult(project, prNumber) ?? undefined;
-
-          // Notify state manager that followup review is starting (after duplicate check)
-          prReviewStateManager.handleStartFollowupReview(projectId, prNumber, previousResult);
-
-          // Comprehensive validation of GitHub module
-          const validation = await validateGitHubModule(project);
-          if (!validation.valid) {
-            prReviewStateManager.handleError(projectId, prNumber, validation.error || "GitHub module validation failed");
-            return;
-          }
-
-          const backendPath = validation.backendPath!;
-
-          // Register as running BEFORE CI wait to prevent race conditions
-          // Use CI_WAIT_PLACEHOLDER sentinel until real process is spawned
-          runningReviews.set(reviewKey, CI_WAIT_PLACEHOLDER);
-          const abortController = new AbortController();
-          ciWaitAbortControllers.set(reviewKey, abortController);
-          debugLog("Registered follow-up review placeholder", { reviewKey });
-
-          try {
-            debugLog("Starting follow-up review", { prNumber });
-            sendProgress({
-              phase: "fetching",
-              prNumber,
-              progress: 5,
-              message: "Starting follow-up review...",
-            });
-
-            // Wait for CI checks to complete before starting follow-up review
-            const config = getGitHubConfig(project);
-            if (config) {
-              const shouldProceed = await performCIWaitCheck(
-                config,
-                prNumber,
-                sendProgress,
-                "follow-up review",
-                abortController.signal
-              );
-              if (!shouldProceed) {
-                debugLog("Follow-up review cancelled during CI wait", { reviewKey });
-                return;
-              }
-            }
-
-            // Clean up abort controller since CI wait is done
-            ciWaitAbortControllers.delete(reviewKey);
-
-            const { model, thinkingLevel } = getGitHubPRSettings();
-          const args = buildRunnerArgs(
-            getRunnerPath(backendPath),
-            project.path,
-            "followup-review-pr",
-            [prNumber.toString()],
-            { model, thinkingLevel }
+          await runFollowupReviewSubprocess(
+            project,
+            prNumber,
+            activeMainWindow,
+            prReviewStateManager,
+            { onDuplicate: "return" }
           );
-
-          debugLog("Spawning follow-up review process", { args, model, thinkingLevel });
-
-          safeBreadcrumb({
-            category: 'pr-review',
-            message: 'Spawning follow-up PR review subprocess',
-            level: 'info',
-            data: {
-              pythonPath: getPythonPath(backendPath),
-              runnerPath: getRunnerPath(backendPath),
-              cwd: backendPath,
-              model,
-              thinkingLevel,
-              prNumber,
-            },
-          });
-
-          // Create log collector for this follow-up review (config already declared above)
-          const repo = config?.repo || project.name || "unknown";
-          const logCollector = new PRLogCollector(project, prNumber, repo, true, mainWindow);
-
-          // Build environment with project settings
-          const followupEnv = await getRunnerEnv(getClaudeMdEnv(project));
-
-          safeBreadcrumb({
-            category: 'github.pr-review',
-            message: `Subprocess env for PR #${prNumber} follow-up review`,
-            level: 'info',
-            data: {
-              prNumber,
-              hasGITHUB_CLI_PATH: !!followupEnv.GITHUB_CLI_PATH,
-              GITHUB_CLI_PATH: followupEnv.GITHUB_CLI_PATH ?? 'NOT SET',
-              hasGITHUB_TOKEN: !!followupEnv.GITHUB_TOKEN,
-              hasPYTHONPATH: !!followupEnv.PYTHONPATH,
-            },
-          });
-
-          const { process: childProcess, promise } = runPythonSubprocess<PRReviewResult>({
-            pythonPath: getPythonPath(backendPath),
-            args,
-            cwd: backendPath,
-            env: followupEnv,
-            onProgress: (percent, message) => {
-              debugLog("Progress update", { percent, message });
-              sendProgress({
-                phase: "analyzing",
-                prNumber,
-                progress: percent,
-                message,
-              });
-            },
-            onStdout: (line) => {
-              debugLog("STDOUT:", line);
-              // Collect log entries
-              logCollector.processLine(line);
-            },
-            onStderr: (line) => debugLog("STDERR:", line),
-            onAuthFailure: (authFailureInfo: AuthFailureInfo) => {
-              // Send auth failure to renderer to show modal
-              debugLog("Auth failure detected in follow-up PR review", authFailureInfo);
-              mainWindow.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
-            },
-            onComplete: () => {
-              // Load the result from disk
-              const reviewResult = getReviewResult(project, prNumber);
-              if (!reviewResult) {
-                throw new Error("Follow-up review completed but result not found");
-              }
-              debugLog("Follow-up review result loaded", {
-                findingsCount: reviewResult.findings.length,
-              });
-              return reviewResult;
-            },
-            // Register with OperationRegistry for proactive swap support
-            operationRegistration: {
-              operationId: `pr-followup-review:${reviewKey}`,
-              operationType: 'pr-review',
-              metadata: { projectId: project.id, prNumber, repo, isFollowup: true },
-            },
-          });
-
-          // Update registry with actual process (replacing placeholder)
-          runningReviews.set(reviewKey, childProcess);
-          debugLog("Registered follow-up review process", { reviewKey, pid: childProcess.pid });
-
-            const result = await promise;
-
-            safeBreadcrumb({
-              category: 'pr-review',
-              message: 'Follow-up PR review subprocess exited',
-              level: result.success ? 'info' : 'error',
-              data: { exitCode: result.exitCode, success: result.success, prNumber },
-            });
-
-            if (!result.success) {
-              // Finalize logs with failure
-              logCollector.finalize(false);
-
-              safeCaptureException(
-                new Error(`Follow-up PR review subprocess failed: ${result.error ?? 'unknown error'}`),
-                { extra: { exitCode: result.exitCode, prNumber, stderr: sanitizeForSentry(result.stderr.slice(0, 500)) } }
-              );
-
-              throw new Error(result.error ?? "Follow-up review failed");
-            }
-
-            // Finalize logs with success
-            logCollector.finalize(true);
-
-            // Save follow-up PR review insights to memory (async, non-blocking)
-            savePRReviewToMemory(result.data!, repo, true).catch((err) => {
-              debugLog("Failed to save follow-up PR review to memory", { error: err.message });
-            });
-
-            debugLog("Follow-up review completed", {
-              prNumber,
-              findingsCount: result.data?.findings.length,
-            });
-            sendProgress({
-              phase: "complete",
-              prNumber,
-              progress: 100,
-              message: "Follow-up review complete!",
-            });
-
-            // Route through state manager
-            prReviewStateManager.handleComplete(projectId, prNumber, result.data!);
-          } finally {
-            // Always clean up registry, whether we exit normally or via error
-            runningReviews.delete(reviewKey);
-            ciWaitAbortControllers.delete(reviewKey);
-            debugLog("Unregistered follow-up review process", { reviewKey });
-          }
         });
       } catch (error) {
         debugLog("Follow-up review failed", {
           prNumber,
           error: error instanceof Error ? error.message : error,
         });
-        prReviewStateManager.handleError(projectId, prNumber, error instanceof Error ? error.message : "Failed to run follow-up review");
+        prReviewStateManager.handleError(
+          projectId,
+          prNumber,
+          error instanceof Error ? error.message : "Failed to run follow-up review"
+        );
       }
     }
   );

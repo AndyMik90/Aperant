@@ -404,6 +404,8 @@ export const IPC_CHANNELS = {
   GITHUB_PR_ASSIGN: 'github:pr:assign',
   GITHUB_PR_POST_COMMENT: 'github:pr:postComment',
   GITHUB_PR_FIX: 'github:pr:fix',
+  GITHUB_PR_FIX_CANCEL: 'github:pr:fixCancel',
+  GITHUB_PR_FIX_GET_STATE: 'github:pr:getFixState',
   GITHUB_PR_FOLLOWUP_REVIEW: 'github:pr:followupReview',
   GITHUB_PR_CHECK_NEW_COMMITS: 'github:pr:checkNewCommits',
   GITHUB_PR_CHECK_MERGE_READINESS: 'github:pr:checkMergeReadiness',
@@ -416,6 +418,10 @@ export const IPC_CHANNELS = {
   GITHUB_PR_REVIEW_COMPLETE: 'github:pr:reviewComplete',
   GITHUB_PR_REVIEW_ERROR: 'github:pr:reviewError',
   GITHUB_PR_REVIEW_STATE_CHANGE: 'github:pr:reviewStateChange',
+  GITHUB_PR_FIX_PROGRESS: 'github:pr:fixProgress',
+  GITHUB_PR_FIX_COMPLETE: 'github:pr:fixComplete',
+  GITHUB_PR_FIX_ERROR: 'github:pr:fixError',
+  GITHUB_PR_FIX_STATE_CHANGE: 'github:pr:fixStateChange',
   GITHUB_PR_LOGS_UPDATED: 'github:pr:logsUpdated',
 
   // GitHub PR Logs (for viewing AI review logs)

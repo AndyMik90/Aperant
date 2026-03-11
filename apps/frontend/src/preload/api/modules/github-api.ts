@@ -276,6 +276,9 @@ export interface GitHubAPI {
   getPR: (projectId: string, prNumber: number) => Promise<PRData | null>;
   runPRReview: (projectId: string, prNumber: number) => void;
   cancelPRReview: (projectId: string, prNumber: number) => Promise<boolean>;
+  runPRFixLoop: (projectId: string, prNumber: number, options?: PRFixLoopOptions) => Promise<boolean>;
+  cancelPRFixLoop: (projectId: string, prNumber: number) => Promise<boolean>;
+  getPRFixLoopState: (projectId: string, prNumber: number) => Promise<PRFixLoopStatePayload | null>;
   postPRReview: (projectId: string, prNumber: number, selectedFindingIds?: string[], options?: { forceApprove?: boolean }) => Promise<boolean>;
   deletePRReview: (projectId: string, prNumber: number) => Promise<boolean>;
   postPRComment: (projectId: string, prNumber: number, body: string) => Promise<boolean>;
@@ -313,6 +316,18 @@ export interface GitHubAPI {
   ) => IpcListenerCleanup;
   onPRReviewStateChange: (
     callback: (key: string, state: PRReviewStatePayload) => void
+  ) => IpcListenerCleanup;
+  onPRFixLoopProgress: (
+    callback: (projectId: string, progress: PRFixLoopProgress) => void
+  ) => IpcListenerCleanup;
+  onPRFixLoopComplete: (
+    callback: (projectId: string, result: PRFixLoopResult) => void
+  ) => IpcListenerCleanup;
+  onPRFixLoopError: (
+    callback: (projectId: string, error: { prNumber: number; error: string }) => void
+  ) => IpcListenerCleanup;
+  onPRFixLoopStateChange: (
+    callback: (key: string, state: PRFixLoopStatePayload) => void
   ) => IpcListenerCleanup;
   onPRLogsUpdated: (
     callback: (projectId: string, data: { prNumber: number; entryCount: number }) => void
@@ -401,6 +416,9 @@ export interface PRReviewResult {
   reviewId?: number;
   reviewedAt: string;
   error?: string;
+  verdict?: 'ready_to_merge' | 'merge_with_changes' | 'needs_revision' | 'blocked';
+  verdictReasoning?: string;
+  blockers?: string[];
   // Follow-up review fields
   reviewedCommitSha?: string;
   reviewedFileBlobs?: Record<string, string>; // filename → blob SHA for rebase-resistant follow-ups
@@ -477,6 +495,66 @@ export interface PRReviewStatePayload {
   error: string | null;
   isExternalReview: boolean;
   isFollowup: boolean;
+}
+
+export type PRFixLoopState =
+  | 'idle'
+  | 'validating'
+  | 'fixing'
+  | 'pushing'
+  | 'followup_reviewing'
+  | 'judging'
+  | 'done'
+  | 'failed'
+  | 'cancelled'
+  | 'handoff_required';
+
+export interface PRFixLoopOptions {
+  maxIterations?: number;
+  severityThreshold?: 'critical' | 'high' | 'medium' | 'low';
+  allowDraft?: boolean;
+}
+
+export interface PRFixLoopProgress {
+  phase: Exclude<PRFixLoopState, 'idle' | 'done' | 'failed' | 'cancelled' | 'handoff_required'>;
+  prNumber: number;
+  iteration: number;
+  maxIterations: number;
+  progress: number;
+  message: string;
+}
+
+export interface PRFixLoopResult {
+  state: Extract<PRFixLoopState, 'done' | 'failed' | 'cancelled' | 'handoff_required'>;
+  prNumber: number;
+  projectId: string;
+  iteration: number;
+  maxIterations: number;
+  completedAt: string;
+  reason?: string;
+  error?: string;
+  lastCommitSha?: string | null;
+  lastParentSha?: string | null;
+  lastAttemptSignature?: string | null;
+  reviewResult?: PRReviewResult | null;
+  mergeReadiness?: MergeReadiness | null;
+}
+
+export interface PRFixLoopStatePayload {
+  state: PRFixLoopState;
+  prNumber: number;
+  projectId: string;
+  isRunning: boolean;
+  startedAt: string | null;
+  updatedAt: string | null;
+  iteration: number;
+  maxIterations: number;
+  progress: PRFixLoopProgress | null;
+  result: PRFixLoopResult | null;
+  error: string | null;
+  lastCommitSha: string | null;
+  lastParentSha: string | null;
+  lastAttemptSignature: string | null;
 }
 
 /**
@@ -739,6 +817,15 @@ export const createGitHubAPI = (): GitHubAPI => ({
   cancelPRReview: (projectId: string, prNumber: number): Promise<boolean> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_REVIEW_CANCEL, projectId, prNumber),
 
+  runPRFixLoop: (projectId: string, prNumber: number, options?: PRFixLoopOptions): Promise<boolean> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_FIX, projectId, prNumber, options),
+
+  cancelPRFixLoop: (projectId: string, prNumber: number): Promise<boolean> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_FIX_CANCEL, projectId, prNumber),
+
+  getPRFixLoopState: (projectId: string, prNumber: number): Promise<PRFixLoopStatePayload | null> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_PR_FIX_GET_STATE, projectId, prNumber),
+
   postPRReview: (projectId: string, prNumber: number, selectedFindingIds?: string[], options?: { forceApprove?: boolean }): Promise<boolean> =>
     invokeIpc(IPC_CHANNELS.GITHUB_PR_POST_REVIEW, projectId, prNumber, selectedFindingIds, options),
 
@@ -811,6 +898,26 @@ export const createGitHubAPI = (): GitHubAPI => ({
     callback: (key: string, state: PRReviewStatePayload) => void
   ): IpcListenerCleanup =>
     createIpcListener(IPC_CHANNELS.GITHUB_PR_REVIEW_STATE_CHANGE, callback),
+
+  onPRFixLoopProgress: (
+    callback: (projectId: string, progress: PRFixLoopProgress) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITHUB_PR_FIX_PROGRESS, callback),
+
+  onPRFixLoopComplete: (
+    callback: (projectId: string, result: PRFixLoopResult) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITHUB_PR_FIX_COMPLETE, callback),
+
+  onPRFixLoopError: (
+    callback: (projectId: string, error: { prNumber: number; error: string }) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITHUB_PR_FIX_ERROR, callback),
+
+  onPRFixLoopStateChange: (
+    callback: (key: string, state: PRFixLoopStatePayload) => void
+  ): IpcListenerCleanup =>
+    createIpcListener(IPC_CHANNELS.GITHUB_PR_FIX_STATE_CHANGE, callback),
 
   onPRLogsUpdated: (
     callback: (projectId: string, data: { prNumber: number; entryCount: number }) => void

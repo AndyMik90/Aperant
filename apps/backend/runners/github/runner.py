@@ -36,6 +36,9 @@ Usage:
 
     # Show batch status
     python runner.py batch-status
+
+    # Apply one PR auto-fix round
+    python runner.py fix-pr 123 --severity-threshold medium
 """
 
 from __future__ import annotations
@@ -341,6 +344,44 @@ async def cmd_followup_review_pr(args) -> int:
     else:
         safe_print(f"\nFollow-up review failed: {result.error}")
         return 1
+
+
+async def cmd_fix_pr(args) -> int:
+    """Apply a single safe auto-fix round for a pull request."""
+    import sys
+
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(line_buffering=True)
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(line_buffering=True)
+
+    config = get_config(args)
+
+    try:
+        from runners.github.services.pr_fix_loop_service import PRFixLoopService
+    except ImportError:
+        from .services.pr_fix_loop_service import PRFixLoopService
+
+    project_dir = Path(args.project)
+    github_dir = project_dir / ".auto-claude" / "github"
+    github_dir.mkdir(parents=True, exist_ok=True)
+
+    service = PRFixLoopService(
+        project_dir=project_dir,
+        github_dir=github_dir,
+        config=config,
+        progress_callback=print_progress,
+    )
+
+    result = await service.fix_pr(
+        args.pr_number,
+        severity_threshold=args.severity_threshold,
+        last_attempt_signature=args.last_attempt_signature,
+    )
+
+    safe_print("JSON Output")
+    safe_print(json.dumps(result.to_dict(), ensure_ascii=False))
+    return 0 if result.status in {"fixed", "noop", "handoff"} else 1
 
 
 async def cmd_triage(args) -> int:
@@ -727,6 +768,24 @@ def main():
     )
     followup_parser.add_argument("pr_number", type=int, help="PR number to review")
 
+    # fix-pr command
+    fix_parser = subparsers.add_parser(
+        "fix-pr",
+        help="Apply one safe auto-fix round for a pull request",
+    )
+    fix_parser.add_argument("pr_number", type=int, help="PR number to fix")
+    fix_parser.add_argument(
+        "--severity-threshold",
+        default="medium",
+        choices=["critical", "high", "medium", "low"],
+        help="Minimum finding severity to include in the auto-fix round",
+    )
+    fix_parser.add_argument(
+        "--last-attempt-signature",
+        default=None,
+        help="Previous attempt signature used to prevent repeated no-op fix rounds",
+    )
+
     # triage command
     triage_parser = subparsers.add_parser("triage", help="Triage issues")
     triage_parser.add_argument(
@@ -819,6 +878,7 @@ def main():
     commands = {
         "review-pr": cmd_review_pr,
         "followup-review-pr": cmd_followup_review_pr,
+        "fix-pr": cmd_fix_pr,
         "triage": cmd_triage,
         "auto-fix": cmd_auto_fix,
         "check-auto-fix-labels": cmd_check_labels,

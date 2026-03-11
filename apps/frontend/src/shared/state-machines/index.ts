@@ -18,6 +18,9 @@ export {
 } from './pr-review-state-utils';
 export type { PRReviewStateName } from './pr-review-state-utils';
 
+export { prFixLoopMachine } from './pr-fix-loop-machine';
+export type { PRFixLoopContext, PRFixLoopEvent } from './pr-fix-loop-machine';
+
 export { terminalMachine } from './terminal-machine';
 export type { TerminalContext, TerminalEvent } from './terminal-machine';
 

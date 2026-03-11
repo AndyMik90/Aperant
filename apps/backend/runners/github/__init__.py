@@ -22,7 +22,6 @@ from .models import (
     TriageCategory,
     TriageResult,
 )
-from .orchestrator import GitHubOrchestrator
 
 __all__ = [
     # Orchestrator
@@ -39,3 +38,11 @@ __all__ = [
     "TriageCategory",
     "AutoFixStatus",
 ]
+
+
+def __getattr__(name: str):
+    if name == "GitHubOrchestrator":
+        from .orchestrator import GitHubOrchestrator
+
+        return GitHubOrchestrator
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

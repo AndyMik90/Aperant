@@ -4,9 +4,12 @@ import type {
   PRReviewResult,
   PRReviewProgress,
   NewCommitsCheck,
+  PRFixLoopOptions,
+  PRFixLoopStatePayload,
 } from "../../../../preload/api/modules/github-api";
 import {
   usePRReviewStore,
+  usePRFixLoopStore,
 } from "../../../stores/github";
 
 // Re-export types for consumers
@@ -33,6 +36,8 @@ interface UseGitHubPRsResult {
   isExternalReview: boolean;
   previousReviewResult: PRReviewResult | null;
   reviewError: string | null;
+  fixLoopState: PRFixLoopStatePayload | null;
+  isFixLoopRunning: boolean;
   isConnected: boolean;
   repoFullName: string | null;
   activePRReviews: number[]; // PR numbers currently being reviewed
@@ -42,6 +47,9 @@ interface UseGitHubPRsResult {
   loadMore: () => Promise<void>; // Load next page of PRs
   runReview: (prNumber: number) => void;
   runFollowupReview: (prNumber: number) => void;
+  runPRFixLoop: (prNumber: number, options?: PRFixLoopOptions) => Promise<boolean>;
+  cancelPRFixLoop: (prNumber: number) => Promise<boolean>;
+  getPRFixLoopStateForPR: (prNumber: number) => PRFixLoopStatePayload | null;
   checkNewCommits: (prNumber: number) => Promise<NewCommitsCheck>;
   cancelReview: (prNumber: number) => Promise<boolean>;
   postReview: (
@@ -100,6 +108,8 @@ export function useGitHubPRs(
   const setNewCommitsCheckAction = usePRReviewStore((state) => state.setNewCommitsCheck);
   const registerRefreshCallback = usePRReviewStore((state) => state.registerRefreshCallback);
   const unregisterRefreshCallback = usePRReviewStore((state) => state.unregisterRefreshCallback);
+  const prFixLoops = usePRFixLoopStore((state) => state.prFixLoops);
+  const getStoredPRFixLoopState = usePRFixLoopStore((state) => state.getPRFixLoopState);
 
   // Get review state for the selected PR from the store - optimized with targeted selector
   // Only subscribes to changes for this specific PR, not all PRs
@@ -117,6 +127,30 @@ export function useGitHubPRs(
   const previousReviewResult = selectedPRReviewState?.previousResult ?? null;
   const startedAt = selectedPRReviewState?.startedAt ?? null;
   const reviewError = selectedPRReviewState?.error ?? null;
+  const selectedPRFixLoopState = usePRFixLoopStore((state) => {
+    if (!projectId || selectedPRNumber === null) return null;
+    const key = `${projectId}:${selectedPRNumber}`;
+    return state.prFixLoops[key] ?? null;
+  });
+  const fixLoopState = selectedPRFixLoopState
+    ? ({
+        state: selectedPRFixLoopState.state,
+        prNumber: selectedPRFixLoopState.prNumber,
+        projectId: selectedPRFixLoopState.projectId,
+        isRunning: selectedPRFixLoopState.isRunning,
+        startedAt: selectedPRFixLoopState.startedAt,
+        updatedAt: selectedPRFixLoopState.updatedAt,
+        iteration: selectedPRFixLoopState.iteration,
+        maxIterations: selectedPRFixLoopState.maxIterations,
+        progress: selectedPRFixLoopState.progress,
+        result: selectedPRFixLoopState.result,
+        error: selectedPRFixLoopState.error,
+        lastCommitSha: selectedPRFixLoopState.lastCommitSha,
+        lastParentSha: selectedPRFixLoopState.lastParentSha,
+        lastAttemptSignature: selectedPRFixLoopState.lastAttemptSignature,
+      } satisfies PRFixLoopStatePayload)
+    : null;
+  const isFixLoopRunning = selectedPRFixLoopState?.isRunning ?? false;
 
   // Get list of PR numbers currently being reviewed
   const activePRReviews = useMemo(() => {
@@ -125,6 +159,31 @@ export function useGitHubPRs(
       .filter((review) => review.projectId === projectId && review.isReviewing)
       .map((review) => review.prNumber);
   }, [projectId, prReviews]);
+
+  const getPRFixLoopStateForPR = useCallback(
+    (prNumber: number): PRFixLoopStatePayload | null => {
+      if (!projectId) return null;
+      const state = getStoredPRFixLoopState(projectId, prNumber);
+      if (!state) return null;
+      return {
+        state: state.state,
+        prNumber: state.prNumber,
+        projectId: state.projectId,
+        isRunning: state.isRunning,
+        startedAt: state.startedAt,
+        updatedAt: state.updatedAt,
+        iteration: state.iteration,
+        maxIterations: state.maxIterations,
+        progress: state.progress,
+        result: state.result,
+        error: state.error,
+        lastCommitSha: state.lastCommitSha,
+        lastParentSha: state.lastParentSha,
+        lastAttemptSignature: state.lastAttemptSignature,
+      };
+    },
+    [projectId, getStoredPRFixLoopState, prFixLoops]
+  );
 
   // Helper to get review state for any PR
   // Reads directly from prReviews so the callback invalidates when any review state changes,
@@ -550,6 +609,34 @@ export function useGitHubPRs(
     [projectId]
   );
 
+  const runPRFixLoop = useCallback(
+    async (prNumber: number, options?: PRFixLoopOptions): Promise<boolean> => {
+      if (!projectId) return false;
+
+      try {
+        return await window.electronAPI.github.runPRFixLoop(projectId, prNumber, options);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to start PR fix loop");
+        return false;
+      }
+    },
+    [projectId]
+  );
+
+  const cancelPRFixLoop = useCallback(
+    async (prNumber: number): Promise<boolean> => {
+      if (!projectId) return false;
+
+      try {
+        return await window.electronAPI.github.cancelPRFixLoop(projectId, prNumber);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to cancel PR fix loop");
+        return false;
+      }
+    },
+    [projectId]
+  );
+
   const checkNewCommits = useCallback(
     async (prNumber: number): Promise<NewCommitsCheck> => {
       if (!projectId) {
@@ -726,6 +813,8 @@ export function useGitHubPRs(
     isExternalReview,
     previousReviewResult,
     reviewError,
+    fixLoopState,
+    isFixLoopRunning,
     isConnected,
     repoFullName,
     activePRReviews,
@@ -735,6 +824,9 @@ export function useGitHubPRs(
     loadMore,
     runReview,
     runFollowupReview,
+    runPRFixLoop,
+    cancelPRFixLoop,
+    getPRFixLoopStateForPR,
     checkNewCommits,
     cancelReview,
     postReview,

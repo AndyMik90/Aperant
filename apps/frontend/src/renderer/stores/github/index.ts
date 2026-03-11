@@ -28,6 +28,15 @@ export {
 import { initializePRReviewListeners as _initPRReviewListeners } from './pr-review-store';
 import { cleanupPRReviewListeners as _cleanupPRReviewListeners } from './pr-review-store';
 
+// PR Fix Loop Store
+export {
+  usePRFixLoopStore,
+  initializePRFixLoopListeners,
+  cleanupPRFixLoopListeners
+} from './pr-fix-loop-store';
+import { initializePRFixLoopListeners as _initPRFixLoopListeners } from './pr-fix-loop-store';
+import { cleanupPRFixLoopListeners as _cleanupPRFixLoopListeners } from './pr-fix-loop-store';
+
 // Investigation Store
 export {
   useInvestigationStore,
@@ -46,6 +55,7 @@ export {
  */
 export function initializeGitHubListeners(): void {
   _initPRReviewListeners();
+  _initPRFixLoopListeners();
   // Add other global listeners here as needed
 }
 
@@ -55,6 +65,7 @@ export function initializeGitHubListeners(): void {
  */
 export function cleanupGitHubListeners(): void {
   _cleanupPRReviewListeners();
+  _cleanupPRFixLoopListeners();
 }
 
 // Re-export types for convenience
