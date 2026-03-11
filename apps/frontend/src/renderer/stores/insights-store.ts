@@ -402,9 +402,25 @@ export async function createTaskFromSuggestion(
 export function setupInsightsListeners(): () => void {
   const store = useInsightsStore.getState;
 
+  // Helper: check if an incoming event belongs to the currently active session.
+  // This prevents streaming responses from a previous chat from bleeding into
+  // the current chat when the user switches sessions mid-stream.
+  const isActiveSession = (projectId: string, sessionId?: string): boolean => {
+    const currentSession = store().session;
+    if (!currentSession) return false;
+    // Validate projectId matches
+    if (currentSession.projectId !== projectId) return false;
+    // If sessionId is provided in the chunk, validate it matches too
+    if (sessionId && currentSession.id !== sessionId) return false;
+    return true;
+  };
+
   // Listen for streaming chunks
   const unsubStreamChunk = window.electronAPI.onInsightsStreamChunk(
-    (_projectId, chunk: InsightsStreamChunk) => {
+    (projectId, chunk: InsightsStreamChunk) => {
+      // Drop events that don't belong to the currently active session
+      if (!isActiveSession(projectId, chunk.sessionId)) return;
+
       switch (chunk.type) {
         case 'text':
           if (chunk.content) {
@@ -464,12 +480,16 @@ export function setupInsightsListeners(): () => void {
   );
 
   // Listen for status updates
-  const unsubStatus = window.electronAPI.onInsightsStatus((_projectId, status) => {
+  const unsubStatus = window.electronAPI.onInsightsStatus((projectId, status) => {
+    const currentSession = store().session;
+    if (!currentSession || currentSession.projectId !== projectId) return;
     store().setStatus(status);
   });
 
   // Listen for errors
-  const unsubError = window.electronAPI.onInsightsError((_projectId, error) => {
+  const unsubError = window.electronAPI.onInsightsError((projectId, error) => {
+    const currentSession = store().session;
+    if (!currentSession || currentSession.projectId !== projectId) return;
     store().setStatus({
       phase: 'error',
       error

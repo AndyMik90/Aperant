@@ -223,6 +223,7 @@ export interface InsightsChatStatus {
 
 export interface InsightsStreamChunk {
   type: 'text' | 'task_suggestion' | 'tool_start' | 'tool_end' | 'done' | 'error';
+  sessionId?: string;
   content?: string;
   suggestedTasks?: Array<{
     title: string;
