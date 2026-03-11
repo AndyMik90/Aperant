@@ -77,7 +77,8 @@ export class InsightsExecutor extends EventEmitter {
     message: string,
     conversationHistory: Array<{ role: string; content: string }>,
     modelConfig?: InsightsModelConfig,
-    images?: ImageAttachment[]
+    images?: ImageAttachment[],
+    sessionId?: string
   ): Promise<ProcessorResult> {
     // Cancel any existing session
     this.cancelSession(projectId);
@@ -95,6 +96,7 @@ export class InsightsExecutor extends EventEmitter {
     // Emit thinking status
     this.emit('status', projectId, {
       phase: 'thinking',
+      sessionId,
       message: 'Processing your message...'
     } as InsightsChatStatus);
 
@@ -243,19 +245,20 @@ export class InsightsExecutor extends EventEmitter {
         const lines = text.split('\n');
         for (const line of lines) {
           if (line.startsWith('__TASK_SUGGESTION__:')) {
-            this.handleTaskSuggestion(projectId, line, (task) => {
+            this.handleTaskSuggestion(projectId, sessionId, line, (task) => {
               if (task) {
                 suggestedTasks.push(task);
               }
             });
           } else if (line.startsWith('__TOOL_START__:')) {
-            this.handleToolStart(projectId, line, toolsUsed);
+            this.handleToolStart(projectId, sessionId, line, toolsUsed);
           } else if (line.startsWith('__TOOL_END__:')) {
-            this.handleToolEnd(projectId, line);
+            this.handleToolEnd(projectId, sessionId, line);
           } else if (line.trim()) {
             fullResponse += line + '\n';
             this.emit('stream-chunk', projectId, {
               type: 'text',
+              sessionId,
               content: line + '\n'
             } as InsightsStreamChunk);
           }
@@ -281,11 +284,13 @@ export class InsightsExecutor extends EventEmitter {
 
         if (code === 0) {
           this.emit('stream-chunk', projectId, {
-            type: 'done'
+            type: 'done',
+            sessionId
           } as InsightsStreamChunk);
 
           this.emit('status', projectId, {
-            phase: 'complete'
+            phase: 'complete',
+            sessionId
           } as InsightsChatStatus);
 
           resolve({
@@ -301,10 +306,11 @@ export class InsightsExecutor extends EventEmitter {
           const error = `Process exited with code ${code}${stderrSummary}`;
           this.emit('stream-chunk', projectId, {
             type: 'error',
+            sessionId,
             error
           } as InsightsStreamChunk);
 
-          this.emit('error', projectId, error);
+          this.emit('error', projectId, error, sessionId);
           reject(new Error(error));
         }
       });
@@ -313,7 +319,7 @@ export class InsightsExecutor extends EventEmitter {
         this.activeSessions.delete(projectId);
         cleanupTempFiles();
 
-        this.emit('error', projectId, err.message);
+        this.emit('error', projectId, err.message, sessionId);
         reject(err);
       });
     });
@@ -324,6 +330,7 @@ export class InsightsExecutor extends EventEmitter {
    */
   private handleTaskSuggestion(
     projectId: string,
+    sessionId: string | undefined,
     line: string,
     onTaskFound: (task: NonNullable<InsightsChatMessage['suggestedTasks']>[number]) => void
   ): void {
@@ -333,6 +340,7 @@ export class InsightsExecutor extends EventEmitter {
       onTaskFound(suggestedTask);
       this.emit('stream-chunk', projectId, {
         type: 'task_suggestion',
+        sessionId,
         suggestedTasks: [suggestedTask]
       } as InsightsStreamChunk);
     } catch {
@@ -345,6 +353,7 @@ export class InsightsExecutor extends EventEmitter {
    */
   private handleToolStart(
     projectId: string,
+    sessionId: string | undefined,
     line: string,
     toolsUsed: InsightsToolUsage[]
   ): void {
@@ -359,6 +368,7 @@ export class InsightsExecutor extends EventEmitter {
       });
       this.emit('stream-chunk', projectId, {
         type: 'tool_start',
+        sessionId,
         tool: {
           name: toolData.name,
           input: toolData.input
@@ -372,12 +382,13 @@ export class InsightsExecutor extends EventEmitter {
   /**
    * Handle tool end marker
    */
-  private handleToolEnd(projectId: string, line: string): void {
+  private handleToolEnd(projectId: string, sessionId: string | undefined, line: string): void {
     try {
       const toolJson = line.substring('__TOOL_END__:'.length);
       const toolData = JSON.parse(toolJson);
       this.emit('stream-chunk', projectId, {
         type: 'tool_end',
+        sessionId,
         tool: {
           name: toolData.name
         }

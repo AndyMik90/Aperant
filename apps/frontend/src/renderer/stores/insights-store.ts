@@ -402,9 +402,26 @@ export async function createTaskFromSuggestion(
 export function setupInsightsListeners(): () => void {
   const store = useInsightsStore.getState;
 
+  // Helper: check if an incoming event belongs to the currently active session.
+  // This prevents streaming responses from a previous chat from bleeding into
+  // the current chat when the user switches sessions mid-stream.
+  const isActiveSession = (projectId: string, sessionId?: string): boolean => {
+    const currentSession = store().session;
+    if (!currentSession) return false;
+    if (currentSession.projectId !== projectId) return false;
+    // Require sessionId to match when present; reject events without sessionId
+    // as a defensive measure against stale events from code paths that don't
+    // set it (sessionId is optional in the type for backward compatibility)
+    if (!sessionId || currentSession.id !== sessionId) return false;
+    return true;
+  };
+
   // Listen for streaming chunks
   const unsubStreamChunk = window.electronAPI.onInsightsStreamChunk(
-    (_projectId, chunk: InsightsStreamChunk) => {
+    (projectId, chunk: InsightsStreamChunk) => {
+      // Drop events that don't belong to the currently active session
+      if (!isActiveSession(projectId, chunk.sessionId)) return;
+
       switch (chunk.type) {
         case 'text':
           if (chunk.content) {
@@ -464,12 +481,14 @@ export function setupInsightsListeners(): () => void {
   );
 
   // Listen for status updates
-  const unsubStatus = window.electronAPI.onInsightsStatus((_projectId, status) => {
+  const unsubStatus = window.electronAPI.onInsightsStatus((projectId, status) => {
+    if (!isActiveSession(projectId, status.sessionId)) return;
     store().setStatus(status);
   });
 
   // Listen for errors
-  const unsubError = window.electronAPI.onInsightsError((_projectId, error) => {
+  const unsubError = window.electronAPI.onInsightsError((projectId, error, sessionId) => {
+    if (!isActiveSession(projectId, sessionId)) return;
     store().setStatus({
       phase: 'error',
       error

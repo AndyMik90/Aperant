@@ -45,7 +45,7 @@ export interface InsightsAPI {
     callback: (projectId: string, status: InsightsChatStatus) => void
   ) => IpcListenerCleanup;
   onInsightsError: (
-    callback: (projectId: string, error: string) => void
+    callback: (projectId: string, error: string, sessionId?: string) => void
   ) => IpcListenerCleanup;
   onInsightsSessionUpdated: (
     callback: (projectId: string, session: InsightsSession) => void

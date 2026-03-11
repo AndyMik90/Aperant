@@ -217,12 +217,14 @@ export interface InsightsSessionSummary {
 
 export interface InsightsChatStatus {
   phase: 'idle' | 'thinking' | 'streaming' | 'complete' | 'error';
+  sessionId?: string;
   message?: string;
   error?: string;
 }
 
 export interface InsightsStreamChunk {
   type: 'text' | 'task_suggestion' | 'tool_start' | 'tool_end' | 'done' | 'error';
+  sessionId?: string;
   content?: string;
   suggestedTasks?: Array<{
     title: string;

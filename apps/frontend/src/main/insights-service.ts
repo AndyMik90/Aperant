@@ -47,8 +47,8 @@ export class InsightsService extends EventEmitter {
     this.executor.on('stream-chunk', (projectId, chunk) => {
       this.emit('stream-chunk', projectId, chunk);
     });
-    this.executor.on('error', (projectId, error) => {
-      this.emit('error', projectId, error);
+    this.executor.on('error', (projectId, error, sessionId) => {
+      this.emit('error', projectId, error, sessionId);
     });
     this.executor.on('sdk-rate-limit', (info) => {
       this.emit('sdk-rate-limit', info);
@@ -87,6 +87,9 @@ export class InsightsService extends EventEmitter {
    * Switch to a different session
    */
   switchSession(projectId: string, projectPath: string, sessionId: string): InsightsSession | null {
+    // Cancel any active streaming process to prevent responses from the old session
+    // bleeding into the new one
+    this.executor.cancelSession(projectId);
     return this.sessionManager.switchSession(projectId, projectPath, sessionId);
   }
 
@@ -213,14 +216,15 @@ export class InsightsService extends EventEmitter {
     const configToUse = modelConfig || session.modelConfig;
 
     try {
-      // Execute insights query
+      // Execute insights query, passing sessionId so streaming events can be filtered
       const result = await this.executor.execute(
         projectId,
         projectPath,
         message,
         conversationHistory,
         configToUse,
-        images
+        images,
+        session.id
       );
 
       // Add assistant message to session

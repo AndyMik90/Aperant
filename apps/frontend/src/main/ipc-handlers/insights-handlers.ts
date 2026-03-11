@@ -441,9 +441,9 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
     safeSendToRenderer(getMainWindow, IPC_CHANNELS.INSIGHTS_STATUS, projectId, status);
   });
 
-  // Forward errors to renderer
-  insightsService.on("error", (projectId: string, error: string) => {
-    safeSendToRenderer(getMainWindow, IPC_CHANNELS.INSIGHTS_ERROR, projectId, error);
+  // Forward errors to renderer (includes sessionId for session-level filtering)
+  insightsService.on("error", (projectId: string, error: string, sessionId?: string) => {
+    safeSendToRenderer(getMainWindow, IPC_CHANNELS.INSIGHTS_ERROR, projectId, error, sessionId);
   });
 
   // Forward SDK rate limit events to renderer
