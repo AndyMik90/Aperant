@@ -79,6 +79,7 @@ export const PROVIDER_ENV_VARS: Record<SupportedProvider, string | undefined> = 
   xai: 'XAI_API_KEY',
   openrouter: 'OPENROUTER_API_KEY',
   zai: 'ZHIPU_API_KEY',
+  minimax: 'MINIMAX_API_KEY',
   ollama: undefined,   // No auth required for local Ollama
 } as const;
 
@@ -96,6 +97,7 @@ export const PROVIDER_SETTINGS_KEY: Partial<Record<SupportedProvider, string>> =
   azure: 'globalAzureApiKey',
   openrouter: 'globalOpenRouterApiKey',
   zai: 'globalZAIApiKey',
+  minimax: 'globalMiniMaxApiKey',
 } as const;
 
 /**
