@@ -85,11 +85,14 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
     async (_, projectId: string, message: string, modelConfig?: InsightsModelConfig, images?: ImageAttachment[]) => {
       const project = projectStore.getProject(projectId);
       if (!project) {
+        // Include sessionId so the error isn't dropped by the frontend guard
+        const currentSession = insightsService.loadSession(projectId, '');
         safeSendToRenderer(
           getMainWindow,
           IPC_CHANNELS.INSIGHTS_ERROR,
           projectId,
-          "Project not found"
+          "Project not found",
+          currentSession?.id
         );
         return;
       }
@@ -120,11 +123,13 @@ export function registerInsightsHandlers(getMainWindow: () => BrowserWindow | nu
         // and ensure all error types are reported to the UI
         console.error("[Insights IPC] Error in sendMessage:", error);
         const errorMessage = error instanceof Error ? error.message : String(error);
+        const currentSession = insightsService.loadSession(projectId, project.path);
         safeSendToRenderer(
           getMainWindow,
           IPC_CHANNELS.INSIGHTS_ERROR,
           projectId,
-          `Failed to send message: ${errorMessage}`
+          `Failed to send message: ${errorMessage}`,
+          currentSession?.id
         );
       }
     }

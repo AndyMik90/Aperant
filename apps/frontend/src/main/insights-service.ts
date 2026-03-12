@@ -80,6 +80,8 @@ export class InsightsService extends EventEmitter {
    * Create a new session
    */
   createNewSession(projectId: string, projectPath: string): InsightsSession {
+    // Cancel any active streaming process to prevent orphaned processes
+    this.executor.cancelSession(projectId);
     return this.sessionManager.createNewSession(projectId, projectPath);
   }
 
@@ -155,17 +157,17 @@ export class InsightsService extends EventEmitter {
     // Cancel any existing session
     this.executor.cancelSession(projectId);
 
-    // Validate auto-claude source
-    const autoBuildSource = this.config.getAutoBuildSourcePath();
-    if (!autoBuildSource) {
-      this.emit('error', projectId, 'Auto Claude source not found');
-      return;
-    }
-
-    // Load or create session
+    // Load or create session early so we have a sessionId for error events
     let session = this.sessionManager.loadSession(projectId, projectPath);
     if (!session) {
       session = this.sessionManager.createNewSession(projectId, projectPath);
+    }
+
+    // Validate auto-claude source
+    const autoBuildSource = this.config.getAutoBuildSourcePath();
+    if (!autoBuildSource) {
+      this.emit('error', projectId, 'Auto Claude source not found', session.id);
+      return;
     }
 
     // Auto-generate title from first user message if still default
