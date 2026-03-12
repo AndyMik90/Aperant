@@ -116,7 +116,7 @@ export const createInsightsAPI = (): InsightsAPI => ({
     createIpcListener(IPC_CHANNELS.INSIGHTS_STATUS, callback),
 
   onInsightsError: (
-    callback: (projectId: string, error: string) => void
+    callback: (projectId: string, error: string, sessionId?: string) => void
   ): IpcListenerCleanup =>
     createIpcListener(IPC_CHANNELS.INSIGHTS_ERROR, callback),
 
