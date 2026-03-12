@@ -20,6 +20,7 @@ export const SupportedProvider = {
   XAI: 'xai',
   OpenRouter: 'openrouter',
   ZAI: 'zai',
+  MiniMax: 'minimax',
   Ollama: 'ollama',
 } as const;
 

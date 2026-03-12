@@ -62,6 +62,12 @@ export const PROVIDER_REGISTRY: ProviderInfo[] = [
     configFields: ['baseUrl'],
   },
   {
+    id: 'minimax', name: 'MiniMax', description: 'MiniMax M2.5 models',
+    category: 'popular',
+    authMethods: ['api-key'], envVars: ['MINIMAX_API_KEY'],
+    configFields: ['baseUrl'], website: 'https://platform.minimax.io',
+  },
+  {
     id: 'ollama', name: 'Ollama', description: 'Local open-source models',
     category: 'local',
     authMethods: [], envVars: [],

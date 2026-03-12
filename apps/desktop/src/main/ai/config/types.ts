@@ -147,6 +147,7 @@ export const MODEL_PROVIDER_MAP: Record<string, SupportedProvider> = {
   'llama-': 'groq',
   'grok-': 'xai',
   'glm-': 'zai',
+  'MiniMax-': 'minimax',
 } as const;
 
 // ============================================

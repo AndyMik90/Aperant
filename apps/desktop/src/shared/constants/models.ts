@@ -66,6 +66,9 @@ export const ALL_AVAILABLE_MODELS: ModelOption[] = [
   { value: 'grok-4-0709', label: 'Grok 4', provider: 'xai', description: 'Flagship', capabilities: { thinking: true, tools: true, vision: true, contextWindow: 256000 } },
   { value: 'grok-3', label: 'Grok 3', provider: 'xai', description: 'Text', capabilities: { thinking: false, tools: true, vision: false, contextWindow: 131072 } },
   { value: 'grok-3-mini', label: 'Grok 3 Mini', provider: 'xai', description: 'Fast reasoning', capabilities: { thinking: true, tools: true, vision: false, contextWindow: 131072 } },
+  // MiniMax
+  { value: 'MiniMax-M2.5', label: 'MiniMax M2.5', provider: 'minimax', description: 'Peak performance', capabilities: { thinking: false, tools: true, vision: false, contextWindow: 204800 } },
+  { value: 'MiniMax-M2.5-highspeed', label: 'MiniMax M2.5 High Speed', provider: 'minimax', description: 'Fast and agile', capabilities: { thinking: false, tools: true, vision: false, contextWindow: 204800 } },
   // Z.AI (Zhipu)
   { value: 'glm-5', label: 'GLM-5', provider: 'zai', description: 'Flagship', capabilities: { thinking: false, tools: true, vision: false, contextWindow: 128000 } },
   { value: 'glm-4.7', label: 'GLM-4.7', provider: 'zai', description: 'Previous flagship', capabilities: { thinking: false, tools: true, vision: false, contextWindow: 128000 } },
@@ -316,6 +319,11 @@ export const PROVIDER_PRESET_DEFINITIONS: Partial<Record<BuiltinProvider, Record
     balanced: { primaryModel: 'glm-4.7',        primaryThinking: 'low', phaseModels: { spec: 'glm-4.7', planning: 'glm-4.7', coding: 'glm-4.7', qa: 'glm-4.7' },                 phaseThinking: { spec: 'low', planning: 'low', coding: 'low', qa: 'low' } },
     quick:    { primaryModel: 'glm-4.5-flash',  primaryThinking: 'low', phaseModels: { spec: 'glm-4.5-flash', planning: 'glm-4.5-flash', coding: 'glm-4.5-flash', qa: 'glm-4.5-flash' }, phaseThinking: { spec: 'low', planning: 'low', coding: 'low', qa: 'low' } },
   },
+  minimax: {
+    auto:     { primaryModel: 'MiniMax-M2.5', primaryThinking: 'low', phaseModels: { spec: 'MiniMax-M2.5', planning: 'MiniMax-M2.5', coding: 'MiniMax-M2.5', qa: 'MiniMax-M2.5' }, phaseThinking: { spec: 'low', planning: 'low', coding: 'low', qa: 'low' } },
+    balanced: { primaryModel: 'MiniMax-M2.5', primaryThinking: 'low', phaseModels: { spec: 'MiniMax-M2.5', planning: 'MiniMax-M2.5', coding: 'MiniMax-M2.5', qa: 'MiniMax-M2.5' }, phaseThinking: { spec: 'low', planning: 'low', coding: 'low', qa: 'low' } },
+    quick:    { primaryModel: 'MiniMax-M2.5-highspeed', primaryThinking: 'low', phaseModels: { spec: 'MiniMax-M2.5-highspeed', planning: 'MiniMax-M2.5-highspeed', coding: 'MiniMax-M2.5-highspeed', qa: 'MiniMax-M2.5-highspeed' }, phaseThinking: { spec: 'low', planning: 'low', coding: 'low', qa: 'low' } },
+  },
   ollama: {
     auto:     { primaryModel: '', primaryThinking: 'low', phaseModels: { spec: '', planning: '', coding: '', qa: '' }, phaseThinking: { spec: 'low', planning: 'low', coding: 'low', qa: 'low' } },
     complex:  { primaryModel: '', primaryThinking: 'low', phaseModels: { spec: '', planning: '', coding: '', qa: '' }, phaseThinking: { spec: 'low', planning: 'low', coding: 'low', qa: 'low' } },
@@ -414,6 +422,17 @@ export const DEFAULT_MODEL_EQUIVALENCES: Record<string, Partial<Record<BuiltinPr
     mistral: { modelId: 'mistral-large-latest', reasoning: { type: 'none' } },
     groq: { modelId: 'meta-llama/llama-4-maverick', reasoning: { type: 'none' } },
     zai: { modelId: 'glm-5', reasoning: { type: 'none' } },
+    minimax: { modelId: 'MiniMax-M2.5', reasoning: { type: 'none' } },
+  },
+  'MiniMax-M2.5': {
+    minimax: { modelId: 'MiniMax-M2.5', reasoning: { type: 'none' } },
+    anthropic: { modelId: 'claude-sonnet-4-6', reasoning: { type: 'thinking_tokens', level: 'medium' } },
+    openai: { modelId: 'gpt-5.2', reasoning: { type: 'reasoning_effort', level: 'medium' } },
+  },
+  'MiniMax-M2.5-highspeed': {
+    minimax: { modelId: 'MiniMax-M2.5-highspeed', reasoning: { type: 'none' } },
+    anthropic: { modelId: 'claude-haiku-4-5-20251001', reasoning: { type: 'none' } },
+    openai: { modelId: 'gpt-5.1-codex-mini', reasoning: { type: 'reasoning_effort', level: 'low' } },
   },
   'glm-5': {
     zai: { modelId: 'glm-5', reasoning: { type: 'none' } },
@@ -443,6 +462,7 @@ export const DEFAULT_MODEL_EQUIVALENCES: Record<string, Partial<Record<BuiltinPr
     groq: { modelId: 'llama-3.3-70b-versatile', reasoning: { type: 'none' } },
     xai: { modelId: 'grok-3-mini', reasoning: { type: 'reasoning_effort', level: 'medium' } },
     zai: { modelId: 'glm-4.7', reasoning: { type: 'none' } },
+    minimax: { modelId: 'MiniMax-M2.5', reasoning: { type: 'none' } },
   },
   'haiku': {
     anthropic: { modelId: 'claude-haiku-4-5-20251001', reasoning: { type: 'none' } },
@@ -451,6 +471,7 @@ export const DEFAULT_MODEL_EQUIVALENCES: Record<string, Partial<Record<BuiltinPr
     mistral: { modelId: 'mistral-small-latest', reasoning: { type: 'none' } },
     groq: { modelId: 'llama-3.3-70b-versatile', reasoning: { type: 'none' } },
     zai: { modelId: 'glm-4.5-flash', reasoning: { type: 'none' } },
+    minimax: { modelId: 'MiniMax-M2.5-highspeed', reasoning: { type: 'none' } },
   },
   // ── OpenAI models ─────────────────────────────────────────────────────────
   'gpt-5.3-codex': {

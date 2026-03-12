@@ -141,6 +141,14 @@ function createProviderInstance(config: ProviderConfig) {
         headers,
       });
 
+    case SupportedProvider.MiniMax:
+      return createOpenAICompatible({
+        name: 'minimax',
+        apiKey,
+        baseURL: baseURL ?? 'https://api.minimax.io/v1',
+        headers,
+      });
+
     case SupportedProvider.Ollama: {
       // Account settings store the base Ollama URL (e.g., 'http://localhost:11434')
       // but the OpenAI-compatible SDK needs the /v1 path appended.
