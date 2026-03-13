@@ -201,7 +201,7 @@ jobs:
       # Upload changelog as artifact for release.yml to use
       - name: Upload changelog artifact
         if: steps.check.outputs.should_release == 'true' && steps.changelog.outputs.changelog_valid == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: changelog-${{ steps.check.outputs.new_version }}
           path: changelog-extract.md

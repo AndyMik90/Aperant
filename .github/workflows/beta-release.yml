@@ -105,7 +105,7 @@ jobs:
           apple-team-id: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: macos-intel-builds
           path: |
@@ -157,7 +157,7 @@ jobs:
           apple-team-id: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: macos-arm64-builds
           path: |
@@ -315,7 +315,7 @@ jobs:
         run: echo "::warning::Windows signing skipped - AZURE_CLIENT_ID not configured. The .exe will be unsigned."
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-builds
           path: |
@@ -364,7 +364,7 @@ jobs:
         run: cd apps/desktop && npm run verify:linux
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-builds
           path: |
@@ -404,13 +404,13 @@ jobs:
           arm64-dmg-file: ${{ needs.build-macos-arm64.outputs.dmg_file }}
 
       - name: Upload stapled Intel DMG
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: macos-intel-stapled
           path: intel/*.dmg
 
       - name: Upload stapled ARM64 DMG
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: macos-arm64-stapled
           path: arm64/*.dmg

@@ -90,7 +90,7 @@ jobs:
           Get-ChildItem $archiveName
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: node-pty-win32-${{ matrix.arch }}
           path: apps/desktop/node-pty-*.zip
@@ -120,7 +120,7 @@ jobs:
           find artifacts -type f -name "*.zip"
 
       - name: Upload combined artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: node-pty-prebuilds-all
           path: artifacts/**/*.zip
