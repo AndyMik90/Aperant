@@ -155,7 +155,7 @@ jobs:
 
       - name: Sign Windows executable with Azure Trusted Signing
         if: env.AZURE_CLIENT_ID != ''
-        uses: azure/trusted-signing-action@v0.5.11
+        uses: azure/trusted-signing-action@v1.1.0
         with:
           endpoint: https://neu.codesigning.azure.net/
           trusted-signing-account-name: ${{ secrets.AZURE_SIGNING_ACCOUNT }}
