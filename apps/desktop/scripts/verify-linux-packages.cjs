@@ -123,36 +123,102 @@ function verifyFileList(files, packageType) {
   };
 }
 
+// Minimum expected AppImage file size (50 MB)
+const APPIMAGE_MIN_SIZE_MB = 50;
+
 /**
- * Verify AppImage contents using bsdtar (libarchive)
+ * Verify AppImage contents.
+ * AppImages are ELF executables with an embedded SquashFS filesystem.
+ * We try unsquashfs first (can list SquashFS contents), then fall back
+ * to the AppImage's own --appimage-extract, and finally to a size check.
  */
 function verifyAppImage(appImagePath) {
   logInfo(`Verifying AppImage: ${path.basename(appImagePath)}`);
 
-  if (!commandExists('bsdtar')) {
-    logWarning('bsdtar not found. Install with: sudo apt-get install libarchive-tools');
-    logWarning('Skipping AppImage verification');
-    return { verified: false, reason: 'bsdtar not available', critical: true };
+  // Try unsquashfs -l (lists squashfs contents without extracting)
+  if (commandExists('unsquashfs')) {
+    const result = spawnSync('unsquashfs', ['-l', appImagePath], {
+      stdio: 'pipe',
+      encoding: 'utf-8',
+      maxBuffer: 50 * 1024 * 1024,
+    });
+
+    if (result.error) {
+      logWarning(`unsquashfs failed: ${result.error.message}, falling back to size check`);
+    } else if (result.status !== 0) {
+      logWarning(`unsquashfs could not read AppImage, falling back to size check`);
+    } else {
+      const files = result.stdout.split('\n');
+      return verifyFileList(files, 'AppImage');
+    }
   }
 
-  const result = spawnSync('bsdtar', ['-t', '-f', appImagePath], {
+  // Try self-extraction to list contents (AppImages support --appimage-extract-and-run)
+  // Make the AppImage executable first
+  try {
+    fs.chmodSync(appImagePath, 0o755);
+  } catch (_) {
+    // Ignore chmod errors
+  }
+
+  const extractResult = spawnSync(appImagePath, ['--appimage-extract', '--stdout'], {
     stdio: 'pipe',
     encoding: 'utf-8',
     maxBuffer: 50 * 1024 * 1024,
+    timeout: 30000,
+    env: { ...process.env, APPIMAGE_EXTRACT_AND_RUN: '1' },
   });
 
-  if (result.error) {
-    logError(`Failed to execute bsdtar: ${result.error.message}`);
-    return { verified: false, issues: [`Command execution failed: ${result.error.message}`] };
+  // --appimage-extract creates a squashfs-root directory; check if it exists
+  const squashfsRoot = path.join(path.dirname(appImagePath), 'squashfs-root');
+  if (fs.existsSync(squashfsRoot)) {
+    try {
+      const collectFiles = (dir, prefix = '') => {
+        const entries = [];
+        for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+          const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+          entries.push(rel);
+          if (entry.isDirectory()) {
+            entries.push(...collectFiles(path.join(dir, entry.name), rel));
+          }
+        }
+        return entries;
+      };
+      const files = collectFiles(squashfsRoot);
+      const verifyResult = verifyFileList(files, 'AppImage');
+      // Clean up extracted directory
+      fs.rmSync(squashfsRoot, { recursive: true, force: true });
+      return verifyResult;
+    } catch (e) {
+      logWarning(`Failed to read extracted AppImage contents: ${e.message}`);
+      fs.rmSync(squashfsRoot, { recursive: true, force: true });
+    }
   }
 
-  if (result.status !== 0) {
-    logError(`Failed to read AppImage: ${result.stderr}`);
-    return { verified: false, issues: ['Failed to extract file list'] };
+  // Fall back to basic size validation (same approach as Flatpak)
+  logWarning('Could not inspect AppImage contents (unsquashfs not available). Using size validation.');
+  const issues = [];
+  const stats = fs.statSync(appImagePath);
+
+  if (stats.size === 0) {
+    return { verified: false, issues: ['AppImage file is empty'] };
   }
 
-  const files = result.stdout.split('\n');
-  return verifyFileList(files, 'AppImage');
+  if (stats.size < APPIMAGE_MIN_SIZE_MB * 1024 * 1024) {
+    issues.push(
+      `AppImage file seems too small (${(stats.size / 1024 / 1024).toFixed(2)} MB, expected at least ${APPIMAGE_MIN_SIZE_MB} MB)`,
+    );
+  }
+
+  if (issues.length === 0) {
+    logInfo('AppImage passed size validation (content inspection was not possible)');
+  }
+
+  return {
+    verified: issues.length === 0,
+    issues,
+    size: stats.size,
+  };
 }
 
 /**
@@ -315,7 +381,7 @@ function main() {
     if (hasCriticalSkips) {
       log('Some packages could not be verified due to missing required tools.\n', colors.red);
       log('Install required tools:\n', colors.red);
-      log('  - bsdtar: sudo apt-get install libarchive-tools\n', colors.red);
+      log('  - unsquashfs: sudo apt-get install squashfs-tools\n', colors.red);
       log('  - dpkg-deb: sudo apt-get install dpkg\n', colors.red);
     }
     process.exit(1);

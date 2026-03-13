@@ -338,7 +338,7 @@ jobs:
         run: |
           set -e
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder libarchive-tools
+          sudo apt-get install -y flatpak flatpak-builder squashfs-tools
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak install -y --user flathub org.freedesktop.Platform//25.08 org.freedesktop.Sdk//25.08
           flatpak install -y --user flathub org.electronjs.Electron2.BaseApp//25.08
