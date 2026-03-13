@@ -31,7 +31,7 @@
     "help": "Aide & Feedback"
   },
   "messages": {
-    "initializeToCreateTasks": "Initialisez Auto Claude pour créer des tâches"
+    "initializeToCreateTasks": "Initialisez Aperant pour créer des tâches"
   },
   "updateBanner": {
     "title": "Mise à jour disponible",

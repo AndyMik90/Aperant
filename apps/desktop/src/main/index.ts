@@ -3,10 +3,23 @@
 // require-in-the-middle hooks. Sentry's hooks expect require.cache to exist,
 // which is only available in CommonJS. Without this, node-pty native module
 // loading fails with "ReferenceError: require is not defined".
-import { createRequire } from 'module';
+import Module, { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 // Make require globally available for Sentry's require-in-the-middle hooks
 globalThis.require = require;
+
+// In packaged Electron apps, native modules (e.g. @libsql/client) are placed in
+// Resources/node_modules/ via extraResources. Add that path to CJS resolution so
+// globalThis.require() can find them at runtime.
+if (process.resourcesPath) {
+  const nativeModulesPath = require('path').join(process.resourcesPath, 'node_modules');
+  // Module.globalPaths is an undocumented but stable Node.js internal used for
+  // CJS module resolution. It's not in @types/node, hence the cast.
+  const globalPaths = (Module as unknown as { globalPaths: string[] }).globalPaths;
+  if (!globalPaths.includes(nativeModulesPath)) {
+    globalPaths.push(nativeModulesPath);
+  }
+}
 
 // Load .env file FIRST before any other imports that might use process.env
 import { config } from 'dotenv';
@@ -37,7 +50,7 @@ for (const envPath of possibleEnvPaths) {
 
 import { app, BrowserWindow, shell, nativeImage, session, screen, Menu, MenuItem } from 'electron';
 import { join } from 'path';
-import { accessSync, readFileSync, writeFileSync, rmSync } from 'fs';
+import { accessSync, readFileSync, writeFileSync, rmSync, cpSync } from 'fs';
 import { electronApp, optimizer, is } from '@electron-toolkit/utils';
 import { setupIpcHandlers } from './ipc-setup';
 import { AgentManager } from './agent';
@@ -57,6 +70,26 @@ import { isProfileAuthenticated } from './claude-profile/profile-utils';
 import { isMacOS, isWindows } from './platform';
 import { ptyDaemonClient } from './terminal/pty-daemon-client';
 import type { AppSettings, AuthFailureInfo } from '../shared/types';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Migrate userData from old app name (auto-claude-ui → aperant)
+// Must run before any code accesses app.getPath('userData')
+// ─────────────────────────────────────────────────────────────────────────────
+{
+  const newUserData = app.getPath('userData');
+  const oldUserData = join(dirname(newUserData), 'auto-claude-ui');
+  if (existsSync(oldUserData) && !existsSync(join(newUserData, '.migrated'))) {
+    try {
+      // Copy all files from old location to new (don't move — keeps old as backup)
+      cpSync(oldUserData, newUserData, { recursive: true, force: false, errorOnExist: false });
+      // Mark as migrated so we don't repeat
+      writeFileSync(join(newUserData, '.migrated'), new Date().toISOString());
+      console.warn('[main] Migrated userData from auto-claude-ui to aperant');
+    } catch (err) {
+      console.warn('[main] userData migration failed (non-fatal):', err);
+    }
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Window sizing constants
@@ -373,7 +406,7 @@ if (isWindows()) {
 // Initialize the application
 app.whenReady().then(() => {
   // Set app user model id for Windows
-  electronApp.setAppUserModelId('com.autoclaude.ui');
+  electronApp.setAppUserModelId('com.aperant.app');
 
   // Clear cache on Windows to prevent permission errors from stale cache
   if (isWindows()) {

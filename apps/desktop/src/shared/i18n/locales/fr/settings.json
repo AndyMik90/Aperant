@@ -918,7 +918,7 @@
         "description": "Automatisation du navigateur web pour les tests"
       },
       "autoClaude": {
-        "name": "Outils Auto-Claude",
+        "name": "Outils Aperant",
         "description": "Suivi de la progression du build"
       }
     },

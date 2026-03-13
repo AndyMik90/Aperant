@@ -40,8 +40,8 @@ const __dirname = path.dirname(__filename);
  */
 function resolveWorkerPath(): string {
   if (app.isPackaged) {
-    // Production: worker is bundled alongside other main-process code
-    return path.join(process.resourcesPath, 'app', 'main', 'ai', 'agent', 'worker.js');
+    // Production: worker is inside app.asar at out/main/ai/agent/worker.js
+    return path.join(process.resourcesPath, 'app.asar', 'out', 'main', 'ai', 'agent', 'worker.js');
   }
   // Dev: electron-vite outputs worker at out/main/ai/agent/worker.js
   // because the Rollup input key is 'ai/agent/worker'.

@@ -302,7 +302,7 @@ describe('Application Logger', () => {
       const { generateDebugReport } = await import('../app-logger');
       const report = generateDebugReport();
 
-      expect(report).toContain('=== Auto Claude Debug Report ===');
+      expect(report).toContain('=== Aperant Debug Report ===');
       expect(report).toContain('--- System Information ---');
       expect(report).toContain('--- Recent Errors ---');
       expect(report).toContain('=== End Debug Report ===');

@@ -174,7 +174,7 @@ export function ClaudeCodeStep({ onNext, onBack, onSkip }: ClaudeCodeStepProps) 
                     {t('claudeCode.info.title', 'What is Claude Code?')}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {t('claudeCode.info.description', "Claude Code is Anthropic's official CLI that powers Auto Claude's AI features. It provides secure authentication and direct access to Claude models.")}
+                    {t('claudeCode.info.description', "Claude Code is Anthropic's official CLI that powers Aperant's AI features. It provides secure authentication and direct access to Claude models.")}
                   </p>
                 </div>
               </div>

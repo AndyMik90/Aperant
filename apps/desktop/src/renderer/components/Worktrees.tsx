@@ -480,7 +480,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
             Worktrees
           </h2>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage isolated workspaces for your Auto Claude tasks
+            Manage isolated workspaces for your Aperant tasks
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -569,7 +569,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
           </div>
           <h3 className="text-lg font-semibold text-foreground">No Worktrees</h3>
           <p className="text-sm text-muted-foreground mt-2 max-w-md">
-            Worktrees are created automatically when Auto Claude builds features.
+            Worktrees are created automatically when Aperant builds features.
             You can also create terminal worktrees from the Agent Terminals tab.
           </p>
         </div>

@@ -27,8 +27,7 @@ import type {
   TerminalProcess,
   WindowGetter,
   RateLimitEvent,
-  OAuthTokenEvent,
-  OnboardingCompleteEvent
+  OAuthTokenEvent
 } from './types';
 
 // ============================================================================
@@ -717,130 +716,19 @@ export function handleOAuthToken(
 
 /**
  * Handle onboarding complete detection
- * Called when terminal output indicates Claude Code is ready after login/onboarding
+ * Called when terminal output indicates Claude Code is ready after login/onboarding.
  *
- * This detects the Claude Code welcome screen that appears after successful login,
- * which includes patterns like "Welcome back", "Claude Code v2.x", or subscription
- * tier info like "Claude Max". When detected, it notifies the frontend to auto-close
- * the auth terminal.
+ * Note: This is now a no-op. The onboarding flag is set proactively via
+ * ensureOnboardingComplete() in handleOAuthToken() and executeProfileCommand(),
+ * so awaitingOnboardingComplete is never set and this path is never reached.
+ * Kept as a stub to satisfy the terminal-event-handler callback interface.
  */
 export function handleOnboardingComplete(
-  terminal: TerminalProcess,
-  data: string,
-  getWindow: WindowGetter
+  _terminal: TerminalProcess,
+  _data: string,
+  _getWindow: WindowGetter
 ): void {
-  // Only check if we're waiting for onboarding to complete
-  if (!terminal.awaitingOnboardingComplete) {
-    return;
-  }
-
-  // Check if output shows Claude Code welcome screen (onboarding complete indicators)
-  if (!OutputParser.isOnboardingCompleteOutput(data)) {
-    return;
-  }
-
-  console.warn('[ClaudeIntegration] Onboarding complete detected for terminal:', terminal.id);
-
-  // Clear the flag
-  terminal.awaitingOnboardingComplete = false;
-
-  // Extract profile ID from terminal ID pattern (claude-login-{profileId}-*)
-  const profileId = extractProfileIdFromAuthTerminalId(terminal.id) || undefined;
-
-  // Try to extract email from the welcome screen (e.g., "user@example.com's Organization")
-  // Note: extractEmail automatically strips ANSI escape codes internally
-  let email = OutputParser.extractEmail(data);
-  if (!email) {
-    email = OutputParser.extractEmail(terminal.outputBuffer);
-  }
-
-  // Fallback: If terminal extraction failed or might be corrupt, read directly from Claude's config file
-  // This is the authoritative source and doesn't suffer from ANSI escape code issues
-  const profileManager = getClaudeProfileManager();
-  const profile = profileId ? profileManager.getProfile(profileId) : null;
-
-  if (!email && profile?.configDir) {
-    const configEmail = getEmailFromConfigDir(profile.configDir);
-    if (configEmail) {
-      console.warn('[ClaudeIntegration] Email not found in terminal output, using config file:', maskEmail(configEmail));
-      email = configEmail;
-    }
-  }
-
-  // Validate email looks correct (basic sanity check)
-  // If terminal extraction gave us a truncated email but config file has the correct one, prefer config
-  if (email && profile?.configDir) {
-    const configEmail = getEmailFromConfigDir(profile.configDir);
-    if (configEmail && configEmail !== email) {
-      // Config file email is different - it's more authoritative
-      console.warn('[ClaudeIntegration] Terminal email differs from config file, using config file:', {
-        terminalEmail: maskEmail(email),
-        configEmail: maskEmail(configEmail)
-      });
-      email = configEmail;
-    }
-  }
-
-  console.warn('[ClaudeIntegration] Email extraction attempt:', {
-    profileId,
-    foundEmail: maskEmail(email),
-    dataLength: data.length,
-    bufferLength: terminal.outputBuffer.length
-  });
-
-  // Update profile with email and subscription metadata if found and profile exists
-  // Always update - the newly extracted email from re-authentication should overwrite any stale/truncated email
-  if (profileId && email && profile) {
-    const previousEmail = profile.email;
-    profile.email = email;
-    // Also update subscription metadata from Keychain credentials
-    updateProfileSubscriptionMetadata(profile, profile.configDir);
-    profileManager.saveProfile(profile);
-    if (previousEmail !== email) {
-      console.warn('[ClaudeIntegration] Updated profile email from welcome screen:', profileId, maskEmail(email), '(was:', maskEmail(previousEmail), ')');
-    }
-  }
-
-  safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_ONBOARDING_COMPLETE, {
-    terminalId: terminal.id,
-    profileId,
-    detectedAt: new Date().toISOString()
-  } as OnboardingCompleteEvent);
-
-  // Trigger immediate usage fetch after successful re-authentication
-  // This gives the user immediate feedback that their account is working
-  if (profileId) {
-    try {
-      const usageMonitor = getUsageMonitor();
-      if (usageMonitor) {
-        // Clear any auth failure status for this profile since they just re-authenticated
-        usageMonitor.clearAuthFailedProfile(profileId);
-
-        console.warn('[ClaudeIntegration] Triggering immediate usage fetch after re-authentication:', profileId);
-
-        // Switch to this profile if it's not already active, then fetch usage
-        const profileManager = getClaudeProfileManager();
-
-        // Also clear the migration flag if this profile was migrated to an isolated directory
-        // This prevents the auth failure modal from showing again on next startup
-        if (profileManager.isProfileMigrated(profileId)) {
-          profileManager.clearMigratedProfile(profileId);
-          console.warn('[ClaudeIntegration] Cleared migration flag for re-authenticated profile:', profileId);
-        }
-        const activeProfile = profileManager.getActiveProfile();
-        if (activeProfile?.id !== profileId) {
-          profileManager.setActiveProfile(profileId);
-        }
-
-        // Small delay to allow profile switch to settle, then trigger usage fetch
-        setTimeout(() => {
-          usageMonitor.checkNow();
-        }, 500);
-      }
-    } catch (error) {
-      console.error('[ClaudeIntegration] Failed to trigger post-auth usage fetch:', error);
-    }
-  }
+  // No-op — onboarding is handled proactively in handleOAuthToken()
 }
 
 /**
@@ -904,6 +792,7 @@ export function ensureOnboardingComplete(configDir: string): void {
     );
     const claudeJsonPath = path.join(expandedDir, '.claude.json');
 
+    // Read directly instead of existsSync + readFileSync to avoid TOCTOU race (CodeQL js/file-system-race)
     let content: string;
     try {
       content = fs.readFileSync(claudeJsonPath, 'utf-8');

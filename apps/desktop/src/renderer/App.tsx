@@ -747,7 +747,7 @@ export function App() {
       } else {
         // Initialization failed - show error but keep dialog open
         console.warn('[InitDialog] Initialization failed, showing error');
-        const errorMessage = result?.error || 'Failed to initialize Auto Claude. Please try again.';
+        const errorMessage = result?.error || 'Failed to initialize Aperant. Please try again.';
         setInitError(errorMessage);
         setIsInitializing(false);
       }

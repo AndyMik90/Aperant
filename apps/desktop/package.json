@@ -1,16 +1,16 @@
 {
-  "name": "auto-claude-ui",
+  "name": "aperant",
   "version": "2.8.0-beta.1",
   "type": "module",
-  "description": "Desktop UI for Auto Claude autonomous coding framework",
-  "homepage": "https://github.com/AndyMik90/Auto-Claude",
+  "description": "Autonomous multi-agent coding framework",
+  "homepage": "https://github.com/AndyMik90/Aperant",
   "repository": {
     "type": "git",
-    "url": "https://github.com/AndyMik90/Auto-Claude.git"
+    "url": "https://github.com/AndyMik90/Aperant.git"
   },
   "main": "./out/main/index.js",
   "author": {
-    "name": "Auto Claude Team",
+    "name": "Aperant Team",
     "email": "119136210+AndyMik90@users.noreply.github.com"
   },
   "license": "AGPL-3.0",
@@ -35,10 +35,12 @@
     "package:flatpak": "electron-builder --linux flatpak",
     "verify:linux": "node scripts/verify-linux-packages.cjs dist",
     "test:verify-linux": "node --test scripts/verify-linux-packages.test.mjs",
-    "start:packaged:mac": "open dist/mac-arm64/Auto-Claude.app || open dist/mac/Auto-Claude.app",
-    "start:packaged:win": "start \"\" \"dist\\win-unpacked\\Auto-Claude.exe\"",
-    "start:packaged:linux": "./dist/linux-unpacked/auto-claude",
+    "start:packaged:mac": "open dist/mac-arm64/Aperant.app || open dist/mac/Aperant.app",
+    "start:packaged:win": "start \"\" \"dist\\win-unpacked\\Aperant.exe\"",
+    "start:packaged:linux": "./dist/linux-unpacked/aperant",
     "test": "vitest run",
+    "test:unit": "vitest run --exclude src/__tests__/integration/ --exclude src/__tests__/e2e/",
+    "test:integration": "vitest run src/__tests__/integration/",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "npx playwright test --config=e2e/playwright.config.ts",
@@ -135,6 +137,7 @@
     "@types/semver": "^7.7.1",
     "@types/uuid": "^11.0.0",
     "@vitejs/plugin-react": "^5.1.2",
+    "@vitest/coverage-v8": "^4.1.0",
     "autoprefixer": "^10.4.22",
     "cross-env": "^10.1.0",
     "electron": "40.0.0",
@@ -155,15 +158,15 @@
     "@electron/rebuild": "4.0.2"
   },
   "build": {
-    "appId": "com.autoclaude.ui",
-    "productName": "Auto-Claude",
+    "appId": "com.aperant.app",
+    "productName": "Aperant",
     "npmRebuild": false,
     "artifactName": "${productName}-${version}-${platform}-${arch}.${ext}",
     "publish": [
       {
         "provider": "github",
         "owner": "AndyMik90",
-        "repo": "Auto-Claude"
+        "repo": "Aperant"
       }
     ],
     "directories": {
@@ -185,6 +188,22 @@
       {
         "from": "prompts",
         "to": "prompts"
+      },
+      {
+        "from": "../../node_modules/@libsql",
+        "to": "node_modules/@libsql"
+      },
+      {
+        "from": "../../node_modules/libsql",
+        "to": "node_modules/libsql"
+      },
+      {
+        "from": "../../node_modules/@neon-rs",
+        "to": "node_modules/@neon-rs"
+      },
+      {
+        "from": "../../node_modules/detect-libc",
+        "to": "node_modules/detect-libc"
       }
     ],
     "mac": {

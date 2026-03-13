@@ -253,7 +253,7 @@ export async function startCodexOAuthFlow(): Promise<CodexAuthResult> {
 <body style="font-family: system-ui, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #1a1a1a; color: #e0e0e0;">
   <div style="text-align: center;">
     <h2 style="color: #4ade80;">Authentication successful!</h2>
-    <p>You can close this tab and return to Auto Claude.</p>
+    <p>You can close this tab and return to Aperant.</p>
   </div>
 </body>
 </html>`;

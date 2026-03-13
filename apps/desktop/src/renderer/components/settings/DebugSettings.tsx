@@ -96,7 +96,7 @@ export function DebugSettings() {
                   {t('debug.errorReporting.label', 'Anonymous Error Reporting')}
                 </Label>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {t('debug.errorReporting.description', 'Send crash reports to help improve Auto Claude. No personal data or code is collected.')}
+                  {t('debug.errorReporting.description', 'Send crash reports to help improve Aperant. No personal data or code is collected.')}
                 </p>
               </div>
             </div>

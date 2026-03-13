@@ -1,23 +1,23 @@
 {
   "initialize": {
-    "title": "Initialiser Auto Claude",
-    "description": "Ce projet n'a pas Auto Claude initialisé. Voulez-vous le configurer maintenant ?",
+    "title": "Initialiser Aperant",
+    "description": "Ce projet n'a pas Aperant initialisé. Voulez-vous le configurer maintenant ?",
     "willDo": "Ceci va :",
     "createFolder": "Créer un dossier .auto-claude dans votre projet",
-    "copyFramework": "Copier les fichiers du framework Auto Claude",
+    "copyFramework": "Copier les fichiers du framework Aperant",
     "setupSpecs": "Configurer le répertoire des spécifications pour vos tâches",
     "sourcePathNotConfigured": "Chemin source non configuré",
-    "sourcePathNotConfiguredDescription": "Veuillez définir le chemin source Auto Claude dans les paramètres de l'application avant d'initialiser.",
+    "sourcePathNotConfiguredDescription": "Veuillez définir le chemin source Aperant dans les paramètres de l'application avant d'initialiser.",
     "initFailed": "Échec de l'initialisation",
-    "initFailedDescription": "Échec de l'initialisation de Auto Claude. Veuillez réessayer."
+    "initFailedDescription": "Échec de l'initialisation de Aperant. Veuillez réessayer."
   },
   "gitSetup": {
     "title": "Dépôt Git requis",
-    "description": "Auto Claude utilise git pour construire des fonctionnalités en toute sécurité dans des espaces de travail isolés",
+    "description": "Aperant utilise git pour construire des fonctionnalités en toute sécurité dans des espaces de travail isolés",
     "notGitRepo": "Ce dossier n'est pas un dépôt git",
     "noCommits": "Le dépôt git n'a pas de commits",
-    "needsInit": "Git doit être initialisé avant que Auto Claude puisse gérer votre code.",
-    "needsCommit": "Au moins un commit est requis pour que Auto Claude puisse créer des worktrees.",
+    "needsInit": "Git doit être initialisé avant que Aperant puisse gérer votre code.",
+    "needsCommit": "Au moins un commit est requis pour que Aperant puisse créer des worktrees.",
     "willSetup": "Nous allons configurer git pour vous :",
     "initRepo": "Initialiser un nouveau dépôt git",
     "createCommit": "Créer un commit initial avec vos fichiers actuels",
@@ -25,25 +25,25 @@
     "settingUp": "Configuration de Git",
     "initializingRepo": "Initialisation du dépôt git et création du commit initial...",
     "success": "Git initialisé",
-    "readyToUse": "Votre projet est maintenant prêt à être utilisé avec Auto Claude !"
+    "readyToUse": "Votre projet est maintenant prêt à être utilisé avec Aperant !"
   },
   "githubSetup": {
     "connectTitle": "Connecter à GitHub",
-    "connectDescription": "Auto Claude nécessite GitHub pour gérer vos branches de code et maintenir les tâches à jour.",
+    "connectDescription": "Aperant nécessite GitHub pour gérer vos branches de code et maintenir les tâches à jour.",
     "claudeTitle": "Connecter à Claude AI",
-    "claudeDescription": "Auto Claude utilise Claude AI pour des fonctionnalités intelligentes comme la génération de feuille de route, l'automatisation des tâches et l'idéation.",
+    "claudeDescription": "Aperant utilise Claude AI pour des fonctionnalités intelligentes comme la génération de feuille de route, l'automatisation des tâches et l'idéation.",
     "aiProviderTitle": "Connecter à l'IA",
     "aiProviderDescription": "Ajoutez un compte fournisseur IA pour activer des fonctionnalités comme la génération de feuille de route, l'automatisation des tâches et l'idéation.",
     "aiProviderReady": "Vous avez au moins un fournisseur IA configuré. Vous pouvez passer à l'étape suivante.",
     "skipForNow": "Passer pour l'instant",
     "continue": "Continuer",
     "selectRepo": "Sélectionner le dépôt",
-    "repoDescription": "Auto Claude utilisera ce dépôt pour gérer les branches de tâches et maintenir votre code à jour.",
+    "repoDescription": "Aperant utilisera ce dépôt pour gérer les branches de tâches et maintenir votre code à jour.",
     "selectBranch": "Sélectionner la branche de base",
-    "branchDescription": "Choisissez quelle branche Auto Claude doit utiliser comme base pour créer les branches de tâches.",
+    "branchDescription": "Choisissez quelle branche Aperant doit utiliser comme base pour créer les branches de tâches.",
     "whyBranch": "Pourquoi sélectionner une branche ?",
-    "branchExplanation": "Auto Claude crée des espaces de travail isolés pour chaque tâche. Sélectionner la bonne branche de base garantit que vos tâches démarrent avec le code le plus récent de votre ligne de développement principale.",
-    "ready": "Auto Claude est prêt à l'emploi ! Vous pouvez maintenant créer des tâches qui seront automatiquement basées sur la branche {{branchName}}.",
+    "branchExplanation": "Aperant crée des espaces de travail isolés pour chaque tâche. Sélectionner la bonne branche de base garantit que vos tâches démarrent avec le code le plus récent de votre ligne de développement principale.",
+    "ready": "Aperant est prêt à l'emploi ! Vous pouvez maintenant créer des tâches qui seront automatiquement basées sur la branche {{branchName}}.",
     "createRepoAriaLabel": "Créer un nouveau dépôt sur GitHub",
     "linkRepoAriaLabel": "Lier à un dépôt existant",
     "goBackAriaLabel": "Retourner à la sélection du dépôt",
@@ -53,9 +53,9 @@
   },
   "worktrees": {
     "title": "Worktrees",
-    "description": "Gérez les espaces de travail isolés pour vos tâches Auto Claude",
+    "description": "Gérez les espaces de travail isolés pour vos tâches Aperant",
     "empty": "Aucun worktree",
-    "emptyDescription": "Les worktrees sont créés automatiquement quand Auto Claude construit des fonctionnalités. Ils fournissent des espaces de travail isolés pour chaque tâche.",
+    "emptyDescription": "Les worktrees sont créés automatiquement quand Aperant construit des fonctionnalités. Ils fournissent des espaces de travail isolés pour chaque tâche.",
     "merge": "Fusionner le worktree",
     "mergeDescription": "Fusionner les modifications de ce worktree dans la branche de base.",
     "delete": "Supprimer le worktree ?",
@@ -77,7 +77,7 @@
     "errorDescription": "Échec du nettoyage du worktree. Veuillez réessayer."
   },
   "update": {
-    "title": "Auto Claude",
+    "title": "Aperant",
     "projectInitialized": "Le projet est initialisé."
   },
   "addFeature": {
@@ -156,7 +156,7 @@
   },
   "appUpdate": {
     "title": "Mise à jour de l'application disponible",
-    "description": "Une nouvelle version d'Auto Claude est prête à être téléchargée",
+    "description": "Une nouvelle version d'Aperant est prête à être téléchargée",
     "newVersion": "Nouvelle version",
     "released": "Publiée",
     "downloading": "Téléchargement...",
@@ -169,7 +169,7 @@
     "claudeCodeChangelog": "Voir le journal des modifications Claude Code",
     "claudeCodeChangelogAriaLabel": "Voir le journal des modifications Claude Code (s'ouvre dans une nouvelle fenêtre)",
     "readOnlyVolumeTitle": "Impossible d'installer depuis une image disque",
-    "readOnlyVolumeDescription": "Veuillez déplacer Auto Claude dans votre dossier Applications avant de mettre à jour."
+    "readOnlyVolumeDescription": "Veuillez déplacer Aperant dans votre dossier Applications avant de mettre à jour."
   },
   "addCompetitor": {
     "title": "Ajouter un concurrent",

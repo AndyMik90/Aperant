@@ -7,10 +7,50 @@
  * 3. Web app (Next.js SaaS) — pure cloud libSQL
  */
 
-import { createClient } from '@libsql/client';
-import type { Client } from '@libsql/client';
+import type { Client, Config } from '@libsql/client/sqlite3';
+import { createRequire } from 'module';
 import { join } from 'path';
 import { MEMORY_SCHEMA_SQL, MEMORY_PRAGMA_SQL } from './schema';
+
+/**
+ * Lazy-load @libsql/client via CJS require().
+ *
+ * @libsql/client depends on native platform-specific modules (@libsql/darwin-arm64,
+ * @libsql/linux-x64-gnu, etc.). In packaged Electron apps these live in
+ * Resources/node_modules/ (via extraResources). ESM import() can't resolve them
+ * from within app.asar, but CJS require() works because Module.globalPaths is
+ * patched at startup in index.ts to include Resources/node_modules/.
+ *
+ * Using a lazy getter avoids a static import that would crash at startup before
+ * the globalPaths patch runs.
+ */
+let _createClient: ((config: Config) => Client) | null = null;
+
+function loadCreateClient(): (config: Config) => Client {
+  if (!_createClient) {
+    // In Electron: globalThis.require is set up in index.ts with Module.globalPaths
+    // patched to include Resources/node_modules/ for extraResources packages.
+    // In tests/dev: fall back to createRequire (deps are in normal node_modules).
+    const req = globalThis.require ?? createRequire(import.meta.url);
+    let mod: Record<string, unknown>;
+    try {
+      mod = req('@libsql/client/sqlite3');
+    } catch (err) {
+      throw new Error(
+        `Failed to load @libsql/client/sqlite3: ${(err as Error).message}. ` +
+        `Ensure native modules are available in Resources/node_modules/`
+      );
+    }
+    if (typeof mod.createClient !== 'function') {
+      throw new Error(
+        `@libsql/client/sqlite3 did not export createClient (got ${typeof mod.createClient}). ` +
+        `Check that native modules are available in Resources/node_modules/`
+      );
+    }
+    _createClient = mod.createClient as (config: Config) => Client;
+  }
+  return _createClient!;
+}
 
 let _client: Client | null = null;
 
@@ -31,7 +71,7 @@ export async function getMemoryClient(
   const { app } = await import('electron');
   const localPath = join(app.getPath('userData'), 'memory.db');
 
-  _client = createClient({
+  _client = loadCreateClient()({
     url: `file:${localPath}`,
     ...(tursoSyncUrl && authToken
       ? { syncUrl: tursoSyncUrl, authToken, syncInterval: 60 }
@@ -78,7 +118,7 @@ export async function getWebMemoryClient(
   tursoUrl: string,
   authToken: string,
 ): Promise<Client> {
-  const client = createClient({ url: tursoUrl, authToken });
+  const client = loadCreateClient()({ url: tursoUrl, authToken });
 
   // Apply PRAGMAs
   for (const pragma of MEMORY_PRAGMA_SQL.split('\n').filter(l => l.trim())) {
@@ -97,7 +137,7 @@ export async function getWebMemoryClient(
  * Create an in-memory client (for tests — no Electron dependency).
  */
 export async function getInMemoryClient(): Promise<Client> {
-  const client = createClient({ url: ':memory:' });
+  const client = loadCreateClient()({ url: ':memory:' });
   await client.executeMultiple(MEMORY_SCHEMA_SQL);
   return client;
 }

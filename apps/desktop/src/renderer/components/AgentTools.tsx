@@ -287,7 +287,7 @@ const MCP_SERVERS: Record<string, { name: string; description: string; icon: Rea
     ],
   },
   'auto-claude': {
-    name: 'Auto-Claude Tools',
+    name: 'Aperant Tools',
     description: 'Build progress tracking, session context, discoveries & gotchas recording',
     icon: ListChecks,
     tools: [

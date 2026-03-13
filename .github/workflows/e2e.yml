@@ -1,0 +1,62 @@
+# E2E Tests
+#
+# Runs Playwright E2E tests for the Electron desktop app on Linux.
+# Ubuntu-only since Electron E2E is platform-agnostic (Chromium renderer).
+# Non-blocking initially — separate from ci-complete gate while stabilizing.
+
+name: E2E
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/**'
+      - '.github/workflows/e2e.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'apps/**'
+      - '.github/workflows/e2e.yml'
+
+concurrency:
+  group: e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js frontend
+        uses: ./.github/actions/setup-node-frontend
+
+      - name: Install Playwright browsers
+        working-directory: apps/desktop
+        run: npx playwright install --with-deps chromium
+
+      - name: Build application
+        working-directory: apps/desktop
+        run: npm run build
+
+      - name: Run E2E tests
+        working-directory: apps/desktop
+        continue-on-error: true  # Non-blocking while stabilizing — pre-existing __dirname ESM issue
+        run: xvfb-run --auto-servernum npm run test:e2e
+
+      - name: Upload E2E report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-report
+          path: |
+            apps/desktop/e2e/playwright-report/
+            apps/desktop/e2e/test-results/
+          retention-days: 14

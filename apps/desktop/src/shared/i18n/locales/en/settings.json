@@ -918,7 +918,7 @@
         "description": "Web browser automation for testing"
       },
       "autoClaude": {
-        "name": "Auto-Claude Tools",
+        "name": "Aperant Tools",
         "description": "Build progress tracking"
       }
     },

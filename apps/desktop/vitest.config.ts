@@ -9,9 +9,15 @@ export default defineConfig({
     exclude: ['node_modules', 'dist', 'out'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html'],
+      reporter: ['text', 'json', 'html', 'json-summary'],
       include: ['src/**/*.ts', 'src/**/*.tsx'],
-      exclude: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'src/**/*.spec.ts', 'src/**/*.spec.tsx', 'src/**/*.d.ts']
+      exclude: ['src/**/*.test.ts', 'src/**/*.test.tsx', 'src/**/*.spec.ts', 'src/**/*.spec.tsx', 'src/**/*.d.ts'],
+      thresholds: {
+        lines: 22,
+        branches: 17,
+        functions: 19,
+        statements: 22
+      }
     },
     // Mock Electron modules for unit tests
     alias: {

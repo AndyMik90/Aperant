@@ -744,7 +744,7 @@ export function GitHubSetupModal({
                 Select Base Branch
               </DialogTitle>
               <DialogDescription>
-                Choose which branch Auto Claude should use as the base for creating task branches.
+                Choose which branch Aperant should use as the base for creating task branches.
               </DialogDescription>
             </DialogHeader>
 
@@ -811,7 +811,7 @@ export function GitHubSetupModal({
                   <div className="text-xs text-muted-foreground">
                     <p className="font-medium text-foreground">Why select a branch?</p>
                     <p className="mt-1">
-                      Auto Claude creates isolated workspaces for each task. Selecting the right base branch ensures
+                      Aperant creates isolated workspaces for each task. Selecting the right base branch ensures
                       your tasks start with the latest code from your main development line.
                     </p>
                   </div>
@@ -857,7 +857,7 @@ export function GitHubSetupModal({
                 <CheckCircle2 className="h-8 w-8 text-success" />
               </div>
               <p className="text-sm text-muted-foreground text-center">
-                Auto Claude is ready to use! You can now create tasks that will be
+                Aperant is ready to use! You can now create tasks that will be
                 automatically based on <code className="px-1 bg-muted rounded">{selectedBranch}</code>.
               </p>
             </div>

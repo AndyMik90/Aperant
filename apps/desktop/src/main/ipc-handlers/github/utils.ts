@@ -267,7 +267,7 @@ export async function githubFetch(
     headers: {
       'Accept': 'application/vnd.github+json',
       'Authorization': `Bearer ${safeToken}`,
-      'User-Agent': 'Auto-Claude-UI',
+      'User-Agent': 'Aperant',
       ...options.headers
     }
   });
@@ -298,7 +298,7 @@ export async function githubFetchWithETag(
   const headers: Record<string, string> = {
     'Accept': 'application/vnd.github+json',
     'Authorization': `Bearer ${token}`,
-    'User-Agent': 'Auto-Claude-UI'
+    'User-Agent': 'Aperant'
   };
 
   // Add If-None-Match header if we have a cached ETag

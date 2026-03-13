@@ -251,7 +251,7 @@ export interface MemoryMethodologyPlugin {
 
 export const nativePlugin: MemoryMethodologyPlugin = {
   id: 'native',
-  displayName: 'Auto Claude (Subtasks)',
+  displayName: 'Aperant (Subtasks)',
   mapPhase: (p: string): UniversalPhase => {
     const map: Record<string, UniversalPhase> = {
       planning: 'define',

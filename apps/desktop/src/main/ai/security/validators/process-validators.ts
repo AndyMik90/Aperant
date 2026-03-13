@@ -87,7 +87,7 @@ const BLOCKED_PROCESS_NAMES = new Set([
   'electron',
   'Electron',
   'auto-claude',
-  'Auto Claude',
+  'Aperant',
 ]);
 
 // ---------------------------------------------------------------------------

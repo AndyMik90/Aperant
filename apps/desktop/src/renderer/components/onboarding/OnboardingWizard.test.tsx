@@ -21,11 +21,11 @@ vi.mock('react-i18next', () => ({
       // Return the key itself or provide specific translations
       // Keys are without namespace since component uses useTranslation('namespace')
       const translations: Record<string, string> = {
-        'welcome.title': 'Welcome to Auto Claude',
+        'welcome.title': 'Welcome to Aperant',
         'welcome.subtitle': 'AI-powered autonomous coding assistant',
         'welcome.getStarted': 'Get Started',
         'welcome.skip': 'Skip Setup',
-        'wizard.helpText': 'Let us help you get started with Auto Claude',
+        'wizard.helpText': 'Let us help you get started with Aperant',
         'welcome.features.aiPowered.title': 'AI-Powered',
         'welcome.features.aiPowered.description': 'Powered by Claude',
         'welcome.features.specDriven.title': 'Spec-Driven',
@@ -107,7 +107,7 @@ describe('OnboardingWizard Integration Tests', () => {
       render(<OnboardingWizard {...defaultProps} />);
 
       // Start at welcome step
-      expect(screen.getByText(/Welcome to Auto Claude/)).toBeInTheDocument();
+      expect(screen.getByText(/Welcome to Aperant/)).toBeInTheDocument();
 
       // Click "Get Started" to go to accounts
       const getStartedButton = screen.getByRole('button', { name: /Get Started/ });
@@ -147,7 +147,7 @@ describe('OnboardingWizard Integration Tests', () => {
 
       // Should be back at welcome
       await waitFor(() => {
-        expect(screen.getByText(/Welcome to Auto Claude/)).toBeInTheDocument();
+        expect(screen.getByText(/Welcome to Aperant/)).toBeInTheDocument();
       });
     });
   });
@@ -157,25 +157,25 @@ describe('OnboardingWizard Integration Tests', () => {
       render(<OnboardingWizard {...defaultProps} open={true} />);
 
       // Wizard should be visible
-      expect(screen.getByText(/Welcome to Auto Claude/)).toBeInTheDocument();
+      expect(screen.getByText(/Welcome to Aperant/)).toBeInTheDocument();
     });
 
     it('should not show wizard when open is false', () => {
       const { rerender } = render(<OnboardingWizard {...defaultProps} open={true} />);
 
-      expect(screen.getByText(/Welcome to Auto Claude/)).toBeInTheDocument();
+      expect(screen.getByText(/Welcome to Aperant/)).toBeInTheDocument();
 
       // Close wizard
       rerender(<OnboardingWizard {...defaultProps} open={false} />);
 
       // Wizard content should not be visible
-      expect(screen.queryByText(/Welcome to Auto Claude/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Welcome to Aperant/)).not.toBeInTheDocument();
     });
 
     it('should not show wizard for users with existing auth', () => {
       render(<OnboardingWizard {...defaultProps} open={false} />);
 
-      expect(screen.queryByText(/Welcome to Auto Claude/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Welcome to Aperant/)).not.toBeInTheDocument();
     });
   });
 
