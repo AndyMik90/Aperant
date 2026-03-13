@@ -163,7 +163,8 @@ describe('generateCommitMessage', () => {
   it('reads spec.md for title when spec directory exists', async () => {
     // Spec directory at .auto-claude/specs/001-add-feature
     mockExistsSync.mockImplementation((p: string) => {
-      if (p.includes('specs/001-add-feature')) return true;
+      const normalized = p.replace(/\\/g, '/');
+      if (normalized.includes('specs/001-add-feature')) return true;
       return false;
     });
     mockReadFileSync.mockImplementation((p: string) => {

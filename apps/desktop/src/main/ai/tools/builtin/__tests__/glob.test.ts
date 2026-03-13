@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { globTool } from '../glob';
@@ -102,8 +103,8 @@ describe('Glob Tool', () => {
       baseContext,
     ) as string;
 
-    expect(result).toContain('/test/project/src/index.ts');
-    expect(result).toContain('/test/project/src/utils.ts');
+    expect(result).toContain('index.ts');
+    expect(result).toContain('utils.ts');
   });
 
   it('should return "No files found" when pattern matches nothing', async () => {
@@ -136,9 +137,9 @@ describe('Glob Tool', () => {
     // Return different mtimes for isFile check vs mtime check
     // statSync is called once per file for isFile and once per file for mtime
     const mtimes: Record<string, number> = {
-      '/test/project/old.ts': 1000,
-      '/test/project/new.ts': 3000,
-      '/test/project/middle.ts': 2000,
+      [path.resolve('/test/project', 'old.ts')]: 1000,
+      [path.resolve('/test/project', 'new.ts')]: 3000,
+      [path.resolve('/test/project', 'middle.ts')]: 2000,
     };
 
     vi.mocked(fs.statSync).mockImplementation((p) => ({

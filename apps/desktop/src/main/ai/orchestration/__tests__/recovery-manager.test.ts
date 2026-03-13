@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ---------------------------------------------------------------------------
@@ -31,10 +32,10 @@ import type { BuildCheckpoint, FailureType } from '../recovery-manager';
 // Helpers
 // ---------------------------------------------------------------------------
 
-const SPEC_DIR = '/project/.auto-claude/specs/001-feature';
-const PROJECT_DIR = '/project';
-const MEMORY_DIR = `${SPEC_DIR}/memory`;
-const ATTEMPT_HISTORY_PATH = `${MEMORY_DIR}/attempt_history.json`;
+const PROJECT_DIR = path.join(path.sep, 'project');
+const SPEC_DIR = path.join(PROJECT_DIR, '.auto-claude', 'specs', '001-feature');
+const MEMORY_DIR = path.join(SPEC_DIR, 'memory');
+const ATTEMPT_HISTORY_PATH = path.join(MEMORY_DIR, 'attempt_history.json');
 
 function makeHistory(
   subtasks: Record<string, Array<{ timestamp: string; error: string; failureType: FailureType; errorHash: string }>>,
@@ -140,7 +141,7 @@ describe('RecoveryManager checkpoint round-trip', () => {
 
     // Verify writeFile was called with the progress file path
     expect(mockWriteFile).toHaveBeenCalledWith(
-      `${SPEC_DIR}/build-progress.txt`,
+      path.join(SPEC_DIR, 'build-progress.txt'),
       expect.stringContaining('spec_id: 001'),
       'utf-8',
     );

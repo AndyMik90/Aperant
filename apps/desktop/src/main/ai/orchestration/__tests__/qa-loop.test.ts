@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // ---------------------------------------------------------------------------
@@ -416,7 +417,7 @@ describe('QALoop', () => {
     const calls = runSession.mock.calls as Array<[QASessionRunConfig]>;
     expect(calls.some((c) => c[0].agentType === 'qa_fixer')).toBe(true);
     // Fix request file should be deleted
-    expect(mockUnlink).toHaveBeenCalledWith(`${SPEC_DIR}/QA_FIX_REQUEST.md`);
+    expect(mockUnlink).toHaveBeenCalledWith(path.join(SPEC_DIR, 'QA_FIX_REQUEST.md'));
     // Overall outcome should still reflect the QA result
     expect(outcome.approved).toBe(true);
   });
