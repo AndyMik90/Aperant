@@ -235,7 +235,6 @@ export function AuthTerminal({
         thisTerminalId: terminalId,
         isMatch: info.terminalId === terminalId,
         success: info.success,
-        needsOnboarding: info.needsOnboarding,
         email: info.email,
         currentStatus: statusRef.current,
         loginSent: loginSentRef.current
@@ -243,16 +242,9 @@ export function AuthTerminal({
       if (info.terminalId === terminalId) {
         if (info.success) {
           setAuthEmail(info.email);
-          // If needsOnboarding is true, user should complete setup in terminal
-          // Otherwise, authentication is fully complete
-          if (info.needsOnboarding) {
-            debugLog('Setting status to onboarding', { terminalId });
-            setStatus('onboarding');
-          } else {
-            debugLog('Setting status to success (no onboarding needed)', { terminalId });
-            setStatus('success');
-            onAuthSuccess?.(info.email);
-          }
+          debugLog('Setting status to success', { terminalId });
+          setStatus('success');
+          onAuthSuccess?.(info.email);
         } else {
           debugLog('OAuth failed', { terminalId, message: info.message });
           setStatus('error');

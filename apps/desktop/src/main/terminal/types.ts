@@ -55,8 +55,6 @@ export interface OAuthTokenEvent {
   success: boolean;
   message?: string;
   detectedAt: string;
-  /** If true, user should complete onboarding in terminal before closing */
-  needsOnboarding?: boolean;
 }
 
 /**

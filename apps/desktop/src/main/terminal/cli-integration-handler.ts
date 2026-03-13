@@ -801,11 +801,6 @@ export function handleOnboardingComplete(
     }
   }
 
-  // Persist onboarding completion so future invocations skip the wizard
-  if (profile?.configDir) {
-    ensureOnboardingComplete(profile.configDir);
-  }
-
   safeSendToRenderer(getWindow, IPC_CHANNELS.TERMINAL_ONBOARDING_COMPLETE, {
     terminalId: terminal.id,
     profileId,
@@ -902,7 +897,7 @@ export function handleClaudeExit(
  * When CLAUDE_CONFIG_DIR is set, Claude Code reads .claude.json from that directory.
  * Without this flag, it triggers the onboarding wizard even for authenticated profiles.
  */
-function ensureOnboardingComplete(configDir: string): void {
+export function ensureOnboardingComplete(configDir: string): void {
   try {
     const expandedDir = path.resolve(
       configDir.startsWith('~') ? configDir.replace(/^~/, os.homedir()) : configDir

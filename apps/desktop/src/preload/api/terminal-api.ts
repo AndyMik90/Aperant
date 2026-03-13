@@ -80,7 +80,7 @@ export interface TerminalAPI {
   onTerminalClaudeSession: (callback: (id: string, sessionId: string) => void) => () => void;
   onTerminalRateLimit: (callback: (info: RateLimitInfo) => void) => () => void;
   onTerminalOAuthToken: (
-    callback: (info: { terminalId: string; profileId?: string; email?: string; success: boolean; message?: string; detectedAt: string; needsOnboarding?: boolean }) => void
+    callback: (info: { terminalId: string; profileId?: string; email?: string; success: boolean; message?: string; detectedAt: string }) => void
   ) => () => void;
   onTerminalAuthCreated: (
     callback: (info: { terminalId: string; profileId: string; profileName: string }) => void
