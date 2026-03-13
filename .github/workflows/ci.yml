@@ -34,6 +34,7 @@ concurrency:
 permissions:
   contents: read
   actions: read
+  pull-requests: write
 
 jobs:
   # --------------------------------------------------------------------------
@@ -61,9 +62,35 @@ jobs:
         working-directory: apps/desktop
         run: npm run typecheck
 
-      - name: Run unit tests
+      - name: Run unit tests with coverage
+        if: matrix.os == 'ubuntu-latest'
         working-directory: apps/desktop
-        run: npm run test
+        run: npm run test:coverage
+
+      - name: Run unit tests
+        if: matrix.os != 'ubuntu-latest'
+        working-directory: apps/desktop
+        run: npm run test:unit
+
+      - name: Run integration tests
+        working-directory: apps/desktop
+        run: npm run test:integration
+
+      - name: Upload coverage report
+        if: matrix.os == 'ubuntu-latest' && always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: apps/desktop/coverage/
+          retention-days: 14
+
+      - name: Coverage PR comment
+        if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
+        uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          working-directory: apps/desktop
+          json-summary-path: coverage/coverage-summary.json
+          json-final-path: coverage/coverage-final.json
 
       - name: Build application
         working-directory: apps/desktop

@@ -572,9 +572,9 @@ jobs:
           IS_PRERELEASE="${{ steps.version.outputs.is_prerelease }}"
 
           if [ "$IS_PRERELEASE" = "true" ]; then
-            python3 scripts/update-readme.py "$VERSION" --prerelease
+            node scripts/update-readme.mjs "$VERSION" --prerelease
           else
-            python3 scripts/update-readme.py "$VERSION"
+            node scripts/update-readme.mjs "$VERSION"
           fi
 
           echo "--- Verifying update ---"
