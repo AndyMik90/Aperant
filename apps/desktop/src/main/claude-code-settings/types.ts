@@ -34,6 +34,10 @@ export interface ClaudeCodeSettings {
   alwaysThinkingEnabled?: boolean;
   /** Environment variables to inject into agent processes */
   env?: Record<string, string>;
+  /** Enabled marketplace plugins keyed by pluginKey (e.g. "pluginId@marketplace") */
+  enabledPlugins?: Record<string, boolean>;
+  /** Inline MCP server configurations keyed by server ID */
+  mcpServers?: Record<string, unknown>;
 }
 
 /**

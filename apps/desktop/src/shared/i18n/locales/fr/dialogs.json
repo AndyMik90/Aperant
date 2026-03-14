@@ -139,6 +139,49 @@
     "openExistingAriaLabel": "Ouvrir un dossier de projet existant",
     "createNewAriaLabel": "Créer un nouveau projet"
   },
+  "addCustomer": {
+    "title": "Ajouter un client",
+    "description": "Créer un nouveau dossier client ou sélectionner un existant",
+    "createNew": "Créer un nouveau dossier",
+    "createNewDescription": "Commencer avec un nouveau dossier client",
+    "createNewSubtitle": "Configurer un nouveau dossier client",
+    "createNewAriaLabel": "Créer un nouveau dossier client",
+    "openExisting": "Ouvrir un dossier existant",
+    "openExistingDescription": "Parcourir vers un dossier client existant sur votre ordinateur",
+    "openExistingAriaLabel": "Ouvrir un dossier client existant",
+    "customerName": "Nom du client",
+    "customerNamePlaceholder": "ex. Acme Corp",
+    "location": "Emplacement",
+    "locationPlaceholder": "Sélectionner un dossier...",
+    "browse": "Parcourir",
+    "willCreate": "Va créer :",
+    "back": "Retour",
+    "creating": "Création en cours...",
+    "createCustomer": "Créer le client",
+    "nameRequired": "Veuillez entrer un nom de client",
+    "locationRequired": "Veuillez sélectionner un emplacement",
+    "failedToOpen": "Échec de l'ouverture du dossier client",
+    "failedToCreate": "Échec de la création du dossier client"
+  },
+  "customerRepos": {
+    "title": "Cloner des dépôts",
+    "description": "Sélectionnez les dépôts à cloner dans le dossier de {{name}}",
+    "searchPlaceholder": "Rechercher des dépôts...",
+    "loading": "Chargement des dépôts...",
+    "failedToLoad": "Échec du chargement des dépôts",
+    "noResults": "Aucun dépôt ne correspond à votre recherche",
+    "noRepos": "Aucun dépôt trouvé",
+    "clone": "Cloner",
+    "cloning": "Clonage...",
+    "cloned": "Cloné",
+    "cloneFailed": "Échec du clonage du dépôt",
+    "retry": "Réessayer",
+    "clonedCount": "{{count}} dépôt cloné",
+    "clonedCount_other": "{{count}} dépôts clonés",
+    "done": "Terminé",
+    "private": "Dépôt privé",
+    "public": "Dépôt public"
+  },
   "customModel": {
     "title": "Configuration du modèle personnalisé",
     "description": "Configurez le modèle et le niveau de réflexion pour cette session de chat.",
@@ -224,6 +267,12 @@
     "skipTitle": "Ignorer l'analyse concurrentielle",
     "skipDescription": "Générer la feuille de route sans informations concurrentielles.",
     "cancel": "Annuler"
+  },
+  "envConfig": {
+    "profileNotFound": "Profil introuvable",
+    "failedToSaveToken": "Échec de la sauvegarde du jeton",
+    "invalidProfileCredentials": "Le profil sélectionné n'a pas d'identifiants valides. Veuillez vous ré-authentifier.",
+    "failedToUseProfile": "Échec de l'utilisation du profil"
   },
   "versionWarning": {
     "title": "Action requise",

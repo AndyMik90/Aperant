@@ -122,6 +122,47 @@ export interface GitHubSyncStatus {
   error?: string;
 }
 
+/**
+ * Multi-repo GitHub connection status for Customer projects
+ */
+export interface MultiRepoGitHubStatus {
+  connected: boolean;
+  repos: { projectId: string; repoFullName: string }[];
+  error?: string;
+}
+
+/**
+ * Result type for multi-repo issue fetching
+ */
+export interface MultiRepoIssuesResult {
+  issues: GitHubIssue[];
+  repos: string[];
+  hasMore: boolean;
+}
+
+export interface MultiRepoPRData {
+  number: number;
+  title: string;
+  body: string;
+  state: string;
+  author: { login: string };
+  headRefName: string;
+  baseRefName: string;
+  additions: number;
+  deletions: number;
+  changedFiles: number;
+  assignees: Array<{ login: string }>;
+  createdAt: string;
+  updatedAt: string;
+  htmlUrl: string;
+  repoFullName: string;
+}
+
+export interface MultiRepoPRsResult {
+  prs: MultiRepoPRData[];
+  repos: string[];
+}
+
 export interface GitHubImportResult {
   success: boolean;
   imported: number;
@@ -478,3 +519,84 @@ export interface RoadmapProviderConfig {
  * Canny-specific status values
  */
 export type CannyStatus = 'open' | 'under review' | 'planned' | 'in progress' | 'complete' | 'closed';
+
+// ============================================
+// Claude Code Global MCP Types
+// ============================================
+
+/**
+ * A single MCP server entry resolved from Claude Code's global settings.
+ * Can originate from an enabled plugin (marketplace), an inline mcpServers definition
+ * in settings.json, or the top-level mcpServers in ~/.claude.json.
+ */
+export interface GlobalMcpServerEntry {
+  /** Plugin key (only for plugin-sourced servers), e.g. "context7@claude-plugins-official" */
+  pluginKey?: string;
+  /** Server identifier from the MCP config, e.g. "context7" */
+  serverId: string;
+  /** Human-readable name derived from serverId */
+  serverName: string;
+  /** MCP server configuration */
+  config: {
+    type?: 'http' | 'sse';
+    command?: string;
+    args?: string[];
+    url?: string;
+    headers?: Record<string, string>;
+    env?: Record<string, string>;
+  };
+  /** Where this server config was sourced from */
+  source: 'plugin' | 'settings' | 'claude-json';
+}
+
+/**
+ * Combined result of all global MCP servers from Claude Code settings.
+ */
+export interface GlobalMcpInfo {
+  /** MCP servers resolved from enabledPlugins (via plugin cache .mcp.json files) */
+  pluginServers: GlobalMcpServerEntry[];
+  /** MCP servers defined inline in the mcpServers field of settings.json */
+  inlineServers: GlobalMcpServerEntry[];
+  /** MCP servers from ~/.claude.json (main Claude Code config) */
+  claudeJsonServers: GlobalMcpServerEntry[];
+}
+
+// ============================================
+// Claude Code Custom Agent Types
+// ============================================
+
+/**
+ * A custom agent definition from ~/.claude/agents/
+ */
+export interface ClaudeCustomAgent {
+  /** Agent ID derived from filename (e.g. "frontend-developer") */
+  agentId: string;
+  /** Human-readable name (e.g. "Frontend Developer") */
+  agentName: string;
+  /** Category directory name (e.g. "01-core-development") */
+  categoryDir: string;
+  /** Human-readable category name (e.g. "Core Development") */
+  categoryName: string;
+  /** Full file path to the .md file */
+  filePath: string;
+}
+
+/**
+ * A category of custom agents
+ */
+export interface ClaudeAgentCategory {
+  /** Category directory name (e.g. "01-core-development") */
+  categoryDir: string;
+  /** Human-readable name (e.g. "Core Development") */
+  categoryName: string;
+  /** Agents in this category */
+  agents: ClaudeCustomAgent[];
+}
+
+/**
+ * Combined result of all custom agents from ~/.claude/agents/
+ */
+export interface ClaudeAgentsInfo {
+  categories: ClaudeAgentCategory[];
+  totalAgents: number;
+}

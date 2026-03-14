@@ -1,5 +1,6 @@
 import { ipcMain } from 'electron';
-import { existsSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
+import path from 'path';
 import { execFileSync } from 'child_process';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type {
@@ -21,6 +22,7 @@ import {
 } from '../project-initializer';
 import { getToolPath } from '../cli-tool-manager';
 import type { BrowserWindow } from 'electron';
+import { debugLog } from '../../shared/utils/debug-logger';
 
 // ============================================
 // Git Helper Functions
@@ -310,7 +312,7 @@ export function registerProjectHandlers(
     IPC_CHANNELS.TAB_STATE_GET,
     async (): Promise<IPCResult<{ openProjectIds: string[]; activeProjectId: string | null; tabOrder: string[] }>> => {
       const tabState = projectStore.getTabState();
-      console.log('[IPC] TAB_STATE_GET returning:', tabState);
+      debugLog('[IPC] TAB_STATE_GET returning:', tabState);
       return { success: true, data: tabState };
     }
   );
@@ -321,7 +323,7 @@ export function registerProjectHandlers(
       _,
       tabState: { openProjectIds: string[]; activeProjectId: string | null; tabOrder: string[] }
     ): Promise<IPCResult> => {
-      console.log('[IPC] TAB_STATE_SAVE called with:', tabState);
+      debugLog('[IPC] TAB_STATE_SAVE called with:', tabState);
       projectStore.saveTabState(tabState);
       return { success: true };
     }
@@ -386,6 +388,39 @@ export function registerProjectHandlers(
         }
 
         return { success: result.success, data: result, error: result.error };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        };
+      }
+    }
+  );
+
+  // Initialize customer project — creates .auto-claude/ without requiring git
+  ipcMain.handle(
+    IPC_CHANNELS.PROJECT_INIT_CUSTOMER,
+    async (_, projectId: string): Promise<IPCResult<InitializationResult>> => {
+      try {
+        const project = projectStore.getProject(projectId);
+        if (!project) {
+          return { success: false, error: 'Project not found' };
+        }
+
+        // Validate that the project root directory still exists before creating subdirectory.
+        // This prevents silently recreating deleted/moved project directories.
+        if (!existsSync(project.path)) {
+          return { success: false, error: `Project directory does not exist: ${project.path}` };
+        }
+
+        const dotAutoClaude = path.join(project.path, '.auto-claude');
+
+        if (!existsSync(dotAutoClaude)) {
+          mkdirSync(dotAutoClaude, { recursive: true });
+        }
+
+        projectStore.updateAutoBuildPath(projectId, '.auto-claude');
+        return { success: true, data: { success: true } };
       } catch (error) {
         return {
           success: false,

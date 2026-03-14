@@ -350,6 +350,16 @@
     "deletePermanently": "Supprimer d\u00e9finitivement",
     "deleting": "Suppression..."
   },
+  "progress": {
+    "title": "Progression",
+    "currentSubtask": "Sous-tâche : {{subtask}}",
+    "subtasksCompleted": "{{completed}}/{{total}} sous-tâches terminées",
+    "noSubtasksYet": "Aucune sous-tâche pour le moment",
+    "phasePlanning": "Planification (0-20%)",
+    "phaseCoding": "Développement (20-80%)",
+    "phaseAIReview": "Revue IA (80-95%)",
+    "phaseComplete": "Terminé (95-100%)"
+  },
   "referenceImages": {
     "title": "Images de référence (facultatif)",
     "description": "Ajoutez des références visuelles comme des captures d'écran ou des conceptions pour aider l'IA à comprendre vos exigences."

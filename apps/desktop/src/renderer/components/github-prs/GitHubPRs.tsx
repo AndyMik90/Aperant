@@ -19,7 +19,7 @@ function NotConnectedState({
 }: {
   error: string | null;
   onOpenSettings?: () => void;
-  t: (key: string) => string;
+  t: (key: string, options?: Record<string, unknown>) => string;
 }) {
   return (
     <div className="flex-1 flex items-center justify-center p-8">

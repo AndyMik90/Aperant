@@ -10,6 +10,7 @@ export const IPC_CHANNELS = {
   PROJECT_LIST: 'project:list',
   PROJECT_UPDATE_SETTINGS: 'project:updateSettings',
   PROJECT_INITIALIZE: 'project:initialize',
+  PROJECT_INIT_CUSTOMER: 'project:initCustomer',
   PROJECT_CHECK_VERSION: 'project:checkVersion',
 
   // Tab state operations (persisted in main process)
@@ -214,6 +215,7 @@ export const IPC_CHANNELS = {
   // Context operations
   CONTEXT_GET: 'context:get',
   CONTEXT_REFRESH_INDEX: 'context:refreshIndex',
+  CONTEXT_INDEX_PROGRESS: 'context:indexProgress',
   CONTEXT_MEMORY_STATUS: 'context:memoryStatus',
   CONTEXT_SEARCH_MEMORIES: 'context:searchMemories',
   CONTEXT_GET_MEMORIES: 'context:getMemories',
@@ -265,6 +267,12 @@ export const IPC_CHANNELS = {
   GITHUB_IMPORT_ISSUES: 'github:importIssues',
   GITHUB_CREATE_RELEASE: 'github:createRelease',
 
+  // Customer multi-repo GitHub operations
+  GITHUB_CHECK_MULTI_REPO_CONNECTION: 'github:checkMultiRepoConnection',
+  GITHUB_GET_MULTI_REPO_ISSUES: 'github:getMultiRepoIssues',
+  GITHUB_GET_MULTI_REPO_ISSUE_DETAIL: 'github:getMultiRepoIssueDetail',
+  GITHUB_GET_MULTI_REPO_PRS: 'github:getMultiRepoPRs',
+
   // GitHub OAuth (gh CLI authentication)
   GITHUB_CHECK_CLI: 'github:checkCli',
   GITHUB_CHECK_AUTH: 'github:checkAuth',
@@ -277,6 +285,7 @@ export const IPC_CHANNELS = {
   GITHUB_CREATE_REPO: 'github:createRepo',
   GITHUB_ADD_REMOTE: 'github:addRemote',
   GITHUB_LIST_ORGS: 'github:listOrgs',
+  GITHUB_CLONE_REPO: 'github:cloneRepo',
 
   // GitHub OAuth events (main -> renderer) - for streaming device code during auth
   GITHUB_AUTH_DEVICE_CODE: 'github:authDeviceCode',
@@ -469,6 +478,7 @@ export const IPC_CHANNELS = {
   OLLAMA_LIST_EMBEDDING_MODELS: 'ollama:listEmbeddingModels',
   OLLAMA_PULL_MODEL: 'ollama:pullModel',
   OLLAMA_PULL_PROGRESS: 'ollama:pullProgress',
+  OLLAMA_GET_EMBEDDING_DIM: 'ollama:getEmbeddingDim',
 
   // Changelog operations
   CHANGELOG_GET_DONE_TASKS: 'changelog:getDoneTasks',
@@ -568,7 +578,12 @@ export const IPC_CHANNELS = {
 
   // MCP Server health checks
   MCP_CHECK_HEALTH: 'mcp:checkHealth',           // Quick connectivity check
+  MCP_CHECK_GLOBAL_HEALTH: 'mcp:checkGlobalHealth', // Health check for global MCPs (trusted source, no allowlist)
   MCP_TEST_CONNECTION: 'mcp:testConnection',     // Full MCP protocol test
+
+  // Claude Code global MCP configuration
+  CLAUDE_MCP_GET_GLOBAL: 'claude-mcp:getGlobalMcps',
+  CLAUDE_AGENTS_GET: 'claude-agents:getAgents',
 
   // Sentry error reporting
   SENTRY_STATE_CHANGED: 'sentry:state-changed',  // Notify main process when setting changes

@@ -12,6 +12,9 @@ interface ContextState {
   projectIndex: ProjectIndex | null;
   indexLoading: boolean;
   indexError: string | null;
+  indexProgress: string | null;
+  indexProgressCurrent: number | null;
+  indexProgressTotal: number | null;
 
   // Memory Status
   memoryStatus: MemorySystemStatus | null;
@@ -32,6 +35,7 @@ interface ContextState {
   setProjectIndex: (index: ProjectIndex | null) => void;
   setIndexLoading: (loading: boolean) => void;
   setIndexError: (error: string | null) => void;
+  setIndexProgress: (message: string | null, current?: number | null, total?: number | null) => void;
   setMemoryStatus: (status: MemorySystemStatus | null) => void;
   setMemoryState: (state: MemorySystemState | null) => void;
   setMemoryLoading: (loading: boolean) => void;
@@ -49,6 +53,9 @@ export const useContextStore = create<ContextState>((set) => ({
   projectIndex: null,
   indexLoading: false,
   indexError: null,
+  indexProgress: null,
+  indexProgressCurrent: null,
+  indexProgressTotal: null,
 
   // Memory Status
   memoryStatus: null,
@@ -69,6 +76,11 @@ export const useContextStore = create<ContextState>((set) => ({
   setProjectIndex: (index) => set({ projectIndex: index }),
   setIndexLoading: (loading) => set({ indexLoading: loading }),
   setIndexError: (error) => set({ indexError: error }),
+  setIndexProgress: (message, current, total) => set({
+    indexProgress: message,
+    indexProgressCurrent: current ?? null,
+    indexProgressTotal: total ?? null
+  }),
   setMemoryStatus: (status) => set({ memoryStatus: status }),
   setMemoryState: (state) => set({ memoryState: state }),
   setMemoryLoading: (loading) => set({ memoryLoading: loading }),
@@ -83,6 +95,9 @@ export const useContextStore = create<ContextState>((set) => ({
       projectIndex: null,
       indexLoading: false,
       indexError: null,
+      indexProgress: null,
+      indexProgressCurrent: null,
+      indexProgressTotal: null,
       memoryStatus: null,
       memoryState: null,
       memoryLoading: false,
@@ -125,14 +140,16 @@ export async function loadProjectContext(projectId: string): Promise<void> {
 
 /**
  * Refresh project index by re-running analyzer
+ * @param force - If true, re-runs analyzer even if index already exists (for customer child repos)
  */
-export async function refreshProjectIndex(projectId: string): Promise<void> {
+export async function refreshProjectIndex(projectId: string, force?: boolean): Promise<void> {
   const store = useContextStore.getState();
   store.setIndexLoading(true);
   store.setIndexError(null);
+  store.setIndexProgress(null);
 
   try {
-    const result = await window.electronAPI.refreshProjectIndex(projectId);
+    const result = await window.electronAPI.refreshProjectIndex(projectId, force);
     if (result.success && result.data) {
       store.setProjectIndex(result.data);
     } else {
@@ -142,6 +159,7 @@ export async function refreshProjectIndex(projectId: string): Promise<void> {
     store.setIndexError(error instanceof Error ? error.message : 'Unknown error');
   } finally {
     store.setIndexLoading(false);
+    store.setIndexProgress(null);
   }
 }
 

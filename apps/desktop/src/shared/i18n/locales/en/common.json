@@ -25,7 +25,8 @@
     "hideArchivedTasks": "Hide archived tasks",
     "closeTab": "Close tab",
     "closeTabAriaLabel": "Close tab (removes project from app)",
-    "addProjectAriaLabel": "Add project"
+    "addProjectAriaLabel": "Add project",
+    "dragHandle": "Drag to reorder {{name}}"
   },
   "accessibility": {
     "deleteFeatureAriaLabel": "Delete feature",
@@ -142,7 +143,9 @@
     "justNow": "Just now",
     "minutesAgo": "{{count}}m ago",
     "hoursAgo": "{{count}}h ago",
-    "daysAgo": "{{count}}d ago"
+    "daysAgo": "{{count}}d ago",
+    "yesterday": "yesterday",
+    "weeksAgo": "{{count}}w ago"
   },
   "errors": {
     "generic": "An error occurred",
@@ -431,6 +434,13 @@
       "agentActivity": "Agent Activity",
       "showMore": "Show {{count}} more",
       "hideMore": "Hide {{count}} more"
+    },
+    "reposCount": "{{count}} repos",
+    "multiRepo": {
+      "failedToCheckConnection": "Failed to check multi-repo connection",
+      "failedToLoadPRs": "Failed to load PRs",
+      "failedToRefreshPRs": "Failed to refresh PRs",
+      "unknownError": "Unknown error"
     }
   },
   "downloads": {
@@ -447,6 +457,7 @@
     "starting": "Starting..."
   },
   "insights": {
+    "placeholder": "Ask about your codebase...",
     "suggestedTask": "Suggested Task",
     "creating": "Creating...",
     "taskCreated": "Task Created",
@@ -492,6 +503,7 @@
     }
   },
   "ideation": {
+    "noIdeasToDisplay": "No ideas to display",
     "converting": "Converting...",
     "convertToTask": "Convert to Auto-Build Task",
     "dismissIdea": "Dismiss Idea",
@@ -504,9 +516,18 @@
     "conversionErrorDescription": "An error occurred while converting the idea"
   },
   "issues": {
+    "noIssuesFound": "No issues found",
+    "selectIssueToView": "Select an issue to view details",
     "loadingMore": "Loading more...",
     "scrollForMore": "Scroll for more",
-    "allLoaded": "All issues loaded"
+    "allLoaded": "All issues loaded",
+    "reposCount": "{{count}} repos",
+    "multiRepo": {
+      "failedToCheckConnection": "Failed to check multi-repo connection",
+      "failedToLoadIssues": "Failed to load issues",
+      "failedToRefreshIssues": "Failed to refresh issues",
+      "unknownError": "Unknown error"
+    }
   },
   "usage": {
     "dataUnavailable": "Usage data unavailable",
@@ -741,6 +762,8 @@
     }
   },
   "auth": {
+    "claudeAuthRequired": "Claude Authentication Required",
+    "claudeAuthRequiredDescription": "A Claude Code OAuth token is required to generate AI-powered feature ideas.",
     "failure": {
       "title": "Authentication Required",
       "profileLabel": "Profile",
@@ -899,6 +922,7 @@
     "empty": "No memories yet. Memories are automatically created as agents work on tasks.",
     "emptyFilter": "No memories match the selected filter.",
     "showAll": "Show all memories",
+    "searchPlaceholder": "Search for patterns, insights, gotchas...",
     "expand": "Expand",
     "collapse": "Collapse",
     "sections": {

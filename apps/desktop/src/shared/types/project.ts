@@ -10,6 +10,7 @@ export interface Project {
   settings: ProjectSettings;
   createdAt: Date;
   updatedAt: Date;
+  type?: 'project' | 'customer';
 }
 
 export interface ProjectSettings {
@@ -41,10 +42,12 @@ export interface NotificationSettings {
 
 export interface ProjectIndex {
   project_root: string;
-  project_type: 'single' | 'monorepo';
+  project_type: 'single' | 'monorepo' | 'customer';
   services: Record<string, ServiceInfo>;
   infrastructure: InfrastructureInfo;
   conventions: ConventionsInfo;
+  /** For customer projects: indexes of each child repo keyed by repo name */
+  child_repos?: Record<string, ProjectIndex>;
 }
 
 export interface ServiceInfo {
@@ -52,7 +55,7 @@ export interface ServiceInfo {
   path: string;
   language?: string;
   framework?: string;
-  type?: 'backend' | 'frontend' | 'worker' | 'scraper' | 'library' | 'proxy' | 'mobile' | 'desktop' | 'unknown';
+  type?: 'backend' | 'frontend' | 'worker' | 'scraper' | 'library' | 'proxy' | 'mobile' | 'desktop' | 'documentation' | 'unknown';
   package_manager?: string;
   default_port?: number;
   entry_point?: string;
@@ -404,6 +407,8 @@ export interface CustomMcpServer {
   url?: string;
   /** HTTP headers (for type: 'http'). e.g., { "Authorization": "Bearer ..." } */
   headers?: Record<string, string>;
+  /** Environment variables to pass to the MCP server process */
+  env?: Record<string, string>;
   /** Optional description shown in UI */
   description?: string;
 }

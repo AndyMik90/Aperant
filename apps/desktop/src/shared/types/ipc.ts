@@ -119,6 +119,8 @@ import type {
   LinearIssue,
   LinearImportResult,
   LinearSyncStatus,
+  GlobalMcpInfo,
+  ClaudeAgentsInfo,
   GitHubRepository,
   GitHubIssue,
   GitHubSyncStatus,
@@ -179,11 +181,12 @@ export interface TabState {
 
 export interface ElectronAPI {
   // Project operations
-  addProject: (projectPath: string) => Promise<IPCResult<Project>>;
+  addProject: (projectPath: string, type?: 'project' | 'customer') => Promise<IPCResult<Project>>;
   removeProject: (projectId: string) => Promise<IPCResult>;
   getProjects: () => Promise<IPCResult<Project[]>>;
   updateProjectSettings: (projectId: string, settings: Partial<ProjectSettings>) => Promise<IPCResult>;
   initializeProject: (projectId: string) => Promise<IPCResult<InitializationResult>>;
+  initializeCustomerProject: (projectId: string) => Promise<IPCResult<InitializationResult>>;
   checkProjectVersion: (projectId: string) => Promise<IPCResult<AutoBuildVersionInfo>>;
 
   // Tab State (persisted in main process for reliability)
@@ -472,7 +475,8 @@ export interface ElectronAPI {
 
   // Context operations
   getProjectContext: (projectId: string) => Promise<IPCResult<ProjectContextData>>;
-  refreshProjectIndex: (projectId: string) => Promise<IPCResult<ProjectIndex>>;
+  refreshProjectIndex: (projectId: string, force?: boolean) => Promise<IPCResult<ProjectIndex>>;
+  onIndexProgress: (callback: (data: { message: string; current?: number; total?: number; projectId?: string }) => void) => () => void;
   getMemoryStatus: (projectId: string) => Promise<IPCResult<MemorySystemStatus>>;
   searchMemories: (projectId: string, query: string) => Promise<IPCResult<ContextSearchResult[]>>;
   getRecentMemories: (projectId: string, limit?: number) => Promise<IPCResult<RendererMemory[]>>;
@@ -533,6 +537,7 @@ export interface ElectronAPI {
   getGitHubToken: () => Promise<IPCResult<{ token: string }>>;
   getGitHubUser: () => Promise<IPCResult<{ username: string; name?: string }>>;
   listGitHubUserRepos: () => Promise<IPCResult<{ repos: Array<{ fullName: string; description: string | null; isPrivate: boolean }> }>>;
+  cloneGitHubRepo: (repoFullName: string, targetDir: string) => Promise<IPCResult<{ path: string; name: string }>>;
   detectGitHubRepo: (projectPath: string) => Promise<IPCResult<string>>;
   getGitHubBranches: (repo: string, token: string) => Promise<IPCResult<string[]>>;
   createGitHubRepo: (
@@ -890,6 +895,12 @@ export interface ElectronAPI {
     status: 'completed' | 'failed';
     output: string[];
   }>>;
+  /** Get the embedding dimension for an Ollama model (single source of truth from backend) */
+  getOllamaEmbeddingDim: (modelName: string) => Promise<IPCResult<{
+    model: string;
+    dim: number;
+    source: 'known' | 'fallback';
+  }>>;
 
   // Ollama download progress listener
   onDownloadProgress: (
@@ -932,7 +943,14 @@ export interface ElectronAPI {
 
   // MCP Server health check operations
   checkMcpHealth: (server: CustomMcpServer) => Promise<IPCResult<McpHealthCheckResult>>;
+  checkGlobalMcpHealth: (server: CustomMcpServer) => Promise<IPCResult<McpHealthCheckResult>>;
   testMcpConnection: (server: CustomMcpServer) => Promise<IPCResult<McpTestConnectionResult>>;
+
+  // Claude Code global MCP configuration
+  getGlobalMcps: () => Promise<IPCResult<GlobalMcpInfo>>;
+
+  // Claude Code custom agents
+  getClaudeAgents: () => Promise<IPCResult<ClaudeAgentsInfo>>;
 
   // Screenshot capture operations
   getSources: () => Promise<IPCResult<ScreenshotSource[]> & { devMode?: boolean }>;

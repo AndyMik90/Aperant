@@ -1,8 +1,8 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useActiveProvider } from '../../hooks/useActiveProvider';
 import { getProviderModelLabel } from '../../../shared/utils/model-display';
-import { Brain, Scale, Zap, Check, Sparkles, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
+import { Brain, Scale, Zap, Check, Sparkles, ChevronDown, ChevronUp, ChevronRight, RotateCcw, Bot } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import {
   DEFAULT_AGENT_PROFILES,
@@ -20,6 +20,7 @@ import { Label } from '../ui/label';
 import { Button } from '../ui/button';
 import type { AgentProfile, PhaseModelConfig, PhaseThinkingConfig, ThinkingLevel } from '../../../shared/types/settings';
 import type { BuiltinProvider } from '../../../shared/types/provider-account';
+import type { ClaudeAgentsInfo } from '../../../shared/types/integrations';
 
 /**
  * Icon mapping for agent profile icons
@@ -48,6 +49,25 @@ export function AgentProfileSettings({ provider }: AgentProfileSettingsProps) {
   const providerConfig = provider ? settings.providerAgentConfig?.[provider] : undefined;
   const selectedProfileId = providerConfig?.selectedAgentProfile ?? settings.selectedAgentProfile ?? 'auto';
   const [showPhaseConfig, setShowPhaseConfig] = useState(true);
+  const [showAgentsCatalog, setShowAgentsCatalog] = useState(false);
+  const [expandedAgentCategories, setExpandedAgentCategories] = useState<Set<string>>(new Set());
+  const [agentsInfo, setAgentsInfo] = useState<ClaudeAgentsInfo | null>(null);
+
+  // Load custom agents from ~/.claude/agents/
+  const loadAgents = useCallback(async () => {
+    try {
+      const result = await window.electronAPI.getClaudeAgents();
+      if (result.success && result.data) {
+        setAgentsInfo(result.data);
+      }
+    } catch {
+      // Silently fail - custom agents are optional
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAgents();
+  }, [loadAgents]);
 
   // Find the selected profile
   const selectedProfile = useMemo(() =>
@@ -350,6 +370,91 @@ export function AgentProfileSettings({ provider }: AgentProfileSettingsProps) {
             </div>
           )}
         </div>
+
+        {/* Available Specialist Agents */}
+        {agentsInfo && agentsInfo.totalAgents > 0 && (
+          <div className="mt-6 rounded-lg border border-border bg-card">
+            <button
+              type="button"
+              onClick={() => setShowAgentsCatalog(!showAgentsCatalog)}
+              className="flex w-full items-center justify-between p-4 text-left hover:bg-muted/50 transition-colors rounded-t-lg"
+            >
+              <div className="flex items-center gap-2">
+                <Bot className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <h4 className="font-medium text-sm text-foreground">
+                    {t('agentProfile.availableAgents.title')}
+                  </h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {t('agentProfile.availableAgents.description')}
+                  </p>
+                </div>
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-500/10 text-purple-500">
+                  {agentsInfo.totalAgents}
+                </span>
+              </div>
+              {showAgentsCatalog ? (
+                <ChevronUp className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+              )}
+            </button>
+
+            {showAgentsCatalog && (
+              <div className="border-t border-border p-4 space-y-1 max-h-[400px] overflow-y-auto">
+                <p className="text-xs text-muted-foreground mb-3">
+                  {t('agentProfile.availableAgents.info')}
+                </p>
+                {agentsInfo.categories.map((category) => {
+                  const isExpanded = expandedAgentCategories.has(category.categoryDir);
+                  return (
+                    <div key={category.categoryDir}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExpandedAgentCategories(prev => {
+                            const next = new Set(prev);
+                            if (next.has(category.categoryDir)) {
+                              next.delete(category.categoryDir);
+                            } else {
+                              next.add(category.categoryDir);
+                            }
+                            return next;
+                          });
+                        }}
+                        className="flex items-center gap-2 w-full text-left py-1.5 px-2 rounded hover:bg-muted/50 transition-colors"
+                        aria-expanded={isExpanded}
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                        )}
+                        <span className="text-sm font-medium">{category.categoryName}</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          ({category.agents.length})
+                        </span>
+                      </button>
+                      {isExpanded && (
+                        <div className="ml-5 space-y-0.5 mt-0.5">
+                          {category.agents.map((agent) => (
+                            <div
+                              key={agent.agentId}
+                              className="flex items-center gap-2 py-1 px-2 text-xs text-muted-foreground"
+                            >
+                              <Bot className="h-3 w-3 shrink-0" />
+                              <span>{agent.agentName}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
       </div>
   );

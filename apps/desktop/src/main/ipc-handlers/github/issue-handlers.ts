@@ -19,7 +19,7 @@ const MAX_PAGES_FETCH_ALL = 30;       // Max API pages to fetch in fetchAll mode
 /**
  * Transform GitHub API issue to application format
  */
-function transformIssue(issue: GitHubAPIIssue, repoFullName: string): GitHubIssue {
+export function transformIssue(issue: GitHubAPIIssue, repoFullName: string): GitHubIssue {
   return {
     id: issue.id,
     number: issue.number,

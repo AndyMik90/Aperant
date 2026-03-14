@@ -25,7 +25,8 @@
     "hideArchivedTasks": "Masquer les tâches archivées",
     "closeTab": "Fermer l'onglet",
     "closeTabAriaLabel": "Fermer l'onglet (retire le projet de l'application)",
-    "addProjectAriaLabel": "Ajouter un projet"
+    "addProjectAriaLabel": "Ajouter un projet",
+    "dragHandle": "Glisser pour réorganiser {{name}}"
   },
   "accessibility": {
     "deleteFeatureAriaLabel": "Supprimer la fonctionnalité",
@@ -142,7 +143,9 @@
     "justNow": "À l'instant",
     "minutesAgo": "Il y a {{count}} min",
     "hoursAgo": "Il y a {{count}}h",
-    "daysAgo": "Il y a {{count}}j"
+    "daysAgo": "Il y a {{count}}j",
+    "yesterday": "hier",
+    "weeksAgo": "Il y a {{count}} sem"
   },
   "errors": {
     "generic": "Une erreur s'est produite",
@@ -431,6 +434,13 @@
       "agentActivity": "Activité des agents",
       "showMore": "Afficher {{count}} de plus",
       "hideMore": "Masquer {{count}}"
+    },
+    "reposCount": "{{count}} dépôts",
+    "multiRepo": {
+      "failedToCheckConnection": "Échec de la vérification de la connexion multi-dépôts",
+      "failedToLoadPRs": "Échec du chargement des PRs",
+      "failedToRefreshPRs": "Échec de l'actualisation des PRs",
+      "unknownError": "Erreur inconnue"
     }
   },
   "downloads": {
@@ -447,6 +457,7 @@
     "starting": "Démarrage..."
   },
   "insights": {
+    "placeholder": "Posez une question sur votre codebase...",
     "suggestedTask": "Tâche suggérée",
     "creating": "Création...",
     "taskCreated": "Tâche créée",
@@ -492,6 +503,7 @@
     }
   },
   "ideation": {
+    "noIdeasToDisplay": "Aucune idée à afficher",
     "converting": "Conversion...",
     "convertToTask": "Convertir en tâche Auto-Build",
     "dismissIdea": "Ignorer l'idée",
@@ -504,9 +516,18 @@
     "conversionErrorDescription": "Une erreur s'est produite lors de la conversion de l'idée"
   },
   "issues": {
+    "noIssuesFound": "Aucune issue trouvée",
+    "selectIssueToView": "Sélectionnez une issue pour voir les détails",
     "loadingMore": "Chargement...",
     "scrollForMore": "Défiler pour plus",
-    "allLoaded": "Toutes les issues chargées"
+    "allLoaded": "Toutes les issues chargées",
+    "reposCount": "{{count}} dépôts",
+    "multiRepo": {
+      "failedToCheckConnection": "Échec de la vérification de la connexion multi-dépôts",
+      "failedToLoadIssues": "Échec du chargement des issues",
+      "failedToRefreshIssues": "Échec de l'actualisation des issues",
+      "unknownError": "Erreur inconnue"
+    }
   },
   "usage": {
     "dataUnavailable": "Données d'utilisation non disponibles",
@@ -741,6 +762,8 @@
     }
   },
   "auth": {
+    "claudeAuthRequired": "Authentification Claude requise",
+    "claudeAuthRequiredDescription": "Un token OAuth Claude Code est requis pour générer des idées de fonctionnalités.",
     "failure": {
       "title": "Authentification requise",
       "profileLabel": "Profil",
@@ -899,6 +922,7 @@
     "empty": "Aucune mémoire pour l'instant. Les mémoires sont créées automatiquement lorsque les agents travaillent sur des tâches.",
     "emptyFilter": "Aucune mémoire ne correspond au filtre sélectionné.",
     "showAll": "Afficher toutes les mémoires",
+    "searchPlaceholder": "Rechercher des modèles, informations, pièges...",
     "expand": "Développer",
     "collapse": "Réduire",
     "sections": {

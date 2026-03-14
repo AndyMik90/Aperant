@@ -177,6 +177,27 @@ export type ModelTypeShort = 'haiku' | 'sonnet' | 'opus' | 'opus-1m' | 'opus-4.5
 /** Widened model type: Claude shorthands + any arbitrary model ID */
 export type ModelSelection = ModelTypeShort | (string & {});
 
+// Phase-based custom agent configuration
+// Each phase can optionally use a custom agent from ~/.claude/agents/
+export interface PhaseCustomAgentsConfig {
+  spec?: string;        // Custom agent ID for spec creation
+  planning?: string;    // Custom agent ID for planning
+  coding?: string;      // Custom agent ID for coding
+  qa?: string;          // Custom agent ID for QA
+}
+
+/**
+ * Configuration for assigning global MCP servers to pipeline phases.
+ * Each phase has a list of global MCP server IDs that should be available during that phase.
+ */
+export interface GlobalMcpPhaseConfig {
+  spec?: string[];
+  build?: string[];
+  qa?: string[];
+  utility?: string[];
+  ideation?: string[];
+}
+
 // Phase-based model configuration for Auto profile
 // Each phase can use a different model optimized for that task type
 // Values can be Claude shorthands ('opus', 'sonnet') or concrete model IDs ('gpt-5.3-codex', 'gemini-2.5-pro')
@@ -314,6 +335,10 @@ export interface AppSettings {
   // Custom phase configuration for Auto profile (overrides defaults)
   customPhaseModels?: PhaseModelConfig;
   customPhaseThinking?: PhaseThinkingConfig;
+  // Custom agent per phase (from ~/.claude/agents/)
+  phaseCustomAgents?: PhaseCustomAgentsConfig;
+  // Global MCP servers assigned to pipeline phases
+  globalMcpPhases?: GlobalMcpPhaseConfig;
   // Feature-specific configuration (insights, ideation, roadmap)
   featureModels?: FeatureModelConfig;
   featureThinking?: FeatureThinkingConfig;

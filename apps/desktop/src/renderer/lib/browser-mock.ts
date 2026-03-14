@@ -104,6 +104,21 @@ const browserMockAPI: ElectronAPI = {
   onRoadmapComplete: () => () => {},
   onRoadmapError: () => () => {},
   onRoadmapStopped: () => () => {},
+  // Customer Project initialization
+  initializeCustomerProject: async () => ({
+    success: true,
+    data: { success: true, version: '1.0.0', wasUpdate: false }
+  }),
+
+  // Context index progress listener
+  onIndexProgress: () => () => {},
+
+  // Clone GitHub repo
+  cloneGitHubRepo: async () => ({
+    success: false,
+    error: 'Not available in browser mode'
+  }),
+
   // Context Operations
   ...contextMock,
 
@@ -118,6 +133,35 @@ const browserMockAPI: ElectronAPI = {
 
   // Infrastructure & Docker Operations
   ...infrastructureMock,
+
+  // Ollama embedding dimension
+  getOllamaEmbeddingDim: async () => ({
+    success: true,
+    data: { model: 'nomic-embed-text', dim: 768, source: 'fallback' as const }
+  }),
+
+  // Global MCP health check
+  checkGlobalMcpHealth: async (server: any) => ({
+    success: true,
+    data: {
+      serverId: server.id || 'unknown',
+      status: 'unknown' as const,
+      message: 'Health check not available in browser mode',
+      checkedAt: new Date().toISOString()
+    }
+  }),
+
+  // Claude Code global MCP configuration
+  getGlobalMcps: async () => ({
+    success: true,
+    data: { pluginServers: [], inlineServers: [], claudeJsonServers: [] }
+  }),
+
+  // Claude Code custom agents
+  getClaudeAgents: async () => ({
+    success: true,
+    data: { categories: [], totalAgents: 0 }
+  }),
 
   // API Profile Management (custom Anthropic-compatible endpoints)
   getAPIProfiles: async () => ({
@@ -265,6 +309,11 @@ const browserMockAPI: ElectronAPI = {
     listGitHubOrgs: async () => ({ success: true, data: { orgs: [] } }),
     onGitHubAuthDeviceCode: () => () => {},
     onGitHubAuthChanged: () => () => {},
+    // Multi-repo operations (Customer projects)
+    checkMultiRepoConnection: async () => ({ success: true, data: { connected: false, repos: [] } }),
+    getMultiRepoIssues: async () => ({ success: true, data: { issues: [], repos: [], hasMore: false } }),
+    getMultiRepoIssueDetail: async () => ({ success: false, error: 'Not available in browser mode' }),
+    getMultiRepoPRs: async () => ({ success: true, data: { prs: [], repos: [] } }),
     onGitHubInvestigationProgress: () => () => {},
     onGitHubInvestigationComplete: () => () => {},
     onGitHubInvestigationError: () => () => {},
