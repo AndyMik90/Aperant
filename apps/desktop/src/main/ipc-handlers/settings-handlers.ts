@@ -933,6 +933,20 @@ export function registerSettingsHandlers(
       try {
         const settings = readSettingsFile() ?? {};
         const accounts: ProviderAccount[] = (settings.providerAccounts as ProviderAccount[] | undefined) ?? [];
+
+        // Prevent duplicate: same email + provider already registered
+        if (account.email) {
+          const duplicate = accounts.find(
+            (a) => a.provider === account.provider && a.email?.toLowerCase() === account.email!.toLowerCase()
+          );
+          if (duplicate) {
+            return {
+              success: false,
+              error: `DUPLICATE_EMAIL:${duplicate.name}`,
+            };
+          }
+        }
+
         const now = Date.now();
         const newAccount: ProviderAccount = {
           ...account,

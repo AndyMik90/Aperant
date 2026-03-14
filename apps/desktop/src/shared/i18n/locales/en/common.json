@@ -674,11 +674,9 @@
     "authFailed": "Authentication failed",
     "connecting": "Connecting...",
     "authenticate": "Authenticate: {{profileName}}",
-    "completeSetup": "Complete setup: {{profileName}}",
     "authenticatedAs": "Authenticated as {{email}}",
     "authenticated": "Authenticated!",
     "authError": "Authentication Error",
-    "onboardingMessage": "Token received! Complete the Claude Code setup below - this window will close automatically when done.",
     "successMessage": "Authentication successful! Closing..."
   },
   "profileCreated": {

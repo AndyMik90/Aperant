@@ -67,8 +67,8 @@ vi.mock('../claude-profile/profile-utils', () => ({
   getEmailFromConfigDir: vi.fn(),
 }));
 
-vi.mock('./output-parser', () => ({}));
-vi.mock('./session-handler', () => ({}));
+vi.mock('../terminal/output-parser', () => ({}));
+vi.mock('../terminal/session-handler', () => ({}));
 
 vi.mock('./pty-manager', () => ({
   writeToPty: vi.fn(),

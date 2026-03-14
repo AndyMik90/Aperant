@@ -810,7 +810,11 @@
       "toast": {
         "added": "Compte ajouté",
         "updated": "Compte mis à jour",
-        "error": "Échec de l'enregistrement du compte"
+        "error": "Échec de l'enregistrement du compte",
+        "duplicateEmail": "Cet e-mail est déjà enregistré sous \"{{existingName}}\"",
+        "createProfileFailed": "Échec de la création du profil",
+        "authPrepareFailed": "Échec de la préparation du terminal",
+        "unexpectedError": "Erreur inattendue"
       }
     },
     "toast": {

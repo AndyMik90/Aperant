@@ -91,9 +91,6 @@ export interface TerminalAPI {
   submitOAuthCode: (terminalId: string, code: string) => Promise<IPCResult>;
   onTerminalClaudeBusy: (callback: (id: string, isBusy: boolean) => void) => () => void;
   onTerminalClaudeExit: (callback: (id: string) => void) => () => void;
-  onTerminalOnboardingComplete: (
-    callback: (info: { terminalId: string; profileId?: string; detectedAt: string }) => void
-  ) => () => void;
   onTerminalPendingResume: (callback: (id: string, sessionId?: string) => void) => () => void;
   onTerminalProfileChanged: (callback: (event: TerminalProfileChangedEvent) => void) => () => void;
 
@@ -385,21 +382,6 @@ export const createTerminalAPI = (): TerminalAPI => ({
     ipcRenderer.on(IPC_CHANNELS.TERMINAL_CLAUDE_EXIT, handler);
     return () => {
       ipcRenderer.removeListener(IPC_CHANNELS.TERMINAL_CLAUDE_EXIT, handler);
-    };
-  },
-
-  onTerminalOnboardingComplete: (
-    callback: (info: { terminalId: string; profileId?: string; detectedAt: string }) => void
-  ): (() => void) => {
-    const handler = (
-      _event: Electron.IpcRendererEvent,
-      info: { terminalId: string; profileId?: string; detectedAt: string }
-    ): void => {
-      callback(info);
-    };
-    ipcRenderer.on(IPC_CHANNELS.TERMINAL_ONBOARDING_COMPLETE, handler);
-    return () => {
-      ipcRenderer.removeListener(IPC_CHANNELS.TERMINAL_ONBOARDING_COMPLETE, handler);
     };
   },
 

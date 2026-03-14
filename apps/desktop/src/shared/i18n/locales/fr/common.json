@@ -674,11 +674,9 @@
     "authFailed": "Échec de l'authentification",
     "connecting": "Connexion...",
     "authenticate": "Authentifier : {{profileName}}",
-    "completeSetup": "Terminer la configuration : {{profileName}}",
     "authenticatedAs": "Authentifié en tant que {{email}}",
     "authenticated": "Authentifié !",
     "authError": "Erreur d'authentification",
-    "onboardingMessage": "Jeton reçu ! Terminez la configuration de Claude Code ci-dessous - cette fenêtre se fermera automatiquement une fois terminé.",
     "successMessage": "Authentification réussie ! Fermeture..."
   },
   "profileCreated": {

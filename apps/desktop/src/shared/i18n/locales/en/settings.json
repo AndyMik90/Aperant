@@ -810,7 +810,11 @@
       "toast": {
         "added": "Account added",
         "updated": "Account updated",
-        "error": "Failed to save account"
+        "error": "Failed to save account",
+        "duplicateEmail": "This email is already registered as \"{{existingName}}\"",
+        "createProfileFailed": "Failed to create profile",
+        "authPrepareFailed": "Failed to prepare terminal",
+        "unexpectedError": "Unexpected error"
       }
     },
     "toast": {
