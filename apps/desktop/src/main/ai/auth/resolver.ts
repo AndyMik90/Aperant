@@ -331,6 +331,7 @@ const BUILTIN_TO_SUPPORTED: Record<string, SupportedProvider> = {
   xai: 'xai',
   openrouter: 'openrouter',
   zai: 'zai',
+  minimax: 'minimax',
   ollama: 'ollama',
 };
 

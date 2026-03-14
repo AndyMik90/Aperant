@@ -284,6 +284,8 @@ export interface AppSettings {
   globalAzureApiKey?: string;
   globalAzureBaseUrl?: string;
   globalBedrockRegion?: string;
+  globalZAIApiKey?: string;
+  globalMiniMaxApiKey?: string;
   // Unified provider accounts (multi-provider)
   providerAccounts?: ProviderAccount[];
   /** Global priority order — array of ProviderAccount IDs. First = highest priority. */

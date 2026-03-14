@@ -462,7 +462,7 @@ export const DEFAULT_MODEL_EQUIVALENCES: Record<string, Partial<Record<BuiltinPr
     groq: { modelId: 'llama-3.3-70b-versatile', reasoning: { type: 'none' } },
     xai: { modelId: 'grok-3-mini', reasoning: { type: 'reasoning_effort', level: 'medium' } },
     zai: { modelId: 'glm-4.7', reasoning: { type: 'none' } },
-    minimax: { modelId: 'minimax-m2.5', reasoning: { type: 'none' } },
+    minimax: { modelId: 'minimax-m2.5-highspeed', reasoning: { type: 'none' } },
   },
   'haiku': {
     anthropic: { modelId: 'claude-haiku-4-5-20251001', reasoning: { type: 'none' } },
