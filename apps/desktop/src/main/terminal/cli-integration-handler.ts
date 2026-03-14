@@ -814,7 +814,13 @@ export function ensureOnboardingComplete(configDir: string): void {
     }
 
     config.hasCompletedOnboarding = true;
-    fs.writeFileSync(claudeJsonPath, JSON.stringify(config, null, 2), { encoding: 'utf-8' });
+    const updatedContent = JSON.stringify(config, null, 2);
+
+    // Write atomically via temp file + rename to avoid partial writes and satisfy CodeQL js/insecure-temporary-file.
+    // crypto.randomUUID() ensures no collisions; mode 0o600 restricts to owner-only.
+    const tmpPath = `${claudeJsonPath}.${crypto.randomUUID()}.tmp`;
+    fs.writeFileSync(tmpPath, updatedContent, { encoding: 'utf-8', mode: 0o600 });
+    fs.renameSync(tmpPath, claudeJsonPath);
     debugLog(`[ClaudeIntegration] Set hasCompletedOnboarding in ${claudeJsonPath}`);
   } catch (error) {
     // Non-fatal — worst case the user sees onboarding once

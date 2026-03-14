@@ -28,8 +28,9 @@ vi.mock('fs', () => {
   });
 
   const writeFileSync = vi.fn();
+  const renameSync = vi.fn();
 
-  return { default: { readFileSync, writeFileSync }, readFileSync, writeFileSync };
+  return { default: { readFileSync, writeFileSync, renameSync }, readFileSync, writeFileSync, renameSync };
 });
 
 // ---- stubs for heavy transitive dependencies ----
@@ -206,7 +207,10 @@ describe('ensureOnboardingComplete', () => {
     ensureOnboardingComplete(tildeDir);
 
     expect(fs.writeFileSync).toHaveBeenCalledOnce();
-    expect((fs.writeFileSync as ReturnType<typeof vi.fn>).mock.calls[0][0]).toBe(filePath);
+    // Writes to a temp file (claudeJsonPath + UUID + .tmp), then renames to target
+    const writtenPath = (fs.writeFileSync as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    expect(writtenPath).toMatch(new RegExp(`^${filePath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\..*\\.tmp$`));
+    expect(fs.renameSync).toHaveBeenCalledWith(writtenPath, filePath);
   });
 
   // ---- write error → outer catch swallows error ----
