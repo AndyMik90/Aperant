@@ -360,6 +360,18 @@
     "phaseAIReview": "AI Review (80-95%)",
     "phaseComplete": "Complete (95-100%)"
   },
+  "analysisBanner": {
+    "analyzing": "Analyzing",
+    "next": "Next",
+    "lastItem": "Last item",
+    "elapsed": "Elapsed",
+    "last30min": "Last 30min",
+    "completed": "completed",
+    "inProgress": "in progress",
+    "pending": "pending",
+    "noActivity": "No activity yet",
+    "phase": "Phase"
+  },
   "referenceImages": {
     "title": "Reference Images (optional)",
     "description": "Add visual references like screenshots or designs to help the AI understand your requirements."

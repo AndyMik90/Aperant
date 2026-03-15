@@ -360,6 +360,18 @@
     "phaseAIReview": "Revue IA (80-95%)",
     "phaseComplete": "Terminé (95-100%)"
   },
+  "analysisBanner": {
+    "analyzing": "Analyse en cours",
+    "next": "Suivant",
+    "lastItem": "Dernier élément",
+    "elapsed": "Écoulé",
+    "last30min": "30 dernières min",
+    "completed": "terminé(s)",
+    "inProgress": "en cours",
+    "pending": "en attente",
+    "noActivity": "Aucune activité",
+    "phase": "Phase"
+  },
   "referenceImages": {
     "title": "Images de référence (facultatif)",
     "description": "Ajoutez des références visuelles comme des captures d'écran ou des conceptions pour aider l'IA à comprendre vos exigences."
