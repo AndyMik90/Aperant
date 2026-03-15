@@ -33,11 +33,15 @@ export function ProjectTabBar({
   // Keyboard shortcuts for tab navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Skip if in input fields
+      // Skip if in input fields (but NOT xterm's hidden textarea —
+      // xterm already passes through Cmd/Ctrl+1-9 via attachCustomKeyEventHandler)
+      const target = e.target as HTMLElement;
+      const isXtermTextarea = target.classList?.contains('xterm-helper-textarea');
       if (
-        e.target instanceof HTMLInputElement ||
+        !isXtermTextarea &&
+        (e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
-        (e.target as HTMLElement)?.isContentEditable
+        target?.isContentEditable)
       ) {
         return;
       }

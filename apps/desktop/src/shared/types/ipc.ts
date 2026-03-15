@@ -290,8 +290,6 @@ export interface ElectronAPI {
     success: boolean;
     message?: string;
     detectedAt: string;
-    /** If true, user should complete onboarding in terminal before closing */
-    needsOnboarding?: boolean;
   }) => void) => () => void;
   /** Listen for auth terminal creation - allows UI to display the OAuth terminal */
   onTerminalAuthCreated: (callback: (info: {
@@ -303,12 +301,6 @@ export interface ElectronAPI {
   onTerminalClaudeBusy: (callback: (id: string, isBusy: boolean) => void) => () => void;
   /** Listen for Claude exit (user closed Claude within terminal, returned to shell) */
   onTerminalClaudeExit: (callback: (id: string) => void) => () => void;
-  /** Listen for onboarding complete (Claude shows ready state after login/onboarding) */
-  onTerminalOnboardingComplete: (callback: (info: {
-    terminalId: string;
-    profileId?: string;
-    detectedAt: string;
-  }) => void) => () => void;
   /** Listen for pending Claude resume notifications (for deferred resume on tab activation) */
   onTerminalPendingResume: (callback: (id: string, sessionId?: string) => void) => () => void;
   /** Listen for profile change events - terminals need to be recreated with new profile env vars */

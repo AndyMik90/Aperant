@@ -110,6 +110,20 @@ export function AddAccountDialog({
     }
   }, [open, editAccount, provider, billingModelOverride]);
 
+  // Parse DUPLICATE_EMAIL error from backend and show user-friendly toast
+  const handleDuplicateEmailError = useCallback((error: string): boolean => {
+    if (error.startsWith('DUPLICATE_EMAIL:')) {
+      const existingName = error.slice('DUPLICATE_EMAIL:'.length);
+      toast({
+        variant: 'destructive',
+        title: t('providers.dialog.toast.error'),
+        description: t('providers.dialog.toast.duplicateEmail', { existingName }),
+      });
+      return true;
+    }
+    return false;
+  }, [toast, t]);
+
   const isOAuthOnly = (provider === 'anthropic' || provider === 'openai') && authType === 'oauth';
   const isCodexOAuth = provider === 'openai' && authType === 'oauth';
 
@@ -190,10 +204,16 @@ export function AddAccountDialog({
             : t('providers.dialog.toast.added'),
           description: name.trim(),
         });
+      } else if (result.error && !handleDuplicateEmailError(result.error)) {
+        toast({
+          variant: 'destructive',
+          title: t('providers.dialog.toast.error'),
+          description: result.error,
+        });
       }
     };
     autoSave();
-  }, [oauthStatus, isCodexOAuth, accountSaved, name, provider, oauthProfileId, isEditing, editAccount, oauthEmail, addProviderAccount, updateProviderAccount, toast, t, refreshUsageData]);
+  }, [oauthStatus, isCodexOAuth, accountSaved, name, provider, oauthProfileId, isEditing, editAccount, oauthEmail, addProviderAccount, updateProviderAccount, handleDuplicateEmailError, toast, t, refreshUsageData]);
 
   const canSave = () => {
     if (!name.trim()) return false;
@@ -264,8 +284,14 @@ export function AddAccountDialog({
                   description: name.trim(),
                 });
                 await refreshUsageData();
+                onOpenChange(false);
+              } else if (saveResult.error && !handleDuplicateEmailError(saveResult.error)) {
+                toast({
+                  variant: 'destructive',
+                  title: t('providers.dialog.toast.error'),
+                  description: saveResult.error,
+                });
               }
-              onOpenChange(false);
             }, 800);
         } else {
           setOauthStatus('error');
@@ -318,7 +344,7 @@ export function AddAccountDialog({
       setOauthStatus('error');
       setOauthError(err instanceof Error ? err.message : 'Unexpected error');
     }
-  }, [name, t, toast, isCodexOAuth, isEditing, editAccount, provider, addProviderAccount, updateProviderAccount, onOpenChange, refreshUsageData]);
+  }, [name, t, toast, isCodexOAuth, isEditing, editAccount, provider, addProviderAccount, updateProviderAccount, handleDuplicateEmailError, onOpenChange, refreshUsageData]);
 
   const handleFallbackTerminal = useCallback(async () => {
     if (!name.trim()) {
@@ -342,7 +368,7 @@ export function AddAccountDialog({
           createdAt: new Date(),
         });
         if (!profileResult.success || !profileResult.data) {
-          toast({ variant: 'destructive', title: 'Failed to create profile' });
+          toast({ variant: 'destructive', title: t('providers.dialog.toast.createProfileFailed') });
           return;
         }
         profileId = profileResult.data.id;
@@ -352,7 +378,7 @@ export function AddAccountDialog({
       // Get terminal config for embedded AuthTerminal
       const authResult = await window.electronAPI.authenticateClaudeProfile(profileId);
       if (!authResult.success || !authResult.data) {
-        toast({ variant: 'destructive', title: authResult.error ?? 'Failed to prepare terminal' });
+        toast({ variant: 'destructive', title: authResult.error ?? t('providers.dialog.toast.authPrepareFailed') });
         return;
       }
 
@@ -362,7 +388,7 @@ export function AddAccountDialog({
     } catch (err) {
       toast({
         variant: 'destructive',
-        title: err instanceof Error ? err.message : 'Unexpected error',
+        title: err instanceof Error ? err.message : t('providers.dialog.toast.unexpectedError'),
       });
     }
   }, [name, oauthProfileId, t, toast]);
@@ -421,7 +447,7 @@ export function AddAccountDialog({
           description: name.trim(),
         });
         onOpenChange(false);
-      } else {
+      } else if (result.error && !handleDuplicateEmailError(result.error)) {
         toast({
           variant: 'destructive',
           title: t('providers.dialog.toast.error'),

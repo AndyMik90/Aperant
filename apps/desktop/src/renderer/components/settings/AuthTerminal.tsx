@@ -51,9 +51,8 @@ export function AuthTerminal({
   const loginSentRef = useRef(false); // Track if /login was already sent
   const loginTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Track setTimeout for cleanup
   const successTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Track success auto-close timeout for cleanup
-  const authCompletedRef = useRef(false); // Track if auth has already completed to prevent race conditions
 
-  const [status, setStatus] = useState<'connecting' | 'ready' | 'onboarding' | 'success' | 'error'>('connecting');
+  const [status, setStatus] = useState<'connecting' | 'ready' | 'success' | 'error'>('connecting');
   const [authEmail, setAuthEmail] = useState<string | undefined>();
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
 
@@ -235,7 +234,6 @@ export function AuthTerminal({
         thisTerminalId: terminalId,
         isMatch: info.terminalId === terminalId,
         success: info.success,
-        needsOnboarding: info.needsOnboarding,
         email: info.email,
         currentStatus: statusRef.current,
         loginSent: loginSentRef.current
@@ -243,16 +241,9 @@ export function AuthTerminal({
       if (info.terminalId === terminalId) {
         if (info.success) {
           setAuthEmail(info.email);
-          // If needsOnboarding is true, user should complete setup in terminal
-          // Otherwise, authentication is fully complete
-          if (info.needsOnboarding) {
-            debugLog('Setting status to onboarding', { terminalId });
-            setStatus('onboarding');
-          } else {
-            debugLog('Setting status to success (no onboarding needed)', { terminalId });
-            setStatus('success');
-            onAuthSuccess?.(info.email);
-          }
+          debugLog('Setting status to success', { terminalId });
+          setStatus('success');
+          onAuthSuccess?.(info.email);
         } else {
           debugLog('OAuth failed', { terminalId, message: info.message });
           setStatus('error');
@@ -272,59 +263,12 @@ export function AuthTerminal({
           terminalId,
           exitCode,
           currentStatus: statusRef.current,
-          loginSent: loginSentRef.current,
-          willTransitionToSuccess: statusRef.current === 'onboarding' && exitCode === 0
+          loginSent: loginSentRef.current
         });
-        // If we were in onboarding status and terminal exits with code 0,
-        // that means the user completed the onboarding successfully
-        if (statusRef.current === 'onboarding' && exitCode === 0) {
-          // Prevent race condition with onboarding-complete handler
-          if (authCompletedRef.current) {
-            debugLog('SKIPPED exit handler - auth already completed', { terminalId });
-            return;
-          }
-          authCompletedRef.current = true;
-          debugLog('Transitioning from onboarding to success', { terminalId });
-          setStatus('success');
-          onAuthSuccess?.(authEmailRef.current);
-        }
         // Don't close automatically - let user see any error messages
       }
     });
     cleanupFnsRef.current.push(unsubExit);
-
-    // Handle onboarding complete (Claude shows ready state after login)
-    const unsubOnboardingComplete = window.electronAPI.onTerminalOnboardingComplete((info) => {
-      if (info.terminalId === terminalId) {
-        console.warn('[AuthTerminal] Onboarding complete:', info);
-        debugLog('Onboarding complete event', {
-          terminalId: info.terminalId,
-          profileId: info.profileId,
-          currentStatus: statusRef.current
-        });
-        // Only process if we're in onboarding status
-        if (statusRef.current === 'onboarding') {
-          // Prevent race condition with terminal exit handler
-          if (authCompletedRef.current) {
-            debugLog('SKIPPED onboarding-complete handler - auth already completed', { terminalId });
-            return;
-          }
-          authCompletedRef.current = true;
-          debugLog('Auto-closing terminal after onboarding complete', { terminalId });
-          setStatus('success');
-          onAuthSuccess?.(authEmailRef.current);
-          // Auto-close after a brief delay to show success UI
-          successTimeoutRef.current = setTimeout(() => {
-            if (isCreatedRef.current) {
-              window.electronAPI.destroyTerminal(terminalId).catch(console.error);
-              isCreatedRef.current = false;
-            }
-            onClose();
-          }, 1500);
-        }
-      }
-    });
-    cleanupFnsRef.current.push(unsubOnboardingComplete);
 
     return () => {
       debugLog('Cleaning up event listeners', { terminalId });
@@ -408,9 +352,6 @@ export function AuthTerminal({
           {status === 'ready' && (
             <div className="h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
           )}
-          {status === 'onboarding' && (
-            <div className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-          )}
           {status === 'success' && (
             <CheckCircle2 className="h-4 w-4 text-success" />
           )}
@@ -420,7 +361,6 @@ export function AuthTerminal({
           <span className="text-sm font-medium">
             {status === 'connecting' && t('authTerminal.connecting')}
             {status === 'ready' && t('authTerminal.authenticate', { profileName })}
-            {status === 'onboarding' && t('authTerminal.completeSetup', { profileName })}
             {status === 'success' && (authEmail ? t('authTerminal.authenticatedAs', { email: authEmail }) : t('authTerminal.authenticated'))}
             {status === 'error' && t('authTerminal.authError')}
           </span>
@@ -446,13 +386,6 @@ export function AuthTerminal({
       />
 
       {/* Status bar */}
-      {status === 'onboarding' && (
-        <div className="px-3 py-2 border-t border-border bg-blue-500/10">
-          <p className="text-sm text-blue-600 dark:text-blue-400">
-            {t('authTerminal.onboardingMessage')}
-          </p>
-        </div>
-      )}
       {status === 'success' && (
         <div className="px-3 py-2 border-t border-border bg-success/10">
           <p className="text-sm text-success">

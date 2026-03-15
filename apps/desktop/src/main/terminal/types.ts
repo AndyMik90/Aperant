@@ -26,8 +26,6 @@ export interface TerminalProcess {
   dangerouslySkipPermissions?: boolean;
   /** Shell type for Windows (affects command chaining syntax) */
   shellType?: WindowsShellType;
-  /** Whether this terminal is waiting for Claude onboarding to complete (login flow) */
-  awaitingOnboardingComplete?: boolean;
   /** Whether PTY has emitted exit; used to avoid writes/resizes on dead PTYs */
   hasExited?: boolean;
 }
@@ -55,19 +53,8 @@ export interface OAuthTokenEvent {
   success: boolean;
   message?: string;
   detectedAt: string;
-  /** If true, user should complete onboarding in terminal before closing */
-  needsOnboarding?: boolean;
 }
 
-/**
- * Onboarding complete event data
- * Sent when Claude Code shows its ready state after login/onboarding
- */
-export interface OnboardingCompleteEvent {
-  terminalId: string;
-  profileId?: string;
-  detectedAt: string;
-}
 
 /**
  * Session capture result
