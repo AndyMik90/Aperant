@@ -45,6 +45,6 @@
     "lucide-react": "^0.562.0"
   },
   "overrides": {
-    "@electron/rebuild": "4.0.2"
+    "@electron/rebuild": "4.0.3"
   }
 }
