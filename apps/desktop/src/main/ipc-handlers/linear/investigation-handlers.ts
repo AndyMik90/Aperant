@@ -277,6 +277,94 @@ async function analyzeIssueWithAI(
   }
 }
 
+// =========================================================================
+// Linear Comment Posting
+// =========================================================================
+
+/**
+ * Format the AI analysis into a markdown comment for Linear
+ */
+function formatAnalysisComment(
+  analysis: AnalysisResult,
+  taskId?: string,
+): string {
+  const lines: string[] = [];
+
+  lines.push("## 🤖 Aperant Investigation");
+  lines.push("");
+  lines.push(`**Summary:** ${analysis.summary}`);
+  lines.push("");
+  lines.push(`**Proposed Solution:** ${analysis.proposedSolution}`);
+  lines.push("");
+  lines.push(`**Estimated Complexity:** ${analysis.estimatedComplexity}`);
+
+  if (analysis.impactScore != null) {
+    const riskLevel = analysis.impactDetails?.riskLevel || "unknown";
+    lines.push("");
+    lines.push(
+      `**Impact Score:** ${analysis.impactScore}/100 (${riskLevel} risk)`,
+    );
+    if (analysis.impactDetails) {
+      lines.push(
+        `- Affected symbols: ${analysis.impactDetails.affectedSymbols}`,
+      );
+      lines.push(
+        `- Affected processes: ${analysis.impactDetails.affectedProcesses}`,
+      );
+      lines.push(`- Blast radius: ${analysis.impactDetails.blastRadius}`);
+    }
+  }
+
+  if (analysis.affectedFiles.length > 0) {
+    lines.push("");
+    lines.push("**Likely Affected Files:**");
+    for (const file of analysis.affectedFiles) {
+      lines.push(`- \`${file}\``);
+    }
+  }
+
+  if (analysis.acceptanceCriteria.length > 0) {
+    lines.push("");
+    lines.push("**Acceptance Criteria:**");
+    for (const criterion of analysis.acceptanceCriteria) {
+      lines.push(`- [ ] ${criterion}`);
+    }
+  }
+
+  if (taskId) {
+    lines.push("");
+    lines.push(`---`);
+    lines.push(`*Task created: ${taskId}*`);
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Post investigation results as a comment on the Linear issue
+ */
+async function postAnalysisToLinear(
+  apiKey: string,
+  issueId: string,
+  analysis: AnalysisResult,
+  taskId?: string,
+): Promise<void> {
+  const body = formatAnalysisComment(analysis, taskId);
+
+  const mutation = `
+    mutation($issueId: String!, $body: String!) {
+      commentCreate(input: { issueId: $issueId, body: $body }) {
+        success
+        comment {
+          id
+        }
+      }
+    }
+  `;
+
+  await linearGraphQL(apiKey, mutation, { issueId, body });
+}
+
 /**
  * Send investigation progress update to renderer
  */
@@ -556,7 +644,31 @@ ${aiAnalysis.acceptanceCriteria.map((c) => `- ${c}`).join("\n")}`;
           taskId: specData.specId,
         };
 
-        // Phase 4: Complete
+        // Phase 4: Post analysis as comment to Linear issue
+        sendProgress(mainWindow, projectId, {
+          phase: "creating_task",
+          issueId,
+          issueIdentifier: issue.identifier,
+          progress: 85,
+          message: "Posting analysis to Linear...",
+        });
+
+        try {
+          await postAnalysisToLinear(
+            apiKey,
+            issue.id,
+            aiAnalysis,
+            specData.specId,
+          );
+        } catch (commentError) {
+          // Non-fatal — log but don't fail the investigation
+          console.warn(
+            "[Linear] Failed to post analysis comment:",
+            commentError,
+          );
+        }
+
+        // Phase 5: Complete
         sendProgress(mainWindow, projectId, {
           phase: "complete",
           issueId,
