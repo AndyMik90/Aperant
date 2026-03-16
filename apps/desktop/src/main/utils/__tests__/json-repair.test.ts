@@ -52,6 +52,13 @@ describe('repairJson', () => {
     expect(parsed.key).toBe('value');
   });
 
+  it('strips illegal control characters while preserving valid unicode', () => {
+    const broken = '{"text": "entrepren\u000f\u000fr og skogeier \u00f8 \u00e6 \u00e5"}';
+    const result = repairJson(broken);
+    const parsed = JSON.parse(result);
+    expect(parsed.text).toBe('entreprenr og skogeier ø æ å');
+  });
+
   it('handles the real-world implementation_plan.json missing comma bug', () => {
     // This is the actual pattern that caused the production bug
     const broken = `{
@@ -92,6 +99,11 @@ describe('safeParseJson', () => {
   it('returns parsed object for repairable JSON', () => {
     const result = safeParseJson<{ a: number; b: number }>('{"a": 1\n"b": 2}');
     expect(result).toEqual({ a: 1, b: 2 });
+  });
+
+  it('returns parsed object when invalid control characters are present', () => {
+    const result = safeParseJson<{ text: string }>('{"text": "entrepren\u000f\u000fr og ø"}');
+    expect(result).toEqual({ text: 'entreprenr og ø' });
   });
 
   it('returns null for unrepairable JSON', () => {

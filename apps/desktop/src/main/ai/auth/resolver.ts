@@ -51,6 +51,17 @@ type SettingsAccessor = (key: string) => string | undefined;
 
 let _getSettingsValue: SettingsAccessor | null = null;
 
+function throwIfAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return;
+
+  const reason = signal.reason;
+  if (reason instanceof Error) {
+    throw reason;
+  }
+
+  throw new Error(typeof reason === 'string' ? reason : 'Aborted');
+}
+
 /**
  * Register a settings accessor function.
  * Called once during app initialization to wire up settings access.
@@ -70,6 +81,8 @@ export function registerSettingsAccessor(accessor: SettingsAccessor): void {
  * This is the highest priority stage — checks providerAccounts array.
  */
 async function resolveFromProviderAccount(ctx: AuthResolverContext): Promise<ResolvedAuth | null> {
+  throwIfAborted(ctx.abortSignal);
+
   if (!_getSettingsValue) return null;
 
   // Read providerAccounts from settings
@@ -95,7 +108,7 @@ async function resolveFromProviderAccount(ctx: AuthResolverContext): Promise<Res
     const { app } = await import('electron');
     const tokenFilePath = path.join(app.getPath('userData'), 'codex-auth.json');
     const { ensureValidOAuthToken } = await import('../providers/oauth-fetch');
-    const token = await ensureValidOAuthToken(tokenFilePath, 'openai');
+    const token = await ensureValidOAuthToken(tokenFilePath, 'openai', ctx.abortSignal);
     if (token) {
       return {
         apiKey: 'codex-oauth-placeholder', // Dummy key; real token injected via custom fetch
@@ -145,7 +158,7 @@ async function resolveFromProfileOAuth(ctx: AuthResolverContext): Promise<Resolv
   if (ctx.provider !== 'anthropic') return null;
 
   try {
-    const tokenResult = await ensureValidToken(ctx.configDir);
+    const tokenResult = await ensureValidToken(ctx.configDir, undefined, ctx.abortSignal);
     if (tokenResult.token) {
       const resolved: ResolvedAuth = {
         apiKey: tokenResult.token,
@@ -164,6 +177,7 @@ async function resolveFromProfileOAuth(ctx: AuthResolverContext): Promise<Resolv
       return resolved;
     }
   } catch {
+    throwIfAborted(ctx.abortSignal);
     // Token refresh failed (network, keychain locked, etc.) — fall through
   }
 
@@ -291,6 +305,8 @@ function resolveDefaultCredentials(ctx: AuthResolverContext): ResolvedAuth | nul
  * @returns Resolved auth credentials, or null if no credentials found
  */
 export async function resolveAuth(ctx: AuthResolverContext): Promise<ResolvedAuth | null> {
+  throwIfAborted(ctx.abortSignal);
+
   return (
     (await resolveFromProviderAccount(ctx)) ??
     (await resolveFromProfileOAuth(ctx)) ??
@@ -352,8 +368,11 @@ export async function resolveAuthFromQueue(
     excludeAccountIds?: string[];
     userModelOverrides?: Record<string, Partial<Record<BuiltinProvider, import('../../../shared/constants/models').ProviderModelSpec>>>;
     autoSwitchSettings?: ClaudeAutoSwitchSettings;
+    abortSignal?: AbortSignal;
   }
 ): Promise<QueueResolvedAuth | null> {
+  throwIfAborted(options?.abortSignal);
+
   const excludeSet = new Set(options?.excludeAccountIds ?? []);
   const defaultSettings: ClaudeAutoSwitchSettings = {
     enabled: true,
@@ -367,6 +386,8 @@ export async function resolveAuthFromQueue(
   const settings = options?.autoSwitchSettings ?? defaultSettings;
 
   for (const account of queue) {
+    throwIfAborted(options?.abortSignal);
+
     // Skip excluded accounts
     if (excludeSet.has(account.id)) continue;
 
@@ -411,7 +432,7 @@ export async function resolveAuthFromQueue(
     // is needed here. All OpenAI models are eligible through Codex OAuth.
 
     // Resolve credentials for this account
-    const auth = await resolveCredentialsForAccount(account, supportedProvider);
+    const auth = await resolveCredentialsForAccount(account, supportedProvider, options?.abortSignal);
     if (!auth) continue;
 
     // Success — return the fully resolved auth
@@ -495,7 +516,10 @@ function resolveZaiBaseUrl(account: ProviderAccount): string {
 async function resolveCredentialsForAccount(
   account: ProviderAccount,
   provider: SupportedProvider,
+  abortSignal?: AbortSignal,
 ): Promise<ResolvedAuth | null> {
+  throwIfAborted(abortSignal);
+
   // No-auth providers (e.g., Ollama) — no API key required
   if (NO_AUTH_PROVIDERS.has(provider)) {
     return {
@@ -511,7 +535,7 @@ async function resolveCredentialsForAccount(
       const { app } = await import('electron');
       const tokenFilePath = path.join(app.getPath('userData'), 'codex-auth.json');
       const { ensureValidOAuthToken } = await import('../providers/oauth-fetch');
-      const token = await ensureValidOAuthToken(tokenFilePath, 'openai');
+      const token = await ensureValidOAuthToken(tokenFilePath, 'openai', abortSignal);
       if (token) {
         return {
           apiKey: 'codex-oauth-placeholder',
@@ -519,7 +543,10 @@ async function resolveCredentialsForAccount(
           oauthTokenFilePath: tokenFilePath,
         };
       }
-    } catch { /* fall through */ }
+    } catch {
+      throwIfAborted(abortSignal);
+      /* fall through */
+    }
     return null;
   }
 
@@ -527,7 +554,7 @@ async function resolveCredentialsForAccount(
   if (account.authType === 'oauth' && account.provider === 'anthropic') {
     if (account.claudeProfileId) {
       // Delegate to profile OAuth resolution
-      const ctx: AuthResolverContext = { provider, profileId: account.claudeProfileId };
+      const ctx: AuthResolverContext = { provider, profileId: account.claudeProfileId, abortSignal };
       return resolveAuth(ctx);
     }
     return null;

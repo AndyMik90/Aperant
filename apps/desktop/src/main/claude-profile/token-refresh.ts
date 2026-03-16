@@ -53,6 +53,60 @@ const MAX_REFRESH_RETRIES = 2;
  */
 const RETRY_DELAY_BASE_MS = 1000;
 
+/**
+ * Timeout for each token refresh HTTP request (30 seconds).
+ * Prevents indefinite hang if the OAuth endpoint is unreachable.
+ */
+const TOKEN_REFRESH_TIMEOUT_MS = 30_000;
+
+/**
+ * Maximum time needed to exhaust the configured refresh retry budget.
+ * Callers can use this to set outer auth-resolution timeouts that do not
+ * fire before the refresh policy has had a chance to complete.
+ */
+export const MAX_OAUTH_REFRESH_TOTAL_DURATION_MS =
+  ((MAX_REFRESH_RETRIES + 1) * TOKEN_REFRESH_TIMEOUT_MS) +
+  (RETRY_DELAY_BASE_MS * ((2 ** MAX_REFRESH_RETRIES) - 1));
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return;
+
+  const reason = signal.reason;
+  if (reason instanceof Error) {
+    throw reason;
+  }
+
+  throw new Error(typeof reason === 'string' ? reason : 'Aborted');
+}
+
+async function delay(ms: number, signal?: AbortSignal): Promise<void> {
+  throwIfAborted(signal);
+
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve();
+    }, ms);
+
+    const cleanup = (): void => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+    };
+
+    const onAbort = (): void => {
+      cleanup();
+      reject(signal?.reason instanceof Error ? signal.reason : new Error('Aborted'));
+    };
+
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+function createRefreshRequestSignal(abortSignal?: AbortSignal): AbortSignal {
+  const timeoutSignal = AbortSignal.timeout(TOKEN_REFRESH_TIMEOUT_MS);
+  return abortSignal ? AbortSignal.any([abortSignal, timeoutSignal]) : timeoutSignal;
+}
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -167,7 +221,8 @@ export function formatTimeRemaining(ms: number | null): string {
  */
 export async function refreshOAuthToken(
   refreshToken: string,
-  configDir?: string
+  configDir?: string,
+  abortSignal?: AbortSignal,
 ): Promise<TokenRefreshResult> {
   const isDebug = process.env.DEBUG === 'true';
 
@@ -190,13 +245,15 @@ export async function refreshOAuthToken(
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt <= MAX_REFRESH_RETRIES; attempt++) {
+    throwIfAborted(abortSignal);
+
     if (attempt > 0) {
       // Exponential backoff between retries
-      const delay = RETRY_DELAY_BASE_MS * 2 ** (attempt - 1);
+      const retryDelay = RETRY_DELAY_BASE_MS * 2 ** (attempt - 1);
       if (isDebug) {
-        console.warn('[TokenRefresh] Retrying after delay:', delay, 'ms (attempt', attempt + 1, ')');
+        console.warn('[TokenRefresh] Retrying after delay:', retryDelay, 'ms (attempt', attempt + 1, ')');
       }
-      await new Promise(resolve => setTimeout(resolve, delay));
+      await delay(retryDelay, abortSignal);
     }
 
     try {
@@ -212,7 +269,8 @@ export async function refreshOAuthToken(
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded'
         },
-        body: body.toString()
+        body: body.toString(),
+        signal: createRefreshRequestSignal(abortSignal),
       });
 
       if (!response.ok) {
@@ -284,6 +342,10 @@ export async function refreshOAuthToken(
         expiresIn
       };
     } catch (error) {
+      if (abortSignal?.aborted) {
+        throw (abortSignal.reason instanceof Error ? abortSignal.reason : new Error('Aborted'));
+      }
+
       lastError = error instanceof Error ? error : new Error(String(error));
       if (isDebug) {
         console.warn('[TokenRefresh] Network error, will retry:', lastError.message);
@@ -319,7 +381,8 @@ export async function refreshOAuthToken(
  */
 export async function ensureValidToken(
   configDir: string | undefined,
-  onRefreshed?: OnTokenRefreshedCallback
+  onRefreshed?: OnTokenRefreshedCallback,
+  abortSignal?: AbortSignal,
 ): Promise<EnsureValidTokenResult> {
   const isDebug = process.env.DEBUG === 'true';
   const isVerbose = process.env.VERBOSE === 'true';
@@ -334,6 +397,8 @@ export async function ensureValidToken(
       configDir: expandedConfigDir || 'default'
     });
   }
+
+  throwIfAborted(abortSignal);
 
   // Step 1: Read full credentials from keychain
   const creds = getFullCredentialsFromKeychain(expandedConfigDir);
@@ -391,7 +456,7 @@ export async function ensureValidToken(
   }
 
   // Step 4: Refresh the token
-  const refreshResult = await refreshOAuthToken(creds.refreshToken, expandedConfigDir);
+  const refreshResult = await refreshOAuthToken(creds.refreshToken, expandedConfigDir, abortSignal);
 
   if (!refreshResult.success || !refreshResult.accessToken || !refreshResult.refreshToken || !refreshResult.expiresAt) {
     console.error('[TokenRefresh:ensureValidToken] Token refresh failed:', refreshResult.error);
@@ -484,7 +549,8 @@ export async function ensureValidToken(
  */
 export async function reactiveTokenRefresh(
   configDir: string | undefined,
-  onRefreshed?: OnTokenRefreshedCallback
+  onRefreshed?: OnTokenRefreshedCallback,
+  abortSignal?: AbortSignal,
 ): Promise<EnsureValidTokenResult> {
   const isDebug = process.env.DEBUG === 'true';
 
@@ -497,6 +563,8 @@ export async function reactiveTokenRefresh(
       configDir: expandedConfigDir || 'default'
     });
   }
+
+  throwIfAborted(abortSignal);
 
   // Read credentials to get refresh token
   const creds = getFullCredentialsFromKeychain(expandedConfigDir);
@@ -518,7 +586,7 @@ export async function reactiveTokenRefresh(
   }
 
   // Perform refresh
-  const refreshResult = await refreshOAuthToken(creds.refreshToken, expandedConfigDir);
+  const refreshResult = await refreshOAuthToken(creds.refreshToken, expandedConfigDir, abortSignal);
 
   if (!refreshResult.success || !refreshResult.accessToken || !refreshResult.refreshToken || !refreshResult.expiresAt) {
     return {

@@ -201,6 +201,26 @@ describe('token-refresh', () => {
       expect(result.errorCode).toBe('network_error');
       expect(mockFetch).toHaveBeenCalledTimes(3); // Initial + 2 retries
     });
+
+    it('should propagate caller aborts without retrying', async () => {
+      const controller = new AbortController();
+
+      mockFetch.mockImplementationOnce(async (_url: string, init?: RequestInit) => {
+        const signal = init?.signal;
+
+        return await new Promise((_, reject) => {
+          signal?.addEventListener('abort', () => {
+            reject(signal.reason instanceof Error ? signal.reason : new Error('Aborted'));
+          }, { once: true });
+        });
+      });
+
+      const resultPromise = refreshOAuthToken('valid-refresh-token', undefined, controller.signal);
+      controller.abort(new Error('Aborted'));
+
+      await expect(resultPromise).rejects.toThrow('Aborted');
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('ensureValidToken', () => {

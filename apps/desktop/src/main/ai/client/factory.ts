@@ -84,6 +84,7 @@ export async function createAgentClient(
     thinkingLevel,
     maxSteps = DEFAULT_MAX_STEPS,
     profileId,
+    abortSignal,
     additionalMcpServers,
     queueConfig,
   } = config;
@@ -101,6 +102,7 @@ export async function createAgentClient(
       {
         excludeAccountIds: queueConfig.excludeAccountIds,
         userModelOverrides: queueConfig.userModelOverrides as any,
+        abortSignal,
       }
     );
 
@@ -133,6 +135,7 @@ export async function createAgentClient(
     const auth = await resolveAuth({
       provider: detectedProvider,
       profileId,
+      abortSignal,
     });
 
     model = createProvider({
@@ -216,6 +219,7 @@ export async function createSimpleClient(
     modelShorthand = 'haiku',
     thinkingLevel = 'low',
     profileId,
+    abortSignal,
     maxSteps = DEFAULT_SIMPLE_MAX_STEPS,
     tools = {},
     queueConfig: explicitQueueConfig,
@@ -240,6 +244,7 @@ export async function createSimpleClient(
       {
         excludeAccountIds,
         userModelOverrides: userModelOverrides as any,
+        abortSignal,
       }
     );
 
@@ -271,6 +276,7 @@ export async function createSimpleClient(
     const auth = await resolveAuth({
       provider: detectedProvider,
       profileId,
+      abortSignal,
     });
 
     model = createProvider({

@@ -59,6 +59,8 @@ export interface AuthResolverContext {
   profileId?: string;
   /** Optional CLAUDE_CONFIG_DIR for profile-specific keychain lookup */
   configDir?: string;
+  /** Abort signal for cancellation during credential resolution */
+  abortSignal?: AbortSignal;
 }
 
 // ============================================

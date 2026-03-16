@@ -44,6 +44,14 @@ function applyRepairs(raw: string, originalError: SyntaxError): string {
   // 1. Strip markdown code fences (```json ... ```)
   text = text.replace(/^```(?:json)?\s*\n?/gm, '').replace(/\n?```\s*$/gm, '');
 
+  // 1.5. Strip illegal JSON control characters while preserving valid
+  // Unicode, tabs, line feeds, and carriage returns.
+  const strippedControlChars = text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+  if (strippedControlChars !== text) {
+    text = strippedControlChars;
+    console.warn('[json-repair] Stripped illegal control characters from JSON');
+  }
+
   // 2. Remove trailing commas before } or ]
   text = text.replace(/,(\s*[}\]])/g, '$1');
 

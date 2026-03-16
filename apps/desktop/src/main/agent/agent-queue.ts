@@ -418,7 +418,14 @@ export class AgentQueueManager {
         (event: RoadmapStreamEvent) => {
           switch (event.type) {
             case 'phase-start': {
-              progressPhase = event.phase;
+              // Map runner phase names to XState machine state names
+              // Runner uses: 'discovery', 'features'
+              // Machine expects: 'discovering', 'generating'
+              const phaseMap: Record<string, string> = {
+                'discovery': 'discovering',
+                'features': 'generating',
+              };
+              progressPhase = phaseMap[event.phase] ?? event.phase;
               progressPercent = Math.min(progressPercent + 20, 90);
               const msg = `Running ${event.phase} phase...`;
               this.emitter.emit('roadmap-log', projectId, msg);

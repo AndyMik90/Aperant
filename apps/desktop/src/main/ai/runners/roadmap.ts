@@ -19,8 +19,9 @@ import { buildToolRegistry } from '../tools/build-registry';
 import type { ToolContext } from '../tools/types';
 import type { ModelShorthand, ThinkingLevel } from '../config/types';
 import type { SecurityProfile } from '../security/bash-validator';
-import { safeParseJson } from '../../utils/json-repair';
+import { repairJson } from '../../utils/json-repair';
 import { tryLoadPrompt } from '../prompts/prompt-loader';
+import { MAX_OAUTH_REFRESH_TOTAL_DURATION_MS } from '../../claude-profile/token-refresh';
 
 // =============================================================================
 // Constants
@@ -30,6 +31,23 @@ const MAX_RETRIES = 3;
 
 /** Maximum agentic steps per phase */
 const MAX_STEPS_PER_PHASE = 30;
+
+/**
+ * Timeout for client creation (auth resolution).
+ * Leaves enough headroom for the full OAuth refresh retry budget plus a small buffer.
+ */
+const CLIENT_CREATION_TIMEOUT_MS = MAX_OAUTH_REFRESH_TOTAL_DURATION_MS + 5_000;
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (!signal?.aborted) return;
+
+  const reason = signal.reason;
+  if (reason instanceof Error) {
+    throw reason;
+  }
+
+  throw new Error(typeof reason === 'string' ? reason : 'Aborted');
+}
 
 // =============================================================================
 // Types
@@ -87,6 +105,23 @@ export type RoadmapStreamEvent =
   | { type: 'text-delta'; text: string }
   | { type: 'tool-use'; name: string }
   | { type: 'error'; error: string };
+
+function readAndRepairJsonFile<T>(filePath: string): T | null {
+  try {
+    const raw = readFileSync(filePath, 'utf-8');
+    const repaired = repairJson(raw);
+
+    if (repaired !== raw) {
+      const tmpFile = `${filePath}.tmp.${process.pid}`;
+      writeFileSync(tmpFile, repaired, 'utf-8');
+      renameSync(tmpFile, filePath);
+    }
+
+    return JSON.parse(repaired) as T;
+  } catch {
+    return null;
+  }
+}
 
 // =============================================================================
 // Discovery Phase
@@ -180,7 +215,7 @@ Do NOT ask questions. Make educated inferences and create the file.`;
 
       // Validate output
       if (existsSync(discoveryFile)) {
-        const data = safeParseJson<Record<string, unknown>>(readFileSync(discoveryFile, 'utf-8'));
+        const data = readAndRepairJsonFile<Record<string, unknown>>(discoveryFile);
         if (data) {
           const required = ['project_name', 'target_audience', 'product_vision'];
           const missing = required.filter((k) => !(k in data));
@@ -318,7 +353,7 @@ The JSON must contain: vision, target_audience (object with "primary" key), phas
         if ((err as NodeJS.ErrnoException).code !== 'ENOENT') throw err;
       }
       if (roadmapRaw !== null) {
-        const data = safeParseJson<Record<string, unknown>>(roadmapRaw);
+        const data = readAndRepairJsonFile<Record<string, unknown>>(roadmapFile);
         if (data) {
           const required = ['phases', 'features', 'vision', 'target_audience'];
           const missing = required.filter((k) => !(k in data));
@@ -366,7 +401,7 @@ The JSON must contain: vision, target_audience (object with "primary" key), phas
 function loadPreservedFeatures(roadmapFile: string): Record<string, unknown>[] {
   if (!existsSync(roadmapFile)) return [];
 
-  const data = safeParseJson<Record<string, unknown>>(readFileSync(roadmapFile, 'utf-8'));
+  const data = readAndRepairJsonFile<Record<string, unknown>>(roadmapFile);
   if (!data) return [];
 
   const features: Record<string, unknown>[] = (data.features as Record<string, unknown>[]) ?? [];
@@ -462,13 +497,40 @@ export async function runRoadmapGeneration(
   const registry = buildToolRegistry();
   const tools = registry.getToolsForAgent('roadmap_discovery', toolContext);
 
-  const client = await createSimpleClient({
-    systemPrompt: '',
-    modelShorthand,
-    thinkingLevel,
-    maxSteps: MAX_STEPS_PER_PHASE,
-    tools,
-  });
+  const clientCreationTimeoutController = new AbortController();
+  const clientAbortSignal = abortSignal
+    ? AbortSignal.any([abortSignal, clientCreationTimeoutController.signal])
+    : clientCreationTimeoutController.signal;
+
+  const clientCreationTimer = setTimeout(() => {
+    clientCreationTimeoutController.abort(
+      new Error('Client creation timed out — check your authentication credentials'),
+    );
+  }, CLIENT_CREATION_TIMEOUT_MS);
+
+  let client: SimpleClientResult;
+  try {
+    throwIfAborted(abortSignal);
+
+    client = await createSimpleClient({
+      systemPrompt: '',
+      modelShorthand,
+      thinkingLevel,
+      maxSteps: MAX_STEPS_PER_PHASE,
+      tools,
+      abortSignal: clientAbortSignal,
+    });
+  } catch (error) {
+    if (abortSignal?.aborted) {
+      throw new Error('Aborted');
+    }
+    if (clientCreationTimeoutController.signal.aborted) {
+      throw new Error('Client creation timed out — check your authentication credentials');
+    }
+    throw error;
+  } finally {
+    clearTimeout(clientCreationTimer);
+  }
 
   const phases: RoadmapPhaseResult[] = [];
 

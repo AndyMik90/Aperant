@@ -71,6 +71,8 @@ export interface SimpleClientConfig {
   thinkingLevel?: ThinkingLevel;
   /** Profile ID for credential resolution */
   profileId?: string;
+  /** Abort signal for cancellation during auth/model resolution */
+  abortSignal?: AbortSignal;
   /** Maximum agentic steps (defaults to 1 for single-turn) */
   maxSteps?: number;
   /** Specific tools to include (if any) */

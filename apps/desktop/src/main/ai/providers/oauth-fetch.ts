@@ -105,6 +105,7 @@ async function refreshOAuthToken(
   refreshToken: string,
   providerSpec: OAuthProviderSpec,
   tokenFilePath: string,
+  abortSignal?: AbortSignal,
 ): Promise<string | null> {
   debugLog('Refreshing OAuth token');
 
@@ -118,6 +119,7 @@ async function refreshOAuthToken(
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString(),
+    signal: abortSignal,
   });
 
   debugLog('Token refresh response', { status: response.status, ok: response.ok });
@@ -186,6 +188,7 @@ function detectProvider(provider?: string): OAuthProviderSpec | undefined {
 export async function ensureValidOAuthToken(
   tokenFilePath: string,
   provider?: string,
+  abortSignal?: AbortSignal,
 ): Promise<string | null> {
   debugLog('Ensuring valid OAuth token', { path: tokenFilePath, provider });
 
@@ -212,8 +215,12 @@ export async function ensureValidOAuthToken(
   }
 
   try {
-    return await refreshOAuthToken(stored.refresh_token, providerSpec, tokenFilePath);
+    return await refreshOAuthToken(stored.refresh_token, providerSpec, tokenFilePath, abortSignal);
   } catch (err) {
+    if (abortSignal?.aborted) {
+      throw (abortSignal.reason instanceof Error ? abortSignal.reason : new Error('Aborted'));
+    }
+
     debugLog('Token refresh failed', { error: err instanceof Error ? err.message : String(err) });
     return null;
   }
@@ -238,7 +245,11 @@ export function createOAuthProviderFetch(
 
   return async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
     // 1. Get valid OAuth token (auto-refresh if needed)
-    const token = await ensureValidOAuthToken(tokenFilePath, provider);
+    const token = await ensureValidOAuthToken(
+      tokenFilePath,
+      provider,
+      init?.signal instanceof AbortSignal ? init.signal : undefined,
+    );
     if (!token) {
       throw new Error('OAuth: No valid token available. Please re-authenticate.');
     }
