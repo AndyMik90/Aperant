@@ -1,7 +1,7 @@
-import { ipcMain } from 'electron';
-import { existsSync } from 'fs';
-import { execFileSync } from 'child_process';
-import { IPC_CHANNELS } from '../../shared/constants';
+import { ipcMain } from "electron";
+import { existsSync } from "fs";
+import { execFileSync } from "child_process";
+import { IPC_CHANNELS } from "../../shared/constants";
 import type {
   Project,
   ProjectSettings,
@@ -9,18 +9,19 @@ import type {
   InitializationResult,
   AutoBuildVersionInfo,
   GitStatus,
-  GitBranchDetail
-} from '../../shared/types';
-import { projectStore } from '../project-store';
+  GitBranchDetail,
+} from "../../shared/types";
+import { projectStore } from "../project-store";
 import {
   initializeProject,
   isInitialized,
   hasLocalSource,
   checkGitStatus,
-  initializeGit
-} from '../project-initializer';
-import { getToolPath } from '../cli-tool-manager';
-import type { BrowserWindow } from 'electron';
+  initializeGit,
+} from "../project-initializer";
+import { getToolPath } from "../cli-tool-manager";
+import { checkAndReindexIfStale } from "../gitnexus";
+import type { BrowserWindow } from "electron";
 
 // ============================================
 // Git Helper Functions
@@ -33,37 +34,43 @@ function getGitBranches(projectPath: string): string[] {
   try {
     // First fetch to ensure we have latest remote refs
     try {
-      execFileSync(getToolPath('git'), ['fetch', '--prune'], {
+      execFileSync(getToolPath("git"), ["fetch", "--prune"], {
         cwd: projectPath,
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-        timeout: 10000 // 10 second timeout for fetch
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"],
+        timeout: 10000, // 10 second timeout for fetch
       });
     } catch {
       // Fetch may fail if offline or no remote, continue with local refs
     }
 
     // Get all branches (local + remote) using --all flag
-    const result = execFileSync(getToolPath('git'), ['branch', '--all', '--format=%(refname:short)'], {
-      cwd: projectPath,
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
+    const result = execFileSync(
+      getToolPath("git"),
+      ["branch", "--all", "--format=%(refname:short)"],
+      {
+        cwd: projectPath,
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    );
 
-    const branches = result.trim().split('\n')
-      .filter(b => b.trim())
-      .map(b => {
+    const branches = result
+      .trim()
+      .split("\n")
+      .filter((b) => b.trim())
+      .map((b) => {
         // Remote branches come as "origin/branch-name", keep the full name
         // but remove the "origin/" prefix for display while keeping it usable
         return b.trim();
       })
       // Remove HEAD pointer entries like "origin/HEAD"
-      .filter(b => !b.endsWith('/HEAD'))
+      .filter((b) => !b.endsWith("/HEAD"))
       // Remove duplicates (local branch may exist alongside remote)
       .filter((branch, index, self) => {
         // If it's a remote branch (origin/x) and local version exists, keep local
-        if (branch.startsWith('origin/')) {
-          const localName = branch.replace('origin/', '');
+        if (branch.startsWith("origin/")) {
+          const localName = branch.replace("origin/", "");
           return !self.includes(localName);
         }
         return self.indexOf(branch) === index;
@@ -71,8 +78,8 @@ function getGitBranches(projectPath: string): string[] {
 
     // Sort: local branches first, then remote branches
     return branches.sort((a, b) => {
-      const aIsRemote = a.startsWith('origin/');
-      const bIsRemote = b.startsWith('origin/');
+      const aIsRemote = a.startsWith("origin/");
+      const bIsRemote = b.startsWith("origin/");
       if (aIsRemote && !bIsRemote) return 1;
       if (!aIsRemote && bIsRemote) return -1;
       return a.localeCompare(b);
@@ -91,11 +98,11 @@ function getGitBranchesWithInfo(projectPath: string): GitBranchDetail[] {
   try {
     // First fetch to ensure we have latest remote refs
     try {
-      execFileSync(getToolPath('git'), ['fetch', '--prune'], {
+      execFileSync(getToolPath("git"), ["fetch", "--prune"], {
         cwd: projectPath,
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-        timeout: 10000 // 10 second timeout for fetch
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"],
+        timeout: 10000, // 10 second timeout for fetch
       });
     } catch {
       // Fetch may fail if offline or no remote, continue with local refs
@@ -104,57 +111,73 @@ function getGitBranchesWithInfo(projectPath: string): GitBranchDetail[] {
     // Get current branch for isCurrent indicator
     let currentBranch: string | null = null;
     try {
-      const currentResult = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
-        cwd: projectPath,
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
+      const currentResult = execFileSync(
+        getToolPath("git"),
+        ["rev-parse", "--abbrev-ref", "HEAD"],
+        {
+          cwd: projectPath,
+          encoding: "utf-8",
+          stdio: ["pipe", "pipe", "pipe"],
+        },
+      );
       currentBranch = currentResult.trim() || null;
     } catch {
       // Ignore - current branch detection may fail in some edge cases
     }
 
     // Get local branches
-    const localResult = execFileSync(getToolPath('git'), ['branch', '--format=%(refname:short)'], {
-      cwd: projectPath,
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
+    const localResult = execFileSync(
+      getToolPath("git"),
+      ["branch", "--format=%(refname:short)"],
+      {
+        cwd: projectPath,
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    );
 
-    const localBranches: GitBranchDetail[] = localResult.trim().split('\n')
-      .filter(b => b.trim())
-      .map(b => {
+    const localBranches: GitBranchDetail[] = localResult
+      .trim()
+      .split("\n")
+      .filter((b) => b.trim())
+      .map((b) => {
         const name = b.trim();
         return {
           name,
-          type: 'local' as const,
+          type: "local" as const,
           displayName: name,
-          isCurrent: name === currentBranch
+          isCurrent: name === currentBranch,
         };
       });
 
     // Get remote branches
     let remoteBranches: GitBranchDetail[] = [];
     try {
-      const remoteResult = execFileSync(getToolPath('git'), ['branch', '-r', '--format=%(refname:short)'], {
-        cwd: projectPath,
-        encoding: 'utf-8',
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
+      const remoteResult = execFileSync(
+        getToolPath("git"),
+        ["branch", "-r", "--format=%(refname:short)"],
+        {
+          cwd: projectPath,
+          encoding: "utf-8",
+          stdio: ["pipe", "pipe", "pipe"],
+        },
+      );
 
-      remoteBranches = remoteResult.trim().split('\n')
-        .filter(b => b.trim())
-        .map(b => b.trim())
+      remoteBranches = remoteResult
+        .trim()
+        .split("\n")
+        .filter((b) => b.trim())
+        .map((b) => b.trim())
         // Remove HEAD pointer entries like "origin/HEAD"
-        .filter(b => !b.endsWith('/HEAD'))
-        .map(fullName => {
+        .filter((b) => !b.endsWith("/HEAD"))
+        .map((fullName) => {
           // Strip "origin/" prefix so branch names are clean for PR targets etc.
-          const name = fullName.replace(/^origin\//, '');
+          const name = fullName.replace(/^origin\//, "");
           return {
             name,
-            type: 'remote' as const,
+            type: "remote" as const,
             displayName: name,
-            isCurrent: false
+            isCurrent: false,
           };
         });
     } catch {
@@ -162,16 +185,16 @@ function getGitBranchesWithInfo(projectPath: string): GitBranchDetail[] {
     }
 
     // Deduplicate: if a branch exists locally and remotely, keep only the local entry
-    const localNames = new Set(localBranches.map(b => b.name));
-    remoteBranches = remoteBranches.filter(b => !localNames.has(b.name));
+    const localNames = new Set(localBranches.map((b) => b.name));
+    remoteBranches = remoteBranches.filter((b) => !localNames.has(b.name));
 
     // Combine and sort: local branches first, then remote branches, alphabetically within each group
     const allBranches = [...localBranches, ...remoteBranches];
 
     return allBranches.sort((a, b) => {
       // Local branches come first
-      if (a.type === 'local' && b.type === 'remote') return -1;
-      if (a.type === 'remote' && b.type === 'local') return 1;
+      if (a.type === "local" && b.type === "remote") return -1;
+      if (a.type === "remote" && b.type === "local") return 1;
       // Within same type, sort alphabetically
       return a.name.localeCompare(b.name);
     });
@@ -185,11 +208,15 @@ function getGitBranchesWithInfo(projectPath: string): GitBranchDetail[] {
  */
 function getCurrentGitBranch(projectPath: string): string | null {
   try {
-    const result = execFileSync(getToolPath('git'), ['rev-parse', '--abbrev-ref', 'HEAD'], {
-      cwd: projectPath,
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
+    const result = execFileSync(
+      getToolPath("git"),
+      ["rev-parse", "--abbrev-ref", "HEAD"],
+      {
+        cwd: projectPath,
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    );
     return result.trim() || null;
   } catch {
     return null;
@@ -205,7 +232,7 @@ function detectMainBranch(projectPath: string): string | null {
   if (branches.length === 0) return null;
 
   // Check for common main branch names in order of preference
-  const mainBranchCandidates = ['main', 'master', 'develop', 'dev', 'trunk'];
+  const mainBranchCandidates = ["main", "master", "develop", "dev", "trunk"];
   for (const candidate of mainBranchCandidates) {
     if (branches.includes(candidate)) {
       return candidate;
@@ -214,11 +241,15 @@ function detectMainBranch(projectPath: string): string | null {
 
   // If none of the common names found, check for origin/HEAD reference
   try {
-    const result = execFileSync(getToolPath('git'), ['symbolic-ref', 'refs/remotes/origin/HEAD'], {
-      cwd: projectPath,
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
+    const result = execFileSync(
+      getToolPath("git"),
+      ["symbolic-ref", "refs/remotes/origin/HEAD"],
+      {
+        cwd: projectPath,
+        encoding: "utf-8",
+        stdio: ["pipe", "pipe", "pipe"],
+      },
+    );
     const ref = result.trim();
     // Extract branch name from refs/remotes/origin/main
     const match = ref.match(/refs\/remotes\/origin\/(.+)/);
@@ -237,7 +268,7 @@ function detectMainBranch(projectPath: string): string | null {
  * Register all project-related IPC handlers
  */
 export function registerProjectHandlers(
-  getMainWindow: () => BrowserWindow | null
+  getMainWindow: () => BrowserWindow | null,
 ): void {
   // ============================================
   // Project Operations
@@ -249,7 +280,7 @@ export function registerProjectHandlers(
       try {
         // Validate path exists
         if (!existsSync(projectPath)) {
-          return { success: false, error: 'Directory does not exist' };
+          return { success: false, error: "Directory does not exist" };
         }
 
         const project = projectStore.addProject(projectPath);
@@ -257,10 +288,10 @@ export function registerProjectHandlers(
       } catch (error) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : "Unknown error",
         };
       }
-    }
+    },
   );
 
   ipcMain.handle(
@@ -268,7 +299,7 @@ export function registerProjectHandlers(
     async (_, projectId: string): Promise<IPCResult> => {
       const success = projectStore.removeProject(projectId);
       return { success };
-    }
+    },
   );
 
   ipcMain.handle(
@@ -278,13 +309,17 @@ export function registerProjectHandlers(
       // If a folder was deleted, reset autoBuildPath so UI prompts for reinitialization
       const resetIds = projectStore.validateProjects();
       if (resetIds.length > 0) {
-        console.warn('[IPC] PROJECT_LIST: Detected missing .auto-claude folders for', resetIds.length, 'project(s)');
+        console.warn(
+          "[IPC] PROJECT_LIST: Detected missing .auto-claude folders for",
+          resetIds.length,
+          "project(s)",
+        );
       }
 
       const projects = projectStore.getProjects();
-      console.warn('[IPC] PROJECT_LIST returning', projects.length, 'projects');
+      console.warn("[IPC] PROJECT_LIST returning", projects.length, "projects");
       return { success: true, data: projects };
-    }
+    },
   );
 
   ipcMain.handle(
@@ -292,14 +327,14 @@ export function registerProjectHandlers(
     async (
       _,
       projectId: string,
-      settings: Partial<ProjectSettings>
+      settings: Partial<ProjectSettings>,
     ): Promise<IPCResult> => {
       const project = projectStore.updateProjectSettings(projectId, settings);
       if (project) {
         return { success: true };
       }
-      return { success: false, error: 'Project not found' };
-    }
+      return { success: false, error: "Project not found" };
+    },
   );
 
   // ============================================
@@ -308,23 +343,33 @@ export function registerProjectHandlers(
 
   ipcMain.handle(
     IPC_CHANNELS.TAB_STATE_GET,
-    async (): Promise<IPCResult<{ openProjectIds: string[]; activeProjectId: string | null; tabOrder: string[] }>> => {
+    async (): Promise<
+      IPCResult<{
+        openProjectIds: string[];
+        activeProjectId: string | null;
+        tabOrder: string[];
+      }>
+    > => {
       const tabState = projectStore.getTabState();
-      console.log('[IPC] TAB_STATE_GET returning:', tabState);
+      console.log("[IPC] TAB_STATE_GET returning:", tabState);
       return { success: true, data: tabState };
-    }
+    },
   );
 
   ipcMain.handle(
     IPC_CHANNELS.TAB_STATE_SAVE,
     async (
       _,
-      tabState: { openProjectIds: string[]; activeProjectId: string | null; tabOrder: string[] }
+      tabState: {
+        openProjectIds: string[];
+        activeProjectId: string | null;
+        tabOrder: string[];
+      },
     ): Promise<IPCResult> => {
-      console.log('[IPC] TAB_STATE_SAVE called with:', tabState);
+      console.log("[IPC] TAB_STATE_SAVE called with:", tabState);
       projectStore.saveTabState(tabState);
       return { success: true };
-    }
+    },
   );
 
   // ============================================
@@ -333,17 +378,25 @@ export function registerProjectHandlers(
 
   ipcMain.handle(
     IPC_CHANNELS.KANBAN_PREFS_GET,
-    async (_, projectId: string): Promise<IPCResult<Record<string, { width: number; isCollapsed: boolean; isLocked: boolean }> | null>> => {
+    async (
+      _,
+      projectId: string,
+    ): Promise<
+      IPCResult<Record<
+        string,
+        { width: number; isCollapsed: boolean; isLocked: boolean }
+      > | null>
+    > => {
       try {
         const preferences = projectStore.getKanbanPreferences(projectId);
         return { success: true, data: preferences };
       } catch (error) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : "Unknown error",
         };
       }
-    }
+    },
   );
 
   ipcMain.handle(
@@ -351,7 +404,10 @@ export function registerProjectHandlers(
     async (
       _,
       projectId: string,
-      preferences: Record<string, { width: number; isCollapsed: boolean; isLocked: boolean }>
+      preferences: Record<
+        string,
+        { width: number; isCollapsed: boolean; isLocked: boolean }
+      >,
     ): Promise<IPCResult> => {
       try {
         projectStore.saveKanbanPreferences(projectId, preferences);
@@ -359,10 +415,10 @@ export function registerProjectHandlers(
       } catch (error) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : "Unknown error",
         };
       }
-    }
+    },
   );
 
   // ============================================
@@ -375,24 +431,27 @@ export function registerProjectHandlers(
       try {
         const project = projectStore.getProject(projectId);
         if (!project) {
-          return { success: false, error: 'Project not found' };
+          return { success: false, error: "Project not found" };
         }
 
         const result = initializeProject(project.path);
 
         if (result.success) {
           // Update project's autoBuildPath
-          projectStore.updateAutoBuildPath(projectId, '.auto-claude');
+          projectStore.updateAutoBuildPath(projectId, ".auto-claude");
+
+          // Check GitNexus index staleness and trigger background re-index if needed
+          checkAndReindexIfStale(project.path);
         }
 
         return { success: result.success, data: result, error: result.error };
       } catch (error) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : "Unknown error",
         };
       }
-    }
+    },
   );
 
   // PROJECT_CHECK_VERSION now just checks if project is initialized
@@ -403,42 +462,42 @@ export function registerProjectHandlers(
       try {
         const project = projectStore.getProject(projectId);
         if (!project) {
-          return { success: false, error: 'Project not found' };
+          return { success: false, error: "Project not found" };
         }
 
         return {
           success: true,
           data: {
             isInitialized: isInitialized(project.path),
-            updateAvailable: false // No updates for .auto-claude - it's just data
-          }
+            updateAvailable: false, // No updates for .auto-claude - it's just data
+          },
         };
       } catch (error) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : "Unknown error",
         };
       }
-    }
+    },
   );
 
   // Check if project has local auto-claude source (is dev project)
   ipcMain.handle(
-    'project:has-local-source',
+    "project:has-local-source",
     async (_, projectId: string): Promise<IPCResult<boolean>> => {
       try {
         const project = projectStore.getProject(projectId);
         if (!project) {
-          return { success: false, error: 'Project not found' };
+          return { success: false, error: "Project not found" };
         }
         return { success: true, data: hasLocalSource(project.path) };
       } catch (error) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : "Unknown error",
         };
       }
-    }
+    },
   );
 
   // ============================================
@@ -451,17 +510,17 @@ export function registerProjectHandlers(
     async (_, projectPath: string): Promise<IPCResult<string[]>> => {
       try {
         if (!existsSync(projectPath)) {
-          return { success: false, error: 'Directory does not exist' };
+          return { success: false, error: "Directory does not exist" };
         }
         const branches = getGitBranches(projectPath);
         return { success: true, data: branches };
       } catch (error) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : "Unknown error",
         };
       }
-    }
+    },
   );
 
   // Get all branches with structured type information (local vs remote)
@@ -470,17 +529,17 @@ export function registerProjectHandlers(
     async (_, projectPath: string): Promise<IPCResult<GitBranchDetail[]>> => {
       try {
         if (!existsSync(projectPath)) {
-          return { success: false, error: 'Directory does not exist' };
+          return { success: false, error: "Directory does not exist" };
         }
         const branches = getGitBranchesWithInfo(projectPath);
         return { success: true, data: branches };
       } catch (error) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : "Unknown error",
         };
       }
-    }
+    },
   );
 
   // Get current branch for a project
@@ -489,17 +548,17 @@ export function registerProjectHandlers(
     async (_, projectPath: string): Promise<IPCResult<string | null>> => {
       try {
         if (!existsSync(projectPath)) {
-          return { success: false, error: 'Directory does not exist' };
+          return { success: false, error: "Directory does not exist" };
         }
         const branch = getCurrentGitBranch(projectPath);
         return { success: true, data: branch };
       } catch (error) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : "Unknown error",
         };
       }
-    }
+    },
   );
 
   // Auto-detect main branch for a project
@@ -508,17 +567,17 @@ export function registerProjectHandlers(
     async (_, projectPath: string): Promise<IPCResult<string | null>> => {
       try {
         if (!existsSync(projectPath)) {
-          return { success: false, error: 'Directory does not exist' };
+          return { success: false, error: "Directory does not exist" };
         }
         const mainBranch = detectMainBranch(projectPath);
         return { success: true, data: mainBranch };
       } catch (error) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : "Unknown error",
         };
       }
-    }
+    },
   );
 
   // Check git status for a project (is it a repo? has commits?)
@@ -527,35 +586,38 @@ export function registerProjectHandlers(
     async (_, projectPath: string): Promise<IPCResult<GitStatus>> => {
       try {
         if (!existsSync(projectPath)) {
-          return { success: false, error: 'Directory does not exist' };
+          return { success: false, error: "Directory does not exist" };
         }
         const gitStatus = checkGitStatus(projectPath);
         return { success: true, data: gitStatus };
       } catch (error) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : "Unknown error",
         };
       }
-    }
+    },
   );
 
   // Initialize git in a project (run git init and create initial commit)
   ipcMain.handle(
     IPC_CHANNELS.GIT_INITIALIZE,
-    async (_, projectPath: string): Promise<IPCResult<InitializationResult>> => {
+    async (
+      _,
+      projectPath: string,
+    ): Promise<IPCResult<InitializationResult>> => {
       try {
         if (!existsSync(projectPath)) {
-          return { success: false, error: 'Directory does not exist' };
+          return { success: false, error: "Directory does not exist" };
         }
         const result = initializeGit(projectPath);
         return { success: result.success, data: result, error: result.error };
       } catch (error) {
         return {
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : "Unknown error",
         };
       }
-    }
+    },
   );
 }
