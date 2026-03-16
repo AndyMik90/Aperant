@@ -48,11 +48,6 @@ export async function dispatchToJules(
   const repo = settings.julesDefaultRepo;
   const autoCreatePr = settings.julesAutoCreatePr ?? true;
 
-  const args = ['new'];
-  if (repo) {
-    args.push('--repo', repo);
-  }
-
   // Append project context to the prompt
   const fullPrompt = `${prompt}
 
@@ -61,18 +56,26 @@ export async function dispatchToJules(
 - Run the project's lint/check/build commands before committing
 - ${autoCreatePr ? 'Create a PR when done' : 'Push to a branch (do not create PR)'}`;
 
-  args.push(fullPrompt);
+  // Use stdin pipe instead of CLI arg to avoid Windows command-line length limits (~8K chars).
+  // Jules CLI supports: cat prompt.txt | jules new --repo owner/repo
+  const args = ['new'];
+  if (repo) {
+    args.push('--repo', repo);
+  }
 
   return new Promise((resolve) => {
     const child = spawn('jules', args, {
       cwd,
       env: {
         ...process.env,
-        // Pass API key if configured (used by Jules MCP server, CLI uses OAuth)
         ...(settings.julesApiKey ? { JULES_API_KEY: settings.julesApiKey } : {}),
       },
       shell: true,
     });
+
+    // Pipe the prompt via stdin (avoids arg length limits)
+    child.stdin?.write(fullPrompt);
+    child.stdin?.end();
 
     let output = '';
     let errorOutput = '';
