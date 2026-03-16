@@ -106,7 +106,9 @@
     "save": "Salvar",
     "apply": "Aplicar",
     "delete": "Excluir",
-    "settings": "Configurações"
+    "settings": "Configurações",
+    "files": "Arquivos",
+    "success": "Sucesso"
   },
   "os": {
     "windows": "Windows",
@@ -474,7 +476,7 @@
     "yesterday": "Ontem",
     "daysAgo": "{{count}} dias atrás",
     "messageCount": "{{count}} mensagem",
-    "messageCount_other": "{{count}} mensagens",
+    "messageCount_plural": "{{count}} mensagens",
     "images": {
       "pasteHint": "Cole uma imagem ou captura de tela",
       "dropHint": "Solte a imagem aqui",
@@ -755,7 +757,16 @@
       "dragFeaturesHere": "Arraste funcionalidades para cá"
     },
     "insight": "Insight",
-    "featuresCount": "{{count}} funcionalidades",
+    "featuresCount": "{{count}} funcionalidade",
+    "featuresCount_plural": "{{count}} funcionalidades",
+    "phaseLabel": "Fase: {{phase}}",
+    "competitorInsight": {
+      "badge": "Insight Competitivo",
+      "tooltip": "Esta funcionalidade aborda pontos fracos da concorrência"
+    },
+    "votesFromFeedback": "{{count}} votos do feedback de usuários",
+    "externalSource": "Externo",
+    "importedFrom": "Importado de {{provider}}",
     "unknownStatus": "Status Desconhecido"
   },
   "roadmapGeneration": {
@@ -997,9 +1008,12 @@
     "continue": "Continuar",
     "commitsFound": "{{count}} commit encontrado",
     "commitsFound_plural": "{{count}} commits encontrados",
-    "task": "tarefa",
-    "commit": "commit",
-    "item": "item"
+    "task": "{{count}} tarefa",
+    "task_plural": "{{count}} tarefas",
+    "commit": "{{count}} commit",
+    "commit_plural": "{{count}} commits",
+    "item": "{{count}} item",
+    "item_plural": "{{count}} itens"
   },
   "prStatus": {
     "ci": {

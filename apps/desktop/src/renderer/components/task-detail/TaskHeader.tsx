@@ -69,7 +69,7 @@ export function TaskHeader({
                 {t('tasks:labels.incomplete')}
               </Badge>
               <Badge variant="outline" className="text-xs text-orange-400">
-                {taskProgress.completed}/{taskProgress.total} subtasks
+                {t('tasks:labels.subtaskProgress', { completed: taskProgress.completed, total: taskProgress.total })}
               </Badge>
             </>
           ) : (

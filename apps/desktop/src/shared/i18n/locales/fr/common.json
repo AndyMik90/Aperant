@@ -106,7 +106,9 @@
     "save": "Enregistrer",
     "apply": "Appliquer",
     "delete": "Supprimer",
-    "settings": "Paramètres"
+    "settings": "Paramètres",
+    "files": "Fichiers",
+    "success": "Succès"
   },
   "os": {
     "windows": "Windows",
@@ -688,6 +690,9 @@
     "footer": "Le compte sera disponible une fois l'authentification terminée."
   },
   "roadmap": {
+    "emptyTitle": "Pas encore de feuille de route",
+    "emptyDescription": "Générez une feuille de route propulsée par l'IA qui comprend le public cible de votre projet et crée un plan stratégique de fonctionnalités.",
+    "generateButton": "Générer la feuille de route",
     "taskCompleted": "Terminé",
     "taskDeleted": "Supprimé",
     "taskArchived": "Archivé",
@@ -716,7 +721,53 @@
       "delete": "Supprimer",
       "cancel": "Annuler",
       "severityLabel": "Sévérité {{severity}}"
-    }
+    },
+    "impact": {
+      "low": "Faible",
+      "medium": "Moyen",
+      "high": "Élevé",
+      "label": "Impact {{impact}}"
+    },
+    "status": {
+      "underReview": "En révision",
+      "planned": "Planifié",
+      "inProgress": "En cours",
+      "done": "Terminé"
+    },
+    "priority": {
+      "mustHave": "Indispensable",
+      "shouldHave": "Important",
+      "couldHave": "Souhaitable",
+      "wontHave": "Non inclus"
+    },
+    "complexity": {
+      "low": "Faible",
+      "medium": "Moyenne",
+      "high": "Élevée"
+    },
+    "tabs": {
+      "kanban": "Kanban",
+      "phases": "Phases",
+      "allFeatures": "Toutes les fonctionnalités",
+      "byPriority": "Par priorité"
+    },
+    "kanban": {
+      "dropHere": "Déposer ici",
+      "noFeatures": "Aucune fonctionnalité",
+      "dragFeaturesHere": "Faites glisser les fonctionnalités ici"
+    },
+    "insight": "Aperçu",
+    "featuresCount": "{{count}} fonctionnalité",
+    "featuresCount_plural": "{{count}} fonctionnalités",
+    "unknownStatus": "Statut inconnu",
+    "phaseLabel": "Phase : {{phase}}",
+    "competitorInsight": {
+      "badge": "Aperçu concurrentiel",
+      "tooltip": "Cette fonctionnalité répond aux points faibles des concurrents"
+    },
+    "votesFromFeedback": "{{count}} votes des retours utilisateurs",
+    "externalSource": "Externe",
+    "importedFrom": "Importé depuis {{provider}}"
   },
   "roadmapGeneration": {
     "progress": "Progression",
@@ -943,6 +994,26 @@
       "projectIndex": "Index du projet",
       "memories": "Mémoires"
     }
+  },
+  "changelog": {
+    "tasksSelected": "{{selected}} sur {{total}} tâches sélectionnées",
+    "selectAll": "Tout sélectionner",
+    "clear": "Effacer",
+    "noCompletedTasks": "Aucune tâche terminée",
+    "noCompletedTasksHint": "Terminez des tâches dans le tableau Kanban et marquez-les comme « Terminé » pour les inclure dans votre changelog.",
+    "loadingCommits": "Chargement des commits...",
+    "noCommitsFound": "Aucun commit trouvé",
+    "configureHistoryHint": "Configurez les options d'historique et cliquez sur « Charger les commits » pour prévisualiser.",
+    "selectBranchesHint": "Sélectionnez les deux branches et cliquez sur « Charger les commits » pour voir les changements.",
+    "continue": "Continuer",
+    "commitsFound": "{{count}} commit trouvé",
+    "commitsFound_plural": "{{count}} commits trouvés",
+    "task": "{{count}} tâche",
+    "task_plural": "{{count}} tâches",
+    "commit": "{{count}} commit",
+    "commit_plural": "{{count}} commits",
+    "item": "{{count}} élément",
+    "item_plural": "{{count}} éléments"
   },
   "prStatus": {
     "ci": {

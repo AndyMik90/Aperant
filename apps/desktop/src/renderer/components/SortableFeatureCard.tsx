@@ -102,7 +102,7 @@ export function SortableFeatureCard({
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent>
-                    Phase: {phaseName}
+                    {t('roadmap.phaseLabel', { phase: phaseName })}
                   </TooltipContent>
                 </Tooltip>
               )}
@@ -117,7 +117,7 @@ export function SortableFeatureCard({
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent>
-                    This feature addresses competitor pain points
+                    {t('roadmap.competitorInsight.tooltip')}
                   </TooltipContent>
                 </Tooltip>
               )}
@@ -212,7 +212,7 @@ export function SortableFeatureCard({
                 </Badge>
               </TooltipTrigger>
               <TooltipContent>
-                {feature.votes} votes from user feedback
+                {t('roadmap.votesFromFeedback', { count: feature.votes })}
               </TooltipContent>
             </Tooltip>
           )}
@@ -224,11 +224,11 @@ export function SortableFeatureCard({
                   variant="outline"
                   className="text-[10px] px-1.5 py-0 text-orange-500 border-orange-500/30"
                 >
-                  {feature.source?.provider === 'canny' ? 'Canny' : 'External'}
+                  {feature.source?.provider === 'canny' ? 'Canny' : t('roadmap.externalSource')}
                 </Badge>
               </TooltipTrigger>
               <TooltipContent>
-                Imported from {feature.source?.provider}
+                {t('roadmap.importedFrom', { provider: feature.source?.provider })}
               </TooltipContent>
             </Tooltip>
           )}

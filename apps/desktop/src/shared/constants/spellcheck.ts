@@ -13,6 +13,7 @@
 export const SPELL_CHECK_LANGUAGE_MAP: Record<string, string[]> = {
   en: ['en-US', 'en-GB'],
   fr: ['fr-FR', 'fr'],
+  'pt-BR': ['pt-BR', 'pt'],
 };
 
 /**
@@ -27,4 +28,5 @@ export const DEFAULT_SPELL_CHECK_LANGUAGE = 'en-US';
 export const ADD_TO_DICTIONARY_LABELS: Record<string, string> = {
   en: 'Add to Dictionary',
   fr: 'Ajouter au dictionnaire',
+  'pt-BR': 'Adicionar ao dicionário',
 };

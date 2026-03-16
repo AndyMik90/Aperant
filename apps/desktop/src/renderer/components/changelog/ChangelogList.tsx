@@ -49,15 +49,15 @@ export function ChangelogList({
     }
   };
 
-  const getSummaryLabel = () => {
+  const getSummaryLabelKey = () => {
     switch (sourceMode) {
       case 'tasks':
-        return t('changelog.task');
+        return 'changelog.task';
       case 'git-history':
       case 'branch-diff':
-        return t('changelog.commit');
+        return 'changelog.commit';
       default:
-        return t('changelog.item');
+        return 'changelog.item';
     }
   };
 
@@ -175,7 +175,7 @@ export function ChangelogList({
           <ArrowRight className="ml-2 h-4 w-4" />
           {canContinue && (
             <Badge variant="secondary" className="ml-2">
-              {getSummaryCount()} {getSummaryLabel()}{getSummaryCount() !== 1 ? 's' : ''}
+              {t(getSummaryLabelKey(), { count: getSummaryCount() })}
             </Badge>
           )}
         </Button>

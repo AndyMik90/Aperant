@@ -630,6 +630,7 @@ export class AgentManager extends EventEmitter {
         memoryEnabled: !!process.env.GRAPHITI_MCP_URL,
         linearEnabled: !!process.env.LINEAR_API_KEY,
       },
+      language: getAppLanguage(),
       toolContext: {
         cwd: effectiveCwd,
         projectDir: effectiveProjectDir,

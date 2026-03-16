@@ -32,7 +32,9 @@
     "incomplete": "Incomplet",
     "recovering": "Récupération...",
     "needsRecovery": "Récupération requise",
-    "needsResume": "Reprise requise"
+    "needsResume": "Reprise requise",
+    "subtaskProgress": "{{completed}}/{{total}} sous-tâches",
+    "subtasksProgress": "{{completed}}/{{total}} sous-tâches"
   },
   "reviewReason": {
     "completed": "Terminé",
@@ -200,9 +202,22 @@
     "doubleClickHint": "Double-cliquez pour agrandir",
     "lowResolution": "Aperçu basse résolution"
   },
+  "tabs": {
+    "overview": "Aperçu",
+    "subtasks": "Sous-tâches ({{count}})",
+    "logs": "Journaux"
+  },
   "notifications": {
     "backgroundTaskTitle": "La tâche continue en arrière-plan",
-    "backgroundTaskDescription": "La tâche est toujours en cours. Vous pouvez rouvrir cette boîte de dialogue pour suivre la progression."
+    "backgroundTaskDescription": "La tâche est toujours en cours. Vous pouvez rouvrir cette boîte de dialogue pour suivre la progression.",
+    "cannotResumeTitle": "Impossible de reprendre la tâche",
+    "cannotResumeDescription": "Échec du chargement du plan d'implémentation. Veuillez réessayer ou vérifier les fichiers de la tâche."
+  },
+  "errors": {
+    "deleteFailed": "Échec de la suppression de la tâche",
+    "mergeFailed": "Échec de la fusion des changements",
+    "mergeUnknown": "Erreur inconnue lors de la fusion",
+    "discardFailed": "Échec de l'abandon des changements"
   },
   "wizard": {
     "createTitle": "Créer une nouvelle tâche",

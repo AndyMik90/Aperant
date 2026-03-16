@@ -561,7 +561,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
                 onClick={toggleFileExplorer}
               >
                 <FolderTree className="h-3 w-3" />
-                Files
+                {t('common:actions.files')}
               </Button>
             )}
           </div>

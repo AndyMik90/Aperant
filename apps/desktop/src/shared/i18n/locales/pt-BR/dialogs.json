@@ -63,7 +63,20 @@
     "bulkDeleteTitle": "Excluir {{count}} Worktrees?",
     "bulkDeleteDescription": "Isso excluirá permanentemente as worktrees selecionadas e todas as suas alterações não commitadas. Esta ação não pode ser desfeita.",
     "deleting": "Excluindo...",
-    "deleteSelected": "Excluir Selecionadas"
+    "deleteSelected": "Excluir Selecionadas",
+    "selectProject": "Selecione um projeto para ver as worktrees",
+    "filesChanged": "{{count}} arquivos alterados",
+    "commitsAhead": "{{count}} commits à frente",
+    "mergeTo": "Merge para {{branch}}",
+    "copyPath": "Copiar Caminho",
+    "createdAt": "Criada em {{date}}",
+    "sourceBranch": "Branch de Origem",
+    "targetBranch": "Branch de Destino",
+    "changes": "Alterações",
+    "changesSummary": "{{commits}} commits, {{files}} arquivos",
+    "mergeSuccessful": "Merge Realizado",
+    "mergeFailed": "Merge Falhou",
+    "conflictingFiles": "Arquivos em conflito:"
   },
   "worktreeCleanup": {
     "title": "Concluir Tarefa",

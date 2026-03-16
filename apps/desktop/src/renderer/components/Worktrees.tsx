@@ -465,7 +465,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
   if (!selectedProject) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-muted-foreground">Select a project to view worktrees</p>
+        <p className="text-muted-foreground">{t('dialogs:worktrees.selectProject')}</p>
       </div>
     );
   }
@@ -547,7 +547,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
           <div className="flex items-start gap-2">
             <AlertCircle className="h-4 w-4 text-destructive mt-0.5 shrink-0" />
             <div>
-              <p className="font-medium text-destructive">Error</p>
+              <p className="font-medium text-destructive">{t('common:labels.error')}</p>
               <p className="text-muted-foreground mt-1 whitespace-pre-line">{error}</p>
             </div>
           </div>
@@ -622,11 +622,11 @@ export function Worktrees({ projectId }: WorktreesProps) {
                         <div className="flex flex-wrap gap-4 text-sm mb-4">
                           <div className="flex items-center gap-1.5 text-muted-foreground">
                             <FileCode className="h-3.5 w-3.5" />
-                            <span>{worktree.filesChanged ?? 0} files changed</span>
+                            <span>{t('dialogs:worktrees.filesChanged', { count: worktree.filesChanged ?? 0 })}</span>
                           </div>
                           <div className="flex items-center gap-1.5 text-muted-foreground">
                             <ChevronRight className="h-3.5 w-3.5" />
-                            <span>{worktree.commitCount ?? 0} commits ahead</span>
+                            <span>{t('dialogs:worktrees.commitsAhead', { count: worktree.commitCount ?? 0 })}</span>
                           </div>
                           <div className="flex items-center gap-1.5 text-success">
                             <Plus className="h-3.5 w-3.5" />
@@ -654,7 +654,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
                             disabled={!task}
                           >
                             <GitMerge className="h-3.5 w-3.5 mr-1.5" />
-                            Merge to {worktree.baseBranch}
+                            {t('dialogs:worktrees.mergeTo', { branch: worktree.baseBranch })}
                           </Button>
                           {task && (
                             <Button
@@ -685,7 +685,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
                             }}
                           >
                             <FolderOpen className="h-3.5 w-3.5 mr-1.5" />
-                            Copy Path
+                            {t('dialogs:worktrees.copyPath')}
                           </Button>
                           <Button
                             variant="outline"
@@ -695,7 +695,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
                             disabled={!task && !worktree.isOrphaned}
                           >
                             <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                            Delete
+                            {t('common:buttons.delete')}
                           </Button>
                         </div>
                       </CardContent>
@@ -758,7 +758,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
                       {/* Created at */}
                       {wt.createdAt && (
                         <div className="text-xs text-muted-foreground mb-4">
-                          Created {new Date(wt.createdAt).toLocaleDateString()}
+                          {t('dialogs:worktrees.createdAt', { date: new Date(wt.createdAt).toLocaleDateString() })}
                         </div>
                       )}
 
@@ -773,7 +773,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
                           }}
                         >
                           <FolderOpen className="h-3.5 w-3.5 mr-1.5" />
-                          Copy Path
+                          {t('dialogs:worktrees.copyPath')}
                         </Button>
                         <Button
                           variant="outline"
@@ -782,7 +782,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
                           onClick={() => setTerminalWorktreeToDelete(wt)}
                         >
                           <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                          Delete
+                          {t('common:buttons.delete')}
                         </Button>
                       </div>
                     </CardContent>
@@ -812,21 +812,21 @@ export function Worktrees({ projectId }: WorktreesProps) {
             <div className="py-4">
               <div className="rounded-lg bg-muted p-4 text-sm space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Source Branch</span>
+                  <span className="text-muted-foreground">{t('dialogs:worktrees.sourceBranch')}</span>
                   <span className="font-mono text-info">{selectedWorktree.isOrphaned ? t('common:labels.orphaned') : selectedWorktree.branch}</span>
                 </div>
                 <div className="flex items-center justify-center">
                   <ChevronRight className="h-4 w-4 text-muted-foreground rotate-90" />
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Target Branch</span>
+                  <span className="text-muted-foreground">{t('dialogs:worktrees.targetBranch')}</span>
                   <span className="font-mono">{selectedWorktree.baseBranch}</span>
                 </div>
                 <div className="border-t border-border pt-3 mt-3">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Changes</span>
+                    <span className="text-muted-foreground">{t('dialogs:worktrees.changes')}</span>
                     <span>
-                      {selectedWorktree.commitCount ?? 0} commits, {selectedWorktree.filesChanged ?? 0} files
+                      {t('dialogs:worktrees.changesSummary', { commits: selectedWorktree.commitCount ?? 0, files: selectedWorktree.filesChanged ?? 0 })}
                     </span>
                   </div>
                 </div>
@@ -849,12 +849,12 @@ export function Worktrees({ projectId }: WorktreesProps) {
                   )}
                   <div>
                     <p className={`font-medium ${mergeResult.success ? 'text-success' : 'text-destructive'}`}>
-                      {mergeResult.success ? 'Merge Successful' : 'Merge Failed'}
+                      {mergeResult.success ? t('dialogs:worktrees.mergeSuccessful') : t('dialogs:worktrees.mergeFailed')}
                     </p>
                     <p className="text-muted-foreground mt-1">{mergeResult.message}</p>
                     {mergeResult.conflictFiles && mergeResult.conflictFiles.length > 0 && (
                       <div className="mt-2">
-                        <p className="text-xs font-medium">Conflicting files:</p>
+                        <p className="text-xs font-medium">{t('dialogs:worktrees.conflictingFiles')}</p>
                         <ul className="list-disc list-inside text-xs mt-1">
                           {mergeResult.conflictFiles.map(file => (
                             <li key={file} className="font-mono">{file}</li>

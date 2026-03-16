@@ -48,10 +48,10 @@ export function FeatureCard({
                 <TooltipTrigger asChild>
                   <Badge variant="outline" className="text-xs text-primary border-primary/50">
                     <TrendingUp className="h-3 w-3 mr-1" />
-                    Competitor Insight
+                    {t('roadmap.competitorInsight.badge')}
                   </Badge>
                 </TooltipTrigger>
-                <TooltipContent>This feature addresses competitor pain points</TooltipContent>
+                <TooltipContent>{t('roadmap.competitorInsight.tooltip')}</TooltipContent>
               </Tooltip>
             )}
           </div>

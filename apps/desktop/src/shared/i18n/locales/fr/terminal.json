@@ -20,6 +20,18 @@
     "noSession": "Profil changé. Aucune session active à reprendre.",
     "migrationFailed": "Profil changé, mais la migration de session a échoué. Démarrage d'un nouveau terminal."
   },
+  "grid": {
+    "title": "Terminaux d'agents",
+    "description": "Lancez plusieurs terminaux pour exécuter des agents Claude en parallèle.\nUtilisez Ctrl+T pour créer un nouveau terminal.",
+    "newTerminal": "Nouveau terminal",
+    "terminalCount": "{{count}} / {{max}} terminaux",
+    "history": "Historique",
+    "restoreSessionsFrom": "Restaurer les sessions de...",
+    "sessionCount": "{{count}} session",
+    "sessionCount_plural": "{{count}} sessions",
+    "invokeClaudeAll": "Invoquer Claude partout",
+    "clearTask": "Effacer la tâche"
+  },
   "worktree": {
     "create": "Worktree",
     "createNew": "Nouveau Worktree",

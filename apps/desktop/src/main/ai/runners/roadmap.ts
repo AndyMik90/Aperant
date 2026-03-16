@@ -10,9 +10,11 @@
  */
 
 import { streamText, stepCountIs } from 'ai';
+import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { withFileLock } from '../../utils/file-lock';
 import { createSimpleClient } from '../client/factory';
 import type { SimpleClientResult } from '../client/types';
 import { buildToolRegistry } from '../tools/build-registry';
@@ -340,13 +342,15 @@ The JSON must contain: vision, target_audience (object with "primary" key), phas
           }
 
           if (missing.length === 0 && featureCount >= 3) {
-            // Merge preserved features — atomic write via temp file + rename
+            // Merge preserved features — atomic write with file lock to prevent races
             if (preservedFeatures.length > 0) {
               data.features = mergeFeatures(data.features as Record<string, unknown>[], preservedFeatures);
               const merged = JSON.stringify(data, null, 2);
-              const tmpFile = `${roadmapFile}.tmp.${process.pid}`;
-              writeFileSync(tmpFile, merged, 'utf-8');
-              renameSync(tmpFile, roadmapFile);
+              await withFileLock(roadmapFile, async () => {
+                const tmpFile = `${roadmapFile}.tmp.${process.pid}.${randomUUID()}`;
+                writeFileSync(tmpFile, merged, 'utf-8');
+                renameSync(tmpFile, roadmapFile);
+              });
             }
             return { phase: 'features', success: true, outputs: [roadmapFile], errors: [] };
           }

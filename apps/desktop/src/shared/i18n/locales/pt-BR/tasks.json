@@ -32,7 +32,9 @@
     "incomplete": "Incompleta",
     "recovering": "Recuperando...",
     "needsRecovery": "Precisa de Recuperação",
-    "needsResume": "Precisa Retomar"
+    "needsResume": "Precisa Retomar",
+    "subtasksProgress": "{{completed}}/{{total}} subtarefas",
+    "subtaskProgress": "{{completed}}/{{total}} subtarefas"
   },
   "reviewReason": {
     "completed": "Concluída",
@@ -200,9 +202,22 @@
     "doubleClickHint": "Clique duas vezes para ampliar",
     "lowResolution": "Prévia em baixa resolução"
   },
+  "tabs": {
+    "overview": "Visão Geral",
+    "subtasks": "Subtarefas ({{count}})",
+    "logs": "Logs"
+  },
   "notifications": {
     "backgroundTaskTitle": "Tarefa continua em segundo plano",
-    "backgroundTaskDescription": "A tarefa ainda está executando. Você pode reabrir este diálogo para monitorar o progresso."
+    "backgroundTaskDescription": "A tarefa ainda está executando. Você pode reabrir este diálogo para monitorar o progresso.",
+    "cannotResumeTitle": "Não é Possível Retomar a Tarefa",
+    "cannotResumeDescription": "Falha ao carregar o plano de implementação. Por favor, tente novamente ou verifique os arquivos da tarefa."
+  },
+  "errors": {
+    "deleteFailed": "Falha ao excluir tarefa",
+    "mergeFailed": "Falha ao fazer merge das alterações",
+    "mergeUnknown": "Erro desconhecido durante o merge",
+    "discardFailed": "Falha ao descartar alterações"
   },
   "wizard": {
     "createTitle": "Criar Nova Tarefa",

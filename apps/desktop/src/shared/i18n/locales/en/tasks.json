@@ -32,7 +32,9 @@
     "incomplete": "Incomplete",
     "recovering": "Recovering...",
     "needsRecovery": "Needs Recovery",
-    "needsResume": "Needs Resume"
+    "needsResume": "Needs Resume",
+    "subtasksProgress": "{{completed}}/{{total}} subtasks",
+    "subtaskProgress": "{{completed}}/{{total}} subtasks"
   },
   "reviewReason": {
     "completed": "Completed",
@@ -200,9 +202,22 @@
     "doubleClickHint": "Double-click to enlarge",
     "lowResolution": "Low resolution preview"
   },
+  "tabs": {
+    "overview": "Overview",
+    "subtasks": "Subtasks ({{count}})",
+    "logs": "Logs"
+  },
   "notifications": {
     "backgroundTaskTitle": "Task continues in background",
-    "backgroundTaskDescription": "The task is still running. You can reopen this dialog to monitor progress."
+    "backgroundTaskDescription": "The task is still running. You can reopen this dialog to monitor progress.",
+    "cannotResumeTitle": "Cannot Resume Task",
+    "cannotResumeDescription": "Failed to load implementation plan. Please try again or check the task files."
+  },
+  "errors": {
+    "deleteFailed": "Failed to delete task",
+    "mergeFailed": "Failed to merge changes",
+    "mergeUnknown": "Unknown error during merge",
+    "discardFailed": "Failed to discard changes"
   },
   "wizard": {
     "createTitle": "Create New Task",

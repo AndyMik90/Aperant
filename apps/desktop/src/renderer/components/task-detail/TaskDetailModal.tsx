@@ -97,8 +97,8 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
         const isValid = await state.reloadPlanForIncompleteTask();
         if (!isValid) {
           toast({
-            title: 'Cannot Resume Task',
-            description: 'Failed to load implementation plan. Please try again or check the task files.',
+            title: t('tasks:notifications.cannotResumeTitle'),
+            description: t('tasks:notifications.cannotResumeDescription'),
             variant: 'destructive',
             duration: 5000,
           });
@@ -148,7 +148,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
       state.setShowDeleteDialog(false);
       onOpenChange(false);
     } else {
-      state.setDeleteError(result.error || 'Failed to delete task');
+      state.setDeleteError(result.error || t('tasks:errors.deleteFailed'));
     }
     state.setIsDeleting(false);
   };
@@ -168,10 +168,10 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
           onOpenChange(false);
         }
       } else {
-        state.setWorkspaceError(result.data?.message || result.error || 'Failed to merge changes');
+        state.setWorkspaceError(result.data?.message || result.error || t('tasks:errors.mergeFailed'));
       }
     } catch (error) {
-      state.setWorkspaceError(error instanceof Error ? error.message : 'Unknown error during merge');
+      state.setWorkspaceError(error instanceof Error ? error.message : t('tasks:errors.mergeUnknown'));
     } finally {
       state.setIsMerging(false);
     }
@@ -185,7 +185,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
       state.setShowDiscardDialog(false);
       onOpenChange(false);
     } else {
-      state.setWorkspaceError(result.data?.message || result.error || 'Failed to discard changes');
+      state.setWorkspaceError(result.data?.message || result.error || t('tasks:errors.discardFailed'));
     }
     state.setIsDiscarding(false);
   };
@@ -404,10 +404,16 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                               variant={task.reviewReason === 'completed' ? 'success' : task.reviewReason === 'errors' ? 'destructive' : 'warning'}
                               className="text-xs"
                             >
-                              {task.reviewReason === 'completed' ? t('tasks:reviewReason.completed') :
-                               task.reviewReason === 'errors' ? t('tasks:reviewReason.hasErrors') :
-                               task.reviewReason === 'plan_review' ? t('tasks:reviewReason.approvePlan') :
-                               task.reviewReason === 'stopped' ? t('tasks:reviewReason.stopped') : t('tasks:reviewReason.qaIssues')}
+                              {(() => {
+                              const reviewReasonKeyMap: Record<string, string> = {
+                                completed: 'completed',
+                                errors: 'hasErrors',
+                                plan_review: 'approvePlan',
+                                stopped: 'stopped',
+                              };
+                              const reasonKey = reviewReasonKeyMap[task.reviewReason || ''] || 'qaIssues';
+                              return t(`tasks:reviewReason.${reasonKey}`);
+                            })()}
                             </Badge>
                           )}
                         </>
@@ -415,7 +421,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                       {/* Compact progress indicator */}
                       {totalSubtasks > 0 && (
                         <span className="text-xs text-muted-foreground ml-1">
-                          {completedSubtasks}/{totalSubtasks} subtasks
+                          {t('tasks:labels.subtasksProgress', { completed: completedSubtasks, total: totalSubtasks })}
                         </span>
                       )}
                     </div>
@@ -445,7 +451,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                       className="hover:bg-muted transition-colors"
                     >
                       <X className="h-5 w-5" />
-                      <span className="sr-only">Close</span>
+                      <span className="sr-only">{t('common:buttons.close')}</span>
                     </Button>
                   </DialogPrimitive.Close>
                 </div>
@@ -482,19 +488,19 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                     value="overview"
                     className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm"
                   >
-                    Overview
+                    {t('tasks:tabs.overview')}
                   </TabsTrigger>
                   <TabsTrigger
                     value="subtasks"
                     className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm"
                   >
-                    Subtasks ({task.subtasks.length})
+                    {t('tasks:tabs.subtasks', { count: task.subtasks.length })}
                   </TabsTrigger>
                   <TabsTrigger
                     value="logs"
                     className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 py-2.5 text-sm"
                   >
-                    Logs
+                    {t('tasks:tabs.logs')}
                   </TabsTrigger>
                   {showFilesTab && (
                     <TabsTrigger

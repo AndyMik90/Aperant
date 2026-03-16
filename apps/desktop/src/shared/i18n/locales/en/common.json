@@ -106,7 +106,9 @@
     "save": "Save",
     "apply": "Apply",
     "delete": "Delete",
-    "settings": "Settings"
+    "settings": "Settings",
+    "files": "Files",
+    "success": "Success"
   },
   "os": {
     "windows": "Windows",
@@ -755,7 +757,16 @@
       "dragFeaturesHere": "Drag features here"
     },
     "insight": "Insight",
-    "featuresCount": "{{count}} features",
+    "featuresCount": "{{count}} feature",
+    "featuresCount_plural": "{{count}} features",
+    "phaseLabel": "Phase: {{phase}}",
+    "competitorInsight": {
+      "badge": "Competitor Insight",
+      "tooltip": "This feature addresses competitor pain points"
+    },
+    "votesFromFeedback": "{{count}} votes from user feedback",
+    "externalSource": "External",
+    "importedFrom": "Imported from {{provider}}",
     "unknownStatus": "Unknown Status"
   },
   "roadmapGeneration": {
@@ -997,9 +1008,12 @@
     "continue": "Continue",
     "commitsFound": "{{count}} commit found",
     "commitsFound_plural": "{{count}} commits found",
-    "task": "task",
-    "commit": "commit",
-    "item": "item"
+    "task": "{{count}} task",
+    "task_plural": "{{count}} tasks",
+    "commit": "{{count}} commit",
+    "commit_plural": "{{count}} commits",
+    "item": "{{count}} item",
+    "item_plural": "{{count}} items"
   },
   "prStatus": {
     "ci": {

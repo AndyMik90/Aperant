@@ -63,7 +63,20 @@
     "bulkDeleteTitle": "Delete {{count}} Worktrees?",
     "bulkDeleteDescription": "This will permanently delete the selected worktrees and all their uncommitted changes. This action cannot be undone.",
     "deleting": "Deleting...",
-    "deleteSelected": "Delete Selected"
+    "deleteSelected": "Delete Selected",
+    "selectProject": "Select a project to view worktrees",
+    "filesChanged": "{{count}} files changed",
+    "commitsAhead": "{{count}} commits ahead",
+    "mergeTo": "Merge to {{branch}}",
+    "copyPath": "Copy Path",
+    "createdAt": "Created {{date}}",
+    "sourceBranch": "Source Branch",
+    "targetBranch": "Target Branch",
+    "changes": "Changes",
+    "changesSummary": "{{commits}} commits, {{files}} files",
+    "mergeSuccessful": "Merge Successful",
+    "mergeFailed": "Merge Failed",
+    "conflictingFiles": "Conflicting files:"
   },
   "worktreeCleanup": {
     "title": "Complete Task",
