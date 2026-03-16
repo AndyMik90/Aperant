@@ -1,14 +1,20 @@
-import { useEffect, useCallback, useState } from 'react';
-import { loadTasks } from '../../../stores/task-store';
-import type { LinearIssue, LinearInvestigationStatus, LinearInvestigationResult } from '../../../../shared/types';
+import { useEffect, useCallback, useState } from "react";
+import { loadTasks } from "../../../stores/task-store";
+import type {
+  LinearIssue,
+  LinearInvestigationStatus,
+  LinearInvestigationResult,
+} from "../../../../shared/types";
 
 export function useLinearInvestigation(projectId: string | undefined) {
-  const [investigationStatus, setInvestigationStatus] = useState<LinearInvestigationStatus>({
-    phase: 'idle',
-    progress: 0,
-    message: '',
-  });
-  const [lastInvestigationResult, setLastInvestigationResult] = useState<LinearInvestigationResult | null>(null);
+  const [investigationStatus, setInvestigationStatus] =
+    useState<LinearInvestigationStatus>({
+      phase: "idle",
+      progress: 0,
+      message: "",
+    });
+  const [lastInvestigationResult, setLastInvestigationResult] =
+    useState<LinearInvestigationResult | null>(null);
   const [_error, setError] = useState<string | null>(null);
 
   // Set up event listeners for investigation progress
@@ -20,7 +26,7 @@ export function useLinearInvestigation(projectId: string | undefined) {
         if (eventProjectId === projectId) {
           setInvestigationStatus(status);
         }
-      }
+      },
     );
 
     const cleanupComplete = window.electronAPI.onLinearInvestigationComplete(
@@ -28,9 +34,9 @@ export function useLinearInvestigation(projectId: string | undefined) {
         if (eventProjectId === projectId) {
           setLastInvestigationResult(result);
           setInvestigationStatus({
-            phase: 'complete',
+            phase: "complete",
             progress: 100,
-            message: 'Investigation complete',
+            message: "Investigation complete",
             issueId: result.issueId,
           });
           // Refresh the task store so the new task appears on the Kanban board
@@ -38,7 +44,7 @@ export function useLinearInvestigation(projectId: string | undefined) {
             loadTasks(projectId);
           }
         }
-      }
+      },
     );
 
     const cleanupError = window.electronAPI.onLinearInvestigationError(
@@ -46,13 +52,13 @@ export function useLinearInvestigation(projectId: string | undefined) {
         if (eventProjectId === projectId) {
           setError(errorMsg);
           setInvestigationStatus({
-            phase: 'error',
+            phase: "error",
             progress: 0,
             message: errorMsg,
             error: errorMsg,
           });
         }
-      }
+      },
     );
 
     return () => {
@@ -63,25 +69,30 @@ export function useLinearInvestigation(projectId: string | undefined) {
   }, [projectId]);
 
   const startInvestigation = useCallback(
-    (issue: LinearIssue, selectedCommentIds: string[]) => {
+    (issue: LinearIssue, selectedCommentIds?: string[]) => {
       if (projectId) {
         setInvestigationStatus({
-          phase: 'fetching',
+          phase: "fetching",
           issueId: issue.id,
           progress: 0,
-          message: 'Starting investigation...',
+          message: "Starting investigation...",
         });
         setLastInvestigationResult(null);
         setError(null);
 
-        window.electronAPI.investigateLinearIssue(projectId, issue.id, selectedCommentIds);
+        // undefined = include all comments, [] = include none
+        window.electronAPI.investigateLinearIssue(
+          projectId,
+          issue.id,
+          selectedCommentIds,
+        );
       }
     },
-    [projectId]
+    [projectId],
   );
 
   const resetInvestigationStatus = useCallback(() => {
-    setInvestigationStatus({ phase: 'idle', progress: 0, message: '' });
+    setInvestigationStatus({ phase: "idle", progress: 0, message: "" });
     setError(null);
   }, []);
 

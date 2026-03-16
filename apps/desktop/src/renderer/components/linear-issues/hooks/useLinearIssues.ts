@@ -22,6 +22,8 @@ export function useLinearIssues(projectId: string | undefined) {
   });
 
   const hasCheckedRef = useRef(false);
+  const knownIssueIdsRef = useRef<Set<string>>(new Set());
+  const [newIssues, setNewIssues] = useState<LinearIssue[]>([]);
 
   const checkConnection = useCallback(async (pid: string) => {
     try {
@@ -57,9 +59,32 @@ export function useLinearIssues(projectId: string | undefined) {
     try {
       const result = await window.electronAPI.getLinearIssues(pid);
       if (result.success && result.data) {
+        const issues = result.data as LinearIssue[];
+
+        // Detect new active issues (not completed/canceled)
+        const detected: LinearIssue[] = [];
+        if (knownIssueIdsRef.current.size > 0) {
+          for (const issue of issues) {
+            if (
+              !knownIssueIdsRef.current.has(issue.id) &&
+              issue.state.type !== "completed" &&
+              issue.state.type !== "canceled"
+            ) {
+              detected.push(issue);
+            }
+          }
+        }
+
+        // Update known IDs
+        knownIssueIdsRef.current = new Set(issues.map((i) => i.id));
+
+        if (detected.length > 0) {
+          setNewIssues(detected);
+        }
+
         setState((prev) => ({
           ...prev,
-          issues: result.data as LinearIssue[],
+          issues,
           isLoading: false,
         }));
       } else {
@@ -127,6 +152,10 @@ export function useLinearIssues(projectId: string | undefined) {
     // No-op: Linear loads all issues at once
   }, []);
 
+  const clearNewIssues = useCallback(() => {
+    setNewIssues([]);
+  }, []);
+
   // Filter issues by state type
   // 'all' excludes completed/canceled by default — those are done
   const getFilteredIssues = useCallback((): LinearIssue[] => {
@@ -155,6 +184,8 @@ export function useLinearIssues(projectId: string | undefined) {
 
   return {
     issues: state.issues,
+    newIssues,
+    clearNewIssues,
     syncStatus: state.syncStatus,
     isLoading: state.isLoading,
     error: state.error,
