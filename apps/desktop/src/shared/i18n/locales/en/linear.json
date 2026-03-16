@@ -39,6 +39,11 @@
   },
   "proposedSolution": "Proposed Solution",
   "affectedFiles": "Affected Files",
+  "impactScore": "Impact Score",
+  "risk": "risk",
+  "symbols": "symbols",
+  "processes": "processes",
+  "blastRadius": "blast radius",
   "priority": {
     "urgent": "Urgent",
     "high": "High",

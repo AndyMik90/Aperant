@@ -39,6 +39,11 @@
   },
   "proposedSolution": "Solution proposée",
   "affectedFiles": "Fichiers concernés",
+  "impactScore": "Score d'impact",
+  "risk": "risque",
+  "symbols": "symboles",
+  "processes": "processus",
+  "blastRadius": "rayon d'impact",
   "priority": {
     "urgent": "Urgent",
     "high": "Élevé",

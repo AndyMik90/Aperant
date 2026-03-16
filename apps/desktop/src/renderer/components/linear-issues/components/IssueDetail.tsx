@@ -12,10 +12,12 @@ import {
   ArrowUp,
   ArrowDown,
   Minus,
+  Gauge,
 } from "lucide-react";
 import { Badge } from "../../ui/badge";
 import { Button } from "../../ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../ui/card";
+import { Progress } from "../../ui/progress";
 import { ScrollArea } from "../../ui/scroll-area";
 import type { LinearIssueDetailProps } from "../types";
 
@@ -227,6 +229,77 @@ export function IssueDetail({
                           ),
                         )}
                       </div>
+                    </div>
+                  )}
+                  {investigationResult.analysis.impactScore != null && (
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                          <Gauge className="h-3 w-3" />
+                          {t("linear.impactScore", "Impact Score")}
+                        </p>
+                        <span className="text-xs font-semibold">
+                          {investigationResult.analysis.impactScore}/100
+                        </span>
+                      </div>
+                      <Progress
+                        value={investigationResult.analysis.impactScore}
+                        className={`h-1.5 ${
+                          investigationResult.analysis.impactScore <= 25
+                            ? "[&>div]:bg-success"
+                            : investigationResult.analysis.impactScore <= 50
+                              ? "[&>div]:bg-warning"
+                              : investigationResult.analysis.impactScore <= 75
+                                ? "[&>div]:bg-orange-500"
+                                : "[&>div]:bg-destructive"
+                        }`}
+                      />
+                      {investigationResult.analysis.impactDetails && (
+                        <div className="flex flex-wrap gap-2 text-[10px] text-muted-foreground">
+                          <Badge
+                            variant="outline"
+                            className={
+                              investigationResult.analysis.impactDetails
+                                .riskLevel === "low"
+                                ? "bg-success/10 text-success"
+                                : investigationResult.analysis.impactDetails
+                                      .riskLevel === "medium"
+                                  ? "bg-warning/10 text-warning"
+                                  : investigationResult.analysis.impactDetails
+                                        .riskLevel === "high"
+                                    ? "bg-orange-500/10 text-orange-500"
+                                    : "bg-destructive/10 text-destructive"
+                            }
+                          >
+                            {
+                              investigationResult.analysis.impactDetails
+                                .riskLevel
+                            }{" "}
+                            {t("linear.risk", "risk")}
+                          </Badge>
+                          <span>
+                            {
+                              investigationResult.analysis.impactDetails
+                                .affectedSymbols
+                            }{" "}
+                            {t("linear.symbols", "symbols")}
+                          </span>
+                          <span>
+                            {
+                              investigationResult.analysis.impactDetails
+                                .affectedProcesses
+                            }{" "}
+                            {t("linear.processes", "processes")}
+                          </span>
+                          <span>
+                            {t("linear.blastRadius", "blast radius")}:{" "}
+                            {
+                              investigationResult.analysis.impactDetails
+                                .blastRadius
+                            }
+                          </span>
+                        </div>
+                      )}
                     </div>
                   )}
                   <div className="flex items-center gap-2">

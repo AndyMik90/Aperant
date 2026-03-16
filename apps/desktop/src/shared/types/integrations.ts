@@ -83,6 +83,13 @@ export interface LinearInvestigationResult {
     affectedFiles: string[];
     estimatedComplexity: "simple" | "standard" | "complex";
     acceptanceCriteria: string[];
+    impactScore?: number;
+    impactDetails?: {
+      affectedSymbols: number;
+      affectedProcesses: number;
+      blastRadius: number;
+      riskLevel: "low" | "medium" | "high" | "critical";
+    };
   };
   taskId?: string;
   error?: string;

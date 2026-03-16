@@ -4,6 +4,9 @@
 
 import { ipcMain } from "electron";
 import type { BrowserWindow } from "electron";
+import { spawnSync } from "child_process";
+import { existsSync } from "fs";
+import path from "path";
 import { generateText } from "ai";
 import { IPC_CHANNELS } from "../../../shared/constants";
 import type {
@@ -22,7 +25,7 @@ import {
   buildLinearInvestigationTask,
 } from "./spec-utils";
 
-const INVESTIGATION_SYSTEM_PROMPT = `You are an expert software engineer analyzing issue tickets. Given a Linear issue with its description, labels, and comments, provide a structured analysis.
+const INVESTIGATION_SYSTEM_PROMPT = `You are an expert software engineer analyzing issue tickets. Given a Linear issue with its description, labels, comments, and optionally codebase impact data from GitNexus, provide a structured analysis.
 
 Respond in EXACTLY this JSON format (no markdown fencing, no extra text):
 {
@@ -30,24 +33,161 @@ Respond in EXACTLY this JSON format (no markdown fencing, no extra text):
   "proposedSolution": "A brief description of the recommended approach to solve this",
   "affectedFiles": ["list of file paths or patterns that would likely need changes"],
   "estimatedComplexity": "simple|standard|complex",
-  "acceptanceCriteria": ["criterion 1", "criterion 2", "criterion 3"]
+  "acceptanceCriteria": ["criterion 1", "criterion 2", "criterion 3"],
+  "impactScore": 0-100,
+  "impactDetails": {
+    "affectedSymbols": 0,
+    "affectedProcesses": 0,
+    "blastRadius": 0,
+    "riskLevel": "low|medium|high|critical"
+  }
 }
 
 Complexity guidelines:
 - "simple": Single file change, typo fix, config update, small UI tweak
 - "standard": Multiple files, moderate logic changes, new component or endpoint
-- "complex": Architectural changes, new system/service, cross-cutting concerns, data migrations`;
+- "complex": Architectural changes, new system/service, cross-cutting concerns, data migrations
+
+Impact score guidelines (0-100):
+- 0-20: Isolated change, few symbols affected, no cross-cutting concerns
+- 21-40: Moderate scope, affects a single module or feature area
+- 41-60: Significant scope, spans multiple modules, several execution flows affected
+- 61-80: Large scope, core systems affected, many dependants in the blast radius
+- 81-100: Critical infrastructure change, affects foundational abstractions or data models
+
+Risk level:
+- "low": impactScore 0-25, isolated changes
+- "medium": impactScore 26-50, moderate blast radius
+- "high": impactScore 51-75, broad impact across modules
+- "critical": impactScore 76-100, core infrastructure affected
+
+If no GitNexus data is provided, estimate impact based on the issue description and your understanding of typical codebases. Set impactScore to your best estimate.`;
+
+// =========================================================================
+// GitNexus Integration
+// =========================================================================
+
+interface GitNexusResult {
+  available: boolean;
+  queryContext?: string;
+  impactContext?: string;
+}
 
 /**
- * Run AI analysis on a Linear issue and return structured results
+ * Check if GitNexus index exists for a project
  */
-async function analyzeIssueWithAI(issueContext: string): Promise<{
+function hasGitNexusIndex(projectPath: string): boolean {
+  return existsSync(path.join(projectPath, ".gitnexus"));
+}
+
+/**
+ * Run a GitNexus CLI command and return its output
+ */
+function runGitNexus(projectPath: string, args: string[]): string | null {
+  try {
+    const result = spawnSync("gitnexus", args, {
+      cwd: projectPath,
+      timeout: 15_000,
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+
+    // GitNexus outputs to stderr due to KuzuDB native module limitation
+    const output = (result.stderr || result.stdout || "").trim();
+    if (result.status !== 0 && !output) return null;
+    return output || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Gather GitNexus codebase context for an issue
+ * Uses `gitnexus query` for related execution flows and `gitnexus impact` for blast radius
+ */
+function gatherGitNexusContext(
+  projectPath: string,
+  issueTitle: string,
+  issueLabels: string[],
+): GitNexusResult {
+  if (!hasGitNexusIndex(projectPath)) {
+    return { available: false };
+  }
+
+  // Extract key terms from issue title for querying
+  const searchTerms = issueTitle
+    .replace(/[^a-zA-Z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((t) => t.length > 3)
+    .slice(0, 3)
+    .join(" ");
+
+  if (!searchTerms) {
+    return { available: true };
+  }
+
+  // Query for related execution flows
+  const queryContext = runGitNexus(projectPath, ["query", searchTerms]);
+
+  // Try impact analysis on the most specific term
+  const primaryTerm = searchTerms.split(" ")[0];
+  const impactContext = primaryTerm
+    ? runGitNexus(projectPath, ["impact", primaryTerm])
+    : null;
+
+  // Also try label-based queries for more context
+  const labelTerms = issueLabels
+    .filter(
+      (l) =>
+        !["bug", "feature", "enhancement", "chore"].includes(l.toLowerCase()),
+    )
+    .slice(0, 2);
+
+  let labelContext: string | null = null;
+  for (const label of labelTerms) {
+    const result = runGitNexus(projectPath, ["query", label]);
+    if (result) {
+      labelContext = labelContext ? `${labelContext}\n\n${result}` : result;
+    }
+  }
+
+  const fullQueryContext = [queryContext, labelContext]
+    .filter(Boolean)
+    .join("\n\n---\n\n");
+
+  return {
+    available: true,
+    queryContext: fullQueryContext || undefined,
+    impactContext: impactContext || undefined,
+  };
+}
+
+// =========================================================================
+// AI Analysis
+// =========================================================================
+
+interface AnalysisResult {
   summary: string;
   proposedSolution: string;
   affectedFiles: string[];
   estimatedComplexity: "simple" | "standard" | "complex";
   acceptanceCriteria: string[];
-}> {
+  impactScore?: number;
+  impactDetails?: {
+    affectedSymbols: number;
+    affectedProcesses: number;
+    blastRadius: number;
+    riskLevel: "low" | "medium" | "high" | "critical";
+  };
+}
+
+/**
+ * Run AI analysis on a Linear issue with optional GitNexus context
+ */
+async function analyzeIssueWithAI(
+  issueContext: string,
+  gitNexusContext?: GitNexusResult,
+): Promise<AnalysisResult> {
   const featureSettings = getActiveProviderFeatureSettings("naming");
 
   const client = await createSimpleClient({
@@ -57,21 +197,57 @@ async function analyzeIssueWithAI(issueContext: string): Promise<{
     thinkingLevel: "low",
   });
 
+  // Build prompt with optional GitNexus context
+  let prompt = `Analyze this issue and provide your structured JSON analysis:\n\n${issueContext}`;
+
+  if (gitNexusContext?.available) {
+    if (gitNexusContext.queryContext) {
+      prompt += `\n\n## Codebase Context (from GitNexus knowledge graph)\n\nRelated execution flows and symbols found in the codebase:\n\n${gitNexusContext.queryContext}`;
+    }
+    if (gitNexusContext.impactContext) {
+      prompt += `\n\n## Blast Radius Analysis (from GitNexus)\n\n${gitNexusContext.impactContext}`;
+    }
+    if (!gitNexusContext.queryContext && !gitNexusContext.impactContext) {
+      prompt += `\n\nNote: GitNexus codebase index is available but no matching symbols were found for this issue. Estimate impact based on the issue description.`;
+    }
+  }
+
   const result = await generateText({
     model: client.model,
     system: client.systemPrompt,
-    prompt: `Analyze this issue and provide your structured JSON analysis:\n\n${issueContext}`,
+    prompt,
   });
 
   const text = result.text.trim();
 
-  // Try to parse the JSON response
   try {
-    // Handle potential markdown fencing
     const jsonStr = text
       .replace(/^```(?:json)?\s*\n?/, "")
       .replace(/\n?```\s*$/, "");
     const parsed = JSON.parse(jsonStr);
+
+    const impactScore =
+      typeof parsed.impactScore === "number"
+        ? Math.max(0, Math.min(100, Math.round(parsed.impactScore)))
+        : undefined;
+
+    const validRiskLevels = ["low", "medium", "high", "critical"] as const;
+    const impactDetails = parsed.impactDetails
+      ? {
+          affectedSymbols: Number(parsed.impactDetails.affectedSymbols) || 0,
+          affectedProcesses:
+            Number(parsed.impactDetails.affectedProcesses) || 0,
+          blastRadius: Number(parsed.impactDetails.blastRadius) || 0,
+          riskLevel: validRiskLevels.includes(parsed.impactDetails.riskLevel)
+            ? (parsed.impactDetails.riskLevel as
+                | "low"
+                | "medium"
+                | "high"
+                | "critical")
+            : "medium",
+        }
+      : undefined;
+
     return {
       summary: parsed.summary || "Analysis completed",
       proposedSolution:
@@ -87,9 +263,10 @@ async function analyzeIssueWithAI(issueContext: string): Promise<{
       acceptanceCriteria: Array.isArray(parsed.acceptanceCriteria)
         ? parsed.acceptanceCriteria
         : [],
+      impactScore,
+      impactDetails,
     };
   } catch {
-    // If JSON parsing fails, return the raw text as summary
     return {
       summary: text.substring(0, 500),
       proposedSolution: "See task description for details.",
@@ -268,23 +445,42 @@ function registerInvestigateIssue(
           comments,
         );
 
-        // Phase 2: AI analysis of the issue
+        // Phase 2: Gather codebase context via GitNexus (if available)
         sendProgress(mainWindow, projectId, {
           phase: "analyzing",
           issueId,
           issueIdentifier: issue.identifier,
-          progress: 30,
-          message: "AI is analyzing the issue...",
+          progress: 25,
+          message: "Scanning codebase with GitNexus...",
         });
 
-        // Run actual AI analysis on the issue
-        const aiAnalysis = await analyzeIssueWithAI(issueContext);
+        const gitNexusContext = gatherGitNexusContext(
+          project.path,
+          issue.title,
+          labels,
+        );
+
+        // Phase 3: AI analysis with GitNexus context
+        sendProgress(mainWindow, projectId, {
+          phase: "analyzing",
+          issueId,
+          issueIdentifier: issue.identifier,
+          progress: 35,
+          message: gitNexusContext.available
+            ? "AI is analyzing issue with codebase context..."
+            : "AI is analyzing the issue...",
+        });
+
+        const aiAnalysis = await analyzeIssueWithAI(
+          issueContext,
+          gitNexusContext,
+        );
 
         sendProgress(mainWindow, projectId, {
           phase: "analyzing",
           issueId,
           issueIdentifier: issue.identifier,
-          progress: 50,
+          progress: 55,
           message: "Analysis complete, creating task...",
         });
 
@@ -297,6 +493,15 @@ function registerInvestigateIssue(
         );
 
         // Enrich task description with AI analysis results
+        const impactSection =
+          aiAnalysis.impactScore != null
+            ? `\n**Impact Score:** ${aiAnalysis.impactScore}/100 (${aiAnalysis.impactDetails?.riskLevel || "unknown"} risk)${
+                aiAnalysis.impactDetails
+                  ? `\n- Affected symbols: ${aiAnalysis.impactDetails.affectedSymbols}\n- Affected processes: ${aiAnalysis.impactDetails.affectedProcesses}\n- Blast radius: ${aiAnalysis.impactDetails.blastRadius}`
+                  : ""
+              }`
+            : "";
+
         const enrichedDescription = `${taskDescription}
 
 ## AI Analysis
@@ -306,6 +511,7 @@ function registerInvestigateIssue(
 **Proposed Solution:** ${aiAnalysis.proposedSolution}
 
 **Estimated Complexity:** ${aiAnalysis.estimatedComplexity}
+${impactSection}
 
 ${aiAnalysis.affectedFiles.length > 0 ? `**Likely Affected Files:**\n${aiAnalysis.affectedFiles.map((f) => `- ${f}`).join("\n")}` : ""}
 
@@ -333,7 +539,7 @@ ${aiAnalysis.acceptanceCriteria.map((c) => `- ${c}`).join("\n")}`;
           message: "Creating task from investigation...",
         });
 
-        // Build investigation result with real AI analysis
+        // Build investigation result with real AI analysis + impact data
         const investigationResult: LinearInvestigationResult = {
           success: true,
           issueId: issue.id,
@@ -344,6 +550,8 @@ ${aiAnalysis.acceptanceCriteria.map((c) => `- ${c}`).join("\n")}`;
             affectedFiles: aiAnalysis.affectedFiles,
             estimatedComplexity: aiAnalysis.estimatedComplexity,
             acceptanceCriteria: aiAnalysis.acceptanceCriteria,
+            impactScore: aiAnalysis.impactScore,
+            impactDetails: aiAnalysis.impactDetails,
           },
           taskId: specData.specId,
         };
