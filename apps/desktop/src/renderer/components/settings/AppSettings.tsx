@@ -247,7 +247,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
         <FullScreenDialogBody>
           <div className="flex h-full">
             {/* Navigation sidebar */}
-            <nav className="w-80 border-r border-border bg-muted/30 p-4">
+            <nav className="w-[28rem] border-r border-border bg-muted/30 p-4">
               <ScrollArea className="h-full">
                 <div className="space-y-6">
                   {/* APPLICATION Section */}

@@ -701,7 +701,22 @@
     "convertToTask": "Convertir en tâche Auto-Build",
     "build": "Construire",
     "task": "Tâche",
-    "viewTask": "Voir la tâche"
+    "viewTask": "Voir la tâche",
+    "featureDetail": {
+      "description": "Description",
+      "rationale": "Justification",
+      "complexity": "Complexité",
+      "impact": "Impact",
+      "dependencies": "Dépendances",
+      "userStories": "Témoignages utilisateurs",
+      "acceptanceCriteria": "Critères d'acceptation",
+      "competitorInsights": "Points faibles concurrentiels",
+      "deleteTitle": "Supprimer la fonctionnalité ?",
+      "deleteConfirmMessage": "Cela supprimera définitivement \"{{title}}\" de votre feuille de route.",
+      "delete": "Supprimer",
+      "cancel": "Annuler",
+      "severityLabel": "Sévérité {{severity}}"
+    }
   },
   "roadmapGeneration": {
     "progress": "Progression",

@@ -722,6 +722,21 @@
       "medium": "Medium",
       "high": "High"
     },
+    "featureDetail": {
+      "description": "Description",
+      "rationale": "Rationale",
+      "complexity": "Complexity",
+      "impact": "Impact",
+      "dependencies": "Dependencies",
+      "userStories": "User Stories",
+      "acceptanceCriteria": "Acceptance Criteria",
+      "competitorInsights": "Addresses Competitor Pain Points",
+      "deleteTitle": "Delete Feature?",
+      "deleteConfirmMessage": "This will permanently remove \"{{title}}\" from your roadmap.",
+      "delete": "Delete",
+      "cancel": "Cancel",
+      "severityLabel": "{{severity}} severity"
+    },
     "impact": {
       "low": "Low",
       "medium": "Medium",

@@ -722,6 +722,21 @@
       "medium": "Média",
       "high": "Alta"
     },
+    "featureDetail": {
+      "description": "Descrição",
+      "rationale": "Justificativa",
+      "complexity": "Complexidade",
+      "impact": "Impacto",
+      "dependencies": "Dependências",
+      "userStories": "Histórias de Usuário",
+      "acceptanceCriteria": "Critérios de Aceite",
+      "competitorInsights": "Pontos Fracos da Concorrência",
+      "deleteTitle": "Excluir Funcionalidade?",
+      "deleteConfirmMessage": "Isso removerá permanentemente \"{{title}}\" do seu roadmap.",
+      "delete": "Excluir",
+      "cancel": "Cancelar",
+      "severityLabel": "Severidade {{severity}}"
+    },
     "impact": {
       "low": "Baixo",
       "medium": "Médio",

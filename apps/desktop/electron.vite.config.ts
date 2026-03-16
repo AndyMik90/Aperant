@@ -68,6 +68,10 @@ export default defineConfig({
         '@ai-sdk/openai-compatible',
         '@ai-sdk/provider',
         '@ai-sdk/provider-utils',
+        '@ai-sdk/mcp',
+        '@openrouter/ai-sdk-provider',
+        '@modelcontextprotocol/sdk',
+        '@tavily/core',
       ]
     })],
     build: {

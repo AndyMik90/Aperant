@@ -2,7 +2,7 @@
   "title": "Configurações",
   "tabs": {
     "app": "Config. do App",
-    "project": "Config. do Projeto"
+    "project": "Projeto"
   },
   "sections": {
     "appearance": {
@@ -347,13 +347,13 @@
   },
   "actions": {
     "save": "Salvar Configurações",
-    "rerunWizard": "Executar Assistente Novamente",
-    "rerunWizardDescription": "Iniciar o assistente de configuração novamente"
+    "rerunWizard": "Reexecutar Assistente",
+    "rerunWizardDescription": "Reiniciar configuração"
   },
   "projectSections": {
     "general": {
       "title": "Geral",
-      "description": "Auto-Build e configuração do agente",
+      "description": "Auto-Build e agente",
       "useClaudeMd": "Usar CLAUDE.md",
       "useClaudeMdDescription": "Incluir instruções do CLAUDE.md no contexto do agente"
     },

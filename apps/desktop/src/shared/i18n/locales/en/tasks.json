@@ -179,7 +179,15 @@
     "severity": "severity",
     "pullRequest": "Pull Request",
     "showMore": "Show more",
-    "showLess": "Show less"
+    "showLess": "Show less",
+    "rationale": "Rationale",
+    "problemSolved": "Problem Solved",
+    "targetAudience": "Target Audience",
+    "dependencies": "Dependencies",
+    "acceptanceCriteria": "Acceptance Criteria",
+    "affectedFiles": "Affected Files",
+    "created": "Created {{time}}",
+    "updated": "Updated {{time}}"
   },
   "images": {
     "removeImageAriaLabel": "Remove image {{filename}}",
