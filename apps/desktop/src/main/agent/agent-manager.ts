@@ -29,6 +29,7 @@ import { findTaskWorktree } from '../worktree-paths';
 import { readSettingsFile } from '../settings-utils';
 import type { ProviderAccount } from '../../shared/types/provider-account';
 import { tryLoadPrompt } from '../ai/prompts/prompt-loader';
+import { routePhase, executeExternal, requiresBuiltinAuth } from './framework-router';
 
 /**
  * Main AgentManager - orchestrates agent process lifecycle
@@ -439,19 +440,24 @@ export class AgentManager extends EventEmitter {
     options: TaskExecutionOptions = {},
     projectId?: string
   ): Promise<void> {
-    // Pre-flight auth check: Verify active profile has valid authentication
-    // Ensure profile manager is initialized to prevent race condition
-    let profileManager: ClaudeProfileManager;
-    try {
-      profileManager = await initializeClaudeProfileManager();
-    } catch (error) {
-      console.error('[AgentManager] Failed to initialize profile manager:', error);
-      this.emit('error', taskId, 'Failed to initialize profile manager. Please check file permissions and disk space.');
-      return;
-    }
-    if (!profileManager.hasValidAuth() && !this.hasAnyProviderAccount()) {
-      this.emit('error', taskId, 'Authentication required. Please add an account in Settings > Accounts before starting tasks.');
-      return;
+    // Check if this phase should be routed to an external framework
+    const codingDecision = routePhase('coding');
+
+    // Pre-flight auth check: only needed for Aperant's built-in worker
+    // External frameworks (Jules, Claude Code, Gemini, Custom) handle their own auth
+    if (requiresBuiltinAuth('coding')) {
+      let profileManager: ClaudeProfileManager;
+      try {
+        profileManager = await initializeClaudeProfileManager();
+      } catch (error) {
+        console.error('[AgentManager] Failed to initialize profile manager:', error);
+        this.emit('error', taskId, 'Failed to initialize profile manager. Please check file permissions and disk space.');
+        return;
+      }
+      if (!profileManager.hasValidAuth() && !this.hasAnyProviderAccount()) {
+        this.emit('error', taskId, 'Authentication required. Please add an account in Settings > Accounts before starting tasks.');
+        return;
+      }
     }
 
     // Resolve the spec directory from specId
@@ -545,12 +551,25 @@ export class AgentManager extends EventEmitter {
     // Register with unified OperationRegistry for proactive swap support
     this.registerTaskWithOperationRegistry(taskId, 'task-execution', { projectPath, specId, options });
 
-    await this.processManager.spawnWorkerProcess(taskId, executorConfig, {}, 'task-execution', projectId);
+    // Route to external framework if configured (Jules, Claude Code, Gemini, Custom)
+    if (!codingDecision.useBuiltinWorker) {
+      const specPath = path.join(effectiveCwd, getSpecsDir(project?.autoBuildPath), specId, 'spec.md');
+      let prompt = `Implement spec ${specId} in ${effectiveCwd}`;
+      try {
+        if (existsSync(specPath)) {
+          prompt = readFileSync(specPath, 'utf-8');
+        }
+      } catch { /* agent will read spec itself */ }
 
-    // Note (Python fallback preserved for reference):
-    // const combinedEnv = this.processManager.getCombinedEnv(projectPath);
-    // const args = [runPath, '--spec', specId, '--project-dir', projectPath, '--auto-continue', '--force'];
-    // await this.processManager.spawnProcess(taskId, projectPath, args, combinedEnv, 'task-execution', projectId);
+      this.emit('log', taskId, `[AgentManager] Routing coding phase to ${codingDecision.framework}`, projectId);
+      const result = await executeExternal(codingDecision, prompt, effectiveCwd, this, taskId, projectId);
+      if (!result.success) {
+        this.emit('error', taskId, `${codingDecision.framework} failed: ${result.output}`, projectId);
+      }
+      return;
+    }
+
+    await this.processManager.spawnWorkerProcess(taskId, executorConfig, {}, 'task-execution', projectId);
   }
 
   /**
@@ -562,24 +581,62 @@ export class AgentManager extends EventEmitter {
     specId: string,
     projectId?: string
   ): Promise<void> {
-    // Ensure profile manager is initialized for auth resolution
-    let profileManager: ClaudeProfileManager;
-    try {
-      profileManager = await initializeClaudeProfileManager();
-    } catch (error) {
-      console.error('[AgentManager] Failed to initialize profile manager:', error);
-      this.emit('error', taskId, 'Failed to initialize profile manager. Please check file permissions and disk space.');
-      return;
-    }
-    if (!profileManager.hasValidAuth() && !this.hasAnyProviderAccount()) {
-      this.emit('error', taskId, 'Authentication required. Please add an account in Settings > Accounts before starting tasks.');
-      return;
+    // Check if QA should be routed to an external framework
+    const qaDecision = routePhase('qa');
+
+    // Auth pre-flight: only needed for Aperant's built-in worker
+    if (requiresBuiltinAuth('qa')) {
+      let profileManager: ClaudeProfileManager;
+      try {
+        profileManager = await initializeClaudeProfileManager();
+      } catch (error) {
+        console.error('[AgentManager] Failed to initialize profile manager:', error);
+        this.emit('error', taskId, 'Failed to initialize profile manager. Please check file permissions and disk space.');
+        return;
+      }
+      if (!profileManager.hasValidAuth() && !this.hasAnyProviderAccount()) {
+        this.emit('error', taskId, 'Authentication required. Please add an account in Settings > Accounts before starting tasks.');
+        return;
+      }
     }
 
     // Resolve the spec directory from specId
     const project = projectStore.getProjects().find((p) => p.id === projectId || p.path === projectPath);
     const specsBaseDir = getSpecsDir(project?.autoBuildPath);
     const specDir = path.join(projectPath, specsBaseDir, specId);
+
+    // Find existing worktree for QA (created during task execution)
+    const worktreePath = findTaskWorktree(projectPath, specId);
+    const effectiveCwd = worktreePath ?? projectPath;
+    const effectiveProjectDir = worktreePath ?? projectPath;
+    const effectiveSpecDir = worktreePath
+      ? path.join(worktreePath, specsBaseDir, specId)
+      : specDir;
+
+    // Route to external framework if configured
+    if (!qaDecision.useBuiltinWorker) {
+      const specPath = path.join(effectiveSpecDir, 'spec.md');
+      let prompt = `Review the implementation of spec ${specId} in ${effectiveCwd}. Check that all requirements are met, code is correct, and tests pass. Write findings to qa_report.md.`;
+      try {
+        if (existsSync(specPath)) {
+          const specContent = readFileSync(specPath, 'utf-8');
+          prompt = `## QA Review Task\n\nReview the implementation of spec ${specId}.\n\n## Specification\n${specContent}\n\n## Instructions\n- Check all requirements are met\n- Verify code correctness and tests pass\n- Write findings to qa_report.md with "Status: PASSED" or "Status: FAILED"`;
+        }
+      } catch { /* agent will read spec itself */ }
+
+      this.emit('log', taskId, `[AgentManager] Routing QA phase to ${qaDecision.framework}`, projectId);
+      const result = await executeExternal(qaDecision, prompt, effectiveCwd, this, taskId, projectId);
+      if (!result.success) {
+        this.emit('error', taskId, `${qaDecision.framework} QA failed: ${result.output}`, projectId);
+      }
+      return;
+    }
+
+    if (worktreePath) {
+      console.warn(`[AgentManager] QA for ${taskId} will run in worktree: ${worktreePath}`);
+    } else {
+      console.warn(`[AgentManager] No worktree found for ${taskId}, QA running in project root`);
+    }
 
     // Load model configuration from task_metadata.json if available
     const modelId = await this.resolveTaskModelId(specDir, 'qa');
@@ -590,20 +647,6 @@ export class AgentManager extends EventEmitter {
 
     // Resolve auth from provider accounts priority queue (falls back to legacy profile)
     const resolved = await this.resolveAuthFromProviderQueue(modelId, preferredProvider);
-
-    // Find existing worktree for QA (created during task execution)
-    const worktreePath = findTaskWorktree(projectPath, specId);
-    const effectiveCwd = worktreePath ?? projectPath;
-    const effectiveProjectDir = worktreePath ?? projectPath;
-    const effectiveSpecDir = worktreePath
-      ? path.join(worktreePath, specsBaseDir, specId)
-      : specDir;
-
-    if (worktreePath) {
-      console.warn(`[AgentManager] QA for ${taskId} will run in worktree: ${worktreePath}`);
-    } else {
-      console.warn(`[AgentManager] No worktree found for ${taskId}, QA running in project root`);
-    }
 
     // Load initial context from spec directory
     const qaInitialMessages = this.buildQAInitialMessages(effectiveSpecDir, specId, effectiveProjectDir);
@@ -643,11 +686,6 @@ export class AgentManager extends EventEmitter {
     };
 
     await this.processManager.spawnWorkerProcess(taskId, executorConfig, {}, 'qa-process', projectId);
-
-    // Note (Python fallback preserved for reference):
-    // const combinedEnv = this.processManager.getCombinedEnv(projectPath);
-    // const args = [runPath, '--spec', specId, '--project-dir', projectPath, '--qa'];
-    // await this.processManager.spawnProcess(taskId, projectPath, args, combinedEnv, 'qa-process', projectId);
   }
 
   /**
