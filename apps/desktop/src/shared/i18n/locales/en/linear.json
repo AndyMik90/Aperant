@@ -1,0 +1,49 @@
+{
+  "investigate": "Investigate & Create Task",
+  "viewTask": "View Task",
+  "syncToLinear": "Sync to Linear",
+  "syncSuccess": "Status synced to Linear",
+  "syncError": "Failed to sync status",
+  "syncNever": "Never synced",
+  "noConnection": "Linear not connected",
+  "connectPrompt": "Configure Linear in project settings to browse and investigate issues.",
+  "openSettings": "Open Settings",
+  "investigation": {
+    "fetching": "Fetching issue details...",
+    "analyzing": "Analyzing issue...",
+    "creatingTask": "Creating task...",
+    "complete": "Task created successfully",
+    "error": "Investigation failed",
+    "selectComments": "Select comments to include in analysis",
+    "noComments": "No comments on this issue",
+    "createTask": "Create Task",
+    "startInvestigation": "Start Investigation"
+  },
+  "filters": {
+    "all": "All",
+    "backlog": "Backlog",
+    "unstarted": "Unstarted",
+    "started": "Started",
+    "completed": "Completed",
+    "canceled": "Canceled",
+    "search": "Search issues..."
+  },
+  "empty": {
+    "noIssues": "No issues found",
+    "noSelection": "Select an issue to view details"
+  },
+  "header": {
+    "issues": "issues",
+    "activeIssues": "active issues",
+    "refresh": "Refresh"
+  },
+  "proposedSolution": "Proposed Solution",
+  "affectedFiles": "Affected Files",
+  "priority": {
+    "urgent": "Urgent",
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low",
+    "none": "No priority"
+  }
+}

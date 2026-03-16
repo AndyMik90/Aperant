@@ -5,10 +5,10 @@
  * All IPC handlers have been organized into domain-specific modules in ./ipc-handlers/
  */
 
-import type { BrowserWindow } from 'electron';
-import { AgentManager } from './agent';
-import { TerminalManager } from './terminal-manager';
-import { setupIpcHandlers as setupModularHandlers } from './ipc-handlers';
+import type { BrowserWindow } from "electron";
+import { AgentManager } from "./agent";
+import { TerminalManager } from "./terminal-manager";
+import { setupIpcHandlers as setupModularHandlers } from "./ipc-handlers";
 
 /**
  * Setup all IPC handlers
@@ -25,7 +25,7 @@ import { setupIpcHandlers as setupModularHandlers } from './ipc-handlers';
  * - roadmap-handlers.ts: Roadmap generation and management
  * - context-handlers.ts: Project context and memory
  * - env-handlers.ts: Environment configuration
- * - linear-handlers.ts: Linear integration
+ * - linear/: Linear integration (connection, issues, investigation, import, sync)
  * - github-handlers.ts: GitHub integration
  * - autobuild-source-handlers.ts: Source updates
  * - ideation-handlers.ts: Ideation generation
@@ -39,7 +39,7 @@ import { setupIpcHandlers as setupModularHandlers } from './ipc-handlers';
 export function setupIpcHandlers(
   agentManager: AgentManager,
   terminalManager: TerminalManager,
-  getMainWindow: () => BrowserWindow | null
+  getMainWindow: () => BrowserWindow | null,
 ): void {
   // Delegate to modular handler setup
   setupModularHandlers(agentManager, terminalManager, getMainWindow);

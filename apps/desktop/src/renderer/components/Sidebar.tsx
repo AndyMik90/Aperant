@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Plus,
   Settings,
@@ -22,45 +22,60 @@ import {
   Heart,
   Wrench,
   PanelLeft,
-  PanelLeftClose
-} from 'lucide-react';
-import { Button } from './ui/button';
-import { ScrollArea } from './ui/scroll-area';
-import { Separator } from './ui/separator';
+  PanelLeftClose,
+  SquareKanban,
+} from "lucide-react";
+import { Button } from "./ui/button";
+import { ScrollArea } from "./ui/scroll-area";
+import { Separator } from "./ui/separator";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
-  TooltipTrigger
-} from './ui/tooltip';
+  TooltipTrigger,
+} from "./ui/tooltip";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle
-} from './ui/dialog';
-import { cn } from '../lib/utils';
+  DialogTitle,
+} from "./ui/dialog";
+import { cn } from "../lib/utils";
 import {
   useProjectStore,
   removeProject,
-  initializeProject
-} from '../stores/project-store';
-import { useSettingsStore, saveSettings } from '../stores/settings-store';
+  initializeProject,
+} from "../stores/project-store";
+import { useSettingsStore, saveSettings } from "../stores/settings-store";
 import {
   useProjectEnvStore,
   loadProjectEnvConfig,
-  clearProjectEnvConfig
-} from '../stores/project-env-store';
-import { AddProjectModal } from './AddProjectModal';
-import { GitSetupModal } from './GitSetupModal';
-import { RateLimitIndicator } from './RateLimitIndicator';
+  clearProjectEnvConfig,
+} from "../stores/project-env-store";
+import { AddProjectModal } from "./AddProjectModal";
+import { GitSetupModal } from "./GitSetupModal";
+import { RateLimitIndicator } from "./RateLimitIndicator";
 
-import { UpdateBanner } from './UpdateBanner';
-import type { Project, GitStatus } from '../../shared/types';
+import { UpdateBanner } from "./UpdateBanner";
+import type { Project, GitStatus } from "../../shared/types";
 
-export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
+export type SidebarView =
+  | "kanban"
+  | "terminals"
+  | "roadmap"
+  | "context"
+  | "ideation"
+  | "github-issues"
+  | "gitlab-issues"
+  | "github-prs"
+  | "gitlab-merge-requests"
+  | "changelog"
+  | "insights"
+  | "worktrees"
+  | "agent-tools"
+  | "linear-issues";
 
 interface SidebarProps {
   onSettingsClick: () => void;
@@ -78,36 +93,111 @@ interface NavItem {
 
 // Base nav items always shown
 const baseNavItems: NavItem[] = [
-  { id: 'kanban', labelKey: 'navigation:items.kanban', icon: LayoutGrid, shortcut: 'K' },
-  { id: 'terminals', labelKey: 'navigation:items.terminals', icon: Terminal, shortcut: 'A' },
-  { id: 'insights', labelKey: 'navigation:items.insights', icon: Sparkles, shortcut: 'N' },
-  { id: 'roadmap', labelKey: 'navigation:items.roadmap', icon: Map, shortcut: 'D' },
-  { id: 'ideation', labelKey: 'navigation:items.ideation', icon: Lightbulb, shortcut: 'I' },
-  { id: 'changelog', labelKey: 'navigation:items.changelog', icon: FileText, shortcut: 'L' },
-  { id: 'context', labelKey: 'navigation:items.context', icon: BookOpen, shortcut: 'C' },
-  { id: 'agent-tools', labelKey: 'navigation:items.agentTools', icon: Wrench, shortcut: 'M' },
-  { id: 'worktrees', labelKey: 'navigation:items.worktrees', icon: GitBranch, shortcut: 'W' }
+  {
+    id: "kanban",
+    labelKey: "navigation:items.kanban",
+    icon: LayoutGrid,
+    shortcut: "K",
+  },
+  {
+    id: "terminals",
+    labelKey: "navigation:items.terminals",
+    icon: Terminal,
+    shortcut: "A",
+  },
+  {
+    id: "insights",
+    labelKey: "navigation:items.insights",
+    icon: Sparkles,
+    shortcut: "N",
+  },
+  {
+    id: "roadmap",
+    labelKey: "navigation:items.roadmap",
+    icon: Map,
+    shortcut: "D",
+  },
+  {
+    id: "ideation",
+    labelKey: "navigation:items.ideation",
+    icon: Lightbulb,
+    shortcut: "I",
+  },
+  {
+    id: "changelog",
+    labelKey: "navigation:items.changelog",
+    icon: FileText,
+    shortcut: "L",
+  },
+  {
+    id: "context",
+    labelKey: "navigation:items.context",
+    icon: BookOpen,
+    shortcut: "C",
+  },
+  {
+    id: "agent-tools",
+    labelKey: "navigation:items.agentTools",
+    icon: Wrench,
+    shortcut: "M",
+  },
+  {
+    id: "worktrees",
+    labelKey: "navigation:items.worktrees",
+    icon: GitBranch,
+    shortcut: "W",
+  },
 ];
 
 // GitHub nav items shown when GitHub is enabled
 const githubNavItems: NavItem[] = [
-  { id: 'github-issues', labelKey: 'navigation:items.githubIssues', icon: Github, shortcut: 'G' },
-  { id: 'github-prs', labelKey: 'navigation:items.githubPRs', icon: GitPullRequest, shortcut: 'P' }
+  {
+    id: "github-issues",
+    labelKey: "navigation:items.githubIssues",
+    icon: Github,
+    shortcut: "G",
+  },
+  {
+    id: "github-prs",
+    labelKey: "navigation:items.githubPRs",
+    icon: GitPullRequest,
+    shortcut: "P",
+  },
 ];
 
 // GitLab nav items shown when GitLab is enabled
 const gitlabNavItems: NavItem[] = [
-  { id: 'gitlab-issues', labelKey: 'navigation:items.gitlabIssues', icon: GitlabIcon, shortcut: 'B' },
-  { id: 'gitlab-merge-requests', labelKey: 'navigation:items.gitlabMRs', icon: GitMerge, shortcut: 'R' }
+  {
+    id: "gitlab-issues",
+    labelKey: "navigation:items.gitlabIssues",
+    icon: GitlabIcon,
+    shortcut: "B",
+  },
+  {
+    id: "gitlab-merge-requests",
+    labelKey: "navigation:items.gitlabMRs",
+    icon: GitMerge,
+    shortcut: "R",
+  },
+];
+
+// Linear nav items shown when Linear is enabled
+const linearNavItems: NavItem[] = [
+  {
+    id: "linear-issues",
+    labelKey: "navigation:items.linearIssues",
+    icon: SquareKanban,
+    shortcut: "R",
+  },
 ];
 
 export function Sidebar({
   onSettingsClick,
   onNewTaskClick,
-  activeView = 'kanban',
-  onViewChange
+  activeView = "kanban",
+  onViewChange,
 }: SidebarProps) {
-  const { t } = useTranslation(['navigation', 'dialogs', 'common']);
+  const { t } = useTranslation(["navigation", "dialogs", "common"]);
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
   const settings = useSettingsStore((state) => state.settings);
@@ -129,8 +219,15 @@ export function Sidebar({
   };
 
   // Subscribe to project-env-store for reactive GitHub/GitLab tab visibility
-  const githubEnabled = useProjectEnvStore((state) => state.envConfig?.githubEnabled ?? false);
-  const gitlabEnabled = useProjectEnvStore((state) => state.envConfig?.gitlabEnabled ?? false);
+  const githubEnabled = useProjectEnvStore(
+    (state) => state.envConfig?.githubEnabled ?? false,
+  );
+  const gitlabEnabled = useProjectEnvStore(
+    (state) => state.envConfig?.gitlabEnabled ?? false,
+  );
+  const linearEnabled = useProjectEnvStore(
+    (state) => state.envConfig?.linearEnabled ?? false,
+  );
 
   // Track the last loaded project ID to avoid redundant loads
   const lastLoadedProjectIdRef = useRef<string | null>(null);
@@ -147,8 +244,12 @@ export function Sidebar({
       items.push(...gitlabNavItems);
     }
 
+    if (linearEnabled) {
+      items.push(...linearNavItems);
+    }
+
     return items;
-  }, [githubEnabled, gitlabEnabled]);
+  }, [githubEnabled, gitlabEnabled, linearEnabled]);
 
   // Load envConfig when project changes to ensure store is populated
   useEffect(() => {
@@ -208,8 +309,8 @@ export function Sidebar({
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [selectedProjectId, onViewChange, visibleNavItems]);
 
   // Check git status when project changes
@@ -217,7 +318,9 @@ export function Sidebar({
     const checkGit = async () => {
       if (selectedProject) {
         try {
-          const result = await window.electronAPI.checkGitStatus(selectedProject.path);
+          const result = await window.electronAPI.checkGitStatus(
+            selectedProject.path,
+          );
           if (result.success && result.data) {
             setGitStatus(result.data);
             // Show git setup modal if project is not a git repo or has no commits
@@ -226,7 +329,7 @@ export function Sidebar({
             }
           }
         } catch (error) {
-          console.error('Failed to check git status:', error);
+          console.error("Failed to check git status:", error);
         }
       } else {
         setGitStatus(null);
@@ -269,22 +372,26 @@ export function Sidebar({
     // Refresh git status after initialization
     if (selectedProject) {
       try {
-        const result = await window.electronAPI.checkGitStatus(selectedProject.path);
+        const result = await window.electronAPI.checkGitStatus(
+          selectedProject.path,
+        );
         if (result.success && result.data) {
           setGitStatus(result.data);
         }
       } catch (error) {
-        console.error('Failed to refresh git status:', error);
+        console.error("Failed to refresh git status:", error);
       }
     }
   };
 
-  const _handleRemoveProject = async (projectId: string, e: React.MouseEvent) => {
+  const _handleRemoveProject = async (
+    projectId: string,
+    e: React.MouseEvent,
+  ) => {
     e.stopPropagation();
     e.preventDefault();
     await removeProject(projectId);
   };
-
 
   const handleNavClick = (view: SidebarView) => {
     onViewChange?.(view);
@@ -301,11 +408,11 @@ export function Sidebar({
         disabled={!selectedProjectId}
         aria-keyshortcuts={item.shortcut}
         className={cn(
-          'flex w-full items-center rounded-lg text-sm transition-all duration-200',
-          'hover:bg-accent hover:text-accent-foreground',
-          'disabled:pointer-events-none disabled:opacity-50',
-          isActive && 'bg-accent text-accent-foreground',
-          isCollapsed ? 'justify-center px-2 py-2.5' : 'gap-3 px-3 py-2.5'
+          "flex w-full items-center rounded-lg text-sm transition-all duration-200",
+          "hover:bg-accent hover:text-accent-foreground",
+          "disabled:pointer-events-none disabled:opacity-50",
+          isActive && "bg-accent text-accent-foreground",
+          isCollapsed ? "justify-center px-2 py-2.5" : "gap-3 px-3 py-2.5",
         )}
       >
         <Icon className="h-4 w-4 shrink-0" />
@@ -344,27 +451,35 @@ export function Sidebar({
 
   return (
     <TooltipProvider>
-      <div className={cn(
-        "flex h-full flex-col bg-sidebar border-r border-border transition-all duration-300",
-        isCollapsed ? "w-16" : "w-64"
-      )}>
+      <div
+        className={cn(
+          "flex h-full flex-col bg-sidebar border-r border-border transition-all duration-300",
+          isCollapsed ? "w-16" : "w-64",
+        )}
+      >
         {/* Header with drag area - extra top padding for macOS traffic lights */}
-        <div className={cn(
-          "electron-drag flex h-14 items-center pt-6 transition-all duration-300",
-          isCollapsed ? "justify-center px-2" : "px-4"
-        )}>
+        <div
+          className={cn(
+            "electron-drag flex h-14 items-center pt-6 transition-all duration-300",
+            isCollapsed ? "justify-center px-2" : "px-4",
+          )}
+        >
           {!isCollapsed && (
-            <span className="electron-no-drag text-lg font-bold text-primary">Aperant</span>
+            <span className="electron-no-drag text-lg font-bold text-primary">
+              Aperant
+            </span>
           )}
         </div>
 
         <Separator className="mt-2" />
 
         {/* Toggle button */}
-        <div className={cn(
-          "flex py-2 transition-all duration-300",
-          isCollapsed ? "justify-center px-2" : "justify-end px-3"
-        )}>
+        <div
+          className={cn(
+            "flex py-2 transition-all duration-300",
+            isCollapsed ? "justify-center px-2" : "justify-end px-3",
+          )}
+        >
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -372,7 +487,11 @@ export function Sidebar({
                 size="icon"
                 className="h-7 w-7"
                 onClick={toggleSidebar}
-                aria-label={isCollapsed ? t('actions.expandSidebar') : t('actions.collapseSidebar')}
+                aria-label={
+                  isCollapsed
+                    ? t("actions.expandSidebar")
+                    : t("actions.collapseSidebar")
+                }
               >
                 {isCollapsed ? (
                   <PanelLeft className="h-4 w-4" />
@@ -382,7 +501,9 @@ export function Sidebar({
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">
-              {isCollapsed ? t('actions.expandSidebar') : t('actions.collapseSidebar')}
+              {isCollapsed
+                ? t("actions.expandSidebar")
+                : t("actions.collapseSidebar")}
             </TooltipContent>
           </Tooltip>
         </div>
@@ -391,12 +512,17 @@ export function Sidebar({
 
         {/* Navigation */}
         <ScrollArea className="flex-1">
-          <div className={cn("py-4 transition-all duration-300", isCollapsed ? "px-2" : "px-3")}>
+          <div
+            className={cn(
+              "py-4 transition-all duration-300",
+              isCollapsed ? "px-2" : "px-3",
+            )}
+          >
             {/* Project Section */}
             <div>
               {!isCollapsed && (
                 <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  {t('sections.project')}
+                  {t("sections.project")}
                 </h3>
               )}
               <nav className="space-y-1">
@@ -415,12 +541,19 @@ export function Sidebar({
         <UpdateBanner />
 
         {/* Bottom section with Settings, Help, and New Task */}
-        <div className={cn("space-y-3 transition-all duration-300", isCollapsed ? "p-2" : "p-4")}>
+        <div
+          className={cn(
+            "space-y-3 transition-all duration-300",
+            isCollapsed ? "p-2" : "p-4",
+          )}
+        >
           {/* Settings and Help row */}
-          <div className={cn(
-            "flex items-center",
-            isCollapsed ? "flex-col gap-1" : "gap-2"
-          )}>
+          <div
+            className={cn(
+              "flex items-center",
+              isCollapsed ? "flex-col gap-1" : "gap-2",
+            )}
+          >
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -430,23 +563,32 @@ export function Sidebar({
                   onClick={onSettingsClick}
                 >
                   <Settings className="h-4 w-4" />
-                  {!isCollapsed && t('actions.settings')}
+                  {!isCollapsed && t("actions.settings")}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side={isCollapsed ? "right" : "top"}>{t('tooltips.settings')}</TooltipContent>
+              <TooltipContent side={isCollapsed ? "right" : "top"}>
+                {t("tooltips.settings")}
+              </TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => window.open('https://github.com/AndyMik90/Auto-Claude/issues', '_blank')}
-                  aria-label={t('tooltips.help')}
+                  onClick={() =>
+                    window.open(
+                      "https://github.com/AndyMik90/Auto-Claude/issues",
+                      "_blank",
+                    )
+                  }
+                  aria-label={t("tooltips.help")}
                 >
                   <HelpCircle className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side={isCollapsed ? "right" : "top"}>{t('tooltips.help')}</TooltipContent>
+              <TooltipContent side={isCollapsed ? "right" : "top"}>
+                {t("tooltips.help")}
+              </TooltipContent>
             </Tooltip>
           </div>
 
@@ -454,19 +596,23 @@ export function Sidebar({
           <Tooltip>
             <TooltipTrigger asChild>
               <button
-                onClick={() => window.open('https://github.com/sponsors/AndyMik90', '_blank')}
+                onClick={() =>
+                  window.open("https://github.com/sponsors/AndyMik90", "_blank")
+                }
                 className={cn(
-                  'flex w-full items-center text-xs transition-colors',
-                  'text-amber-500/70 hover:text-amber-400',
-                  isCollapsed ? 'justify-center' : 'gap-1.5 px-3'
+                  "flex w-full items-center text-xs transition-colors",
+                  "text-amber-500/70 hover:text-amber-400",
+                  isCollapsed ? "justify-center" : "gap-1.5 px-3",
                 )}
               >
                 <Heart className="h-3.5 w-3.5" />
-                {!isCollapsed && <span>{t('actions.sponsor')}</span>}
+                {!isCollapsed && <span>{t("actions.sponsor")}</span>}
               </button>
             </TooltipTrigger>
             {isCollapsed && (
-              <TooltipContent side="right">{t('actions.sponsor')}</TooltipContent>
+              <TooltipContent side="right">
+                {t("actions.sponsor")}
+              </TooltipContent>
             )}
           </Tooltip>
 
@@ -480,45 +626,54 @@ export function Sidebar({
                 disabled={!selectedProjectId || !selectedProject?.autoBuildPath}
               >
                 <Plus className={isCollapsed ? "h-4 w-4" : "mr-2 h-4 w-4"} />
-                {!isCollapsed && t('actions.newTask')}
+                {!isCollapsed && t("actions.newTask")}
               </Button>
             </TooltipTrigger>
             {isCollapsed && (
-              <TooltipContent side="right">{t('actions.newTask')}</TooltipContent>
+              <TooltipContent side="right">
+                {t("actions.newTask")}
+              </TooltipContent>
             )}
           </Tooltip>
-          {!isCollapsed && selectedProject && !selectedProject.autoBuildPath && (
-            <p className="mt-2 text-xs text-muted-foreground text-center">
-              {t('messages.initializeToCreateTasks')}
-            </p>
-          )}
+          {!isCollapsed &&
+            selectedProject &&
+            !selectedProject.autoBuildPath && (
+              <p className="mt-2 text-xs text-muted-foreground text-center">
+                {t("messages.initializeToCreateTasks")}
+              </p>
+            )}
         </div>
       </div>
 
       {/* Initialize Auto Claude Dialog */}
-      <Dialog open={showInitDialog} onOpenChange={(open) => {
-        // Only allow closing if user manually closes (not during initialization)
-        if (!open && !isInitializing) {
-          handleSkipInit();
-        }
-      }}>
+      <Dialog
+        open={showInitDialog}
+        onOpenChange={(open) => {
+          // Only allow closing if user manually closes (not during initialization)
+          if (!open && !isInitializing) {
+            handleSkipInit();
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Download className="h-5 w-5" />
-              {t('dialogs:initialize.title')}
+              {t("dialogs:initialize.title")}
             </DialogTitle>
             <DialogDescription>
-              {t('dialogs:initialize.description')}
+              {t("dialogs:initialize.description")}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <div className="rounded-lg bg-muted p-4 text-sm">
-              <p className="font-medium mb-2">{t('dialogs:initialize.willDo')}</p>
+              <p className="font-medium mb-2">
+                {t("dialogs:initialize.willDo")}
+              </p>
               <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                <li>{t('dialogs:initialize.createFolder')}</li>
-                <li>{t('dialogs:initialize.copyFramework')}</li>
-                <li>{t('dialogs:initialize.setupSpecs')}</li>
+                <li>{t("dialogs:initialize.createFolder")}</li>
+                <li>{t("dialogs:initialize.copyFramework")}</li>
+                <li>{t("dialogs:initialize.setupSpecs")}</li>
               </ul>
             </div>
             {!settings.autoBuildPath && (
@@ -526,9 +681,13 @@ export function Sidebar({
                 <div className="flex items-start gap-2">
                   <AlertCircle className="h-4 w-4 text-warning mt-0.5 shrink-0" />
                   <div>
-                    <p className="font-medium text-warning">{t('dialogs:initialize.sourcePathNotConfigured')}</p>
+                    <p className="font-medium text-warning">
+                      {t("dialogs:initialize.sourcePathNotConfigured")}
+                    </p>
                     <p className="text-muted-foreground mt-1">
-                      {t('dialogs:initialize.sourcePathNotConfiguredDescription')}
+                      {t(
+                        "dialogs:initialize.sourcePathNotConfiguredDescription",
+                      )}
                     </p>
                   </div>
                 </div>
@@ -536,8 +695,12 @@ export function Sidebar({
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={handleSkipInit} disabled={isInitializing}>
-              {t('common:buttons.skip')}
+            <Button
+              variant="outline"
+              onClick={handleSkipInit}
+              disabled={isInitializing}
+            >
+              {t("common:buttons.skip")}
             </Button>
             <Button
               onClick={handleInitialize}
@@ -546,12 +709,12 @@ export function Sidebar({
               {isInitializing ? (
                 <>
                   <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  {t('common:labels.initializing')}
+                  {t("common:labels.initializing")}
                 </>
               ) : (
                 <>
                   <Download className="mr-2 h-4 w-4" />
-                  {t('common:buttons.initialize')}
+                  {t("common:buttons.initialize")}
                 </>
               )}
             </Button>

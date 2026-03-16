@@ -61,6 +61,57 @@ export interface LinearSyncStatus {
   error?: string;
 }
 
+export interface LinearComment {
+  id: string;
+  body: string;
+  author: {
+    id: string;
+    name: string;
+    email?: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LinearInvestigationResult {
+  success: boolean;
+  issueId: string;
+  issueIdentifier: string;
+  analysis: {
+    summary: string;
+    proposedSolution: string;
+    affectedFiles: string[];
+    estimatedComplexity: "simple" | "standard" | "complex";
+    acceptanceCriteria: string[];
+  };
+  taskId?: string;
+  error?: string;
+}
+
+export interface LinearInvestigationStatus {
+  phase:
+    | "idle"
+    | "fetching"
+    | "analyzing"
+    | "creating_task"
+    | "complete"
+    | "error";
+  issueId?: string;
+  issueIdentifier?: string;
+  progress: number;
+  message: string;
+  error?: string;
+}
+
+export interface LinearSyncEvent {
+  success: boolean;
+  issueId: string;
+  issueIdentifier?: string;
+  previousState?: string;
+  newState?: string;
+  error?: string;
+}
+
 // ============================================
 // GitHub Integration Types
 // ============================================
@@ -84,8 +135,13 @@ export interface GitHubIssue {
   number: number;
   title: string;
   body?: string;
-  state: 'open' | 'closed';
-  labels: Array<{ id: number; name: string; color: string; description?: string }>;
+  state: "open" | "closed";
+  labels: Array<{
+    id: number;
+    name: string;
+    color: string;
+    description?: string;
+  }>;
   assignees: Array<{ login: string; avatarUrl?: string }>;
   author: {
     login: string;
@@ -94,7 +150,7 @@ export interface GitHubIssue {
   milestone?: {
     id: number;
     title: string;
-    state: 'open' | 'closed';
+    state: "open" | "closed";
   };
   createdAt: string;
   updatedAt: string;
@@ -127,7 +183,7 @@ export interface GitHubImportResult {
   imported: number;
   failed: number;
   errors?: string[];
-  tasks?: import('./task').Task[];
+  tasks?: import("./task").Task[];
 }
 
 export interface GitHubInvestigationResult {
@@ -137,7 +193,7 @@ export interface GitHubInvestigationResult {
     summary: string;
     proposedSolution: string;
     affectedFiles: string[];
-    estimatedComplexity: 'simple' | 'standard' | 'complex';
+    estimatedComplexity: "simple" | "standard" | "complex";
     acceptanceCriteria: string[];
   };
   taskId?: string;
@@ -145,7 +201,13 @@ export interface GitHubInvestigationResult {
 }
 
 export interface GitHubInvestigationStatus {
-  phase: 'idle' | 'fetching' | 'analyzing' | 'creating_task' | 'complete' | 'error';
+  phase:
+    | "idle"
+    | "fetching"
+    | "analyzing"
+    | "creating_task"
+    | "complete"
+    | "error";
   issueNumber?: number;
   progress: number;
   message: string;
@@ -163,12 +225,12 @@ export interface GitLabProject {
   description?: string;
   webUrl: string;
   defaultBranch: string;
-  visibility: 'private' | 'internal' | 'public';
+  visibility: "private" | "internal" | "public";
   namespace: {
     id: number;
     name: string;
     path: string;
-    kind: 'group' | 'user';
+    kind: "group" | "user";
   };
   avatarUrl?: string;
 }
@@ -178,7 +240,7 @@ export interface GitLabIssue {
   iid: number; // Project-scoped ID (GitLab uses iid for display)
   title: string;
   description?: string;
-  state: 'opened' | 'closed';
+  state: "opened" | "closed";
   labels: string[]; // GitLab uses string array, not objects
   assignees: Array<{ username: string; avatarUrl?: string }>;
   author: {
@@ -188,7 +250,7 @@ export interface GitLabIssue {
   milestone?: {
     id: number;
     title: string;
-    state: 'active' | 'closed';
+    state: "active" | "closed";
   };
   createdAt: string;
   updatedAt: string;
@@ -203,7 +265,7 @@ export interface GitLabMergeRequest {
   iid: number;
   title: string;
   description?: string;
-  state: 'opened' | 'closed' | 'merged' | 'locked';
+  state: "opened" | "closed" | "merged" | "locked";
   sourceBranch: string;
   targetBranch: string;
   author: {
@@ -255,7 +317,7 @@ export interface GitLabImportResult {
   imported: number;
   failed: number;
   errors?: string[];
-  tasks?: import('./task').Task[];
+  tasks?: import("./task").Task[];
 }
 
 export interface GitLabInvestigationResult {
@@ -265,7 +327,7 @@ export interface GitLabInvestigationResult {
     summary: string;
     proposedSolution: string;
     affectedFiles: string[];
-    estimatedComplexity: 'simple' | 'standard' | 'complex';
+    estimatedComplexity: "simple" | "standard" | "complex";
     acceptanceCriteria: string[];
   };
   taskId?: string;
@@ -273,7 +335,13 @@ export interface GitLabInvestigationResult {
 }
 
 export interface GitLabInvestigationStatus {
-  phase: 'idle' | 'fetching' | 'analyzing' | 'creating_task' | 'complete' | 'error';
+  phase:
+    | "idle"
+    | "fetching"
+    | "analyzing"
+    | "creating_task"
+    | "complete"
+    | "error";
   issueIid?: number;
   progress: number;
   message: string;
@@ -286,8 +354,15 @@ export interface GitLabInvestigationStatus {
 
 export interface GitLabMRReviewFinding {
   id: string;
-  severity: 'critical' | 'high' | 'medium' | 'low';
-  category: 'security' | 'quality' | 'style' | 'test' | 'docs' | 'pattern' | 'performance';
+  severity: "critical" | "high" | "medium" | "low";
+  category:
+    | "security"
+    | "quality"
+    | "style"
+    | "test"
+    | "docs"
+    | "pattern"
+    | "performance";
   title: string;
   description: string;
   file: string;
@@ -303,7 +378,7 @@ export interface GitLabMRReviewResult {
   success: boolean;
   findings: GitLabMRReviewFinding[];
   summary: string;
-  overallStatus: 'approve' | 'request_changes' | 'comment';
+  overallStatus: "approve" | "request_changes" | "comment";
   reviewedAt: string;
   reviewedCommitSha?: string;
   isFollowupReview?: boolean;
@@ -316,7 +391,7 @@ export interface GitLabMRReviewResult {
 }
 
 export interface GitLabMRReviewProgress {
-  phase: 'fetching' | 'analyzing' | 'generating' | 'posting' | 'complete';
+  phase: "fetching" | "analyzing" | "generating" | "posting" | "complete";
   mrIid: number;
   progress: number;
   message: string;
@@ -344,7 +419,15 @@ export interface GitLabAutoFixConfig {
 export interface GitLabAutoFixQueueItem {
   issueIid: number;
   project: string;
-  status: 'pending' | 'analyzing' | 'creating_spec' | 'building' | 'qa_review' | 'mr_created' | 'completed' | 'failed';
+  status:
+    | "pending"
+    | "analyzing"
+    | "creating_spec"
+    | "building"
+    | "qa_review"
+    | "mr_created"
+    | "completed"
+    | "failed";
   specId?: string;
   mrIid?: number;
   createdAt: string;
@@ -361,7 +444,7 @@ export interface GitLabIssueBatch {
 }
 
 export interface GitLabBatchProgress {
-  phase: 'analyzing' | 'grouping' | 'complete';
+  phase: "analyzing" | "grouping" | "complete";
   progress: number;
   message: string;
   issuesAnalyzed?: number;
@@ -369,7 +452,16 @@ export interface GitLabBatchProgress {
 }
 
 export interface GitLabAutoFixProgress {
-  phase: 'checking' | 'fetching' | 'analyzing' | 'batching' | 'creating_spec' | 'building' | 'qa_review' | 'creating_mr' | 'complete';
+  phase:
+    | "checking"
+    | "fetching"
+    | "analyzing"
+    | "batching"
+    | "creating_spec"
+    | "building"
+    | "qa_review"
+    | "creating_mr"
+    | "complete";
   issueIid: number;
   progress: number;
   message: string;
@@ -408,7 +500,14 @@ export interface GitLabAnalyzePreviewResult {
 // GitLab Triage Types
 // ============================================
 
-export type GitLabTriageCategory = 'bug' | 'feature' | 'documentation' | 'question' | 'duplicate' | 'spam' | 'feature_creep';
+export type GitLabTriageCategory =
+  | "bug"
+  | "feature"
+  | "documentation"
+  | "question"
+  | "duplicate"
+  | "spam"
+  | "feature_creep";
 
 export interface GitLabTriageConfig {
   enabled: boolean;
@@ -427,7 +526,7 @@ export interface GitLabTriageResult {
   duplicateOf?: number;
   spamReason?: string;
   featureCreepReason?: string;
-  priority: 'high' | 'medium' | 'low';
+  priority: "high" | "medium" | "low";
   comment?: string;
   triagedAt: string;
 }
@@ -444,7 +543,7 @@ export interface RoadmapFeedbackItem {
   title: string;
   description: string;
   votes: number;
-  status: string;  // Provider-specific status
+  status: string; // Provider-specific status
   url: string;
   createdAt: Date;
   updatedAt?: Date;
@@ -477,4 +576,10 @@ export interface RoadmapProviderConfig {
 /**
  * Canny-specific status values
  */
-export type CannyStatus = 'open' | 'under review' | 'planned' | 'in progress' | 'complete' | 'closed';
+export type CannyStatus =
+  | "open"
+  | "under review"
+  | "planned"
+  | "in progress"
+  | "complete"
+  | "closed";

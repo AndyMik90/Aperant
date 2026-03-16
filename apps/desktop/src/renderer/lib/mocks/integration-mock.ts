@@ -11,86 +11,105 @@ export const integrationMock = {
       githubEnabled: false,
       gitlabEnabled: false,
       memoryEnabled: false,
-      enableFancyUi: true
-    }
+      enableFancyUi: true,
+    },
   }),
 
   updateProjectEnv: async () => ({
-    success: true
+    success: true,
   }),
 
   // Linear Integration Operations
   getLinearTeams: async () => ({
     success: true,
-    data: []
+    data: [],
   }),
 
   getLinearProjects: async () => ({
     success: true,
-    data: []
+    data: [],
   }),
 
   getLinearIssues: async () => ({
     success: true,
-    data: []
+    data: [],
   }),
 
   importLinearIssues: async () => ({
     success: false,
-    error: 'Not available in browser mock'
+    error: "Not available in browser mock",
+  }),
+
+  getLinearIssueComments: async () => ({
+    success: true,
+    data: [],
   }),
 
   checkLinearConnection: async () => ({
     success: true,
     data: {
       connected: false,
-      error: 'Not available in browser mock'
-    }
+      error: "Not available in browser mock",
+    },
   }),
+
+  investigateLinearIssue: () => {
+    console.warn("[Browser Mock] investigateLinearIssue called");
+  },
+
+  syncLinearIssueStatus: async () => ({
+    success: false,
+    error: "Not available in browser mock",
+  }),
+
+  // Linear Event Listeners
+  onLinearInvestigationProgress: () => () => {},
+  onLinearInvestigationComplete: () => () => {},
+  onLinearInvestigationError: () => () => {},
 
   // GitHub Integration Operations
   getGitHubRepositories: async () => ({
     success: true,
-    data: []
+    data: [],
   }),
 
   getGitHubIssues: async () => ({
     success: true,
-    data: { issues: [], hasMore: false }
+    data: { issues: [], hasMore: false },
   }),
 
   getGitHubIssue: async () => ({
     success: false,
-    error: 'Not available in browser mock'
+    error: "Not available in browser mock",
   }),
 
   checkGitHubConnection: async () => ({
     success: true,
     data: {
       connected: false,
-      error: 'Not available in browser mock'
-    }
+      error: "Not available in browser mock",
+    },
   }),
 
   investigateGitHubIssue: () => {
-    console.warn('[Browser Mock] investigateGitHubIssue called');
+    console.warn("[Browser Mock] investigateGitHubIssue called");
   },
 
   getIssueComments: async () => ({
     success: true,
-    data: []
+    data: [],
   }),
 
   importGitHubIssues: async () => ({
     success: false,
-    error: 'Not available in browser mock'
+    error: "Not available in browser mock",
   }),
 
   createGitHubRelease: async () => ({
     success: true,
     data: {
-      url: 'https://github.com/example/repo/releases/tag/v1.0.0'
-    }
+      url: "https://github.com/example/repo/releases/tag/v1.0.0",
+    },
   }),
 
   onGitHubInvestigationProgress: () => () => {},
@@ -102,146 +121,171 @@ export const integrationMock = {
     success: true,
     data: {
       installed: false,
-      version: undefined
-    }
+      version: undefined,
+    },
   }),
 
   checkGitHubAuth: async () => ({
     success: true,
     data: {
       authenticated: false,
-      username: undefined
-    }
+      username: undefined,
+    },
   }),
 
   startGitHubAuth: async () => ({
     success: false,
-    error: 'Not available in browser mock'
+    error: "Not available in browser mock",
   }),
 
   getGitHubToken: async () => ({
     success: false,
-    error: 'Not available in browser mock'
+    error: "Not available in browser mock",
   }),
 
   getGitHubUser: async () => ({
     success: false,
-    error: 'Not available in browser mock'
+    error: "Not available in browser mock",
   }),
 
   listGitHubUserRepos: async () => ({
     success: true,
     data: {
       repos: [
-        { fullName: 'user/example-repo', description: 'An example repository', isPrivate: false },
-        { fullName: 'user/private-repo', description: 'A private repository', isPrivate: true }
-      ]
-    }
+        {
+          fullName: "user/example-repo",
+          description: "An example repository",
+          isPrivate: false,
+        },
+        {
+          fullName: "user/private-repo",
+          description: "A private repository",
+          isPrivate: true,
+        },
+      ],
+    },
   }),
 
   detectGitHubRepo: async () => ({
     success: true,
-    data: 'user/example-repo'
+    data: "user/example-repo",
   }),
 
   getGitHubBranches: async () => ({
     success: true,
-    data: ['main', 'develop', 'feature/example']
+    data: ["main", "develop", "feature/example"],
   }),
 
-  createGitHubRepo: async (_repoName: string, _options: { description?: string; isPrivate?: boolean; projectPath: string; owner?: string }) => ({
+  createGitHubRepo: async (
+    _repoName: string,
+    _options: {
+      description?: string;
+      isPrivate?: boolean;
+      projectPath: string;
+      owner?: string;
+    },
+  ) => ({
     success: false,
-    error: 'Not available in browser mock'
+    error: "Not available in browser mock",
   }),
 
   addGitRemote: async (_projectPath: string, _repoFullName: string) => ({
     success: false,
-    error: 'Not available in browser mock'
+    error: "Not available in browser mock",
   }),
 
   listGitHubOrgs: async () => ({
     success: true,
     data: {
       orgs: [
-        { login: 'example-org', avatarUrl: 'https://avatars.githubusercontent.com/u/1?v=4' },
-        { login: 'another-org', avatarUrl: 'https://avatars.githubusercontent.com/u/2?v=4' }
-      ]
-    }
+        {
+          login: "example-org",
+          avatarUrl: "https://avatars.githubusercontent.com/u/1?v=4",
+        },
+        {
+          login: "another-org",
+          avatarUrl: "https://avatars.githubusercontent.com/u/2?v=4",
+        },
+      ],
+    },
   }),
 
   // GitLab Integration Operations
   getGitLabProjects: async () => ({
     success: true,
-    data: []
+    data: [],
   }),
 
   getGitLabIssues: async () => ({
     success: true,
-    data: []
+    data: [],
   }),
 
   getGitLabIssue: async () => ({
     success: false,
-    error: 'Not available in browser mock'
+    error: "Not available in browser mock",
   }),
 
   getGitLabIssueNotes: async () => ({
     success: true,
-    data: []
+    data: [],
   }),
 
   checkGitLabConnection: async () => ({
     success: true,
     data: {
       connected: false,
-      error: 'Not available in browser mock'
-    }
+      error: "Not available in browser mock",
+    },
   }),
 
   investigateGitLabIssue: () => {
-    console.warn('[Browser Mock] investigateGitLabIssue called');
+    console.warn("[Browser Mock] investigateGitLabIssue called");
   },
 
   importGitLabIssues: async () => ({
     success: false,
-    error: 'Not available in browser mock'
+    error: "Not available in browser mock",
   }),
 
   createGitLabRelease: async () => ({
     success: true,
     data: {
-      url: 'https://gitlab.com/example/repo/-/releases/v1.0.0'
-    }
+      url: "https://gitlab.com/example/repo/-/releases/v1.0.0",
+    },
   }),
 
   // GitLab Merge Request Operations
   getGitLabMergeRequests: async () => ({
     success: true,
-    data: []
+    data: [],
   }),
 
   getGitLabMergeRequest: async () => ({
     success: false,
-    error: 'Not available in browser mock'
+    error: "Not available in browser mock",
   }),
 
-  createGitLabMergeRequest: async (_projectId: string, _options: {
-    title: string;
-    description?: string;
-    sourceBranch: string;
-    targetBranch: string;
-    labels?: string[];
-    assigneeIds?: number[];
-    removeSourceBranch?: boolean;
-    squash?: boolean;
-  }) => ({
+  createGitLabMergeRequest: async (
+    _projectId: string,
+    _options: {
+      title: string;
+      description?: string;
+      sourceBranch: string;
+      targetBranch: string;
+      labels?: string[];
+      assigneeIds?: number[];
+      removeSourceBranch?: boolean;
+      squash?: boolean;
+    },
+  ) => ({
     success: false,
-    error: 'Not available in browser mock'
+    error: "Not available in browser mock",
   }),
 
   updateGitLabMergeRequest: async () => ({
     success: false,
-    error: 'Not available in browser mock'
+    error: "Not available in browser mock",
   }),
 
   // GitLab MR Review Operations (AI-powered)
@@ -266,76 +310,99 @@ export const integrationMock = {
     success: true,
     data: {
       installed: false,
-      version: undefined
-    }
+      version: undefined,
+    },
   }),
 
   installGitLabCli: async () => ({
     success: false,
-    error: 'Not available in browser mock'
+    error: "Not available in browser mock",
   }),
 
   checkGitLabAuth: async () => ({
     success: true,
     data: {
       authenticated: false,
-      username: undefined
-    }
+      username: undefined,
+    },
   }),
 
   startGitLabAuth: async () => ({
     success: false,
-    error: 'Not available in browser mock'
+    error: "Not available in browser mock",
   }),
 
   getGitLabToken: async () => ({
     success: false,
-    error: 'Not available in browser mock'
+    error: "Not available in browser mock",
   }),
 
   getGitLabUser: async () => ({
     success: false,
-    error: 'Not available in browser mock'
+    error: "Not available in browser mock",
   }),
 
   listGitLabUserProjects: async () => ({
     success: true,
     data: {
       projects: [
-        { pathWithNamespace: 'user/example-project', description: 'An example project', visibility: 'public' },
-        { pathWithNamespace: 'user/private-project', description: 'A private project', visibility: 'private' }
-      ]
-    }
+        {
+          pathWithNamespace: "user/example-project",
+          description: "An example project",
+          visibility: "public",
+        },
+        {
+          pathWithNamespace: "user/private-project",
+          description: "A private project",
+          visibility: "private",
+        },
+      ],
+    },
   }),
 
   detectGitLabProject: async () => ({
     success: true,
-    data: { project: 'user/example-project', instanceUrl: 'https://gitlab.com' }
+    data: {
+      project: "user/example-project",
+      instanceUrl: "https://gitlab.com",
+    },
   }),
 
   getGitLabBranches: async () => ({
     success: true,
-    data: ['main', 'develop', 'feature/example']
+    data: ["main", "develop", "feature/example"],
   }),
 
   createGitLabProject: async () => ({
     success: false,
-    error: 'Not available in browser mock'
+    error: "Not available in browser mock",
   }),
 
   addGitLabRemote: async () => ({
     success: false,
-    error: 'Not available in browser mock'
+    error: "Not available in browser mock",
   }),
 
   listGitLabGroups: async () => ({
     success: true,
     data: {
       groups: [
-        { id: 1, name: 'Example Group', path: 'example-group', fullPath: 'example-group', description: 'An example group' },
-        { id: 2, name: 'Another Group', path: 'another-group', fullPath: 'another-group', description: 'Another group' }
-      ]
-    }
+        {
+          id: 1,
+          name: "Example Group",
+          path: "example-group",
+          fullPath: "example-group",
+          description: "An example group",
+        },
+        {
+          id: 2,
+          name: "Another Group",
+          path: "another-group",
+          fullPath: "another-group",
+          description: "Another group",
+        },
+      ],
+    },
   }),
 
   // GitLab Event Listeners
@@ -344,5 +411,5 @@ export const integrationMock = {
   onGitLabInvestigationError: () => () => {},
 
   // OAuth device code event listener (for streaming device code during auth)
-  onGitHubAuthDeviceCode: () => () => {}
+  onGitHubAuthDeviceCode: () => () => {},
 };

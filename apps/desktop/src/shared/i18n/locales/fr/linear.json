@@ -1,0 +1,49 @@
+{
+  "investigate": "Analyser et créer une tâche",
+  "viewTask": "Voir la tâche",
+  "syncToLinear": "Synchroniser vers Linear",
+  "syncSuccess": "Statut synchronisé vers Linear",
+  "syncError": "Échec de la synchronisation",
+  "syncNever": "Jamais synchronisé",
+  "noConnection": "Linear non connecté",
+  "connectPrompt": "Configurez Linear dans les paramètres du projet pour parcourir et analyser les tickets.",
+  "openSettings": "Ouvrir les paramètres",
+  "investigation": {
+    "fetching": "Récupération des détails du ticket...",
+    "analyzing": "Analyse du ticket...",
+    "creatingTask": "Création de la tâche...",
+    "complete": "Tâche créée avec succès",
+    "error": "L'analyse a échoué",
+    "selectComments": "Sélectionnez les commentaires à inclure dans l'analyse",
+    "noComments": "Aucun commentaire sur ce ticket",
+    "createTask": "Créer la tâche",
+    "startInvestigation": "Lancer l'analyse"
+  },
+  "filters": {
+    "all": "Tous",
+    "backlog": "Backlog",
+    "unstarted": "Non commencé",
+    "started": "En cours",
+    "completed": "Terminé",
+    "canceled": "Annulé",
+    "search": "Rechercher des tickets..."
+  },
+  "empty": {
+    "noIssues": "Aucun ticket trouvé",
+    "noSelection": "Sélectionnez un ticket pour voir les détails"
+  },
+  "header": {
+    "issues": "tickets",
+    "activeIssues": "tickets actifs",
+    "refresh": "Actualiser"
+  },
+  "proposedSolution": "Solution proposée",
+  "affectedFiles": "Fichiers concernés",
+  "priority": {
+    "urgent": "Urgent",
+    "high": "Élevé",
+    "medium": "Moyen",
+    "low": "Faible",
+    "none": "Sans priorité"
+  }
+}
