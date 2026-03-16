@@ -144,7 +144,7 @@
     "electron-builder": "^26.8.1",
     "electron-vite": "^5.0.0",
     "husky": "^9.1.7",
-    "jsdom": "^27.3.0",
+    "jsdom": "^29.0.0",
     "lint-staged": "^16.4.0",
     "postcss": "^8.5.8",
     "tailwindcss": "^4.2.1",
