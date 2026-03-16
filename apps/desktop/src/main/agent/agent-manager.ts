@@ -28,6 +28,7 @@ import { createOrGetWorktree } from '../ai/worktree';
 import { findTaskWorktree } from '../worktree-paths';
 import { readSettingsFile } from '../settings-utils';
 import type { ProviderAccount } from '../../shared/types/provider-account';
+import { getAppLanguage } from '../app-language';
 import { tryLoadPrompt } from '../ai/prompts/prompt-loader';
 
 /**
@@ -395,6 +396,7 @@ export class AgentManager extends EventEmitter {
       baseURL: resolved.auth?.baseURL,
       configDir: resolved.configDir,
       oauthTokenFilePath: resolved.auth?.oauthTokenFilePath,
+      language: getAppLanguage(),
       mcpOptions: {
         context7Enabled: true,
         memoryEnabled: !!process.env.GRAPHITI_MCP_URL,
@@ -519,6 +521,7 @@ export class AgentManager extends EventEmitter {
       baseURL: resolved.auth?.baseURL,
       configDir: resolved.configDir,
       oauthTokenFilePath: resolved.auth?.oauthTokenFilePath,
+      language: getAppLanguage(),
       mcpOptions: {
         context7Enabled: true,
         memoryEnabled: !!process.env.GRAPHITI_MCP_URL,

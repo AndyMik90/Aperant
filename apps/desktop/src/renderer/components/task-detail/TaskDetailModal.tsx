@@ -78,7 +78,7 @@ const isFilesTabEnabled = () => {
 
 // Separate component to use hooks only when task exists
 function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals, onOpenInbuiltTerminal }: { open: boolean; task: Task; onOpenChange: (open: boolean) => void; onSwitchToTerminals?: () => void; onOpenInbuiltTerminal?: (id: string, cwd: string) => void }) {
-  const { t } = useTranslation(['tasks']);
+  const { t } = useTranslation(['tasks', 'common']);
   const { toast } = useToast();
   const state = useTaskDetail({ task });
   const activeProject = useProjectStore(s => s.getActiveProject());
@@ -253,12 +253,12 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
           {state.isRecovering ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Recovering...
+              {t('tasks:labels.recovering')}
             </>
           ) : (
             <>
               <RotateCcw className="mr-2 h-4 w-4" />
-              Recover Task
+              {t('tasks:actions.recover')}
             </>
           )}
         </Button>
@@ -271,12 +271,12 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
           {state.isLoadingPlan ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Loading Plan...
+              {t('tasks:labels.pending')}
             </>
           ) : (
             <>
               <Play className="mr-2 h-4 w-4" />
-              Resume Task
+              {t('tasks:actions.resume')}
             </>
           )}
         </Button>
@@ -292,12 +292,12 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
           {state.isRunning ? (
             <>
               <Square className="mr-2 h-4 w-4" />
-              Stop Task
+              {t('tasks:actions.stop')}
             </>
           ) : (
             <>
               <Play className="mr-2 h-4 w-4" />
-              Start Task
+              {t('tasks:actions.start')}
             </>
           )}
         </Button>
@@ -384,12 +384,12 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                       {state.isStuck ? (
                         <Badge variant="warning" className="text-xs flex items-center gap-1 animate-pulse">
                           <AlertTriangle className="h-3 w-3" />
-                          Stuck
+                          {t('tasks:labels.stuck')}
                         </Badge>
                       ) : state.isIncomplete ? (
                         <Badge variant="warning" className="text-xs flex items-center gap-1">
                             <AlertTriangle className="h-3 w-3" />
-                            Incomplete
+                            {t('tasks:labels.incomplete')}
                           </Badge>
                       ) : (
                         <>
@@ -404,10 +404,10 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                               variant={task.reviewReason === 'completed' ? 'success' : task.reviewReason === 'errors' ? 'destructive' : 'warning'}
                               className="text-xs"
                             >
-                              {task.reviewReason === 'completed' ? 'Completed' :
-                               task.reviewReason === 'errors' ? 'Has Errors' :
-                               task.reviewReason === 'plan_review' ? 'Approve Plan' :
-                               task.reviewReason === 'stopped' ? 'Stopped' : 'QA Issues'}
+                              {task.reviewReason === 'completed' ? t('tasks:reviewReason.completed') :
+                               task.reviewReason === 'errors' ? t('tasks:reviewReason.hasErrors') :
+                               task.reviewReason === 'plan_review' ? t('tasks:reviewReason.approvePlan') :
+                               task.reviewReason === 'stopped' ? t('tasks:reviewReason.stopped') : t('tasks:reviewReason.qaIssues')}
                             </Badge>
                           )}
                         </>
@@ -601,12 +601,12 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                 disabled={state.isRunning && !state.isStuck}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Delete Task
+                {t('tasks:actions.delete')}
               </Button>
               <div className="flex-1" />
               {renderPrimaryAction()}
               <Button variant="outline" onClick={handleClose}>
-                Close
+                {t('common:buttons.close')}
               </Button>
             </div>
           </DialogPrimitive.Content>

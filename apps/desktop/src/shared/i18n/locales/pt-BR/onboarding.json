@@ -1,0 +1,261 @@
+{
+  "wizard": {
+    "title": "Assistente de Configuração",
+    "description": "Configure seu ambiente Aperant em poucos passos simples",
+    "helpText": "Este assistente ajudará você a configurar seu ambiente em poucos passos. Você pode configurar seu token OAuth do Claude, configurar funcionalidades de memória e criar sua primeira tarefa."
+  },
+  "welcome": {
+    "title": "Bem-vindo ao Aperant",
+    "subtitle": "Construa software de forma autônoma com agentes movidos a IA",
+    "getStarted": "Começar",
+    "skip": "Pular Configuração",
+    "features": {
+      "aiPowered": {
+        "title": "Desenvolvimento com IA",
+        "description": "Gere código e construa funcionalidades usando agentes Claude Code"
+      },
+      "specDriven": {
+        "title": "Workflow Orientado por Specs",
+        "description": "Defina tarefas com especificações claras e deixe o Aperant cuidar da implementação"
+      },
+      "memory": {
+        "title": "Memória e Contexto",
+        "description": "Memória persistente entre sessões com Graphiti"
+      },
+      "parallel": {
+        "title": "Execução Paralela",
+        "description": "Execute múltiplos agentes em paralelo para ciclos de desenvolvimento mais rápidos"
+      }
+    }
+  },
+  "oauth": {
+    "title": "Autenticação do Claude",
+    "description": "Conecte sua conta Claude para habilitar funcionalidades de IA",
+    "configureTitle": "Configurar Autenticação do Claude",
+    "addAccountsDesc": "Adicione suas contas Claude para habilitar funcionalidades de IA",
+    "multiAccountInfo": "Adicione múltiplas assinaturas do Claude para alternar automaticamente entre elas quando atingir limites de uso.",
+    "noAccountsYet": "Nenhuma conta configurada ainda",
+    "badges": {
+      "default": "Padrão",
+      "active": "Ativa",
+      "authenticated": "Autenticada",
+      "needsAuth": "Precisa Auth"
+    },
+    "buttons": {
+      "authenticate": "Autenticar",
+      "setActive": "Definir como Ativa",
+      "rename": "Renomear",
+      "delete": "Excluir",
+      "add": "Adicionar",
+      "adding": "Adicionando...",
+      "showToken": "Mostrar Token",
+      "hideToken": "Ocultar Token",
+      "copyToken": "Copiar Token",
+      "back": "Voltar",
+      "continue": "Continuar",
+      "skip": "Pular"
+    },
+    "labels": {
+      "accountName": "Nome da conta",
+      "namePlaceholder": "Nome do perfil (ex.: Trabalho, Pessoal)",
+      "tokenLabel": "Token OAuth",
+      "tokenPlaceholder": "Insira o token aqui",
+      "tokenHint": "Cole o token mostrado no seu terminal após completar o login OAuth."
+    },
+    "keychainTitle": "Armazenamento Seguro",
+    "keychainDescription": "Seus tokens são criptografados usando o keychain do sistema. Você pode ver um prompt de senha do macOS — clique em \"Sempre Permitir\" para não ver novamente.",
+    "toast": {
+      "authSuccess": "Perfil autenticado com sucesso",
+      "authSuccessWithEmail": "Conta: {{email}}",
+      "authSuccessGeneric": "Autenticação concluída. Agora você pode usar este perfil.",
+      "authStartFailed": "Falha ao iniciar autenticação",
+      "addProfileFailed": "Falha ao adicionar perfil",
+      "tokenSaved": "Token salvo",
+      "tokenSavedDescription": "Seu token foi salvo com sucesso.",
+      "tokenSaveFailed": "Falha ao salvar token",
+      "tryAgain": "Por favor, tente novamente."
+    },
+    "alerts": {
+      "profileCreatedAuthFailed": "Perfil criado, mas falha ao preparar autenticação: {{error}}",
+      "authPrepareFailed": "Falha ao preparar autenticação: {{error}}",
+      "authStartFailedMessage": "Falha ao iniciar autenticação. Por favor, tente novamente."
+    }
+  },
+  "memory": {
+    "title": "Memória",
+    "description": "Configure memória persistente entre sessões para agentes",
+    "contextDescription": "A Memória do Aperant ajuda a lembrar contexto entre suas sessões de codificação",
+    "enableMemory": "Habilitar Memória",
+    "enableMemoryDescription": "Memória persistente entre sessões usando um banco de dados embutido",
+    "memoryDisabledInfo": "A memória está desabilitada. Insights de sessão serão armazenados apenas em arquivos locais. Habilite a Memória para contexto persistente entre sessões com busca semântica.",
+    "embeddingProvider": "Provedor de Embeddings",
+    "embeddingProviderDescription": "Provedor para busca semântica (opcional - busca por palavras-chave funciona sem)",
+    "selectEmbeddingModel": "Selecionar Modelo de Embedding",
+    "openaiApiKey": "Chave da API OpenAI",
+    "openaiApiKeyDescription": "Necessária para embeddings da OpenAI",
+    "openaiGetKey": "Obtenha sua chave em",
+    "voyageApiKey": "Chave da API Voyage AI",
+    "voyageApiKeyDescription": "Necessária para embeddings da Voyage AI",
+    "voyageEmbeddingModel": "Modelo de Embedding",
+    "googleApiKey": "Chave da API Google AI",
+    "googleApiKeyDescription": "Necessária para embeddings do Google AI",
+    "azureConfig": "Configuração Azure OpenAI",
+    "azureApiKey": "Chave da API",
+    "azureBaseUrl": "URL Base",
+    "azureEmbeddingDeployment": "Nome do Deployment de Embedding",
+    "memoryInfo": "A Memória armazena descobertas, padrões e insights sobre seu código para que sessões futuras comecem com contexto já carregado.",
+    "learnMore": "Saiba mais sobre a Memória",
+    "back": "Voltar",
+    "skip": "Pular",
+    "saving": "Salvando...",
+    "saveAndContinue": "Salvar e Continuar",
+    "providers": {
+      "ollama": "Ollama (Local - Gratuito)",
+      "openai": "OpenAI",
+      "voyage": "Voyage AI",
+      "google": "Google AI",
+      "azure": "Azure OpenAI"
+    },
+    "ollamaConfig": "Configuração do Ollama",
+    "checking": "Verificando...",
+    "connected": "Conectado",
+    "notRunning": "Não está executando",
+    "baseUrl": "URL Base",
+    "embeddingModel": "Modelo de Embedding",
+    "embeddingDim": "Dimensão do Embedding",
+    "embeddingDimDescription": "Necessário para embeddings do Ollama (ex.: 768 para nomic-embed-text)",
+    "modelRecommendation": "Recomendado: qwen3-embedding:4b (equilibrado), :8b (qualidade), :0.6b (rápido)"
+  },
+  "completion": {
+    "title": "Tudo Pronto!",
+    "subtitle": "O Aperant está pronto para ajudá-lo a construir software incrível",
+    "setupComplete": "Configuração Completa",
+    "setupCompleteDescription": "Seu ambiente está configurado e pronto. Você pode começar a criar tarefas imediatamente ou explorar o aplicativo no seu ritmo.",
+    "whatsNext": "Próximos Passos",
+    "createTask": {
+      "title": "Criar uma Tarefa",
+      "description": "Comece criando sua primeira tarefa para ver o Aperant em ação.",
+      "action": "Abrir Criador de Tarefas"
+    },
+    "customizeSettings": {
+      "title": "Personalizar Configurações",
+      "description": "Ajuste suas preferências, configure integrações ou execute este assistente novamente.",
+      "action": "Abrir Configurações"
+    },
+    "exploreDocs": {
+      "title": "Explorar Documentação",
+      "description": "Saiba mais sobre funcionalidades avançadas, melhores práticas e solução de problemas."
+    },
+    "finish": "Finalizar e Começar a Construir",
+    "rerunHint": "Você sempre pode executar este assistente novamente em Configurações → Aplicativo"
+  },
+  "steps": {
+    "welcome": "Boas-vindas",
+    "accounts": "Contas",
+    "devtools": "Ferramentas Dev",
+    "privacy": "Privacidade",
+    "memory": "Memória",
+    "done": "Concluído"
+  },
+  "privacy": {
+    "title": "Ajude a Melhorar o Aperant",
+    "subtitle": "Relatórios de erro anônimos nos ajudam a corrigir bugs mais rápido",
+    "whatWeCollect": {
+      "title": "O que coletamos",
+      "crashReports": "Relatórios de falhas e stack traces de erros",
+      "errorMessages": "Mensagens de erro (com caminhos de arquivo anonimizados)",
+      "appVersion": "Versão do app e informações da plataforma"
+    },
+    "whatWeNeverCollect": {
+      "title": "O que nunca coletamos",
+      "code": "Seu código ou arquivos do projeto",
+      "filenames": "Caminhos completos de arquivos (nomes de usuário são mascarados)",
+      "apiKeys": "Chaves de API ou tokens",
+      "personalData": "Informações pessoais ou dados de uso"
+    },
+    "toggle": {
+      "label": "Enviar relatórios de erro anônimos",
+      "description": "Ajude-nos a identificar e corrigir problemas"
+    }
+  },
+  "claudeCode": {
+    "title": "CLI do Claude Code",
+    "description": "Instale ou atualize o CLI do Claude Code para habilitar funcionalidades de IA",
+    "detecting": "Verificando instalação do Claude Code...",
+    "info": {
+      "title": "O que é o Claude Code?",
+      "description": "Claude Code é o CLI oficial da Anthropic que alimenta as funcionalidades de IA do Aperant. Ele fornece autenticação segura e acesso direto aos modelos Claude."
+    },
+    "status": {
+      "installed": "Instalado",
+      "outdated": "Atualização Disponível",
+      "notFound": "Não Instalado"
+    },
+    "version": {
+      "current": "Versão Atual",
+      "latest": "Versão Mais Recente"
+    },
+    "install": {
+      "button": "Instalar Claude Code",
+      "updating": "Atualizar Claude Code",
+      "inProgress": "Instalando...",
+      "success": "Comando de instalação enviado ao terminal. Complete a instalação lá.",
+      "instructions": "O instalador abrirá no seu terminal. Siga as instruções para completar a instalação."
+    },
+    "learnMore": "Saiba mais sobre o Claude Code"
+  },
+  "devtools": {
+    "title": "Ferramentas de Desenvolvimento",
+    "description": "Escolha sua IDE, terminal e CLI preferidos para trabalhar com worktrees do Aperant",
+    "detecting": "Detectando ferramentas instaladas...",
+    "detectAgain": "Detectar Novamente",
+    "whyConfigure": "Por que configurar isso?",
+    "whyConfigureDescription": "Quando o Aperant constrói funcionalidades em worktrees isoladas, você pode abri-las diretamente na sua IDE ou terminal preferido para testar e revisar alterações.",
+    "ide": {
+      "label": "IDE Preferida",
+      "description": "O Aperant abrirá worktrees neste editor",
+      "customPath": "Caminho da IDE Personalizada"
+    },
+    "terminal": {
+      "label": "Terminal Preferido",
+      "description": "O Aperant abrirá sessões de terminal aqui",
+      "customPath": "Caminho do Terminal Personalizado"
+    },
+    "cli": {
+      "label": "CLI Preferido",
+      "description": "Ferramenta CLI usada para sessões de terminal com IA",
+      "customPath": "Caminho do CLI Personalizado"
+    },
+    "detectedSummary": "Detectado no seu sistema:",
+    "noToolsDetected": "Nenhuma ferramenta adicional detectada (VS Code e terminal do sistema serão usados)",
+    "custom": "Personalizado...",
+    "saveAndContinue": "Salvar e Continuar"
+  },
+  "accounts": {
+    "title": "Adicione Suas Contas de IA",
+    "description": "Conecte suas contas de provedor de IA. Você pode adicionar mais depois em Configurações.",
+    "buttons": {
+      "back": "Voltar",
+      "continue": "Continuar",
+      "skip": "Pular por enquanto"
+    }
+  },
+  "ollama": {
+    "notInstalled": {
+      "title": "Ollama não instalado",
+      "description": "O Ollama fornece modelos de embedding locais e gratuitos para busca semântica. Instale com um clique para habilitar esta funcionalidade.",
+      "installSuccess": "Instalação iniciada no seu terminal. Complete a instalação lá e clique em Tentar Novamente.",
+      "installButton": "Instalar Ollama",
+      "installing": "Instalando...",
+      "retry": "Tentar Novamente",
+      "learnMore": "Saiba mais",
+      "fallbackNote": "A memória ainda funcionará com busca por palavras-chave mesmo sem o Ollama."
+    },
+    "notRunning": {
+      "title": "Ollama não está executando",
+      "description": "O Ollama está instalado, mas não está executando. Inicie o Ollama para usar modelos de embedding locais.",
+      "retry": "Tentar Novamente",
+      "fallbackNote": "A memória ainda funcionará com busca por palavras-chave mesmo sem embeddings."
+    }
+  }
+}

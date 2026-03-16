@@ -89,7 +89,7 @@ export function AddFeatureDialog({
   onFeatureAdded,
   defaultPhaseId
 }: AddFeatureDialogProps) {
-  const { t } = useTranslation('dialogs');
+  const { t } = useTranslation(['dialogs', 'common']);
 
   // Form state
   const [title, setTitle] = useState('');
@@ -283,7 +283,7 @@ export function AddFeatureDialog({
                 <SelectContent>
                   {Object.entries(ROADMAP_PRIORITY_LABELS).map(([value, label]) => (
                     <SelectItem key={value} value={value}>
-                      {label}
+                      {t(`common:${label}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>

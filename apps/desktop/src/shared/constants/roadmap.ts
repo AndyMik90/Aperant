@@ -8,10 +8,10 @@
 // ============================================
 
 export const ROADMAP_PRIORITY_LABELS: Record<string, string> = {
-  must: 'Must Have',
-  should: 'Should Have',
-  could: 'Could Have',
-  wont: "Won't Have"
+  must: 'roadmap.priority.mustHave',
+  should: 'roadmap.priority.shouldHave',
+  could: 'roadmap.priority.couldHave',
+  wont: 'roadmap.priority.wontHave'
 };
 
 export const ROADMAP_PRIORITY_COLORS: Record<string, string> = {
@@ -53,17 +53,17 @@ export interface RoadmapStatusColumn {
 }
 
 export const ROADMAP_STATUS_COLUMNS: RoadmapStatusColumn[] = [
-  { id: 'under_review', label: 'Under Review', color: 'border-t-muted-foreground/50', icon: 'Eye' },
-  { id: 'planned', label: 'Planned', color: 'border-t-info', icon: 'Calendar' },
-  { id: 'in_progress', label: 'In Progress', color: 'border-t-primary', icon: 'Play' },
-  { id: 'done', label: 'Done', color: 'border-t-success', icon: 'Check' }
+  { id: 'under_review', label: 'roadmap.status.underReview', color: 'border-t-muted-foreground/50', icon: 'Eye' },
+  { id: 'planned', label: 'roadmap.status.planned', color: 'border-t-info', icon: 'Calendar' },
+  { id: 'in_progress', label: 'roadmap.status.inProgress', color: 'border-t-primary', icon: 'Play' },
+  { id: 'done', label: 'roadmap.status.done', color: 'border-t-success', icon: 'Check' }
 ];
 
 export const ROADMAP_STATUS_LABELS: Record<string, string> = {
-  under_review: 'Under Review',
-  planned: 'Planned',
-  in_progress: 'In Progress',
-  done: 'Done'
+  under_review: 'roadmap.status.underReview',
+  planned: 'roadmap.status.planned',
+  in_progress: 'roadmap.status.inProgress',
+  done: 'roadmap.status.done'
 };
 
 export const ROADMAP_STATUS_COLORS: Record<string, string> = {

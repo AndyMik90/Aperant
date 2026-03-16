@@ -20,6 +20,18 @@
     "noSession": "Profile switched. No active session to resume.",
     "migrationFailed": "Profile switched, but session migration failed. Starting fresh terminal."
   },
+  "grid": {
+    "title": "Agent Terminals",
+    "description": "Spawn multiple terminals to run Claude agents in parallel.\nUse Ctrl+T to create a new terminal.",
+    "newTerminal": "New Terminal",
+    "terminalCount": "{{count}} / {{max}} terminals",
+    "history": "History",
+    "restoreSessionsFrom": "Restore sessions from...",
+    "sessionCount": "{{count}} session",
+    "sessionCount_plural": "{{count}} sessions",
+    "invokeClaudeAll": "Invoke Claude All",
+    "clearTask": "Clear task"
+  },
   "worktree": {
     "create": "Worktree",
     "createNew": "New Worktree",

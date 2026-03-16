@@ -51,6 +51,8 @@ export interface RoadmapConfig {
   enableCompetitorAnalysis?: boolean;
   /** Abort signal for cancellation */
   abortSignal?: AbortSignal;
+  /** Language code for generated content (e.g., 'en', 'pt-BR') */
+  language?: string;
 }
 
 /** Result of a roadmap phase */
@@ -103,6 +105,7 @@ async function runDiscoveryPhase(
   client: SimpleClientResult,
   abortSignal?: AbortSignal,
   onStream?: RoadmapStreamCallback,
+  language?: string,
 ): Promise<RoadmapPhaseResult> {
   const discoveryFile = join(outputDir, 'roadmap_discovery.json');
   const projectIndexFile = join(outputDir, 'project_index.json');
@@ -121,7 +124,10 @@ async function runDiscoveryPhase(
   const loadedDiscoveryPrompt = tryLoadPrompt('roadmap_discovery');
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    const contextBlock = `\n\n---\n\n## CONTEXT (injected by runner)\n\n**Project Directory**: ${projectDir}\n**Project Index**: ${projectIndexFile}\n**Output Directory**: ${outputDir}\n**Output File**: ${discoveryFile}\n\nUse the paths above when reading input files and writing output.`;
+    const languageInstruction = language && language !== 'en'
+      ? `\n\n**LANGUAGE**: You MUST write ALL human-readable text content in ${language}. This includes: project descriptions, pain points, goals, vision statements, value propositions, success metrics, feature names, known gaps, differentiators, market position, and constraints. Keep JSON keys, technical terms (framework names, language names), and file paths in English.`
+      : '';
+    const contextBlock = `\n\n---\n\n## CONTEXT (injected by runner)\n\n**Project Directory**: ${projectDir}\n**Project Index**: ${projectIndexFile}\n**Output Directory**: ${outputDir}\n**Output File**: ${discoveryFile}\n\nUse the paths above when reading input files and writing output.${languageInstruction}`;
 
     const prompt = loadedDiscoveryPrompt
       ? loadedDiscoveryPrompt + contextBlock
@@ -140,7 +146,7 @@ Your task:
 
 The JSON must contain at minimum: project_name, target_audience, product_vision, key_features, technical_stack, and constraints.
 
-Do NOT ask questions. Make educated inferences and create the file.`;
+Do NOT ask questions. Make educated inferences and create the file.${languageInstruction}`;
 
     const discoveryUserPrompt = 'Analyze the project and create the discovery document. Use the available tools to explore the codebase, then write your findings as JSON to the output file specified in the context above.';
 
@@ -217,6 +223,7 @@ async function runFeaturesPhase(
   client: SimpleClientResult,
   abortSignal?: AbortSignal,
   onStream?: RoadmapStreamCallback,
+  language?: string,
 ): Promise<RoadmapPhaseResult> {
   const roadmapFile = join(outputDir, 'roadmap.json');
   const discoveryFile = join(outputDir, 'roadmap_discovery.json');
@@ -253,7 +260,10 @@ The following ${preservedFeatures.length} features already exist and will be pre
 Generate NEW features that complement these, do not duplicate them:
 ${preservedInfo}\n`;
     }
-    const featuresContextBlock = `\n\n---\n\n## CONTEXT (injected by runner)\n\n**Discovery File**: ${discoveryFile}\n**Project Index**: ${projectIndexFile}\n**Output File**: ${roadmapFile}\n${preservedSection}\nUse the paths above when reading input files and writing output. Write the complete roadmap JSON to the Output File path.`;
+    const featuresLanguageInstruction = language && language !== 'en'
+      ? `\n\n**LANGUAGE**: You MUST write ALL human-readable text content in ${language}. This includes: feature titles, descriptions, rationales, acceptance criteria, user stories, phase names, phase descriptions, milestone titles, milestone descriptions, vision statement, and audience descriptions. Keep JSON keys, technical terms, file paths, and enum values (must/should/could/wont, low/medium/high, idea/planned) in English.`
+      : '';
+    const featuresContextBlock = `\n\n---\n\n## CONTEXT (injected by runner)\n\n**Discovery File**: ${discoveryFile}\n**Project Index**: ${projectIndexFile}\n**Output File**: ${roadmapFile}\n${preservedSection}\nUse the paths above when reading input files and writing output. Write the complete roadmap JSON to the Output File path.${featuresLanguageInstruction}`;
 
     const prompt = loadedFeaturesPrompt
       ? loadedFeaturesPrompt + featuresContextBlock
@@ -272,7 +282,7 @@ Based on the discovery data:
 6. Map dependencies
 
 Output the complete roadmap as valid JSON to ${roadmapFile}.
-The JSON must contain: vision, target_audience (object with "primary" key), phases (array), and features (array with at least 3 items each with id, title, description, priority, complexity, impact, phase_id, status, acceptance_criteria, and user_stories).`;
+The JSON must contain: vision, target_audience (object with "primary" key), phases (array), and features (array with at least 3 items each with id, title, description, priority, complexity, impact, phase_id, status, acceptance_criteria, and user_stories).${featuresLanguageInstruction}`;
 
     const featuresUserPrompt = 'Read the discovery data and generate a complete roadmap with prioritized features. Write the roadmap JSON to the output file specified in the context above.';
 
@@ -441,6 +451,7 @@ export async function runRoadmapGeneration(
     thinkingLevel = 'medium',
     refresh = false,
     abortSignal,
+    language = 'en',
   } = config;
 
   const outputDir = config.outputDir ?? join(projectDir, '.auto-claude', 'roadmap');
@@ -475,7 +486,7 @@ export async function runRoadmapGeneration(
   // Phase 1: Discovery
   onStream?.({ type: 'phase-start', phase: 'discovery' });
   const discoveryResult = await runDiscoveryPhase(
-    projectDir, outputDir, refresh, client, abortSignal, onStream,
+    projectDir, outputDir, refresh, client, abortSignal, onStream, language,
   );
   phases.push(discoveryResult);
   onStream?.({ type: 'phase-complete', phase: 'discovery', success: discoveryResult.success });
@@ -491,7 +502,7 @@ export async function runRoadmapGeneration(
   // Phase 2: Feature Generation
   onStream?.({ type: 'phase-start', phase: 'features' });
   const featuresResult = await runFeaturesPhase(
-    projectDir, outputDir, refresh, client, abortSignal, onStream,
+    projectDir, outputDir, refresh, client, abortSignal, onStream, language,
   );
   phases.push(featuresResult);
   onStream?.({ type: 'phase-complete', phase: 'features', success: featuresResult.success });

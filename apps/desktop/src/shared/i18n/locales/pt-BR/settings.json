@@ -1,0 +1,1188 @@
+{
+  "title": "Configurações",
+  "tabs": {
+    "app": "Config. do App",
+    "project": "Config. do Projeto"
+  },
+  "sections": {
+    "appearance": {
+      "title": "Aparência",
+      "description": "Aparência do app"
+    },
+    "display": {
+      "title": "Exibição",
+      "description": "Tamanho da interface"
+    },
+    "language": {
+      "title": "Idioma",
+      "description": "Idioma preferido"
+    },
+    "devtools": {
+      "title": "Ferramentas Dev",
+      "description": "IDE e terminal"
+    },
+    "agent": {
+      "title": "Config. do Agente",
+      "description": "Modelo e framework"
+    },
+    "paths": {
+      "title": "Caminhos",
+      "description": "CLI e frameworks"
+    },
+    "accounts": {
+      "title": "Contas",
+      "description": "Claude e API endpoints"
+    },
+    "updates": {
+      "title": "Atualizações",
+      "description": "Updates do app"
+    },
+    "notifications": {
+      "title": "Notificações",
+      "description": "Alertas e avisos"
+    },
+    "debug": {
+      "title": "Debug e Logs",
+      "description": "Diagnóstico"
+    },
+    "terminal-fonts": {
+      "title": "Fontes do Terminal",
+      "description": "Fontes do terminal"
+    }
+  },
+  "apiProfiles": {
+    "title": "Perfis de API",
+    "description": "Endpoints compatíveis com Anthropic",
+    "addButton": "Adicionar Perfil",
+    "presets": {
+      "anthropic": "Anthropic",
+      "openrouter": "OpenRouter",
+      "groq": "Groq",
+      "zaiGlobal": "z.AI (Global)",
+      "zaiChina": "z.AI (China)"
+    },
+    "fields": {
+      "name": "Nome",
+      "preset": "Preset",
+      "baseUrl": "URL Base",
+      "apiKey": "Chave de API"
+    },
+    "placeholders": {
+      "name": "Minha API Personalizada",
+      "preset": "Escolha um preset de provedor",
+      "baseUrl": "https://api.anthropic.com",
+      "apiKey": "sk-ant-..."
+    },
+    "hints": {
+      "preset": "Presets preenchem a URL base; você ainda precisa colar sua chave de API.",
+      "baseUrl": "Exemplo: https://api.anthropic.com ou http://localhost:8080"
+    },
+    "validation": {
+      "nameRequired": "O nome é obrigatório",
+      "baseUrlRequired": "A URL base é obrigatória",
+      "baseUrlInvalid": "Formato de URL inválido (deve ser http:// ou https://)",
+      "apiKeyRequired": "A chave de API é obrigatória",
+      "apiKeyInvalid": "Formato de chave de API inválido"
+    },
+    "actions": {
+      "save": "Salvar Perfil",
+      "saving": "Salvando...",
+      "cancel": "Cancelar",
+      "changeKey": "Alterar",
+      "cancelKeyChange": "Cancelar"
+    },
+    "testConnection": {
+      "label": "Testar Conexão",
+      "testing": "Testando...",
+      "success": "Conexão Bem-sucedida",
+      "failure": "Conexão Falhou"
+    },
+    "models": {
+      "title": "Opcional: Mapeamento de Nomes de Modelos",
+      "description": "Selecione modelos do seu provedor de API. Deixe em branco para usar os padrões.",
+      "defaultLabel": "Modelo Padrão (Opcional)",
+      "haikuLabel": "Modelo Haiku (Opcional)",
+      "sonnetLabel": "Modelo Sonnet (Opcional)",
+      "opusLabel": "Modelo Opus (Opcional)",
+      "defaultPlaceholder": "ex., claude-sonnet-4-6",
+      "haikuPlaceholder": "ex., claude-haiku-4-5-20251001",
+      "sonnetPlaceholder": "ex., claude-sonnet-4-6",
+      "opusPlaceholder": "ex., claude-opus-4-6",
+      "opus1mPlaceholder": "ex., claude-opus-4-6 (1M context)"
+    },
+    "empty": {
+      "title": "Nenhum perfil de API configurado",
+      "description": "Crie um perfil para configurar endpoints de API personalizados para seus builds.",
+      "action": "Criar Primeiro Perfil"
+    },
+    "switchToOauth": {
+      "label": "Mudar para OAuth",
+      "loading": "Alternando..."
+    },
+    "activeBadge": "Ativo",
+    "customModels": "Modelos personalizados: {{models}}",
+    "setActive": {
+      "label": "Definir como Ativo",
+      "loading": "Definindo..."
+    },
+    "tooltips": {
+      "edit": "Editar perfil",
+      "deleteActive": "Mude para OAuth antes de excluir",
+      "deleteInactive": "Excluir perfil"
+    },
+    "deleteAriaLabel": "Excluir perfil {{name}}",
+    "toast": {
+      "create": {
+        "title": "Perfil criado",
+        "description": "\"{{name}}\" foi adicionado com sucesso."
+      },
+      "update": {
+        "title": "Perfil atualizado",
+        "description": "\"{{name}}\" foi atualizado com sucesso."
+      },
+      "delete": {
+        "title": "Perfil excluído",
+        "description": "\"{{name}}\" foi removido.",
+        "errorTitle": "Falha ao excluir perfil",
+        "errorFallback": "Ocorreu um erro ao excluir o perfil."
+      },
+      "switch": {
+        "oauthTitle": "Alternado para OAuth",
+        "oauthDescription": "Agora usando autenticação OAuth",
+        "profileTitle": "Perfil ativado",
+        "profileDescription": "Agora usando {{name}}",
+        "errorTitle": "Falha ao alternar autenticação",
+        "errorFallback": "Ocorreu um erro ao alternar o método de autenticação."
+      }
+    },
+    "dialog": {
+      "createTitle": "Adicionar Perfil de API",
+      "editTitle": "Editar Perfil",
+      "description": "Configure um endpoint de API compatível com Anthropic para seus builds.",
+      "deleteTitle": "Excluir Perfil?",
+      "deleteDescription": "Tem certeza de que deseja excluir \"{{name}}\"? Esta ação não pode ser desfeita.",
+      "cancel": "Cancelar",
+      "delete": "Excluir",
+      "deleting": "Excluindo..."
+    }
+  },
+  "modelSelect": {
+    "placeholder": "Selecione um modelo ou digite manualmente",
+    "placeholderManual": "Digite o nome do modelo (ex., claude-sonnet-4-6)",
+    "searchPlaceholder": "Buscar modelos...",
+    "noResults": "Nenhum modelo corresponde à sua busca",
+    "discoveryNotAvailable": "Descoberta de modelos não disponível. Digite o nome do modelo manualmente.",
+    "ollamaLoading": "Carregando modelos do Ollama...",
+    "ollamaNoModels": "Nenhum modelo do Ollama instalado",
+    "ollamaNoModelsHint": "Instale modelos em Configurações do Agente → aba Ollama",
+    "apiKeyOnly": "Chave de API"
+  },
+  "language": {
+    "label": "Idioma da Interface",
+    "description": "Selecione o idioma da interface do aplicativo"
+  },
+  "scale": {
+    "presets": "Presets de Escala",
+    "presetsDescription": "Opções rápidas de escala para preferências comuns",
+    "fineTune": "Ajuste Fino de Escala",
+    "fineTuneDescription": "Ajuste de 75% a 200% em incrementos de 5%",
+    "default": "Padrão",
+    "comfortable": "Confortável",
+    "large": "Grande"
+  },
+  "logOrder": {
+    "label": "Ordem dos Logs",
+    "description": "Escolha como os logs são exibidos na visualização de detalhes da tarefa",
+    "chronological": "Cronológico (mais antigos primeiro)",
+    "reverseChronological": "Cronológico reverso (mais recentes primeiro)"
+  },
+  "gpuAcceleration": {
+    "label": "Aceleração por GPU",
+    "description": "Usar WebGL para renderização do terminal (experimental, mais rápido com muitos terminais)",
+    "auto": "Automático (usar WebGL quando suportado)",
+    "on": "Sempre ativo",
+    "off": "Desativado (padrão)",
+    "helperText": "Alterações se aplicam apenas a novos terminais"
+  },
+  "general": {
+    "otherAgentSettings": "Outras Configurações do Agente",
+    "otherAgentSettingsDescription": "Opções adicionais de configuração do agente",
+    "agentFramework": "Framework do Agente",
+    "agentFrameworkDescription": "O framework de codificação usado para tarefas autônomas",
+    "agentFrameworkAutoClaude": "Aperant",
+    "aiTerminalNaming": "Nomeação de Terminal por IA",
+    "aiTerminalNamingDescription": "Nomear terminais automaticamente com base nos comandos (usa o modelo de Nomeação por IA)",
+    "featureModelSettings": "Configurações de Modelo de Funcionalidades",
+    "featureModelSettingsDescription": "Modelo e nível de raciocínio para Insights, Ideação e Roadmap",
+    "model": "Modelo",
+    "thinkingLevel": "Nível de Raciocínio",
+    "paths": "Caminhos",
+    "pathsDescription": "Configure caminhos de executáveis e frameworks",
+    "pythonPath": "Caminho do Python",
+    "pythonPathDescription": "Caminho para o executável Python (deixe vazio para detecção automática)",
+    "pythonPathPlaceholder": "python3 (padrão)",
+    "gitPath": "Caminho do Git",
+    "gitPathDescription": "Caminho para o executável Git (deixe vazio para detecção automática)",
+    "gitPathPlaceholder": "git (padrão)",
+    "githubCLIPath": "Caminho do GitHub CLI",
+    "githubCLIPathDescription": "Caminho para o executável GitHub CLI (gh) (deixe vazio para detecção automática)",
+    "githubCLIPathPlaceholder": "gh (padrão)",
+    "gitlabCLIPath": "Caminho do GitLab CLI",
+    "gitlabCLIPathDescription": "Caminho para o executável GitLab CLI (glab) (deixe vazio para detecção automática)",
+    "gitlabCLIPathPlaceholder": "glab (padrão)",
+    "claudePath": "Caminho do Claude CLI",
+    "claudePathDescription": "Caminho para o executável Claude CLI (deixe vazio para detecção automática)",
+    "claudePathPlaceholder": "claude (padrão)",
+    "detectedPath": "Detectado automaticamente",
+    "detectedVersion": "Versão",
+    "detectedSource": "Origem",
+    "sourceUserConfig": "Configuração do Usuário",
+    "sourceVenv": "Ambiente Virtual",
+    "sourceHomebrew": "Homebrew",
+    "sourceNvm": "NVM",
+    "sourceSystemPath": "PATH do Sistema",
+    "sourceBundled": "Incluído",
+    "sourceFallback": "Fallback",
+    "notDetected": "Não detectado",
+    "autoClaudePath": "Caminho do Aperant",
+    "autoClaudePathDescription": "Caminho relativo para o diretório auto-claude nos projetos",
+    "autoClaudePathPlaceholder": "auto-claude (padrão)",
+    "autoNameTerminals": "Nomear terminais automaticamente",
+    "autoNameTerminalsDescription": "Usar IA para gerar nomes descritivos para abas de terminal com base na atividade"
+  },
+  "theme": {
+    "title": "Aparência",
+    "description": "Personalize a aparência do Aperant",
+    "mode": "Modo",
+    "modeDescription": "Escolha entre temas claro e escuro",
+    "light": "Claro",
+    "dark": "Escuro",
+    "system": "Sistema",
+    "colorTheme": "Tema de Cores",
+    "colorThemeDescription": "Escolha sua paleta de cores preferida"
+  },
+  "devtools": {
+    "title": "Ferramentas de Desenvolvedor",
+    "description": "Configure sua IDE preferida, terminal e configurações de fonte do terminal",
+    "detecting": "Detectando ferramentas instaladas...",
+    "detectAgain": "Detectar Novamente",
+    "tabTools": "Ferramentas",
+    "tabTerminalFonts": "Fontes do Terminal",
+    "ide": {
+      "label": "IDE Preferida",
+      "description": "O Aperant abrirá worktrees neste editor",
+      "placeholder": "Selecionar IDE...",
+      "customPath": "Caminho da IDE Personalizada",
+      "customPathPlaceholder": "/caminho/para/sua/ide"
+    },
+    "terminal": {
+      "label": "Terminal Preferido",
+      "description": "O Aperant abrirá sessões de terminal aqui",
+      "placeholder": "Selecionar terminal...",
+      "customPath": "Caminho do Terminal Personalizado",
+      "customPathPlaceholder": "/caminho/para/seu/terminal"
+    },
+    "cli": {
+      "label": "CLI Preferido",
+      "description": "Ferramenta CLI usada para sessões de terminal com IA",
+      "placeholder": "Selecionar CLI...",
+      "customPath": "Caminho do CLI Personalizado",
+      "customPathPlaceholder": "/caminho/para/seu/cli"
+    },
+    "detected": "Detectado",
+    "notInstalled": "Não instalado",
+    "detectedSummary": "Detectados no seu sistema:",
+    "noToolsDetected": "Nenhuma ferramenta adicional detectada (VS Code e terminal do sistema serão usados)",
+    "autoNameClaude": {
+      "label": "Nomear terminais Claude automaticamente",
+      "description": "Usar IA para gerar um nome descritivo para terminais Claude com base na sua primeira mensagem"
+    },
+    "yoloMode": {
+      "label": "Modo YOLO",
+      "description": "Iniciar Claude com a flag --dangerously-skip-permissions, ignorando todas as confirmações de segurança. Use com extrema cautela.",
+      "warning": "Este modo ignora o sistema de permissões do Claude. Ative apenas se você confia totalmente no código sendo executado."
+    }
+  },
+  "updates": {
+    "title": "Atualizações",
+    "description": "Gerenciar atualizações do Aperant",
+    "appUpdateReady": "Atualização do App Pronta",
+    "newVersion": "Nova Versão",
+    "released": "Lançada em",
+    "downloading": "Baixando...",
+    "updateDownloaded": "Atualização baixada! Clique em Instalar para reiniciar e aplicar a atualização.",
+    "installAndRestart": "Instalar e Reiniciar",
+    "downloadUpdate": "Baixar Atualização",
+    "version": "Versão",
+    "loading": "Carregando...",
+    "checkingForUpdates": "Verificando atualizações...",
+    "newVersionAvailable": "Nova versão disponível:",
+    "latestVersion": "Você está usando a versão mais recente.",
+    "viewRelease": "Ver lançamento completo no GitHub",
+    "unableToCheck": "Não foi possível verificar atualizações",
+    "checkForUpdates": "Verificar Atualizações",
+    "autoUpdateProjects": "Atualizar Projetos Automaticamente",
+    "autoUpdateProjectsDescription": "Atualizar automaticamente o Aperant nos projetos quando uma nova versão estiver disponível",
+    "betaUpdates": "Atualizações Beta",
+    "betaUpdatesDescription": "Receber versões beta pré-lançamento com novos recursos (pode ser menos estável)",
+    "stableDowngradeAvailable": "Versão Estável Disponível",
+    "stableDowngradeDescription": "Você está usando uma versão beta. Como as atualizações beta estão desativadas, você pode voltar para a versão estável mais recente.",
+    "stableVersion": "Versão Estável",
+    "downloadStableVersion": "Baixar Versão Estável",
+    "readOnlyVolumeTitle": "Não é Possível Instalar a Partir de Imagem de Disco",
+    "readOnlyVolumeDescription": "O Aperant está sendo executado a partir de uma imagem de disco somente leitura (DMG). Arraste o app para a pasta Aplicativos e abra-o de lá para instalar atualizações.",
+    "downloadError": "Falha ao baixar atualização"
+  },
+  "notifications": {
+    "title": "Notificações",
+    "description": "Configure as preferências padrão de notificação",
+    "onTaskComplete": "Ao Concluir Tarefa",
+    "onTaskCompleteDescription": "Notificar quando uma tarefa for concluída com sucesso",
+    "onTaskFailed": "Ao Falhar Tarefa",
+    "onTaskFailedDescription": "Notificar quando uma tarefa encontrar um erro",
+    "onReviewNeeded": "Ao Necessitar Revisão",
+    "onReviewNeededDescription": "Notificar quando o QA precisar da sua revisão",
+    "sound": "Som",
+    "soundDescription": "Reproduzir som com as notificações"
+  },
+  "actions": {
+    "save": "Salvar Configurações",
+    "rerunWizard": "Executar Assistente Novamente",
+    "rerunWizardDescription": "Iniciar o assistente de configuração novamente"
+  },
+  "projectSections": {
+    "general": {
+      "title": "Geral",
+      "description": "Auto-Build e configuração do agente",
+      "useClaudeMd": "Usar CLAUDE.md",
+      "useClaudeMdDescription": "Incluir instruções do CLAUDE.md no contexto do agente"
+    },
+    "claude": {
+      "title": "Autenticação Claude",
+      "description": "Autenticação do Claude"
+    },
+    "linear": {
+      "title": "Linear",
+      "description": "Integração com Linear",
+      "integrationTitle": "Integração com Linear",
+      "integrationDescription": "Conecte-se ao Linear para rastreamento de issues e importação de tarefas",
+      "syncDescription": "Sincronizar com o Linear para rastreamento de issues"
+    },
+    "github": {
+      "title": "GitHub",
+      "description": "Sincronização de issues do GitHub",
+      "integrationTitle": "Integração com GitHub",
+      "integrationDescription": "Conecte-se ao GitHub para rastreamento de issues",
+      "syncDescription": "Sincronizar com GitHub Issues",
+      "defaultBranch": {
+        "label": "Branch Padrão",
+        "description": "Branch base para criar worktrees de tarefas",
+        "autoDetect": "Detectar automaticamente (main/master)",
+        "searchPlaceholder": "Buscar branches...",
+        "noBranchesFound": "Nenhuma branch encontrada",
+        "selectedBranchHelp": "Todas as novas tarefas serão criadas a partir da branch {{branch}}"
+      },
+      "pushNewBranches": {
+        "label": "Push Automático de Novas Branches",
+        "description": "Fazer push de novas branches de tarefas e worktrees para o GitHub e configurar o upstream tracking automaticamente"
+      }
+    },
+    "gitlab": {
+      "title": "GitLab",
+      "description": "Sincronização de issues do GitLab",
+      "integrationTitle": "Integração com GitLab",
+      "integrationDescription": "Conecte-se ao GitLab para rastreamento de issues",
+      "syncDescription": "Sincronizar com GitLab Issues"
+    },
+    "memory": {
+      "title": "Memória",
+      "description": "Backend de memória Graphiti",
+      "integrationTitle": "Memória",
+      "integrationDescription": "Configure a memória persistente entre sessões para os agentes",
+      "syncDescription": "Configurar memória persistente"
+    }
+  },
+  "agentProfile": {
+    "label": "Perfil do Agente",
+    "title": "Perfil Padrão do Agente",
+    "sectionDescription": "Selecione uma configuração predefinida para modelo e nível de raciocínio",
+    "profilesInfo": "Perfis de agente fornecem configurações predefinidas para o modelo Claude e nível de raciocínio. Ao criar uma nova tarefa, essas configurações serão usadas como padrão. Você sempre pode substituí-las no assistente de criação de tarefas.",
+    "custom": "Personalizado",
+    "customConfiguration": "Configuração Personalizada",
+    "customDescription": "Escolha modelo e nível de raciocínio",
+    "phaseConfiguration": "Configuração por Fase",
+    "phaseConfigurationDescription": "Personalize modelo e nível de raciocínio para cada fase",
+    "clickToCustomize": "Clique para personalizar",
+    "model": "Modelo",
+    "thinking": "Raciocínio",
+    "thinkingLevel": "Nível de Raciocínio",
+    "selectModel": "Selecionar modelo",
+    "selectThinkingLevel": "Selecionar nível de raciocínio",
+    "perPhaseOptimization": "(otimização por fase)",
+    "resetToDefaults": "Restaurar padrões",
+    "resetToProfileDefaults": "Restaurar padrões de {{profile}}",
+    "customized": "Personalizado",
+    "ollamaNotConfigured": "Selecione os modelos abaixo",
+    "phaseConfigNote": "Essas configurações serão usadas como padrão ao criar novas tarefas com este perfil. Você pode substituí-las por tarefa no assistente de criação de tarefas.",
+    "adaptiveThinking": {
+      "badge": "Adaptativo",
+      "tooltip": "O Opus usa raciocínio adaptativo — ele decide dinamicamente o quanto pensar dentro do limite de orçamento definido pelo nível de raciocínio."
+    },
+    "reasoning": {
+      "adaptive": "Adaptativo",
+      "budget": "Orçamento",
+      "reasoning": "Raciocínio",
+      "thinking": "Raciocínio",
+      "noThinking": "(Sem raciocínio)",
+      "toggle": {
+        "off": "Desligado",
+        "on": "Ligado"
+      },
+      "badgeTooltip": {
+        "adaptive_effort": "Decide dinamicamente o quanto pensar dentro do limite de orçamento",
+        "thinking_tokens": "Raciocínio baseado em orçamento com alocação configurável de tokens",
+        "reasoning_effort": "Níveis de esforço de raciocínio (baixo/médio/alto)",
+        "thinking_toggle": "Ativar/desativar raciocínio",
+        "none": "Raciocínio estendido não suportado"
+      }
+    },
+    "phases": {
+      "spec": {
+        "label": "Criação de Spec",
+        "description": "Descoberta, requisitos, coleta de contexto"
+      },
+      "planning": {
+        "label": "Planejamento",
+        "description": "Planejamento de implementação e arquitetura"
+      },
+      "coding": {
+        "label": "Codificação",
+        "description": "Implementação do código"
+      },
+      "qa": {
+        "label": "Revisão QA",
+        "description": "Garantia de qualidade e validação"
+      }
+    },
+    "providerOverrides": {
+      "title": "Mapeamento de Modelos por Provedor",
+      "description": "Personalize qual modelo cada provedor usa para cada atalho",
+      "defaultMapping": "Padrão",
+      "yourOverride": "Sua Substituição",
+      "shorthand": "Atalho",
+      "useDefault": "Usar Padrão",
+      "resetAll": "Resetar Tudo",
+      "noConnectedProviders": "Nenhum provedor conectado. Adicione contas nas configurações de Contas para configurar mapeamentos de modelos.",
+      "equivalentNote": "Quando um provedor não-Anthropic está ativo, esses mapeamentos determinam qual modelo é usado para cada fase."
+    },
+    "providerTabs": {
+      "moreProviders": "Mais",
+      "noProviders": "Nenhum provedor conectado. Adicione contas nas configurações de Contas para configurar as configurações de agente específicas do provedor.",
+      "configureFor": "Configurar agente para {{provider}}",
+      "crossProvider": "Multi-Provedor",
+      "crossProviderDisabledTooltip": "Conecte duas ou mais contas de provedor para habilitar capacidades multi-provedor",
+      "needsSetup": "Configuração necessária"
+    },
+    "crossProviderTab": {
+      "title": "Configuração Multi-Provedor",
+      "description": "Atribua um provedor e modelo diferente para cada fase do pipeline para máxima flexibilidade.",
+      "activateInfo": "Tarefas criadas enquanto esta configuração está ativa usarão a configuração multi-provedor.",
+      "featureModelsTitle": "Modelos de Funcionalidades",
+      "featureModelsDescription": "Configure modelos para funcionalidades fora do pipeline (Insights, Ideação, etc.)"
+    },
+    "customProfile": {
+      "name": "Personalizado (Multi-Provedor)",
+      "description": "Combine diferentes provedores e modelos para cada fase",
+      "phaseAssignment": "Atribua um provedor e modelo para cada fase"
+    },
+    "ollamaModels": {
+      "title": "Modelos Ollama",
+      "description": "Gerencie modelos instalados localmente para tarefas de agentes de IA",
+      "installed": "Modelos Instalados",
+      "installedCount": "{{count}} modelo(s)",
+      "noModels": "Nenhum modelo LLM instalado",
+      "recommended": "Recomendados para Codificação",
+      "recommendedDescription": "Modelos populares otimizados para geração de código e raciocínio",
+      "download": "Baixar",
+      "downloading": "Baixando...",
+      "refresh": "Atualizar",
+      "loading": "Carregando modelos...",
+      "ollamaNotAvailable": "Conecte o Ollama nas Configurações de Conta para gerenciar modelos"
+    }
+  },
+  "workspace": {
+    "roles": {
+      "backend": "Backend",
+      "frontend": "Frontend",
+      "mobile": "Mobile",
+      "shared": "Compartilhado",
+      "apiGateway": "API Gateway",
+      "worker": "Worker",
+      "other": "Outro"
+    }
+  },
+  "integrations": {
+    "title": "Integrações",
+    "description": "Gerencie contas Claude e chaves de API",
+    "claudeAccounts": "Contas Claude",
+    "claudeAccountsDescription": "Adicione múltiplas assinaturas Claude para alternar automaticamente entre elas quando atingir limites de uso.",
+    "claudeAccountsWarning": "Ao autenticar, certifique-se de estar logado na conta Claude correta no seu navegador. Cada perfil deve usar uma assinatura diferente.",
+    "noAccountsYet": "Nenhuma conta configurada ainda",
+    "default": "Padrão",
+    "active": "Ativo",
+    "authenticated": "Autenticado",
+    "needsAuth": "Autenticação Necessária",
+    "authenticate": "Autenticar",
+    "authenticating": "Autenticando...",
+    "setActive": "Definir como Ativo",
+    "manualTokenEntry": "Inserção Manual de Token",
+    "runSetupToken": "Execute claude e digite /login para autenticar",
+    "tokenPlaceholder": "sk-ant-oat01-...",
+    "emailPlaceholder": "Email (opcional, para exibição)",
+    "saveToken": "Salvar Token",
+    "accountNamePlaceholder": "Nome da conta (ex., Trabalho, Pessoal)",
+    "autoSwitching": "Troca Automática de Conta",
+    "autoSwitchingDescription": "Alterne automaticamente entre contas Claude para evitar interrupções. Configure o monitoramento proativo para trocar antes de atingir os limites.",
+    "enableAutoSwitching": "Habilitar troca automática",
+    "masterSwitch": "Controle principal para todas as funcionalidades de troca automática",
+    "proactiveMonitoring": "Monitoramento Proativo",
+    "proactiveDescription": "Verificar uso regularmente e trocar antes de atingir os limites",
+    "checkUsageEvery": "Verificar uso a cada",
+    "seconds15": "15 segundos",
+    "seconds30": "30 segundos (recomendado)",
+    "minute1": "1 minuto",
+    "disabled": "Desabilitado",
+    "sessionThreshold": "Limite de uso da sessão",
+    "sessionThresholdDescription": "Trocar quando o uso da sessão atingir este nível (recomendado: 95%)",
+    "weeklyThreshold": "Limite de uso semanal",
+    "weeklyThresholdDescription": "Trocar quando o uso semanal atingir este nível (recomendado: 99%)",
+    "reactiveRecovery": "Recuperação Reativa",
+    "reactiveDescription": "Trocar automaticamente quando um limite de uso inesperado for atingido",
+    "autoSwitchOnAuthFailure": "Troca automática em falha de autenticação",
+    "autoSwitchOnAuthFailureDescription": "Trocar automaticamente para outra conta autenticada quando a autenticação falhar",
+    "apiKeys": "Chaves de API",
+    "apiKeysInfo": "As chaves definidas aqui são usadas como padrão. Projetos individuais podem sobrescrevê-las em suas configurações.",
+    "openaiKey": "Chave de API OpenAI",
+    "openaiKeyDescription": "Necessária para o backend de memória Graphiti (embeddings)",
+    "toast": {
+      "authSuccess": "Perfil Autenticado",
+      "authSuccessWithEmail": "Conectado como {{email}}",
+      "authSuccessGeneric": "Autenticação concluída. Agora você pode usar este perfil.",
+      "authStartFailed": "Falha na Autenticação",
+      "addProfileFailed": "Falha ao Adicionar Perfil",
+      "loadProfilesFailed": "Falha ao Carregar Perfis",
+      "deleteProfileFailed": "Falha ao Excluir Perfil",
+      "renameProfileFailed": "Falha ao Renomear Perfil",
+      "setActiveProfileFailed": "Falha ao Definir Perfil Ativo",
+      "profileCreatedAuthFailed": "Perfil Criado - Autenticação Necessária",
+      "profileCreatedAuthFailedDescription": "O perfil foi adicionado, mas a autenticação não pôde ser iniciada. Clique no botão de login para autenticar.",
+      "tokenSaved": "Token Salvo",
+      "tokenSavedDescription": "Seu token foi salvo com sucesso.",
+      "tokenSaveFailed": "Falha ao Salvar Token",
+      "settingsUpdateFailed": "Falha ao Atualizar Configurações",
+      "tryAgain": "Tente novamente.",
+      "terminalCreationFailed": "Falha ao criar terminal de autenticação",
+      "terminalCreationFailedDescription": "Não foi possível iniciar o processo de autenticação. {{error}}",
+      "maxTerminalsReached": "Limite máximo de terminais atingido",
+      "maxTerminalsReachedDescription": "Feche alguns terminais e tente novamente. Você pode ter até 12 terminais abertos.",
+      "terminalError": "Erro no Terminal",
+      "terminalErrorDescription": "Falha ao criar terminal: {{error}}",
+      "authProcessFailed": "O processo de autenticação falhou ao iniciar",
+      "authProcessFailedDescription": "O terminal de autenticação não pôde ser criado. Tente novamente ou verifique os logs para mais detalhes."
+    },
+    "alerts": {
+      "profileCreatedAuthFailed": "Perfil criado, mas falha ao preparar autenticação: {{error}}",
+      "authPrepareFailed": "Falha ao preparar autenticação: {{error}}",
+      "authStartFailedMessage": "Falha ao iniciar autenticação. Tente novamente."
+    }
+  },
+  "accounts": {
+    "title": "Contas",
+    "description": "Gerencie contas Claude e endpoints de API",
+    "tabs": {
+      "claudeCode": "Claude Code",
+      "customEndpoints": "Endpoints Personalizados"
+    },
+    "claudeCode": {
+      "description": "Adicione múltiplas assinaturas Claude para alternar automaticamente entre elas quando atingir limites de uso.",
+      "noAccountsYet": "Nenhuma conta configurada ainda",
+      "default": "Padrão",
+      "active": "Ativo",
+      "authenticated": "Autenticado",
+      "needsAuth": "Autenticação Necessária",
+      "authenticate": "Autenticar",
+      "authenticating": "Autenticando...",
+      "setActive": "Definir como Ativo",
+      "manualTokenEntry": "Inserção Manual de Token",
+      "runSetupToken": "Execute claude e digite /login para autenticar",
+      "tokenPlaceholder": "sk-ant-oat01-...",
+      "emailPlaceholder": "Email (opcional, para exibição)",
+      "saveToken": "Salvar Token",
+      "accountNamePlaceholder": "Nome da conta (ex., Trabalho, Pessoal)"
+    },
+    "customEndpoints": {
+      "description": "Configure endpoints de API compatíveis com Anthropic",
+      "addButton": "Adicionar Perfil",
+      "activeBadge": "Ativo",
+      "customModels": "Modelos personalizados: {{models}}",
+      "setActive": {
+        "label": "Definir como Ativo",
+        "loading": "Definindo..."
+      },
+      "switchToOauth": {
+        "label": "Usar Claude Code",
+        "loading": "Alternando..."
+      },
+      "tooltips": {
+        "edit": "Editar perfil",
+        "deleteActive": "Não é possível excluir perfil ativo",
+        "deleteInactive": "Excluir perfil"
+      },
+      "empty": {
+        "title": "Nenhum Endpoint Personalizado",
+        "description": "Configure endpoints de API compatíveis com Anthropic para usar provedores alternativos.",
+        "action": "Adicionar Perfil"
+      },
+      "dialog": {
+        "deleteTitle": "Excluir Perfil",
+        "deleteDescription": "Tem certeza de que deseja excluir \"{{name}}\"? Esta ação não pode ser desfeita.",
+        "cancel": "Cancelar",
+        "delete": "Excluir",
+        "deleting": "Excluindo..."
+      }
+    },
+    "autoSwitching": {
+      "title": "Troca Automática de Conta",
+      "description": "Alterne automaticamente entre contas para evitar interrupções. Configure o monitoramento proativo para trocar antes de atingir os limites.",
+      "enableAutoSwitching": "Habilitar troca automática",
+      "masterSwitch": "Controle principal para todas as funcionalidades de troca automática",
+      "proactiveMonitoring": "Monitoramento Proativo",
+      "proactiveDescription": "Verificar uso regularmente e trocar antes de atingir os limites",
+      "sessionThreshold": "Limite de uso da sessão",
+      "sessionThresholdDescription": "Trocar quando o uso da sessão atingir este nível (recomendado: 95%)",
+      "weeklyThreshold": "Limite de uso semanal",
+      "weeklyThresholdDescription": "Trocar quando o uso semanal atingir este nível (recomendado: 99%)",
+      "reactiveRecovery": "Recuperação Reativa",
+      "reactiveDescription": "Trocar automaticamente quando um limite de uso inesperado for atingido",
+      "autoSwitchOnAuthFailure": "Troca automática em falha de autenticação",
+      "autoSwitchOnAuthFailureDescription": "Trocar automaticamente para outra conta autenticada quando a autenticação falhar"
+    },
+    "priority": {
+      "title": "Ordem de Prioridade das Contas",
+      "description": "Arraste para reordenar. O sistema trocará para a próxima conta disponível em ordem.",
+      "tabs": {
+        "default": "Padrão",
+        "crossProvider": "Multi-Provedor"
+      },
+      "crossProviderDescription": "Esta ordem de prioridade é usada quando o modo multi-provedor está ativo. Quando múltiplas contas compartilham um provedor, o sistema seleciona a melhor disponível com base nesta ordem.",
+      "setActive": "Definir como ativo",
+      "setActiveTooltip": "Tornar esta a conta principal",
+      "noAccounts": "Nenhuma conta configurada. Adicione contas acima para definir a prioridade.",
+      "noEmail": "Sem email",
+      "active": "Ativo",
+      "inUse": "Em Uso",
+      "next": "Próximo",
+      "unlimited": "Ilimitado",
+      "unavailable": "Indisponível",
+      "typeOAuth": "OAuth",
+      "typeAPI": "API",
+      "payPerUse": "Pago por uso",
+      "needsAuth": "Não autenticado",
+      "duplicateUsage": "Padrão de uso duplicado",
+      "duplicateUsageHint": "Esses perfis OAuth compartilham valores de uso idênticos. Verifique se cada perfil está associado a uma conta diferente, caso isso não tenha sido intencional.",
+      "needsReauth": "Reautenticação necessária",
+      "needsReauthHint": "O token de atualização deste perfil é inválido. Clique para reautenticar.",
+      "sessionUsage": "Uso da sessão (janela de 5 horas)",
+      "weeklyUsage": "Uso semanal (janela de 7 dias)",
+      "oauthSection": "Contas Claude (ciclar primeiro)",
+      "apiSection": "Endpoints de Fallback (quando todas as contas se esgotarem)",
+      "tipTitle": "Como a prioridade funciona",
+      "tipDescription": "Contas Claude estão incluídas na sua assinatura e serão cicladas primeiro. Endpoints de API cobram por requisição e são usados como fallback quando todas as contas Claude atingem seus limites.",
+      "status": {
+        "healthy": "Saudável",
+        "moderate": "Moderado",
+        "highUsage": "Uso elevado",
+        "nearLimit": "Próximo do limite",
+        "rateLimited": "Limite de uso atingido"
+      }
+    },
+    "toast": {
+      "loadProfilesFailed": "Falha ao Carregar Perfis",
+      "addProfileFailed": "Falha ao Adicionar Perfil",
+      "deleteProfileFailed": "Falha ao Excluir Perfil",
+      "renameProfileFailed": "Falha ao Renomear Perfil",
+      "setActiveProfileFailed": "Falha ao Definir Perfil Ativo",
+      "tokenSaved": "Token Salvo",
+      "tokenSavedDescription": "Seu token foi salvo com sucesso.",
+      "tokenSaveFailed": "Falha ao Salvar Token",
+      "settingsUpdateFailed": "Falha ao Atualizar Configurações",
+      "tryAgain": "Tente novamente."
+    },
+    "alerts": {
+      "profileCreatedAuthFailed": "Perfil criado, mas falha ao preparar autenticação: {{error}}",
+      "authPrepareFailed": "Falha ao preparar autenticação: {{error}}",
+      "authStartFailedMessage": "Falha ao iniciar autenticação. Tente novamente."
+    }
+  },
+  "providers": {
+    "card": {
+      "oauth": "OAuth",
+      "codex": "Codex",
+      "codexSubscription": "Assinatura Codex",
+      "claudeCode": "Claude Code",
+      "claudeCodeSubscription": "Assinatura Claude Code",
+      "zaiCodingPlan": "Plano de Codificação",
+      "zaiUsageBased": "Baseado em Uso",
+      "zaiCodingPlanSubscription": "Plano de Codificação Z.AI",
+      "apiKey": "Chave de API",
+      "active": "Ativo",
+      "setDefault": "Definir como Ativo",
+      "edit": "Editar conta",
+      "reauth": "Reautenticar",
+      "delete": "Excluir conta",
+      "showKey": "Mostrar chave de API",
+      "hideKey": "Ocultar chave de API",
+      "oauthAccount": "Conta OAuth",
+      "oauthLinked": "Conta vinculada",
+      "noEndpoint": "Sem endpoint",
+      "customModels": "{{count}} modelo(s) configurado(s)"
+    },
+    "section": {
+      "envDetected": "Do ambiente",
+      "envCredentialDetected": "Credenciais detectadas na variável de ambiente {{envVar}}",
+      "noAccounts": "Nenhuma conta configurada",
+      "addOAuth": "Adicionar Conta OAuth",
+      "addClaudeCode": "Adicionar Conta Claude Code",
+      "addCodexSubscription": "Adicionar Assinatura Codex",
+      "addCodingPlan": "Adicionar Plano de Codificação",
+      "addUsageBased": "Adicionar Chave de API Baseada em Uso",
+      "addApiKey": "Adicionar Chave de API",
+      "addEndpoint": "Adicionar Endpoint"
+    },
+    "dialog": {
+      "addTitle": "Adicionar Conta",
+      "editTitle": "Editar Conta",
+      "deleteTitle": "Excluir Conta?",
+      "deleteDescription": "Tem certeza de que deseja excluir esta conta? Esta ação não pode ser desfeita.",
+      "cancel": "Cancelar",
+      "close": "Fechar",
+      "delete": "Excluir",
+      "deleting": "Excluindo...",
+      "save": "Salvar Alterações",
+      "add": "Adicionar Conta",
+      "optional": "(opcional)",
+      "oauthDescription": "Conectar usando autenticação OAuth",
+      "apiKeyDescription": "Adicione sua chave de API e configuração",
+      "zaiCodingPlanDescription": "Adicione sua chave de API do Plano de Codificação Z.AI para usar modelos GLM com sua assinatura",
+      "zaiUsageBasedDescription": "Adicione sua chave de API Z.AI baseada em uso para acesso pago por uso aos modelos GLM",
+      "codexOAuthDescription": "Faça login com sua assinatura ChatGPT Plus ou Pro para usar modelos Codex",
+      "codexAuthenticating": "Abrindo login da OpenAI no seu navegador...",
+      "codexWaiting": "Aguardando autenticação no navegador...",
+      "codexSuccess": "Autenticado com OpenAI Codex",
+      "codexError": "Falha na autenticação OpenAI: {{error}}",
+      "codexAuthenticate": "Autenticar com OpenAI",
+      "codexReauthenticate": "Reautenticar com OpenAI",
+      "oauthInstructions": "Para adicionar uma conta OAuth, use o fluxo de autenticação do Claude Code na aba Claude Code acima. Contas OAuth estão vinculadas à sua assinatura Claude.ai.",
+      "oauthAuthenticate": "Autenticar com Anthropic",
+      "oauthReauthenticate": "Reautenticar com Anthropic",
+      "oauthAuthenticating": "Abrindo navegador...",
+      "oauthWaiting": "Aguardando autorização...",
+      "oauthSuccess": "Autenticado como {{email}}",
+      "oauthError": "Falha na autenticação: {{error}}",
+      "oauthFallback": "Usar Terminal (Fallback)",
+      "oauthFallbackDescription": "Se o login pelo navegador não funcionar, use o terminal integrado",
+      "oauthNameRequired": "Insira um nome de conta antes de autenticar",
+      "modelsDescription": "Adicione os IDs dos modelos disponíveis neste endpoint. Eles aparecerão no seletor de modelos.",
+      "fields": {
+        "name": "Nome da Conta",
+        "apiKey": "Chave de API",
+        "baseUrl": "URL Base",
+        "region": "Região AWS",
+        "models": "Modelos"
+      },
+      "placeholders": {
+        "name": "Minha Conta",
+        "apiKey": "sk-...",
+        "baseUrl": "https://...",
+        "modelId": "ID do Modelo (ex., llama-3.1-70b)",
+        "modelLabel": "Nome de exibição"
+      },
+      "toast": {
+        "added": "Conta adicionada",
+        "updated": "Conta atualizada",
+        "error": "Falha ao salvar conta",
+        "duplicateEmail": "Este email já está registrado como \"{{existingName}}\"",
+        "createProfileFailed": "Falha ao criar perfil",
+        "authPrepareFailed": "Falha ao preparar terminal",
+        "unexpectedError": "Erro inesperado"
+      }
+    },
+    "toast": {
+      "deleted": "Conta excluída",
+      "deleteFailed": "Falha ao excluir conta",
+      "reauthStarted": "Abrindo autenticação...",
+      "reauthSuccess": "Reautenticado com sucesso",
+      "reauthFailed": "Falha na reautenticação"
+    },
+    "categories": {
+      "popular": "Populares",
+      "infrastructure": "Infraestrutura",
+      "local": "Local e Personalizado"
+    },
+    "ollama": {
+      "connection": {
+        "checking": "Verificando conexão com Ollama...",
+        "connected": "Conectado",
+        "connectedDescription": "O Ollama está em execução e pronto para uso",
+        "modelsAvailable": "{{count}} modelo(s) LLM instalado(s)",
+        "noModels": "Nenhum modelo LLM instalado ainda",
+        "customUrl": "URL Personalizada",
+        "customUrlPlaceholder": "http://localhost:11434",
+        "notInstalled": "Ollama Não Instalado",
+        "notInstalledDescription": "Instale o Ollama para executar modelos de IA de código aberto localmente",
+        "notRunning": "Ollama Não Está em Execução",
+        "notRunningDescription": "Inicie o serviço Ollama para conectar",
+        "install": "Instalar Ollama",
+        "retry": "Tentar Novamente",
+        "learnMore": "Saiba Mais",
+        "autoConnected": "Conectado automaticamente como provedor local",
+        "startCommand": "Execute 'ollama serve' no seu terminal"
+      }
+    }
+  },
+  "debug": {
+    "title": "Debug e Logs",
+    "description": "Acesse logs e informações de debug para diagnóstico",
+    "errorReporting": {
+      "label": "Relatório Anônimo de Erros",
+      "description": "Envie relatórios de falhas para ajudar a melhorar o Aperant. Nenhum dado pessoal ou código é coletado."
+    },
+    "openLogsFolder": "Abrir Pasta de Logs",
+    "copyDebugInfo": "Copiar Informações de Debug",
+    "copied": "Copiado!",
+    "loadInfo": "Carregar Informações de Debug",
+    "systemInfo": "Informações do Sistema",
+    "logsLocation": "Localização dos Logs",
+    "recentErrors": "Erros Recentes",
+    "noRecentErrors": "Nenhum erro recente",
+    "helpTitle": "Reportando Problemas",
+    "helpText": "Ao reportar bugs, clique em \"Copiar Informações de Debug\" para obter informações do sistema e erros recentes que nos ajudam a diagnosticar o problema."
+  },
+  "projectSettings": {
+    "noProjectSelected": {
+      "title": "Nenhum Projeto Selecionado",
+      "description": "Selecione um projeto na barra lateral para configurar suas opções."
+    }
+  },
+  "mcp": {
+    "title": "Visão Geral dos Servidores MCP",
+    "titleWithProject": "Visão Geral dos Servidores MCP para {{projectName}}",
+    "description": "Configure quais servidores MCP estão disponíveis para os agentes neste projeto",
+    "descriptionNoProject": "Selecione um projeto para configurar os servidores MCP",
+    "serversEnabled": "{{count}} servidores habilitados",
+    "configuration": "Configuração de Servidores MCP",
+    "configurationHint": "Servidores desabilitados reduzem o uso de contexto e o tempo de inicialização",
+    "noProjectSelected": "Nenhum Projeto Selecionado",
+    "noProjectSelectedDescription": "Selecione um projeto no dropdown para visualizar e configurar os servidores MCP.",
+    "projectNotInitialized": "Projeto Não Inicializado",
+    "projectNotInitializedDescription": "Inicialize o Aperant para este projeto para configurar os servidores MCP.",
+    "browserAutomation": "Automação de Navegador (apenas agentes QA)",
+    "alwaysEnabled": "sempre habilitado",
+    "addServer": "Adicionar Servidor",
+    "addMcpTo": "Adicionar Servidor MCP ao {{agent}}",
+    "addMcpDescription": "Selecione um servidor MCP para adicionar a este agente",
+    "allMcpsAdded": "Todos os servidores MCP disponíveis já foram adicionados",
+    "added": "adicionado",
+    "removed": "removido",
+    "remove": "Remover",
+    "restore": "Restaurar",
+    "noMcpServers": "Nenhum servidor MCP",
+    "cannotRemove": "Não é possível remover (obrigatório)",
+    "servers": {
+      "context7": {
+        "name": "Context7",
+        "description": "Consulta de documentação para bibliotecas"
+      },
+      "graphiti": {
+        "name": "Memória Graphiti",
+        "description": "Grafo de conhecimento para contexto entre sessões",
+        "notConfigured": "Requer configuração de memória (veja configurações de Memória)"
+      },
+      "linear": {
+        "name": "Linear",
+        "description": "Integração de gerenciamento de projetos",
+        "notConfigured": "Requer integração com Linear (veja configurações do Linear)"
+      },
+      "electron": {
+        "name": "Electron",
+        "description": "Automação de app desktop via Chrome DevTools"
+      },
+      "puppeteer": {
+        "name": "Puppeteer",
+        "description": "Automação de navegador web para testes"
+      },
+      "autoClaude": {
+        "name": "Ferramentas Aperant",
+        "description": "Rastreamento de progresso de build"
+      }
+    },
+    "customServers": "Servidores Personalizados",
+    "addCustomServer": "Adicionar Servidor Personalizado",
+    "editCustomServer": "Editar Servidor Personalizado",
+    "customServerDescription": "Adicione um servidor MCP baseado em comando ou HTTP",
+    "serverType": "Tipo de Servidor",
+    "typeCommand": "Comando (npx/npm)",
+    "typeHttp": "HTTP",
+    "serverName": "Nome",
+    "serverNamePlaceholder": "Meu Servidor MCP",
+    "serverDescription": "Descrição",
+    "serverDescriptionPlaceholder": "O que este servidor faz",
+    "command": "Comando",
+    "args": "Argumentos",
+    "argsHint": "Argumentos separados por espaço",
+    "url": "URL",
+    "headers": "Cabeçalhos",
+    "headerName": "Nome do Cabeçalho",
+    "headerValue": "Valor do Cabeçalho",
+    "noCustomServers": "Nenhum servidor personalizado configurado. Adicione um para usar com seus agentes.",
+    "errorNameRequired": "O nome do servidor é obrigatório",
+    "errorIdExists": "Um servidor com este ID já existe",
+    "errorCommandRequired": "O comando é obrigatório para servidores baseados em comando",
+    "errorUrlRequired": "A URL é obrigatória para servidores baseados em HTTP",
+    "testConnection": "Testar",
+    "testing": "Testando...",
+    "authToken": "Token de Autenticação",
+    "authTokenPlaceholder": "Cole seu token de API ou PAT aqui",
+    "authTokenHint": "Usado como token Bearer no cabeçalho Authorization",
+    "advancedHeaders": "Cabeçalhos Adicionais",
+    "status": {
+      "healthy": "O servidor está respondendo",
+      "unhealthy": "O servidor não está respondendo",
+      "needsAuth": "Autenticação necessária",
+      "checking": "Verificando...",
+      "unknown": "Status desconhecido"
+    },
+    "hints": {
+      "github": "Parece ser um servidor MCP do GitHub. Você precisará de um Personal Access Token com os escopos apropriados.",
+      "createGithubPat": "Criar PAT do GitHub",
+      "google": "Parece ser uma API do Google. Você precisará de um token OAuth ou chave de API.",
+      "createGoogleToken": "Criar Credenciais do Google",
+      "anthropic": "Parece ser uma API da Anthropic. Você precisará de uma chave de API.",
+      "createAnthropicKey": "Criar Chave de API Anthropic",
+      "openai": "Parece ser uma API da OpenAI. Você precisará de uma chave de API.",
+      "createOpenaiKey": "Criar Chave de API OpenAI"
+    }
+  },
+  "terminalFonts": {
+    "title": "Fontes do Terminal",
+    "description": "Personalize a aparência e o comportamento das fontes do terminal",
+    "configActions": "Configuração:",
+    "export": "Exportar JSON",
+    "import": "Importar JSON",
+    "copy": "Copiar para Área de Transferência",
+    "fontConfig": {
+      "title": "Configuração de Fonte",
+      "description": "Personalize família de fontes, tamanho, peso, altura de linha e espaçamento entre caracteres",
+      "fontFamily": "Família de Fontes",
+      "fontFamilyDescription": "Fonte monoespaçada principal para texto do terminal",
+      "selectFont": "Selecionar uma fonte...",
+      "searchFont": "Buscar fontes...",
+      "noFonts": "Nenhuma fonte encontrada",
+      "fontChain": "Cadeia de fontes:",
+      "fontSize": "Tamanho da Fonte",
+      "fontSizeDescription": "Tamanho base da fonte em pixels (10-24px)",
+      "decreaseFontSize": "Diminuir tamanho da fonte em {{step}}px",
+      "increaseFontSize": "Aumentar tamanho da fonte em {{step}}px",
+      "pixels": "pixels",
+      "fontWeight": "Peso da Fonte",
+      "fontWeightDescription": "Peso da fonte de 100 (fino) a 900 (ultra-negrito), em incrementos de 100",
+      "commonWeights": "Comuns: 400 (normal), 600 (seminegrito), 700 (negrito)",
+      "decreaseFontWeight": "Diminuir peso da fonte em {{step}}",
+      "increaseFontWeight": "Aumentar peso da fonte em {{step}}",
+      "lineHeight": "Altura de Linha",
+      "lineHeightDescription": "Altura de linha como múltiplo do tamanho da fonte (1.0-2.0)",
+      "letterSpacing": "Espaçamento entre Caracteres",
+      "letterSpacingDescription": "Espaçamento horizontal entre caracteres (-2 a 5px)"
+    },
+    "cursorConfig": {
+      "title": "Configuração do Cursor",
+      "description": "Personalize o estilo do cursor, comportamento de piscar e cor de destaque",
+      "cursorStyle": "Estilo do Cursor",
+      "cursorStyleDescription": "Escolha a aparência do cursor do terminal",
+      "selectStyle": "Selecionar estilo do cursor...",
+      "currentStyle": "Atual:",
+      "styleBlock": "Bloco",
+      "styleBlockDescription": "Cursor de bloco completo",
+      "styleUnderline": "Sublinhado",
+      "styleUnderlineDescription": "Cursor sublinhado",
+      "styleBar": "Barra",
+      "styleBarDescription": "Cursor de barra vertical",
+      "cursorBlink": "Cursor Piscante",
+      "cursorBlinkDescription": "Habilitar ou desabilitar a animação de piscar do cursor",
+      "blinkStatus": "Status:",
+      "enabled": "Habilitado",
+      "disabled": "Desabilitado",
+      "cursorAccentColor": "Cor de Destaque do Cursor",
+      "cursorAccentColorDescription": "Escolha a cor do cursor do terminal",
+      "cursorColorLabel": "Cor de destaque do cursor",
+      "cursorColorDescription": "Cor atual: {{color}}",
+      "pickColor": "Clique para escolher uma cor",
+      "resetColor": "Resetar para preto",
+      "reset": "Resetar",
+      "preview": "Pré-visualização:"
+    },
+    "performanceConfig": {
+      "title": "Configurações de Performance",
+      "description": "Ajuste o limite de scrollback e outras configurações relacionadas à performance",
+      "presets": "Presets Rápidos",
+      "presetsDescription": "Limites de scrollback comuns para diferentes casos de uso",
+      "scrollback": "Limite de Scrollback",
+      "scrollbackDescription": "Número máximo de linhas para manter no histórico do terminal",
+      "scrollbackPresets": "Presets Rápidos",
+      "presetMinimal": "Mínimo",
+      "presetMinimalDescription": "Histórico mínimo (1K linhas)",
+      "presetStandard": "Padrão",
+      "presetStandardDescription": "Histórico padrão (10K linhas)",
+      "presetExtended": "Estendido",
+      "presetExtendedDescription": "Histórico estendido (50K linhas)",
+      "presetMaximum": "Máximo",
+      "presetMaximumDescription": "Histórico máximo (100K linhas)",
+      "decreaseScrollback": "Diminuir scrollback em {{step}}",
+      "increaseScrollback": "Aumentar scrollback em {{step}}",
+      "lines": "linhas",
+      "kValue": "{{value}}K",
+      "scrollbackValue": "{{value}} linhas"
+    },
+    "presets": {
+      "title": "Presets Rápidos",
+      "description": "Aplique configurações pré-definidas de fonte do terminal ou salve as suas",
+      "builtin": "Presets Integrados",
+      "builtinDescription": "Clique para aplicar um preset pré-configurado",
+      "vscode": "Consolas 14px, cursor bloco",
+      "vscodeName": "VS Code",
+      "intellij": "JetBrains Mono 13px, cursor bloco",
+      "intellijName": "IntelliJ IDEA",
+      "macos": "SF Mono 13px, cursor bloco",
+      "macosName": "Terminal macOS",
+      "ubuntu": "Ubuntu Mono 13px, cursor bloco",
+      "ubuntuName": "Terminal Ubuntu",
+      "reset": "Restaurar Padrões",
+      "resetDescription": "Restaurar as configurações padrão do seu sistema operacional",
+      "resetToOS": "Restaurar padrões do {{os}}",
+      "resetButton": "Restaurar Padrão do SO",
+      "custom": "Presets Personalizados",
+      "customDescription": "Salve sua configuração atual como um preset personalizado",
+      "presetNamePlaceholder": "Nome do preset...",
+      "savePreset": "Salvar configuração atual como preset",
+      "applyPreset": "Aplicar este preset",
+      "deletePreset": "Excluir este preset",
+      "noCustomPresets": "Nenhum preset personalizado ainda. Salve sua configuração atual para começar.",
+      "duplicateName": "Um preset com este nome já existe",
+      "saved": "Preset \"{{name}}\" salvo",
+      "deleted": "Preset \"{{name}}\" excluído",
+      "unknownFont": "Desconhecida",
+      "applyFailed": "Falha ao aplicar preset \"{{name}}\"",
+      "presetNameLabel": "Nome do preset",
+      "summary": "{{font}}, {{size}}px, cursor {{cursor}}"
+    },
+    "preview": {
+      "title": "Pré-visualização ao Vivo",
+      "description": "Pré-visualize suas configurações de terminal em tempo real (atualiza em 300ms)",
+      "ariaLabel": "Pré-visualização da fonte do terminal",
+      "infoText": "Esta pré-visualização atualiza em 300ms a cada alteração para mostrar como suas configurações ficarão nos terminais reais."
+    },
+    "importExport": {
+      "exportSuccess": "Configurações exportadas com sucesso",
+      "exportFailed": "Falha ao exportar configurações",
+      "importSuccess": "Configurações importadas com sucesso",
+      "importFailed": "Falha ao importar configurações: Formato JSON inválido",
+      "importFailedRange": "Falha ao importar configurações: Valores fora do intervalo válido",
+      "copySuccess": "Configurações copiadas para a área de transferência",
+      "copyFailed": "Falha ao copiar para a área de transferência",
+      "fileTooLarge": "Arquivo de importação muito grande (máximo 10KB)",
+      "readError": "Falha ao ler arquivo"
+    },
+    "slider": {
+      "decrease": "Diminuir {{label}} em {{step}}",
+      "increase": "Aumentar {{label}} em {{step}}",
+      "currentValue": "Valor atual: {{value}}"
+    }
+  },
+  "agents": {
+    "pr_template_filler": {
+      "label": "Preenchedor de Template de PR",
+      "description": "IA preenche templates de PR do GitHub a partir das alterações de código"
+    }
+  },
+  "provider": {
+    "title": "Provedor de IA",
+    "description": "Configure seu provedor de IA e preferências de modelo",
+    "selection": {
+      "label": "Provedor",
+      "description": "Selecione qual provedor de IA usar para tarefas de agente",
+      "anthropic": "Anthropic",
+      "openai": "OpenAI",
+      "ollama": "Ollama (Local)",
+      "openrouter": "OpenRouter"
+    },
+    "apiKey": {
+      "label": "Chave de API",
+      "description": "Sua chave de API para o provedor selecionado",
+      "placeholder": "Insira sua chave de API",
+      "anthropicPlaceholder": "sk-ant-...",
+      "openaiPlaceholder": "sk-...",
+      "openrouterPlaceholder": "sk-or-...",
+      "validation": {
+        "required": "A chave de API é obrigatória para este provedor",
+        "invalid": "Formato de chave de API inválido"
+      }
+    },
+    "ollama": {
+      "endpointUrl": "URL do Endpoint Ollama",
+      "endpointDescription": "A URL onde sua instância do Ollama está em execução",
+      "endpointPlaceholder": "http://localhost:11434",
+      "validation": {
+        "urlRequired": "A URL do endpoint é obrigatória para o Ollama",
+        "urlInvalid": "Formato de URL inválido (deve ser http:// ou https://)"
+      }
+    },
+    "phaseModels": {
+      "title": "Preferências de Modelo por Fase",
+      "description": "Configure qual modelo usar para cada fase do pipeline",
+      "spec": {
+        "label": "Modelo de Criação de Spec",
+        "description": "Modelo usado para descoberta, requisitos e coleta de contexto"
+      },
+      "planning": {
+        "label": "Modelo de Planejamento",
+        "description": "Modelo usado para planejamento de implementação e arquitetura"
+      },
+      "coding": {
+        "label": "Modelo de Codificação",
+        "description": "Modelo usado para implementação de código"
+      },
+      "qa": {
+        "label": "Modelo de Revisão QA",
+        "description": "Modelo usado para garantia de qualidade e validação"
+      },
+      "placeholder": "Selecionar um modelo",
+      "useDefault": "Usar modelo padrão"
+    },
+    "testConnection": {
+      "label": "Testar Conexão",
+      "testing": "Testando...",
+      "success": "Conexão bem-sucedida",
+      "failure": "Conexão falhou"
+    },
+    "toast": {
+      "saved": {
+        "title": "Configurações do provedor salvas",
+        "description": "Sua configuração de provedor de IA foi atualizada."
+      },
+      "error": {
+        "title": "Falha ao salvar configurações do provedor",
+        "description": "Ocorreu um erro ao salvar a configuração do provedor."
+      }
+    }
+  }
+}

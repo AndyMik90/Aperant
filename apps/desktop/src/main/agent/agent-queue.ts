@@ -414,6 +414,7 @@ export class AgentQueueManager {
           refresh,
           enableCompetitorAnalysis,
           abortSignal: abortController.signal,
+          language: config?.language,
         },
         (event: RoadmapStreamEvent) => {
           switch (event.type) {

@@ -243,7 +243,19 @@ export function injectContext(promptTemplate: string, context: PromptContext): s
     );
   }
 
-  // 5. Base prompt
+  // 5. Language instruction
+  if (context.language && context.language !== 'en') {
+    sections.push(
+      `## OUTPUT LANGUAGE\n\n` +
+      `You MUST write ALL human-readable text content in **${context.language}**. ` +
+      `This includes: titles, descriptions, rationale, acceptance criteria, user stories, ` +
+      `phase names, status messages, and any text shown to the user. ` +
+      `Keep JSON keys, code, file paths, technical identifiers, and enum values in English.\n\n` +
+      `---\n\n`
+    );
+  }
+
+  // 6. Base prompt
   sections.push(promptTemplate);
 
   return sections.join('');

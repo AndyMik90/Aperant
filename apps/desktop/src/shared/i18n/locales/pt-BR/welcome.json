@@ -1,0 +1,17 @@
+{
+  "hero": {
+    "title": "Bem-vindo ao Aperant",
+    "subtitle": "Construa software de forma autônoma com agentes movidos a IA"
+  },
+  "actions": {
+    "newProject": "Novo Projeto",
+    "openProject": "Abrir Projeto"
+  },
+  "recentProjects": {
+    "title": "Projetos Recentes",
+    "empty": "Nenhum projeto ainda",
+    "emptyDescription": "Crie um novo projeto ou abra um existente para começar",
+    "openFolder": "Abrir Pasta",
+    "openProjectAriaLabel": "Abrir projeto {{name}}"
+  }
+}

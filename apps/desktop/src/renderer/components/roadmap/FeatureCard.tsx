@@ -29,19 +29,19 @@ export function FeatureCard({
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <Badge variant="outline" className={ROADMAP_PRIORITY_COLORS[feature.priority]}>
-              {ROADMAP_PRIORITY_LABELS[feature.priority]}
+              {t(ROADMAP_PRIORITY_LABELS[feature.priority])}
             </Badge>
             <Badge
               variant="outline"
               className={`text-xs ${ROADMAP_COMPLEXITY_COLORS[feature.complexity]}`}
             >
-              {feature.complexity}
+              {t(`roadmap.complexity.${feature.complexity}`)}
             </Badge>
             <Badge
               variant="outline"
               className={`text-xs ${ROADMAP_IMPACT_COLORS[feature.impact]}`}
             >
-              {feature.impact} impact
+              {t('roadmap.impact.label', { impact: t(`roadmap.impact.${feature.impact}`) })}
             </Badge>
             {hasCompetitorInsight && (
               <Tooltip>

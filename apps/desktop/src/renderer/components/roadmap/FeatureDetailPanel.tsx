@@ -57,13 +57,13 @@ export function FeatureDetailPanel({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <Badge variant="outline" className={ROADMAP_PRIORITY_COLORS[feature.priority]}>
-                {ROADMAP_PRIORITY_LABELS[feature.priority]}
+                {t(ROADMAP_PRIORITY_LABELS[feature.priority])}
               </Badge>
               <Badge
                 variant="outline"
                 className={`${ROADMAP_COMPLEXITY_COLORS[feature.complexity]}`}
               >
-                {feature.complexity}
+                {t(`roadmap.complexity.${feature.complexity}`)}
               </Badge>
             </div>
             <h2 className="font-semibold truncate">{feature.title}</h2>
@@ -113,13 +113,13 @@ export function FeatureDetailPanel({
             <div
               className={`text-lg font-semibold ${ROADMAP_COMPLEXITY_COLORS[feature.complexity]}`}
             >
-              {feature.complexity}
+              {t(`roadmap.complexity.${feature.complexity}`)}
             </div>
             <div className="text-xs text-muted-foreground">Complexity</div>
           </Card>
           <Card className="p-3 text-center">
             <div className={`text-lg font-semibold ${ROADMAP_IMPACT_COLORS[feature.impact]}`}>
-              {feature.impact}
+              {t(`roadmap.impact.${feature.impact}`)}
             </div>
             <div className="text-xs text-muted-foreground">Impact</div>
           </Card>

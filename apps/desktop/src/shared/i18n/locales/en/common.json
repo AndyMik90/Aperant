@@ -688,6 +688,9 @@
     "footer": "The account will be available once you complete authentication."
   },
   "roadmap": {
+    "emptyTitle": "No Roadmap Yet",
+    "emptyDescription": "Generate an AI-powered roadmap that understands your project's target audience and creates a strategic feature plan.",
+    "generateButton": "Generate Roadmap",
     "taskCompleted": "Completed",
     "taskDeleted": "Deleted",
     "taskArchived": "Archived",
@@ -701,7 +704,44 @@
     "convertToTask": "Convert to Auto-Build Task",
     "build": "Build",
     "task": "Task",
-    "viewTask": "View Task"
+    "viewTask": "View Task",
+    "status": {
+      "underReview": "Under Review",
+      "planned": "Planned",
+      "inProgress": "In Progress",
+      "done": "Done"
+    },
+    "priority": {
+      "mustHave": "Must Have",
+      "shouldHave": "Should Have",
+      "couldHave": "Could Have",
+      "wontHave": "Won't Have"
+    },
+    "complexity": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High"
+    },
+    "impact": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "label": "{{impact}} impact"
+    },
+    "tabs": {
+      "kanban": "Kanban",
+      "phases": "Phases",
+      "allFeatures": "All Features",
+      "byPriority": "By Priority"
+    },
+    "kanban": {
+      "dropHere": "Drop here",
+      "noFeatures": "No features",
+      "dragFeaturesHere": "Drag features here"
+    },
+    "insight": "Insight",
+    "featuresCount": "{{count}} features",
+    "unknownStatus": "Unknown Status"
   },
   "roadmapGeneration": {
     "progress": "Progress",
@@ -928,6 +968,23 @@
       "projectIndex": "Project Index",
       "memories": "Memories"
     }
+  },
+  "changelog": {
+    "tasksSelected": "{{selected}} of {{total}} tasks selected",
+    "selectAll": "Select All",
+    "clear": "Clear",
+    "noCompletedTasks": "No Completed Tasks",
+    "noCompletedTasksHint": "Complete tasks in the Kanban board and mark them as \"Done\" to include them in your changelog.",
+    "loadingCommits": "Loading commits...",
+    "noCommitsFound": "No Commits Found",
+    "configureHistoryHint": "Configure the history options and click \"Load Commits\" to preview.",
+    "selectBranchesHint": "Select both branches and click \"Load Commits\" to see the changes.",
+    "continue": "Continue",
+    "commitsFound": "{{count}} commit found",
+    "commitsFound_plural": "{{count}} commits found",
+    "task": "task",
+    "commit": "commit",
+    "item": "item"
   },
   "prStatus": {
     "ci": {
