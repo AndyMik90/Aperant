@@ -4,37 +4,40 @@
  */
 
 // Phase event protocol constants (Python ↔ TypeScript)
-export * from './phase-protocol';
+export * from "./phase-protocol";
 
 // IPC Channel constants
-export * from './ipc';
+export * from "./ipc";
 
 // Task-related constants
-export * from './task';
+export * from "./task";
 
 // Roadmap constants
-export * from './roadmap';
+export * from "./roadmap";
 
 // Ideation constants
-export * from './ideation';
+export * from "./ideation";
 
 // Changelog constants
-export * from './changelog';
+export * from "./changelog";
 
 // Model and agent profile constants
-export * from './models';
+export * from "./models";
 
 // Theme constants
-export * from './themes';
+export * from "./themes";
 
 // GitHub integration constants
-export * from './github';
+export * from "./github";
 
 // API profile presets
-export * from './api-profiles';
+export * from "./api-profiles";
 
 // Configuration and paths
-export * from './config';
+export * from "./config";
 
 // Spell check configuration
-export * from './spellcheck';
+export * from "./spellcheck";
+
+// Linear integration constants
+export * from "./linear";

@@ -1,5 +1,6 @@
 import { useEffect, useCallback, useRef, useMemo, useState } from "react";
 import type { LinearIssue, LinearSyncStatus } from "../../../../shared/types";
+import { APERANT_IGNORE_LABEL } from "../../../../shared/constants";
 import type { LinearFilterState } from "../types";
 
 interface LinearIssuesState {
@@ -59,7 +60,15 @@ export function useLinearIssues(projectId: string | undefined) {
     try {
       const result = await window.electronAPI.getLinearIssues(pid);
       if (result.success && result.data) {
-        const issues = result.data as LinearIssue[];
+        const rawIssues = result.data as LinearIssue[];
+
+        // Filter out issues with the aperant:ignore label
+        const issues = rawIssues.filter(
+          (issue) =>
+            !issue.labels.some(
+              (l) => l.name.toLowerCase() === APERANT_IGNORE_LABEL,
+            ),
+        );
 
         // Detect new active issues (not completed/canceled)
         const detected: LinearIssue[] = [];
@@ -75,7 +84,7 @@ export function useLinearIssues(projectId: string | undefined) {
           }
         }
 
-        // Update known IDs
+        // Update known IDs (uses filtered list so removing the label triggers new-issue detection)
         knownIssueIdsRef.current = new Set(issues.map((i) => i.id));
 
         if (detected.length > 0) {
