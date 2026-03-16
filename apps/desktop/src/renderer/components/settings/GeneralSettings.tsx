@@ -134,9 +134,77 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="auto-claude">{t('general.agentFrameworkAutoClaude')}</SelectItem>
+                  <SelectItem value="jules">{t('general.agentFrameworkJules')}</SelectItem>
+                  <SelectItem value="claude-code">{t('general.agentFrameworkClaudeCode')}</SelectItem>
+                  <SelectItem value="gemini">{t('general.agentFrameworkGemini')}</SelectItem>
+                  <SelectItem value="antigravity">{t('general.agentFrameworkAntigravity')}</SelectItem>
+                  <SelectItem value="custom">{t('general.agentFrameworkCustom')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Jules-specific settings */}
+            {settings.agentFramework === 'jules' && (
+              <div className="space-y-3 pl-4 border-l-2 border-muted">
+                <p className="text-sm font-medium text-foreground">{t('general.julesSettings')}</p>
+                <div className="space-y-2">
+                  <Label htmlFor="julesApiKey" className="text-sm font-medium text-foreground">{t('general.julesApiKey')}</Label>
+                  <p className="text-sm text-muted-foreground">{t('general.julesApiKeyDescription')}</p>
+                  <Input
+                    id="julesApiKey"
+                    type="password"
+                    placeholder={t('general.julesApiKeyPlaceholder')}
+                    className="w-full max-w-md"
+                    value={settings.julesApiKey || ''}
+                    onChange={(e) => onSettingsChange({ ...settings, julesApiKey: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="julesDefaultRepo" className="text-sm font-medium text-foreground">{t('general.julesDefaultRepo')}</Label>
+                  <p className="text-sm text-muted-foreground">{t('general.julesDefaultRepoDescription')}</p>
+                  <Input
+                    id="julesDefaultRepo"
+                    placeholder={t('general.julesDefaultRepoPlaceholder')}
+                    className="w-full max-w-md"
+                    value={settings.julesDefaultRepo || ''}
+                    onChange={(e) => onSettingsChange({ ...settings, julesDefaultRepo: e.target.value })}
+                  />
+                </div>
+                <div className="flex items-center justify-between max-w-md">
+                  <div className="space-y-1">
+                    <Label htmlFor="julesAutoCreatePr" className="text-sm font-medium text-foreground">
+                      {t('general.julesAutoCreatePr')}
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      {t('general.julesAutoCreatePrDescription')}
+                    </p>
+                  </div>
+                  <Switch
+                    id="julesAutoCreatePr"
+                    checked={settings.julesAutoCreatePr ?? true}
+                    onCheckedChange={(checked) => onSettingsChange({ ...settings, julesAutoCreatePr: checked })}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Custom command settings */}
+            {settings.agentFramework === 'custom' && (
+              <div className="space-y-3 pl-4 border-l-2 border-muted">
+                <div className="space-y-2">
+                  <Label htmlFor="customAgentCommand" className="text-sm font-medium text-foreground">{t('general.customAgentCommand')}</Label>
+                  <p className="text-sm text-muted-foreground">{t('general.customAgentCommandDescription')}</p>
+                  <Input
+                    id="customAgentCommand"
+                    placeholder={t('general.customAgentCommandPlaceholder')}
+                    className="w-full max-w-md"
+                    value={settings.customAgentCommand || ''}
+                    onChange={(e) => onSettingsChange({ ...settings, customAgentCommand: e.target.value })}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="space-y-3">
               <div className="flex items-center justify-between max-w-md">
                 <div className="space-y-1">

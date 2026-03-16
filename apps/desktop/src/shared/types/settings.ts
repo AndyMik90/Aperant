@@ -263,7 +263,15 @@ export interface AppSettings {
   theme: 'light' | 'dark' | 'system';
   colorTheme?: ColorTheme;
   defaultModel: string;
-  agentFramework: string;
+  agentFramework: 'auto-claude' | 'jules' | 'claude-code' | 'gemini' | 'antigravity' | 'custom' | string;
+  /** Jules API key (from https://jules.google/settings) — used when agentFramework is 'jules' */
+  julesApiKey?: string;
+  /** Default repo for Jules tasks (e.g. 'owner/repo') */
+  julesDefaultRepo?: string;
+  /** Whether Jules should auto-create PRs */
+  julesAutoCreatePr?: boolean;
+  /** Custom agent command (used when agentFramework is 'custom') */
+  customAgentCommand?: string;
   pythonPath?: string;
   gitPath?: string;
   githubCLIPath?: string;
