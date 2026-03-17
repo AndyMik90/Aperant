@@ -1098,7 +1098,20 @@ class CLIToolManager {
 
       const needsShell = shouldUseShell(trimmedCmd);
       const cmdDir = path.dirname(unquotedCmd);
-      const env = getAugmentedEnv(cmdDir && cmdDir !== '.' ? [cmdDir] : []);
+      // For .cmd files (npm-installed tools like claude.cmd), the script itself calls `node`.
+      // node.exe lives in the Node.js install dir, which is typically the *parent* of the
+      // npm global scripts dir (e.g. node_global/../ → D:\NodeJs\).
+      // When Electron launches from GUI it may not inherit the full system PATH, so we
+      // explicitly add both the cmd dir and its parent so `node` is resolvable.
+      const extraPaths: string[] = [];
+      if (cmdDir && cmdDir !== '.') {
+        extraPaths.push(cmdDir);
+        const nodeParentDir = path.dirname(cmdDir);
+        if (nodeParentDir && nodeParentDir !== cmdDir) {
+          extraPaths.push(nodeParentDir);
+        }
+      }
+      const env = getAugmentedEnv(extraPaths.length > 0 ? extraPaths : []);
 
       let version: string;
 
@@ -1262,7 +1275,17 @@ class CLIToolManager {
 
       const needsShell = shouldUseShell(trimmedCmd);
       const cmdDir = path.dirname(unquotedCmd);
-      const env = await getAugmentedEnvAsync(cmdDir && cmdDir !== '.' ? [cmdDir] : []);
+      // Same reasoning as validateClaude: add parent of cmdDir so node.exe is on PATH
+      // when Electron hasn't inherited the full system PATH from GUI launch.
+      const extraPaths: string[] = [];
+      if (cmdDir && cmdDir !== '.') {
+        extraPaths.push(cmdDir);
+        const nodeParentDir = path.dirname(cmdDir);
+        if (nodeParentDir && nodeParentDir !== cmdDir) {
+          extraPaths.push(nodeParentDir);
+        }
+      }
+      const env = await getAugmentedEnvAsync(extraPaths.length > 0 ? extraPaths : []);
 
       let stdout: string;
 

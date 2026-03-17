@@ -176,6 +176,18 @@ function getExpandedPlatformPaths(additionalPaths?: string[]): string[] {
     p.startsWith('~') ? p.replace('~', homeDir) : p
   );
 
+  // On Windows, add the directory of the current Node.js executable so that
+  // subprocesses (e.g. claude.cmd) can find `node` even when Electron was
+  // launched from the GUI and didn't inherit the full system PATH.
+  // process.execPath points to the Electron binary, but in packaged apps the
+  // real node.exe lives alongside it; in dev it's the node binary itself.
+  if (platform === 'win32') {
+    const nodeDir = path.dirname(process.execPath);
+    if (nodeDir && !expandedPaths.includes(nodeDir)) {
+      expandedPaths.push(nodeDir);
+    }
+  }
+
   // Add user-requested additional paths (expanded)
   if (additionalPaths) {
     for (const p of additionalPaths) {
