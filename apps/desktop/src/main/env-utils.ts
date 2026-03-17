@@ -17,6 +17,7 @@ import { execFileSync, execFile } from 'child_process';
 import { promisify } from 'util';
 import { getSentryEnvForSubprocess } from './sentry';
 import { isWindows, isUnix, getPathDelimiter, getNpmCommand } from './platform';
+import { normalizeEnvPathKey } from './agent/env-utils';
 
 const execFileAsync = promisify(execFile);
 
@@ -236,6 +237,12 @@ export function getAugmentedEnv(additionalPaths?: string[]): Record<string, stri
   const env = { ...process.env } as Record<string, string>;
   const pathSeparator = getPathDelimiter();
 
+  // On some Windows versions (e.g. Windows 10), spreading process.env produces the native
+  // key casing 'Path' instead of 'PATH'. Without normalization, env.PATH is undefined and
+  // the original system PATH is silently dropped, causing detection failures for tools
+  // like Claude Code, gh, and Python installed in non-standard locations.
+  normalizeEnvPathKey(env);
+
   // Get all candidate paths (platform + additional)
   const candidatePaths = getExpandedPlatformPaths(additionalPaths);
 
@@ -410,6 +417,12 @@ async function getNpmGlobalPrefixAsync(): Promise<string | null> {
 export async function getAugmentedEnvAsync(additionalPaths?: string[]): Promise<Record<string, string>> {
   const env = { ...process.env } as Record<string, string>;
   const pathSeparator = getPathDelimiter();
+
+  // On some Windows versions (e.g. Windows 10), spreading process.env produces the native
+  // key casing 'Path' instead of 'PATH'. Without normalization, env.PATH is undefined and
+  // the original system PATH is silently dropped, causing detection failures for tools
+  // like Claude Code, gh, and Python installed in non-standard locations.
+  normalizeEnvPathKey(env);
 
   // Get all candidate paths (platform + additional)
   const candidatePaths = getExpandedPlatformPaths(additionalPaths);
