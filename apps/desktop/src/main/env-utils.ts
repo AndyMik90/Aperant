@@ -17,6 +17,7 @@ import { execFileSync, execFile } from 'child_process';
 import { promisify } from 'util';
 import { getSentryEnvForSubprocess } from './sentry';
 import { isWindows, isUnix, getPathDelimiter, getNpmCommand } from './platform';
+import { normalizeEnvPathKey } from './agent/env-utils';
 
 const execFileAsync = promisify(execFile);
 
@@ -176,18 +177,6 @@ function getExpandedPlatformPaths(additionalPaths?: string[]): string[] {
     p.startsWith('~') ? p.replace('~', homeDir) : p
   );
 
-  // On Windows, add the directory of the current Node.js executable so that
-  // subprocesses (e.g. claude.cmd) can find `node` even when Electron was
-  // launched from the GUI and didn't inherit the full system PATH.
-  // process.execPath points to the Electron binary, but in packaged apps the
-  // real node.exe lives alongside it; in dev it's the node binary itself.
-  if (platform === 'win32') {
-    const nodeDir = path.dirname(process.execPath);
-    if (nodeDir && !expandedPaths.includes(nodeDir)) {
-      expandedPaths.push(nodeDir);
-    }
-  }
-
   // Add user-requested additional paths (expanded)
   if (additionalPaths) {
     for (const p of additionalPaths) {
@@ -247,6 +236,11 @@ function buildPathsToAdd(
 export function getAugmentedEnv(additionalPaths?: string[]): Record<string, string> {
   const env = { ...process.env } as Record<string, string>;
   const pathSeparator = getPathDelimiter();
+
+  // On Windows, process.env spreads with the native key casing 'Path' (not 'PATH').
+  // Without normalization, env.PATH is undefined and the original system PATH is lost,
+  // causing tool-not-found errors for non-standard installation paths (e.g. D:\NodeJs\).
+  normalizeEnvPathKey(env);
 
   // Get all candidate paths (platform + additional)
   const candidatePaths = getExpandedPlatformPaths(additionalPaths);
@@ -422,6 +416,10 @@ async function getNpmGlobalPrefixAsync(): Promise<string | null> {
 export async function getAugmentedEnvAsync(additionalPaths?: string[]): Promise<Record<string, string>> {
   const env = { ...process.env } as Record<string, string>;
   const pathSeparator = getPathDelimiter();
+
+  // On Windows, process.env spreads with the native key casing 'Path' (not 'PATH').
+  // Without normalization, env.PATH is undefined and the original system PATH is lost.
+  normalizeEnvPathKey(env);
 
   // Get all candidate paths (platform + additional)
   const candidatePaths = getExpandedPlatformPaths(additionalPaths);
