@@ -237,10 +237,7 @@ export function getAugmentedEnv(additionalPaths?: string[]): Record<string, stri
   const env = { ...process.env } as Record<string, string>;
   const pathSeparator = getPathDelimiter();
 
-  // On some Windows versions (e.g. Windows 10), spreading process.env produces the native
-  // key casing 'Path' instead of 'PATH'. Without normalization, env.PATH is undefined and
-  // the original system PATH is silently dropped, causing detection failures for tools
-  // like Claude Code, gh, and Python installed in non-standard locations.
+  // Normalize PATH key to handle case differences on Windows.
   normalizeEnvPathKey(env);
 
   // Get all candidate paths (platform + additional)
