@@ -67,7 +67,9 @@ export const ALL_AVAILABLE_MODELS: ModelOption[] = [
   { value: 'grok-3', label: 'Grok 3', provider: 'xai', description: 'Text', capabilities: { thinking: false, tools: true, vision: false, contextWindow: 131072 } },
   { value: 'grok-3-mini', label: 'Grok 3 Mini', provider: 'xai', description: 'Fast reasoning', capabilities: { thinking: true, tools: true, vision: false, contextWindow: 131072 } },
   // MiniMax
-  { value: 'minimax-m2.5', label: 'MiniMax M2.5', provider: 'minimax', description: 'Peak performance', capabilities: { thinking: false, tools: true, vision: false, contextWindow: 204800 } },
+  { value: 'minimax-m2.7', label: 'MiniMax M2.7', provider: 'minimax', description: 'Latest flagship model with enhanced reasoning and coding', capabilities: { thinking: false, tools: true, vision: false, contextWindow: 204800 } },
+  { value: 'minimax-m2.7-highspeed', label: 'MiniMax M2.7 High Speed', provider: 'minimax', description: 'High-speed version of M2.7 for low-latency scenarios', capabilities: { thinking: false, tools: true, vision: false, contextWindow: 204800 } },
+  { value: 'minimax-m2.5', label: 'MiniMax M2.5', provider: 'minimax', description: 'Previous generation', capabilities: { thinking: false, tools: true, vision: false, contextWindow: 204800 } },
   { value: 'minimax-m2.5-highspeed', label: 'MiniMax M2.5 High Speed', provider: 'minimax', description: 'Fast and agile', capabilities: { thinking: false, tools: true, vision: false, contextWindow: 204800 } },
   // Z.AI (Zhipu)
   { value: 'glm-5', label: 'GLM-5', provider: 'zai', description: 'Flagship', capabilities: { thinking: false, tools: true, vision: false, contextWindow: 128000 } },
@@ -320,9 +322,9 @@ export const PROVIDER_PRESET_DEFINITIONS: Partial<Record<BuiltinProvider, Record
     quick:    { primaryModel: 'glm-4.5-flash',  primaryThinking: 'low', phaseModels: { spec: 'glm-4.5-flash', planning: 'glm-4.5-flash', coding: 'glm-4.5-flash', qa: 'glm-4.5-flash' }, phaseThinking: { spec: 'low', planning: 'low', coding: 'low', qa: 'low' } },
   },
   minimax: {
-    auto:     { primaryModel: 'minimax-m2.5', primaryThinking: 'low', phaseModels: { spec: 'minimax-m2.5', planning: 'minimax-m2.5', coding: 'minimax-m2.5', qa: 'minimax-m2.5' }, phaseThinking: { spec: 'low', planning: 'low', coding: 'low', qa: 'low' } },
-    balanced: { primaryModel: 'minimax-m2.5', primaryThinking: 'low', phaseModels: { spec: 'minimax-m2.5', planning: 'minimax-m2.5', coding: 'minimax-m2.5', qa: 'minimax-m2.5' }, phaseThinking: { spec: 'low', planning: 'low', coding: 'low', qa: 'low' } },
-    quick:    { primaryModel: 'minimax-m2.5-highspeed', primaryThinking: 'low', phaseModels: { spec: 'minimax-m2.5-highspeed', planning: 'minimax-m2.5-highspeed', coding: 'minimax-m2.5-highspeed', qa: 'minimax-m2.5-highspeed' }, phaseThinking: { spec: 'low', planning: 'low', coding: 'low', qa: 'low' } },
+    auto:     { primaryModel: 'minimax-m2.7', primaryThinking: 'low', phaseModels: { spec: 'minimax-m2.7', planning: 'minimax-m2.7', coding: 'minimax-m2.7', qa: 'minimax-m2.7' }, phaseThinking: { spec: 'low', planning: 'low', coding: 'low', qa: 'low' } },
+    balanced: { primaryModel: 'minimax-m2.7', primaryThinking: 'low', phaseModels: { spec: 'minimax-m2.7', planning: 'minimax-m2.7', coding: 'minimax-m2.7', qa: 'minimax-m2.7' }, phaseThinking: { spec: 'low', planning: 'low', coding: 'low', qa: 'low' } },
+    quick:    { primaryModel: 'minimax-m2.7-highspeed', primaryThinking: 'low', phaseModels: { spec: 'minimax-m2.7-highspeed', planning: 'minimax-m2.7-highspeed', coding: 'minimax-m2.7-highspeed', qa: 'minimax-m2.7-highspeed' }, phaseThinking: { spec: 'low', planning: 'low', coding: 'low', qa: 'low' } },
   },
   ollama: {
     auto:     { primaryModel: '', primaryThinking: 'low', phaseModels: { spec: '', planning: '', coding: '', qa: '' }, phaseThinking: { spec: 'low', planning: 'low', coding: 'low', qa: 'low' } },
@@ -422,7 +424,17 @@ export const DEFAULT_MODEL_EQUIVALENCES: Record<string, Partial<Record<BuiltinPr
     mistral: { modelId: 'mistral-large-latest', reasoning: { type: 'none' } },
     groq: { modelId: 'meta-llama/llama-4-maverick', reasoning: { type: 'none' } },
     zai: { modelId: 'glm-5', reasoning: { type: 'none' } },
-    minimax: { modelId: 'minimax-m2.5', reasoning: { type: 'none' } },
+    minimax: { modelId: 'minimax-m2.7', reasoning: { type: 'none' } },
+  },
+  'minimax-m2.7': {
+    minimax: { modelId: 'minimax-m2.7', reasoning: { type: 'none' } },
+    anthropic: { modelId: 'claude-opus-4-6', reasoning: { type: 'adaptive_effort', level: 'high' } },
+    openai: { modelId: 'gpt-5.3-codex', reasoning: { type: 'reasoning_effort', level: 'high' } },
+  },
+  'minimax-m2.7-highspeed': {
+    minimax: { modelId: 'minimax-m2.7-highspeed', reasoning: { type: 'none' } },
+    anthropic: { modelId: 'claude-haiku-4-5-20251001', reasoning: { type: 'none' } },
+    openai: { modelId: 'gpt-5.1-codex-mini', reasoning: { type: 'reasoning_effort', level: 'low' } },
   },
   'minimax-m2.5': {
     minimax: { modelId: 'minimax-m2.5', reasoning: { type: 'none' } },
@@ -462,7 +474,7 @@ export const DEFAULT_MODEL_EQUIVALENCES: Record<string, Partial<Record<BuiltinPr
     groq: { modelId: 'llama-3.3-70b-versatile', reasoning: { type: 'none' } },
     xai: { modelId: 'grok-3-mini', reasoning: { type: 'reasoning_effort', level: 'medium' } },
     zai: { modelId: 'glm-4.7', reasoning: { type: 'none' } },
-    minimax: { modelId: 'minimax-m2.5-highspeed', reasoning: { type: 'none' } },
+    minimax: { modelId: 'minimax-m2.7', reasoning: { type: 'none' } },
   },
   'haiku': {
     anthropic: { modelId: 'claude-haiku-4-5-20251001', reasoning: { type: 'none' } },
@@ -471,7 +483,7 @@ export const DEFAULT_MODEL_EQUIVALENCES: Record<string, Partial<Record<BuiltinPr
     mistral: { modelId: 'mistral-small-latest', reasoning: { type: 'none' } },
     groq: { modelId: 'llama-3.3-70b-versatile', reasoning: { type: 'none' } },
     zai: { modelId: 'glm-4.5-flash', reasoning: { type: 'none' } },
-    minimax: { modelId: 'minimax-m2.5-highspeed', reasoning: { type: 'none' } },
+    minimax: { modelId: 'minimax-m2.7-highspeed', reasoning: { type: 'none' } },
   },
   // ── OpenAI models ─────────────────────────────────────────────────────────
   'gpt-5.3-codex': {

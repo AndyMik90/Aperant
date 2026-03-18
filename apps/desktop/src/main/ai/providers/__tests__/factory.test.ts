@@ -164,6 +164,8 @@ describe('detectProviderFromModel', () => {
   });
 
   it('detects MiniMax from minimax- prefix', () => {
+    expect(detectProviderFromModel('minimax-m2.7')).toBe('minimax');
+    expect(detectProviderFromModel('minimax-m2.7-highspeed')).toBe('minimax');
     expect(detectProviderFromModel('minimax-m2.5')).toBe('minimax');
   });
 
