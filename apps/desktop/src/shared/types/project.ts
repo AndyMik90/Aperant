@@ -328,6 +328,17 @@ export interface ProjectEnvConfig {
   gitlabProject?: string; // Format: group/project or numeric ID
   gitlabAutoSync?: boolean; // Auto-sync issues on project load
 
+  // JIRA Integration
+  jiraEnabled?: boolean;
+  jiraHost?: string;        // JIRA instance URL (e.g., https://company.atlassian.net)
+  jiraEmail?: string;       // JIRA user email
+  jiraToken?: string;       // JIRA API token
+  jiraProjectKey?: string;  // JIRA project key (e.g., CAP)
+
+  // Source Control / Issue Tracker provider preference
+  sourceControlProvider?: 'github' | 'gitlab';
+  issueTrackerProvider?: 'jira' | 'linear' | 'gitlab' | 'github';
+
   // Git/Worktree Settings
   defaultBranch?: string; // Base branch for worktree creation (e.g., 'main', 'develop')
 
@@ -357,6 +368,10 @@ export interface ProjectEnvConfig {
     electronEnabled?: boolean;
     /** Puppeteer browser automation (QA only) - default: false */
     puppeteerEnabled?: boolean;
+    /** JIRA issue tracking - default: follows jiraEnabled */
+    jiraMcpEnabled?: boolean;
+    /** Vault external context - default: follows app vaultEnabled */
+    vaultMcpEnabled?: boolean;
   };
 
   // Per-agent MCP overrides (add/remove MCPs from specific agents)

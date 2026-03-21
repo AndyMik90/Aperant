@@ -247,6 +247,24 @@ export const IPC_CHANNELS = {
   IDEATION_TYPE_COMPLETE: 'ideation:typeComplete',
   IDEATION_TYPE_FAILED: 'ideation:typeFailed',
 
+  // JIRA integration
+  JIRA_TEST_CONNECTION: 'jira:testConnection',
+  JIRA_LIST_PROJECTS: 'jira:listProjects',
+  JIRA_SEARCH_ISSUES: 'jira:searchIssues',
+  JIRA_GET_ISSUE: 'jira:getIssue',
+  JIRA_CREATE_ISSUE: 'jira:createIssue',
+  JIRA_ADD_COMMENT: 'jira:addComment',
+  JIRA_GET_TRANSITIONS: 'jira:getTransitions',
+  JIRA_TRANSITION_ISSUE: 'jira:transitionIssue',
+
+  // Vault integration
+  VAULT_VALIDATE_PATH: 'vault:validatePath',
+  VAULT_LIST_FILES: 'vault:listFiles',
+  VAULT_READ_FILE: 'vault:readFile',
+  VAULT_SEARCH: 'vault:search',
+  VAULT_GET_CONTEXT: 'vault:getContext',
+  VAULT_SAVE_LEARNING: 'vault:saveLearning',
+
   // Linear integration
   LINEAR_GET_TEAMS: 'linear:getTeams',
   LINEAR_GET_PROJECTS: 'linear:getProjects',

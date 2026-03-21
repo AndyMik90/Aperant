@@ -19,6 +19,8 @@ import { createLinearAPI, LinearAPI } from './modules/linear-api';
 import { createGitHubAPI, GitHubAPI } from './modules/github-api';
 import { createGitLabAPI, GitLabAPI } from './modules/gitlab-api';
 import { createShellAPI, ShellAPI } from './modules/shell-api';
+import { createJiraAPI, JiraAPI } from './modules/jira-api';
+import { createVaultAPI, VaultAPI } from './modules/vault-api';
 
 /**
  * Combined Agent API interface
@@ -32,7 +34,9 @@ export interface AgentAPI extends
   LinearAPI,
   GitHubAPI,
   GitLabAPI,
-  ShellAPI {}
+  ShellAPI,
+  JiraAPI,
+  VaultAPI {}
 
 /**
  * Creates the complete Agent API by combining all module APIs
@@ -48,6 +52,8 @@ export const createAgentAPI = (): AgentAPI => {
   const githubAPI = createGitHubAPI();
   const gitlabAPI = createGitLabAPI();
   const shellAPI = createShellAPI();
+  const jiraAPI = createJiraAPI();
+  const vaultAPI = createVaultAPI();
 
   return {
     // Roadmap API
@@ -72,7 +78,13 @@ export const createAgentAPI = (): AgentAPI => {
     ...gitlabAPI,
 
     // Shell Operations API
-    ...shellAPI
+    ...shellAPI,
+
+    // JIRA Integration API
+    ...jiraAPI,
+
+    // Vault Integration API
+    ...vaultAPI,
   };
 };
 

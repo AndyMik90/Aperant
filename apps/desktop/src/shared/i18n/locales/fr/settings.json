@@ -1184,5 +1184,45 @@
         "description": "Une erreur s'est produite lors de l'enregistrement de la configuration du fournisseur."
       }
     }
+  },
+  "jira": {
+    "title": "Intégration JIRA",
+    "description": "Connecter JIRA pour le suivi des tickets",
+    "host": "Hôte JIRA",
+    "hostPlaceholder": "https://company.atlassian.net",
+    "hostDescription": "URL de votre instance JIRA",
+    "email": "Email",
+    "emailPlaceholder": "utilisateur@company.com",
+    "emailDescription": "Email de votre compte JIRA",
+    "token": "Jeton API",
+    "tokenPlaceholder": "Votre jeton API JIRA",
+    "tokenDescription": "Générer depuis id.atlassian.com/manage-profile/security/api-tokens",
+    "defaultProject": "Clé de projet par défaut",
+    "defaultProjectPlaceholder": "ex: CAP",
+    "testConnection": "Tester la connexion",
+    "testingConnection": "Test en cours...",
+    "connectionSuccess": "Connecté en tant que {{displayName}}",
+    "connectionFailed": "Échec de connexion : {{error}}",
+    "enabled": "Intégration JIRA activée",
+    "enabledDescription": "Activer le suivi JIRA pour ce projet"
+  },
+  "vault": {
+    "title": "Intégration Vault",
+    "description": "Connecter un vault externe pour le contexte agent",
+    "path": "Chemin du vault",
+    "pathPlaceholder": "/chemin/vers/vault",
+    "pathDescription": "Chemin absolu vers votre répertoire vault",
+    "validatePath": "Valider",
+    "validating": "Validation...",
+    "pathValid": "Chemin vault valide",
+    "pathInvalid": "Chemin invalide : {{error}}",
+    "enabled": "Intégration Vault activée",
+    "enabledDescription": "Charger le contexte du vault dans les sessions agent",
+    "syncLearnings": "Synchroniser les apprentissages",
+    "syncLearningsDescription": "Sauvegarder les apprentissages de session dans le vault",
+    "autoLoad": "Chargement automatique du contexte",
+    "autoLoadDescription": "Injecter automatiquement le CLAUDE.md du vault dans les prompts agent",
+    "writeEnabled": "Autoriser les écritures",
+    "writeEnabledDescription": "Permettre à l'application d'écrire dans le vault"
   }
 }

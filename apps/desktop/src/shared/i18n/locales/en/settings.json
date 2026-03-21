@@ -1184,5 +1184,45 @@
         "description": "An error occurred while saving your provider configuration."
       }
     }
+  },
+  "jira": {
+    "title": "JIRA Integration",
+    "description": "Connect to JIRA for issue tracking",
+    "host": "JIRA Host",
+    "hostPlaceholder": "https://company.atlassian.net",
+    "hostDescription": "Your JIRA instance URL",
+    "email": "Email",
+    "emailPlaceholder": "user@company.com",
+    "emailDescription": "Your JIRA account email",
+    "token": "API Token",
+    "tokenPlaceholder": "Your JIRA API token",
+    "tokenDescription": "Generate from id.atlassian.com/manage-profile/security/api-tokens",
+    "defaultProject": "Default Project Key",
+    "defaultProjectPlaceholder": "e.g., CAP",
+    "testConnection": "Test Connection",
+    "testingConnection": "Testing...",
+    "connectionSuccess": "Connected as {{displayName}}",
+    "connectionFailed": "Connection failed: {{error}}",
+    "enabled": "JIRA Integration Enabled",
+    "enabledDescription": "Enable JIRA issue tracking for this project"
+  },
+  "vault": {
+    "title": "Vault Integration",
+    "description": "Connect to an external vault for agent context",
+    "path": "Vault Path",
+    "pathPlaceholder": "/path/to/vault",
+    "pathDescription": "Absolute path to your vault directory",
+    "validatePath": "Validate",
+    "validating": "Validating...",
+    "pathValid": "Valid vault path",
+    "pathInvalid": "Invalid path: {{error}}",
+    "enabled": "Vault Integration Enabled",
+    "enabledDescription": "Load context from vault into agent sessions",
+    "syncLearnings": "Sync Learnings",
+    "syncLearningsDescription": "Save session learnings to vault",
+    "autoLoad": "Auto-load Context",
+    "autoLoadDescription": "Automatically inject vault CLAUDE.md into agent prompts",
+    "writeEnabled": "Allow Write Operations",
+    "writeEnabledDescription": "Allow the app to write files to the vault"
   }
 }

@@ -451,7 +451,25 @@ const browserMockAPI: ElectronAPI = {
   openLogsFolder: async () => ({ success: false, error: 'Not available in browser mode' }),
   copyDebugInfo: async () => ({ success: false, error: 'Not available in browser mode' }),
   getRecentErrors: async () => [],
-  listLogFiles: async () => []
+  listLogFiles: async () => [],
+
+  // JIRA Integration (mock)
+  jiraTestConnection: async () => ({ success: false, error: 'Not available in browser mode' }),
+  jiraListProjects: async () => ({ success: true, data: [] }),
+  jiraSearchIssues: async () => ({ success: true, data: { issues: [], total: 0 } }),
+  jiraGetIssue: async () => ({ success: false, error: 'Not available in browser mode' }),
+  jiraCreateIssue: async () => ({ success: false, error: 'Not available in browser mode' }),
+  jiraAddComment: async () => ({ success: false, error: 'Not available in browser mode' }),
+  jiraGetTransitions: async () => ({ success: true, data: [] }),
+  jiraTransitionIssue: async () => ({ success: false, error: 'Not available in browser mode' }),
+
+  // Vault Integration (mock)
+  vaultValidatePath: async () => ({ success: true, data: { valid: false, error: 'Not available in browser mode' } }),
+  vaultListFiles: async () => ({ success: true, data: [] }),
+  vaultReadFile: async () => ({ success: false, error: 'Not available in browser mode' }),
+  vaultSearch: async () => ({ success: true, data: [] }),
+  vaultGetContext: async () => ({ success: true, data: { learnings: [] } }),
+  vaultSaveLearning: async () => ({ success: false, error: 'Not available in browser mode' })
 };
 
 /**

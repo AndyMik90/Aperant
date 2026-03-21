@@ -358,6 +358,19 @@ export interface AppSettings {
   sidebarCollapsed?: boolean;
   // GPU acceleration for terminal rendering (WebGL)
   gpuAcceleration?: GpuAcceleration;
+  // Global JIRA settings (used as defaults for all projects)
+  globalJiraHost?: string;           // JIRA instance URL (e.g., https://company.atlassian.net)
+  globalJiraEmail?: string;          // JIRA user email
+  globalJiraToken?: string;          // JIRA API token
+  globalJiraDefaultProject?: string; // Default JIRA project key (e.g., CAP)
+  // Issue Tracker preference
+  issueTrackerProvider?: 'gitlab' | 'jira' | 'github' | 'linear';
+  // Vault integration settings
+  globalVaultPath?: string;          // Path to external vault directory
+  vaultEnabled?: boolean;            // Whether vault integration is enabled
+  vaultSyncLearnings?: boolean;      // Whether to sync learnings to vault
+  vaultAutoLoad?: boolean;           // Whether to auto-load vault context
+  vaultWriteEnabled?: boolean;       // Whether write operations are allowed
 }
 
 // GPU acceleration mode for terminal WebGL rendering

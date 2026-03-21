@@ -88,6 +88,25 @@ export const MEMORY_MCP_TOOLS = [
 /** @deprecated Use MEMORY_MCP_TOOLS instead */
 export const GRAPHITI_MCP_TOOLS = MEMORY_MCP_TOOLS;
 
+/** JIRA MCP tools for issue tracking (when JIRA is configured) */
+export const JIRA_TOOLS = [
+  'mcp__jira__list_projects',
+  'mcp__jira__get_issue',
+  'mcp__jira__create_issue',
+  'mcp__jira__update_issue',
+  'mcp__jira__search_issues',
+  'mcp__jira__add_comment',
+  'mcp__jira__get_transitions',
+  'mcp__jira__transition_issue',
+] as const;
+
+/** Vault MCP tools for external vault access */
+export const VAULT_TOOLS = [
+  'mcp__vault__read_file',
+  'mcp__vault__list_directory',
+  'mcp__vault__search_files',
+] as const;
+
 // =============================================================================
 // Browser Automation MCP Tools (QA agents only)
 // =============================================================================

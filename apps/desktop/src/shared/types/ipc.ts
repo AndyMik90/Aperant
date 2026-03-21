@@ -650,6 +650,24 @@ export interface ElectronAPI {
     callback: (projectId: string, error: string) => void
   ) => () => void;
 
+  // JIRA integration operations
+  jiraTestConnection: (projectId: string) => Promise<IPCResult<{ displayName: string }>>;
+  jiraListProjects: (projectId: string) => Promise<IPCResult<Array<{ key: string; name: string; id: string }>>>;
+  jiraSearchIssues: (projectId: string, jql: string) => Promise<IPCResult<{ issues: Array<Record<string, unknown>>; total: number }>>;
+  jiraGetIssue: (projectId: string, issueKey: string) => Promise<IPCResult<Record<string, unknown>>>;
+  jiraCreateIssue: (projectId: string, fields: Record<string, unknown>) => Promise<IPCResult<{ key: string }>>;
+  jiraAddComment: (projectId: string, issueKey: string, body: string) => Promise<IPCResult>;
+  jiraGetTransitions: (projectId: string, issueKey: string) => Promise<IPCResult<Array<{ id: string; name: string }>>>;
+  jiraTransitionIssue: (projectId: string, issueKey: string, transitionId: string) => Promise<IPCResult>;
+
+  // Vault integration operations
+  vaultValidatePath: (vaultPath: string) => Promise<IPCResult<{ valid: boolean; error?: string }>>;
+  vaultListFiles: (vaultPath: string, subdir?: string) => Promise<IPCResult<Array<{ name: string; path: string; size: number; modified: string; isDirectory: boolean }>>>;
+  vaultReadFile: (vaultPath: string, filePath: string) => Promise<IPCResult<{ content: string }>>;
+  vaultSearch: (vaultPath: string, query: string) => Promise<IPCResult<Array<{ name: string; path: string }>>>;
+  vaultGetContext: (vaultPath: string) => Promise<IPCResult<{ claudeMd?: string; learnings: string[] }>>;
+  vaultSaveLearning: (vaultPath: string, filename: string, content: string) => Promise<IPCResult>;
+
   // Release operations
   getReleaseableVersions: (projectId: string) => Promise<IPCResult<ReleaseableVersion[]>>;
   runReleasePreflightCheck: (projectId: string, version: string) => Promise<IPCResult<ReleasePreflightStatus>>;

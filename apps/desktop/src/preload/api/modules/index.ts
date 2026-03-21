@@ -13,3 +13,5 @@ export * from './linear-api';
 export * from './github-api';
 export * from './shell-api';
 export * from './debug-api';
+export * from './jira-api';
+export * from './vault-api';

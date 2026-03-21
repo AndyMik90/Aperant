@@ -118,6 +118,49 @@ function createAutoClaudeServer(specDir: string): McpServerConfig {
   };
 }
 
+/**
+ * JIRA MCP server - issue tracking integration.
+ * Conditionally enabled when project has JIRA configured.
+ * Requires JIRA_HOST, JIRA_EMAIL, JIRA_TOKEN environment variables.
+ */
+function createJiraServer(env: Record<string, string>): McpServerConfig {
+  return {
+    id: 'jira',
+    name: 'JIRA',
+    description: 'Issue tracking integration for JIRA/Atlassian',
+    enabledByDefault: false,
+    transport: {
+      type: 'stdio',
+      command: 'npx',
+      args: ['-y', '@anthropic-ai/jira-mcp-server'],
+      env: {
+        JIRA_HOST: env.JIRA_HOST || '',
+        JIRA_EMAIL: env.JIRA_EMAIL || '',
+        JIRA_TOKEN: env.JIRA_TOKEN || '',
+      },
+    },
+  };
+}
+
+/**
+ * Vault MCP server - external vault/Obsidian integration.
+ * Conditionally enabled when vault path is configured.
+ * Provides file access to vault directory for agent context.
+ */
+function createVaultServer(vaultPath: string): McpServerConfig {
+  return {
+    id: 'vault',
+    name: 'Vault',
+    description: 'External vault integration for context and learnings',
+    enabledByDefault: false,
+    transport: {
+      type: 'stdio',
+      command: 'npx',
+      args: ['-y', '@anthropic-ai/filesystem-mcp-server', vaultPath],
+    },
+  };
+}
+
 // =============================================================================
 // Registry
 // =============================================================================
@@ -132,6 +175,10 @@ export interface McpRegistryOptions {
   linearApiKey?: string;
   /** Environment variables for server processes */
   env?: Record<string, string>;
+  /** JIRA environment variables (JIRA_HOST, JIRA_EMAIL, JIRA_TOKEN) */
+  jiraEnv?: Record<string, string>;
+  /** Vault path (if vault integration is enabled) */
+  vaultPath?: string;
 }
 
 /**
@@ -178,6 +225,23 @@ export function getMcpServerConfig(
     case 'auto-claude': {
       const specDir = options.specDir ?? '';
       return createAutoClaudeServer(specDir);
+    }
+
+    case 'jira': {
+      const jiraHost = options.jiraEnv?.JIRA_HOST ?? options.env?.JIRA_HOST;
+      if (!jiraHost) return null;
+      const jiraEnv = options.jiraEnv ?? {
+        JIRA_HOST: options.env?.JIRA_HOST ?? '',
+        JIRA_EMAIL: options.env?.JIRA_EMAIL ?? '',
+        JIRA_TOKEN: options.env?.JIRA_TOKEN ?? '',
+      };
+      return createJiraServer(jiraEnv);
+    }
+
+    case 'vault': {
+      const vPath = options.vaultPath ?? options.env?.VAULT_PATH;
+      if (!vPath) return null;
+      return createVaultServer(vPath);
     }
 
     default:
