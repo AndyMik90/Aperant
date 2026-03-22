@@ -335,6 +335,10 @@ export interface ProjectEnvConfig {
   jiraToken?: string;       // JIRA API token
   jiraProjectKey?: string;  // JIRA project key (e.g., CAP)
 
+  // Independent issue tracking toggles (separate from source control enabled flags)
+  githubIssuesEnabled?: boolean;  // Use GitHub for issue tracking (independent of githubEnabled)
+  gitlabIssuesEnabled?: boolean;  // Use GitLab for issue tracking (independent of gitlabEnabled)
+
   // Source Control / Issue Tracker provider preference
   sourceControlProvider?: 'github' | 'gitlab';
   issueTrackerProvider?: 'jira' | 'linear' | 'gitlab' | 'github';

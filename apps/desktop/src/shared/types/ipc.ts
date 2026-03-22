@@ -659,6 +659,11 @@ export interface ElectronAPI {
   jiraAddComment: (projectId: string, issueKey: string, body: string) => Promise<IPCResult>;
   jiraGetTransitions: (projectId: string, issueKey: string) => Promise<IPCResult<Array<{ id: string; name: string }>>>;
   jiraTransitionIssue: (projectId: string, issueKey: string, transitionId: string) => Promise<IPCResult>;
+  jiraGetIssueComments: (projectId: string, issueKey: string) => Promise<IPCResult<Array<Record<string, unknown>>>>;
+  investigateJiraIssue: (projectId: string, issueKey: string, selectedCommentIds?: string[]) => void;
+  onJiraInvestigationProgress: (callback: (projectId: string, status: { phase: string; progress: number; message: string }) => void) => () => void;
+  onJiraInvestigationComplete: (callback: (projectId: string, result: { taskId: string; specId: string }) => void) => () => void;
+  onJiraInvestigationError: (callback: (projectId: string, error: string) => void) => () => void;
 
   // Vault integration operations
   vaultValidatePath: (vaultPath: string) => Promise<IPCResult<{ valid: boolean; error?: string }>>;

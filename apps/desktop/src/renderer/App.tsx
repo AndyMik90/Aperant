@@ -41,6 +41,7 @@ import { Insights } from './components/Insights';
 import { ErrorBoundary } from './components/ui/error-boundary';
 import { GitHubIssues } from './components/GitHubIssues';
 import { GitLabIssues } from './components/GitLabIssues';
+import { JiraIssues } from './components/JiraIssues';
 import { GitHubPRs } from './components/github-prs';
 import { GitLabMergeRequests } from './components/gitlab-merge-requests';
 import { Changelog } from './components/Changelog';
@@ -910,7 +911,7 @@ export function App() {
                 {activeView === 'github-issues' && (activeProjectId || selectedProjectId) && (
                   <GitHubIssues
                     onOpenSettings={() => {
-                      setSettingsInitialProjectSection('github');
+                      setSettingsInitialProjectSection('source-control');
                       setIsSettingsDialogOpen(true);
                     }}
                     onNavigateToTask={handleGoToTask}
@@ -919,7 +920,16 @@ export function App() {
                 {activeView === 'gitlab-issues' && (activeProjectId || selectedProjectId) && (
                   <GitLabIssues
                     onOpenSettings={() => {
-                      setSettingsInitialProjectSection('gitlab');
+                      setSettingsInitialProjectSection('source-control');
+                      setIsSettingsDialogOpen(true);
+                    }}
+                    onNavigateToTask={handleGoToTask}
+                  />
+                )}
+                {activeView === 'jira-issues' && (activeProjectId || selectedProjectId) && (
+                  <JiraIssues
+                    onOpenSettings={() => {
+                      setSettingsInitialProjectSection('issue-tracking');
                       setIsSettingsDialogOpen(true);
                     }}
                     onNavigateToTask={handleGoToTask}
@@ -930,7 +940,7 @@ export function App() {
                   <div className={activeView === 'github-prs' ? 'h-full' : 'hidden'}>
                     <GitHubPRs
                       onOpenSettings={() => {
-                        setSettingsInitialProjectSection('github');
+                        setSettingsInitialProjectSection('source-control');
                         setIsSettingsDialogOpen(true);
                       }}
                       isActive={activeView === 'github-prs'}
@@ -941,7 +951,7 @@ export function App() {
                   <GitLabMergeRequests
                     projectId={activeProjectId || selectedProjectId!}
                     onOpenSettings={() => {
-                      setSettingsInitialProjectSection('gitlab');
+                      setSettingsInitialProjectSection('source-control');
                       setIsSettingsDialogOpen(true);
                     }}
                   />

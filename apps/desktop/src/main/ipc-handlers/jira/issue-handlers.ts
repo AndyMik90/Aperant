@@ -7,6 +7,7 @@ import { ipcMain } from 'electron';
 import type { IPCResult } from '../../../shared/types';
 import { projectStore } from '../../project-store';
 import { getJiraConfig, jiraFetch } from './utils';
+import { adfToPlainText } from './spec-utils';
 import type {
   JiraIssue,
   JiraProject,
@@ -36,10 +37,11 @@ function debugLog(message: string, data?: unknown): void {
  * Transform JIRA API issue to our format
  */
 function transformIssue(apiIssue: JiraAPIIssue): JiraIssue {
+  const descText = apiIssue.fields.description ? adfToPlainText(apiIssue.fields.description) : undefined;
   return {
     key: apiIssue.key,
     summary: apiIssue.fields.summary,
-    description: apiIssue.fields.description ?? undefined,
+    description: descText || undefined,
     status: apiIssue.fields.status.name,
     assignee: apiIssue.fields.assignee?.displayName,
     priority: apiIssue.fields.priority?.name,
@@ -172,10 +174,17 @@ export function registerSearchIssues(): void {
 
       try {
         const limit = maxResults ?? 50;
-        const encodedJql = encodeURIComponent(jql);
         const apiResponse = (await jiraFetch(
           config,
-          `/search?jql=${encodedJql}&maxResults=${limit}&fields=summary,description,status,assignee,priority,issuetype,created,updated,labels,project`
+          '/search/jql',
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              jql,
+              maxResults: limit,
+              fields: ['summary', 'description', 'status', 'assignee', 'priority', 'issuetype', 'created', 'updated', 'labels', 'project']
+            })
+          }
         )) as JiraAPISearchResponse;
 
         const issues = apiResponse.issues.map(transformIssue);

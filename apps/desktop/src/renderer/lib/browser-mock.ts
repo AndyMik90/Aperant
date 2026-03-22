@@ -462,6 +462,11 @@ const browserMockAPI: ElectronAPI = {
   jiraAddComment: async () => ({ success: false, error: 'Not available in browser mode' }),
   jiraGetTransitions: async () => ({ success: true, data: [] }),
   jiraTransitionIssue: async () => ({ success: false, error: 'Not available in browser mode' }),
+  jiraGetIssueComments: async () => ({ success: true, data: [] }),
+  investigateJiraIssue: () => {},
+  onJiraInvestigationProgress: () => () => {},
+  onJiraInvestigationComplete: () => () => {},
+  onJiraInvestigationError: () => () => {},
 
   // Vault Integration (mock)
   vaultValidatePath: async () => ({ success: true, data: { valid: false, error: 'Not available in browser mode' } }),

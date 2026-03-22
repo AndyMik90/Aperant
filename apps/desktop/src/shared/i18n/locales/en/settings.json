@@ -41,6 +41,10 @@
       "title": "Notifications",
       "description": "Alert preferences"
     },
+    "vault": {
+      "title": "Vault",
+      "description": "External vault for agent context"
+    },
     "debug": {
       "title": "Debug & Logs",
       "description": "Troubleshooting tools"
@@ -361,6 +365,27 @@
       "title": "Claude Auth",
       "description": "Claude authentication"
     },
+    "source-control": {
+      "title": "Source Control",
+      "description": "GitHub & GitLab repositories",
+      "integrationTitle": "Source Control",
+      "integrationDescription": "Configure source control providers for repository management",
+      "syncDescription": "Connect to GitHub or GitLab"
+    },
+    "issue-tracking": {
+      "title": "Issue Tracking",
+      "description": "Linear, JIRA & more",
+      "integrationTitle": "Issue Tracking",
+      "integrationDescription": "Configure issue tracking providers",
+      "syncDescription": "Connect to an issue tracker"
+    },
+    "memory-context": {
+      "title": "Memory & Context",
+      "description": "Agent memory and vault",
+      "integrationTitle": "Memory & Context",
+      "integrationDescription": "Configure agent memory and external context sources",
+      "syncDescription": "Configure memory and context"
+    },
     "linear": {
       "title": "Linear",
       "description": "Linear integration",
@@ -393,6 +418,13 @@
       "integrationTitle": "GitLab Integration",
       "integrationDescription": "Connect to GitLab for issue tracking",
       "syncDescription": "Sync with GitLab Issues"
+    },
+    "jira": {
+      "title": "JIRA",
+      "description": "JIRA issue tracking",
+      "integrationTitle": "JIRA Integration",
+      "integrationDescription": "Connect to JIRA for issue tracking",
+      "syncDescription": "Sync with JIRA Issues"
     },
     "memory": {
       "title": "Memory",
@@ -1188,23 +1220,24 @@
   "jira": {
     "title": "JIRA Integration",
     "description": "Connect to JIRA for issue tracking",
-    "host": "JIRA Host",
-    "hostPlaceholder": "https://company.atlassian.net",
-    "hostDescription": "Your JIRA instance URL",
+    "enableIntegration": "Enable JIRA Integration",
+    "enableIntegrationDescription": "Connect to JIRA for issue tracking and task management",
+    "hostUrl": "JIRA Host URL",
+    "hostUrlDescription": "Your JIRA instance URL (Cloud or self-hosted)",
     "email": "Email",
-    "emailPlaceholder": "user@company.com",
-    "emailDescription": "Your JIRA account email",
-    "token": "API Token",
-    "tokenPlaceholder": "Your JIRA API token",
-    "tokenDescription": "Generate from id.atlassian.com/manage-profile/security/api-tokens",
-    "defaultProject": "Default Project Key",
-    "defaultProjectPlaceholder": "e.g., CAP",
+    "emailDescription": "Your JIRA account email address",
+    "apiToken": "API Token",
+    "apiTokenDescription": "Generate a token from",
+    "atlassianSettings": "Atlassian API Token Settings",
+    "projectKey": "Default Project Key",
+    "projectKeyDescription": "The JIRA project key for creating and linking issues (e.g., PROJ, CAP)",
     "testConnection": "Test Connection",
-    "testingConnection": "Testing...",
-    "connectionSuccess": "Connected as {{displayName}}",
-    "connectionFailed": "Connection failed: {{error}}",
-    "enabled": "JIRA Integration Enabled",
-    "enabledDescription": "Enable JIRA issue tracking for this project"
+    "testing": "Testing...",
+    "connected": "Connected",
+    "connectedAs": "Connected as",
+    "connectionFailed": "Connection failed",
+    "notConnected": "Not connected",
+    "connectionStatus": "Connection Status"
   },
   "vault": {
     "title": "Vault Integration",
@@ -1212,9 +1245,13 @@
     "path": "Vault Path",
     "pathPlaceholder": "/path/to/vault",
     "pathDescription": "Absolute path to your vault directory",
+    "validate": "Validate",
     "validatePath": "Validate",
     "validating": "Validating...",
     "pathValid": "Valid vault path",
+    "pathRequired": "Vault path is required",
+    "invalidPath": "Invalid vault path",
+    "validationFailed": "Validation failed",
     "pathInvalid": "Invalid path: {{error}}",
     "enabled": "Vault Integration Enabled",
     "enabledDescription": "Load context from vault into agent sessions",

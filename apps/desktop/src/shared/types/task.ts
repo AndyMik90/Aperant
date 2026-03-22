@@ -180,7 +180,7 @@ export type TaskCategory =
 
 export interface TaskMetadata {
   // Origin tracking
-  sourceType?: 'ideation' | 'manual' | 'imported' | 'insights' | 'roadmap' | 'linear' | 'github' | 'gitlab';
+  sourceType?: 'ideation' | 'manual' | 'imported' | 'insights' | 'roadmap' | 'linear' | 'github' | 'gitlab' | 'jira';
   ideationType?: string;  // e.g., 'code_improvements', 'security_hardening'
   ideaId?: string;  // Reference to original idea if converted
   featureId?: string;  // Reference to roadmap feature if from roadmap
@@ -193,6 +193,8 @@ export interface TaskMetadata {
   githubBatchTheme?: string;  // Theme/title of the GitHub issue batch
   gitlabIssueIid?: number;  // Reference to GitLab issue IID if from GitLab
   gitlabUrl?: string;  // GitLab issue URL
+  jiraIssueKey?: string;  // Reference to JIRA issue key if from JIRA (e.g., 'CFM-123')
+  jiraUrl?: string;  // JIRA issue URL
 
   // Classification
   category?: TaskCategory;

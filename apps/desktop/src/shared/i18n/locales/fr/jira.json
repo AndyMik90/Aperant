@@ -1,0 +1,64 @@
+{
+  "title": "Tickets JIRA",
+  "states": {
+    "open": "Ouvert",
+    "closed": "Ferme"
+  },
+  "header": {
+    "open": "ouvert",
+    "searchPlaceholder": "Rechercher des tickets..."
+  },
+  "filters": {
+    "open": "Ouvert",
+    "closed": "Ferme",
+    "all": "Tous"
+  },
+  "empty": {
+    "noMatch": "Aucun ticket ne correspond a votre recherche",
+    "selectIssue": "Selectionnez un ticket pour voir les details"
+  },
+  "notConnected": {
+    "title": "JIRA non connecte",
+    "description": "Configurez votre hote JIRA, email et jeton API dans les parametres du projet pour synchroniser les tickets.",
+    "openSettings": "Ouvrir les parametres"
+  },
+  "detail": {
+    "createTask": "Creer une tache",
+    "viewTask": "Voir la tache",
+    "taskLinked": "Tache liee",
+    "taskId": "ID de tache",
+    "description": "Description",
+    "noDescription": "Aucune description fournie.",
+    "assignee": "Responsable",
+    "priority": "Priorite",
+    "status": "Statut",
+    "type": "Type",
+    "labels": "Labels",
+    "created": "Cree le",
+    "updated": "Mis a jour le"
+  },
+  "investigation": {
+    "title": "Creer une tache a partir du ticket",
+    "issuePrefix": "Ticket",
+    "description": "Creer une tache a partir de ce ticket JIRA. La tache sera ajoutee a votre tableau Kanban dans la colonne Backlog.",
+    "willInclude": "La tache inclura :",
+    "includeTitle": "Titre et description du ticket",
+    "includeLink": "Lien vers le ticket JIRA",
+    "includeLabels": "Labels et metadonnees du ticket",
+    "taskCreated": "Tache creee ! Consultez-la dans votre tableau Kanban.",
+    "creating": "Creation...",
+    "fetchingDetails": "Recuperation des details du ticket...",
+    "analyzingIssue": "Analyse du ticket...",
+    "creatingTask": "Creation de la tache...",
+    "cancel": "Annuler",
+    "done": "Termine",
+    "close": "Fermer"
+  },
+  "priority": {
+    "highest": "La plus haute",
+    "high": "Haute",
+    "medium": "Moyenne",
+    "low": "Basse",
+    "lowest": "La plus basse"
+  }
+}

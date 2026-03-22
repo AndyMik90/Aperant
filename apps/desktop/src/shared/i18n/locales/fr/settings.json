@@ -41,6 +41,10 @@
       "title": "Notifications",
       "description": "Préférences d'alertes"
     },
+    "vault": {
+      "title": "Vault",
+      "description": "Vault externe pour le contexte agent"
+    },
     "debug": {
       "title": "Debug & Logs",
       "description": "Outils de dépannage"
@@ -361,6 +365,27 @@
       "title": "Auth Claude",
       "description": "Authentification Claude"
     },
+    "source-control": {
+      "title": "Contrôle de source",
+      "description": "Dépôts GitHub & GitLab",
+      "integrationTitle": "Contrôle de source",
+      "integrationDescription": "Configurer les fournisseurs de contrôle de source",
+      "syncDescription": "Se connecter à GitHub ou GitLab"
+    },
+    "issue-tracking": {
+      "title": "Suivi des tickets",
+      "description": "Linear, JIRA et plus",
+      "integrationTitle": "Suivi des tickets",
+      "integrationDescription": "Configurer les fournisseurs de suivi des tickets",
+      "syncDescription": "Se connecter à un outil de suivi"
+    },
+    "memory-context": {
+      "title": "Mémoire & Contexte",
+      "description": "Mémoire agent et vault",
+      "integrationTitle": "Mémoire & Contexte",
+      "integrationDescription": "Configurer la mémoire agent et les sources de contexte",
+      "syncDescription": "Configurer la mémoire et le contexte"
+    },
     "linear": {
       "title": "Linear",
       "description": "Intégration Linear",
@@ -393,6 +418,13 @@
       "integrationTitle": "Intégration GitLab",
       "integrationDescription": "Se connecter à GitLab pour le suivi des issues",
       "syncDescription": "Synchroniser avec GitLab Issues"
+    },
+    "jira": {
+      "title": "JIRA",
+      "description": "Suivi des tickets JIRA",
+      "integrationTitle": "Intégration JIRA",
+      "integrationDescription": "Se connecter à JIRA pour le suivi des tickets",
+      "syncDescription": "Synchroniser avec JIRA"
     },
     "memory": {
       "title": "Mémoire",
@@ -1188,23 +1220,24 @@
   "jira": {
     "title": "Intégration JIRA",
     "description": "Connecter JIRA pour le suivi des tickets",
-    "host": "Hôte JIRA",
-    "hostPlaceholder": "https://company.atlassian.net",
-    "hostDescription": "URL de votre instance JIRA",
+    "enableIntegration": "Activer l'intégration JIRA",
+    "enableIntegrationDescription": "Se connecter à JIRA pour le suivi et la gestion des tickets",
+    "hostUrl": "URL de l'hôte JIRA",
+    "hostUrlDescription": "URL de votre instance JIRA (Cloud ou auto-hébergé)",
     "email": "Email",
-    "emailPlaceholder": "utilisateur@company.com",
-    "emailDescription": "Email de votre compte JIRA",
-    "token": "Jeton API",
-    "tokenPlaceholder": "Votre jeton API JIRA",
-    "tokenDescription": "Générer depuis id.atlassian.com/manage-profile/security/api-tokens",
-    "defaultProject": "Clé de projet par défaut",
-    "defaultProjectPlaceholder": "ex: CAP",
+    "emailDescription": "Adresse email de votre compte JIRA",
+    "apiToken": "Jeton API",
+    "apiTokenDescription": "Générer un jeton depuis",
+    "atlassianSettings": "Paramètres des jetons API Atlassian",
+    "projectKey": "Clé de projet par défaut",
+    "projectKeyDescription": "La clé du projet JIRA pour créer et lier les tickets (ex: PROJ, CAP)",
     "testConnection": "Tester la connexion",
-    "testingConnection": "Test en cours...",
-    "connectionSuccess": "Connecté en tant que {{displayName}}",
-    "connectionFailed": "Échec de connexion : {{error}}",
-    "enabled": "Intégration JIRA activée",
-    "enabledDescription": "Activer le suivi JIRA pour ce projet"
+    "testing": "Test en cours...",
+    "connected": "Connecté",
+    "connectedAs": "Connecté en tant que",
+    "connectionFailed": "Échec de connexion",
+    "notConnected": "Non connecté",
+    "connectionStatus": "État de la connexion"
   },
   "vault": {
     "title": "Intégration Vault",
@@ -1212,9 +1245,13 @@
     "path": "Chemin du vault",
     "pathPlaceholder": "/chemin/vers/vault",
     "pathDescription": "Chemin absolu vers votre répertoire vault",
+    "validate": "Valider",
     "validatePath": "Valider",
     "validating": "Validation...",
     "pathValid": "Chemin vault valide",
+    "pathRequired": "Le chemin du vault est requis",
+    "invalidPath": "Chemin vault invalide",
+    "validationFailed": "Échec de la validation",
     "pathInvalid": "Chemin invalide : {{error}}",
     "enabled": "Intégration Vault activée",
     "enabledDescription": "Charger le contexte du vault dans les sessions agent",

@@ -130,7 +130,7 @@ export function setupIpcHandlers(
   registerCodexAuthHandlers();
 
   // JIRA integration handlers
-  registerJiraHandlers();
+  registerJiraHandlers(agentManager, getMainWindow);
 
   // Vault integration handlers
   registerVaultHandlers();

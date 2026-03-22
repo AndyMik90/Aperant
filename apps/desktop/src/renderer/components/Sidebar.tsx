@@ -22,7 +22,8 @@ import {
   Heart,
   Wrench,
   PanelLeft,
-  PanelLeftClose
+  PanelLeftClose,
+  Ticket
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
@@ -60,7 +61,7 @@ import { RateLimitIndicator } from './RateLimitIndicator';
 import { UpdateBanner } from './UpdateBanner';
 import type { Project, GitStatus } from '../../shared/types';
 
-export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
+export type SidebarView = 'kanban' | 'terminals' | 'roadmap' | 'context' | 'ideation' | 'github-issues' | 'gitlab-issues' | 'jira-issues' | 'github-prs' | 'gitlab-merge-requests' | 'changelog' | 'insights' | 'worktrees' | 'agent-tools';
 
 interface SidebarProps {
   onSettingsClick: () => void;
@@ -89,17 +90,14 @@ const baseNavItems: NavItem[] = [
   { id: 'worktrees', labelKey: 'navigation:items.worktrees', icon: GitBranch, shortcut: 'W' }
 ];
 
-// GitHub nav items shown when GitHub is enabled
-const githubNavItems: NavItem[] = [
-  { id: 'github-issues', labelKey: 'navigation:items.githubIssues', icon: Github, shortcut: 'G' },
-  { id: 'github-prs', labelKey: 'navigation:items.githubPRs', icon: GitPullRequest, shortcut: 'P' }
-];
+// Source control nav items (PRs/MRs - shown when source control provider is enabled)
+const githubPRsNavItem: NavItem = { id: 'github-prs', labelKey: 'navigation:items.githubPRs', icon: GitPullRequest, shortcut: 'P' };
+const gitlabMRsNavItem: NavItem = { id: 'gitlab-merge-requests', labelKey: 'navigation:items.gitlabMRs', icon: GitMerge, shortcut: 'R' };
 
-// GitLab nav items shown when GitLab is enabled
-const gitlabNavItems: NavItem[] = [
-  { id: 'gitlab-issues', labelKey: 'navigation:items.gitlabIssues', icon: GitlabIcon, shortcut: 'B' },
-  { id: 'gitlab-merge-requests', labelKey: 'navigation:items.gitlabMRs', icon: GitMerge, shortcut: 'R' }
-];
+// Issue tracking nav items (shown independently based on issue tracker config)
+const githubIssuesNavItem: NavItem = { id: 'github-issues', labelKey: 'navigation:items.githubIssues', icon: Github, shortcut: 'G' };
+const gitlabIssuesNavItem: NavItem = { id: 'gitlab-issues', labelKey: 'navigation:items.gitlabIssues', icon: GitlabIcon, shortcut: 'B' };
+const jiraIssuesNavItem: NavItem = { id: 'jira-issues', labelKey: 'navigation:items.jiraIssues', icon: Ticket, shortcut: 'J' };
 
 export function Sidebar({
   onSettingsClick,
@@ -128,27 +126,43 @@ export function Sidebar({
     saveSettings({ sidebarCollapsed: !isCollapsed });
   };
 
-  // Subscribe to project-env-store for reactive GitHub/GitLab tab visibility
+  // Subscribe to project-env-store for reactive nav visibility
   const githubEnabled = useProjectEnvStore((state) => state.envConfig?.githubEnabled ?? false);
   const gitlabEnabled = useProjectEnvStore((state) => state.envConfig?.gitlabEnabled ?? false);
+  const githubIssuesEnabled = useProjectEnvStore((state) => state.envConfig?.githubIssuesEnabled ?? false);
+  const gitlabIssuesEnabled = useProjectEnvStore((state) => state.envConfig?.gitlabIssuesEnabled ?? false);
+  const jiraEnabled = useProjectEnvStore((state) => state.envConfig?.jiraEnabled ?? false);
 
   // Track the last loaded project ID to avoid redundant loads
   const lastLoadedProjectIdRef = useRef<string | null>(null);
 
-  // Compute visible nav items based on GitHub/GitLab enabled state from store
+  // Compute visible nav items based on integration config
+  // Source control (PRs/MRs) and issue tracking are independent
   const visibleNavItems = useMemo(() => {
     const items = [...baseNavItems];
 
+    // Source control: show PRs/MRs based on which provider is enabled
     if (githubEnabled) {
-      items.push(...githubNavItems);
+      items.push(githubPRsNavItem);
+    }
+    if (gitlabEnabled) {
+      items.push(gitlabMRsNavItem);
     }
 
-    if (gitlabEnabled) {
-      items.push(...gitlabNavItems);
+    // Issue tracking: show based on which issue tracker is enabled (independent of source control)
+    if (githubIssuesEnabled) {
+      items.push(githubIssuesNavItem);
+    }
+    if (gitlabIssuesEnabled) {
+      items.push(gitlabIssuesNavItem);
+    }
+    // JIRA issue tracking
+    if (jiraEnabled) {
+      items.push(jiraIssuesNavItem);
     }
 
     return items;
-  }, [githubEnabled, gitlabEnabled]);
+  }, [githubEnabled, gitlabEnabled, githubIssuesEnabled, gitlabIssuesEnabled, jiraEnabled]);
 
   // Load envConfig when project changes to ensure store is populated
   useEffect(() => {

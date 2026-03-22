@@ -19,7 +19,11 @@ import {
   Code,
   Bug,
   Terminal,
-  Users
+  Users,
+  GitBranch,
+  ClipboardList,
+  BrainCircuit,
+  CheckCircle2
 } from 'lucide-react';
 
 // GitLab icon component (lucide-react doesn't have one)
@@ -90,10 +94,9 @@ const appNavItemsConfig: NavItemConfig<AppSection>[] = [
 
 const projectNavItemsConfig: NavItemConfig<ProjectSettingsSection>[] = [
   { id: 'general', icon: Settings2 },
-  { id: 'linear', icon: Zap },
-  { id: 'github', icon: Github },
-  { id: 'gitlab', icon: GitLabIcon },
-  { id: 'memory', icon: Database }
+  { id: 'source-control', icon: GitBranch },
+  { id: 'issue-tracking', icon: ClipboardList },
+  { id: 'memory-context', icon: BrainCircuit },
 ];
 
 /**
@@ -148,24 +151,36 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
     }
   }, []);
 
+  const [isSavingAll, setIsSavingAll] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
   const handleSave = async () => {
-    // Save app settings first
-    const appSaveSuccess = await saveSettings();
+    setIsSavingAll(true);
+    setSaveSuccess(false);
+    setProjectError(null);
 
-    // If on project section with a project selected, save project settings too
-    if (activeTopLevel === 'project' && selectedProject && projectSettingsHook) {
-      await projectSettingsHook.handleSave(() => {});
-      // Check for project errors
-      if (projectSettingsHook.error || projectSettingsHook.envError) {
-        setProjectError(projectSettingsHook.error || projectSettingsHook.envError);
-        return; // Don't close dialog on error
+    try {
+      // Save app settings first
+      const appSaveSuccess = await saveSettings();
+
+      // If on project section with a project selected, save project settings too
+      if (activeTopLevel === 'project' && selectedProject && projectSettingsHook) {
+        await projectSettingsHook.handleSave(() => {});
+        // Check for project errors
+        if (projectSettingsHook.error || projectSettingsHook.envError) {
+          setProjectError(projectSettingsHook.error || projectSettingsHook.envError);
+          return;
+        }
       }
-    }
 
-    if (appSaveSuccess) {
-      // Commit the theme so future cancels won't revert to old values
-      commitTheme();
-      onOpenChange(false);
+      if (appSaveSuccess) {
+        commitTheme();
+        setSaveSuccess(true);
+        // Clear success indicator after 2 seconds
+        setTimeout(() => setSaveSuccess(false), 2000);
+      }
+    } finally {
+      setIsSavingAll(false);
     }
   };
 
@@ -386,12 +401,17 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
           </Button>
           <Button
             onClick={handleSave}
-            disabled={isSaving || (activeTopLevel === 'project' && projectSettingsHook?.isSaving)}
+            disabled={isSavingAll}
           >
-            {(isSaving || (activeTopLevel === 'project' && projectSettingsHook?.isSaving)) ? (
+            {isSavingAll ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 {t('common:buttons.saving', 'Saving...')}
+              </>
+            ) : saveSuccess ? (
+              <>
+                <CheckCircle2 className="mr-2 h-4 w-4 text-green-500" />
+                {t('common:buttons.saved', 'Saved')}
               </>
             ) : (
               <>

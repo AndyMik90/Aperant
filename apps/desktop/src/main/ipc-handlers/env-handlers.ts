@@ -89,6 +89,29 @@ export function registerEnvHandlers(
     if (config.gitlabAutoSync !== undefined) {
       existingVars[GITLAB_ENV_KEYS.AUTO_SYNC] = config.gitlabAutoSync ? 'true' : 'false';
     }
+    // Independent issue tracking flags (separate from source control)
+    if (config.githubIssuesEnabled !== undefined) {
+      existingVars['GITHUB_ISSUES_ENABLED'] = config.githubIssuesEnabled ? 'true' : 'false';
+    }
+    if (config.gitlabIssuesEnabled !== undefined) {
+      existingVars['GITLAB_ISSUES_ENABLED'] = config.gitlabIssuesEnabled ? 'true' : 'false';
+    }
+    // JIRA Integration
+    if (config.jiraEnabled !== undefined) {
+      existingVars['JIRA_ENABLED'] = config.jiraEnabled ? 'true' : 'false';
+    }
+    if (config.jiraHost !== undefined) {
+      existingVars['JIRA_HOST'] = config.jiraHost;
+    }
+    if (config.jiraEmail !== undefined) {
+      existingVars['JIRA_EMAIL'] = config.jiraEmail;
+    }
+    if (config.jiraToken !== undefined) {
+      existingVars['JIRA_TOKEN'] = config.jiraToken;
+    }
+    if (config.jiraProjectKey !== undefined) {
+      existingVars['JIRA_PROJECT_KEY'] = config.jiraProjectKey;
+    }
     // Git/Worktree Settings
     if (config.defaultBranch !== undefined) {
       existingVars['DEFAULT_BRANCH'] = config.defaultBranch;
@@ -212,6 +235,16 @@ ${envLine(existingVars, GITLAB_ENV_KEYS.INSTANCE_URL, 'https://gitlab.com')}
 ${envLine(existingVars, GITLAB_ENV_KEYS.TOKEN)}
 ${envLine(existingVars, GITLAB_ENV_KEYS.PROJECT, 'group/project')}
 ${envLine(existingVars, GITLAB_ENV_KEYS.AUTO_SYNC, 'false')}
+${existingVars['GITLAB_ISSUES_ENABLED'] !== undefined ? `GITLAB_ISSUES_ENABLED=${existingVars['GITLAB_ISSUES_ENABLED']}` : '# GITLAB_ISSUES_ENABLED=false'}
+
+# =============================================================================
+# JIRA INTEGRATION (OPTIONAL)
+# =============================================================================
+${existingVars['JIRA_ENABLED'] !== undefined ? `JIRA_ENABLED=${existingVars['JIRA_ENABLED']}` : '# JIRA_ENABLED=false'}
+${envLine(existingVars, 'JIRA_HOST', 'https://your-domain.atlassian.net')}
+${envLine(existingVars, 'JIRA_EMAIL')}
+${envLine(existingVars, 'JIRA_TOKEN')}
+${envLine(existingVars, 'JIRA_PROJECT_KEY', 'PROJ')}
 
 # =============================================================================
 # GIT/WORKTREE SETTINGS (OPTIONAL)
@@ -324,6 +357,7 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
         linearEnabled: false,
         githubEnabled: false,
         gitlabEnabled: false,
+        jiraEnabled: false,
         memoryEnabled: false,
         enableFancyUi: true,
         openaiKeyIsGlobal: false
@@ -384,6 +418,30 @@ ${existingVars['GRAPHITI_DB_PATH'] ? `GRAPHITI_DB_PATH=${existingVars['GRAPHITI_
       }
       if (vars[GITLAB_ENV_KEYS.AUTO_SYNC]?.toLowerCase() === 'true') {
         config.gitlabAutoSync = true;
+      }
+
+      // Independent issue tracking flags
+      if (vars['GITHUB_ISSUES_ENABLED']?.toLowerCase() === 'true') {
+        config.githubIssuesEnabled = true;
+      }
+      if (vars['GITLAB_ISSUES_ENABLED']?.toLowerCase() === 'true') {
+        config.gitlabIssuesEnabled = true;
+      }
+
+      // JIRA config
+      if (vars['JIRA_HOST']) {
+        config.jiraHost = vars['JIRA_HOST'];
+        // Enable by default if host exists and JIRA_ENABLED is not explicitly false
+        config.jiraEnabled = vars['JIRA_ENABLED']?.toLowerCase() !== 'false';
+      }
+      if (vars['JIRA_EMAIL']) {
+        config.jiraEmail = vars['JIRA_EMAIL'];
+      }
+      if (vars['JIRA_TOKEN']) {
+        config.jiraToken = vars['JIRA_TOKEN'];
+      }
+      if (vars['JIRA_PROJECT_KEY']) {
+        config.jiraProjectKey = vars['JIRA_PROJECT_KEY'];
       }
 
       // Git/Worktree config

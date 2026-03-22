@@ -256,6 +256,13 @@ export const IPC_CHANNELS = {
   JIRA_ADD_COMMENT: 'jira:addComment',
   JIRA_GET_TRANSITIONS: 'jira:getTransitions',
   JIRA_TRANSITION_ISSUE: 'jira:transitionIssue',
+  JIRA_GET_ISSUE_COMMENTS: 'jira:getIssueComments',
+  JIRA_INVESTIGATE_ISSUE: 'jira:investigateIssue',
+
+  // JIRA events (main -> renderer)
+  JIRA_INVESTIGATION_PROGRESS: 'jira:investigationProgress',
+  JIRA_INVESTIGATION_COMPLETE: 'jira:investigationComplete',
+  JIRA_INVESTIGATION_ERROR: 'jira:investigationError',
 
   // Vault integration
   VAULT_VALIDATE_PATH: 'vault:validatePath',

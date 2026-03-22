@@ -281,6 +281,40 @@ export interface GitLabInvestigationStatus {
 }
 
 // ============================================
+// JIRA Investigation Types
+// ============================================
+
+export interface JiraInvestigationResult {
+  success: boolean;
+  issueKey: string;
+  analysis: {
+    summary: string;
+    proposedSolution: string;
+    affectedFiles: string[];
+    estimatedComplexity: 'trivial' | 'standard' | 'complex';
+    acceptanceCriteria: string[];
+  };
+  taskId?: string;
+  error?: string;
+}
+
+export interface JiraInvestigationStatus {
+  phase: 'idle' | 'fetching' | 'analyzing' | 'creating_task' | 'complete' | 'error';
+  issueKey?: string;
+  progress: number;
+  message: string;
+  error?: string;
+}
+
+export interface JiraComment {
+  id: string;
+  body: string;
+  author: { displayName: string; accountId: string };
+  created: string;
+  updated: string;
+}
+
+// ============================================
 // GitLab MR Review Types
 // ============================================
 

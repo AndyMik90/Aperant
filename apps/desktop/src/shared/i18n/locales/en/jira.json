@@ -1,0 +1,64 @@
+{
+  "title": "JIRA Issues",
+  "states": {
+    "open": "Open",
+    "closed": "Closed"
+  },
+  "header": {
+    "open": "open",
+    "searchPlaceholder": "Search issues..."
+  },
+  "filters": {
+    "open": "Open",
+    "closed": "Closed",
+    "all": "All"
+  },
+  "empty": {
+    "noMatch": "No issues match your search",
+    "selectIssue": "Select an issue to view details"
+  },
+  "notConnected": {
+    "title": "JIRA Not Connected",
+    "description": "Configure your JIRA host, email, and API token in project settings to sync issues.",
+    "openSettings": "Open Settings"
+  },
+  "detail": {
+    "createTask": "Create Task",
+    "viewTask": "View Task",
+    "taskLinked": "Task Linked",
+    "taskId": "Task ID",
+    "description": "Description",
+    "noDescription": "No description provided.",
+    "assignee": "Assignee",
+    "priority": "Priority",
+    "status": "Status",
+    "type": "Type",
+    "labels": "Labels",
+    "created": "Created",
+    "updated": "Updated"
+  },
+  "investigation": {
+    "title": "Create Task from Issue",
+    "issuePrefix": "Issue",
+    "description": "Create a task from this JIRA issue. The task will be added to your Kanban board in the Backlog column.",
+    "willInclude": "The task will include:",
+    "includeTitle": "Issue title and description",
+    "includeLink": "Link back to the JIRA issue",
+    "includeLabels": "Labels and metadata from the issue",
+    "taskCreated": "Task created! View it in your Kanban board.",
+    "creating": "Creating...",
+    "fetchingDetails": "Fetching issue details...",
+    "analyzingIssue": "Analyzing issue...",
+    "creatingTask": "Creating task...",
+    "cancel": "Cancel",
+    "done": "Done",
+    "close": "Close"
+  },
+  "priority": {
+    "highest": "Highest",
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low",
+    "lowest": "Lowest"
+  }
+}
