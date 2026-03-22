@@ -352,6 +352,11 @@ async function runSingleSession(
       oauthTokenFilePath: baseSession.oauthTokenFilePath,
     });
   } catch (error) {
+    // Log the error to task_logs.json before cleanup
+    if (logWriter) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logWriter.logText(errorMsg, phase, 'error');
+    }
     // Ensure log cleanup happens on failure
     if (logWriter && !skipPhaseLogging) logWriter.endPhase(phase, false);
     if (logWriter) logWriter.setSubtask(undefined);
@@ -430,6 +435,10 @@ async function run(): Promise<void> {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     postError(`Agent session failed: ${message}`);
+    // Write to task_logs.json so the UI shows the error
+    if (logWriter) {
+      logWriter.logText(`Agent session failed: ${message}`, undefined, 'error');
+    }
   } finally {
     // Cleanup MCP clients
     if (mcpClients.length > 0) {
@@ -668,7 +677,13 @@ async function runBuildOrchestrator(
   });
 
   orchestrator.on('error', (error: Error, phase: string) => {
-    postLog(`Error in ${phase} phase: ${error.message}`);
+    const errorMsg = `Error in ${phase} phase: ${error.message}`;
+    postLog(errorMsg);
+    postError(errorMsg);
+    // Also write to task_logs.json so the UI shows the error detail
+    if (logWriter) {
+      logWriter.logText(error.message, phase as Phase, 'error');
+    }
   });
 
   const outcome = await orchestrator.run();

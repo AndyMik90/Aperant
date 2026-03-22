@@ -145,11 +145,34 @@ export class TaskLogWriter {
         this.flushPendingText();
         break;
 
-      case 'error':
+      case 'error': {
         this.flushPendingText();
-        this.addEntry(logPhase, 'error', event.error.message);
+        // Extract meaningful error message - AI SDK sometimes just sends 'error' as the message
+        const err = event.error;
+        let errorContent = 'Unknown error';
+        if (err) {
+          const msg = err.message || '';
+          const code = err.code || '';
+          const cause = err.cause;
+          // If message is just 'error' (unhelpful), try to extract from cause or code
+          if (msg && msg !== 'error') {
+            errorContent = msg;
+          } else if (cause instanceof Error) {
+            errorContent = cause.message || String(cause);
+          } else if (cause && typeof cause === 'object') {
+            errorContent = JSON.stringify(cause).slice(0, 500);
+          } else if (cause) {
+            errorContent = String(cause);
+          } else if (code && code !== 'error') {
+            errorContent = `Error code: ${code}`;
+          } else {
+            errorContent = `Error: ${JSON.stringify(err).slice(0, 500)}`;
+          }
+        }
+        this.addEntry(logPhase, 'error', errorContent);
         this.save();
         break;
+      }
 
       default:
         // Ignore thinking-delta, usage-update

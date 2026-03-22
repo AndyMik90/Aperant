@@ -266,7 +266,33 @@ export function createStreamHandler(onEvent: SessionEventCallback) {
   }
 
   function handleError(part: ErrorPart): void {
-    const errorMessage = part.error instanceof Error ? part.error.message : String(part.error ?? 'Stream error');
+    // DEBUG: Dump the raw error to console for diagnosis
+    console.warn('[StreamHandler] RAW ERROR:', JSON.stringify(part.error, Object.getOwnPropertyNames(part.error instanceof Error ? part.error : {}), 2).slice(0, 1000));
+    console.warn('[StreamHandler] ERROR TYPE:', typeof part.error, part.error?.constructor?.name);
+    if (part.error instanceof Error) {
+      console.warn('[StreamHandler] ERROR CAUSE:', (part.error as { cause?: unknown }).cause);
+      console.warn('[StreamHandler] ERROR STACK:', part.error.stack?.slice(0, 500));
+    }
+
+    // Extract meaningful error message - AI SDK error objects may have nested cause
+    let errorMessage: string;
+    if (part.error instanceof Error) {
+      errorMessage = part.error.message;
+      // If message is just 'error', try cause
+      if (errorMessage === 'error' && (part.error as { cause?: unknown }).cause) {
+        const cause = (part.error as { cause?: unknown }).cause;
+        errorMessage = cause instanceof Error ? cause.message : String(cause);
+      }
+      // Also check stack for more context if message is unhelpful
+      if (errorMessage === 'error' && part.error.stack) {
+        errorMessage = part.error.stack.split('\n')[0] || 'Stream error';
+      }
+    } else if (typeof part.error === 'object' && part.error !== null) {
+      const errObj = part.error as Record<string, unknown>;
+      errorMessage = (errObj.message as string) || (errObj.text as string) || JSON.stringify(part.error).slice(0, 500);
+    } else {
+      errorMessage = String(part.error ?? 'Stream error');
+    }
     const { sessionError } = classifyError(errorMessage);
     emit({ type: 'error', error: sessionError });
   }
