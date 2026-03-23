@@ -68,6 +68,12 @@ export default defineConfig({
         '@ai-sdk/openai-compatible',
         '@ai-sdk/provider',
         '@ai-sdk/provider-utils',
+        // Additional packages that get hoisted to root node_modules by npm workspaces
+        // but must be bundled since electron-builder only packages apps/desktop/node_modules
+        '@ai-sdk/mcp',
+        '@modelcontextprotocol/sdk',
+        '@openrouter/ai-sdk-provider',
+        '@tavily/core',
       ]
     })],
     build: {
