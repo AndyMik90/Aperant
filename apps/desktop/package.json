@@ -1,6 +1,6 @@
 {
   "name": "aperant",
-  "version": "2.8.0-beta.1",
+  "version": "2.8.0-beta.6",
   "type": "module",
   "description": "Autonomous multi-agent coding framework",
   "homepage": "https://github.com/AndyMik90/Aperant",

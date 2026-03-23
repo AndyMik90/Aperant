@@ -1,3 +1,11 @@
+## 2.8.0-beta.6 - Production Build Fix
+
+### 🐛 Bug Fixes
+
+- **Fixed ERR_MODULE_NOT_FOUND on startup** — Resolved crash on launch where `@openrouter/ai-sdk-provider`, `@ai-sdk/mcp`, `@modelcontextprotocol/sdk`, and `@tavily/core` were missing in production builds. These packages were hoisted to root `node_modules` by npm workspaces but not included in the Electron bundle. (#1944)
+
+- **Fixed .aperant directory not gitignored** — Added `.aperant/` to `.gitignore` after the project directory rename from `.auto-claude`
+
 ## 2.7.6 - Stability & Feature Enhancements
 
 ### ✨ New Features
