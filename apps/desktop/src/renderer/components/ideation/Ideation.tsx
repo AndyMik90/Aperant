@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { TabsContent } from '../ui/tabs';
 import { IDEATION_TYPE_DESCRIPTIONS } from '../../../shared/constants';
 import { IdeationEmptyState } from './IdeationEmptyState';
@@ -17,6 +18,7 @@ interface IdeationProps {
 }
 
 export function Ideation({ projectId, onGoToTask }: IdeationProps) {
+  const { t } = useTranslation('common');
   // Get showArchived from shared context for cross-page sync
   const { showArchived } = useViewState();
 
@@ -157,7 +159,7 @@ export function Ideation({ projectId, onGoToTask }: IdeationProps) {
               ))}
               {activeIdeas.length === 0 && (
                 <div className="text-center py-8 text-muted-foreground">
-                  No ideas to display
+                  {t('ideation.noIdeasToDisplay')}
                 </div>
               )}
             </div>

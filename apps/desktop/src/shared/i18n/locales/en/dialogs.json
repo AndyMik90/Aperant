@@ -139,6 +139,49 @@
     "openExistingAriaLabel": "Open existing project folder",
     "createNewAriaLabel": "Create new project"
   },
+  "addCustomer": {
+    "title": "Add Customer",
+    "description": "Create a new customer folder or select an existing one",
+    "createNew": "Create New Folder",
+    "createNewDescription": "Start fresh with a new customer folder",
+    "createNewSubtitle": "Set up a new customer folder",
+    "createNewAriaLabel": "Create new customer folder",
+    "openExisting": "Open Existing Folder",
+    "openExistingDescription": "Browse to an existing customer folder on your computer",
+    "openExistingAriaLabel": "Open existing customer folder",
+    "customerName": "Customer Name",
+    "customerNamePlaceholder": "e.g., Acme Corp",
+    "location": "Location",
+    "locationPlaceholder": "Select a folder...",
+    "browse": "Browse",
+    "willCreate": "Will create:",
+    "back": "Back",
+    "creating": "Creating...",
+    "createCustomer": "Create Customer",
+    "nameRequired": "Please enter a customer name",
+    "locationRequired": "Please select a location",
+    "failedToOpen": "Failed to open customer folder",
+    "failedToCreate": "Failed to create customer folder"
+  },
+  "customerRepos": {
+    "title": "Clone Repositories",
+    "description": "Select repositories to clone into {{name}}'s folder",
+    "searchPlaceholder": "Search repositories...",
+    "loading": "Loading repositories...",
+    "failedToLoad": "Failed to load repositories",
+    "noResults": "No repositories match your search",
+    "noRepos": "No repositories found",
+    "clone": "Clone",
+    "cloning": "Cloning...",
+    "cloned": "Cloned",
+    "cloneFailed": "Failed to clone repository",
+    "retry": "Retry",
+    "clonedCount": "{{count}} repository cloned",
+    "clonedCount_other": "{{count}} repositories cloned",
+    "done": "Done",
+    "private": "Private repository",
+    "public": "Public repository"
+  },
   "customModel": {
     "title": "Custom Model Configuration",
     "description": "Configure the model and thinking level for this chat session.",
@@ -224,6 +267,12 @@
     "skipTitle": "Skip competitor analysis",
     "skipDescription": "Generate roadmap without any competitor insights.",
     "cancel": "Cancel"
+  },
+  "envConfig": {
+    "profileNotFound": "Profile not found",
+    "failedToSaveToken": "Failed to save token",
+    "invalidProfileCredentials": "Selected profile does not have valid credentials. Please re-authenticate.",
+    "failedToUseProfile": "Failed to use profile"
   },
   "versionWarning": {
     "title": "Action Required",

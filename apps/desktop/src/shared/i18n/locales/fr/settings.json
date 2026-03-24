@@ -188,7 +188,12 @@
     "fineTuneDescription": "Ajustez de 75% à 200% par incréments de 5%",
     "default": "Par défaut",
     "comfortable": "Confortable",
-    "large": "Grand"
+    "large": "Grand",
+    "resetToDefault": "Réinitialiser par défaut (100%)",
+    "decreaseScale": "Diminuer l'échelle de {{step}}%",
+    "increaseScale": "Augmenter l'échelle de {{step}}%",
+    "applyChanges": "Appliquer les changements d'échelle",
+    "apply": "Appliquer"
   },
   "logOrder": {
     "label": "Ordre des journaux",
@@ -259,7 +264,9 @@
     "dark": "Sombre",
     "system": "Système",
     "colorTheme": "Thème de couleur",
-    "colorThemeDescription": "Choisissez votre palette de couleurs préférée"
+    "colorThemeDescription": "Choisissez votre palette de couleurs préférée",
+    "backgroundColorTitle": "Couleur d'arrière-plan",
+    "accentColorTitle": "Couleur d'accentuation"
   },
   "devtools": {
     "title": "Outils de développement",
@@ -353,7 +360,7 @@
   "projectSections": {
     "general": {
       "title": "Général",
-      "description": "Auto-Build et configuration de l'agent",
+      "description": "Configurer Auto-Build, modèle d'agent et notifications pour {{name}}",
       "useClaudeMd": "Utiliser CLAUDE.md",
       "useClaudeMdDescription": "Inclure les instructions CLAUDE.md dans le contexte de l'agent"
     },
@@ -424,6 +431,11 @@
     "customized": "Personnalisé",
     "ollamaNotConfigured": "Sélectionnez les modèles ci-dessous",
     "phaseConfigNote": "Ces paramètres seront utilisés par défaut lors de la création de nouvelles tâches avec ce profil. Vous pouvez les modifier par tâche dans l'assistant de création.",
+    "availableAgents": {
+      "title": "Agents Spécialistes Disponibles",
+      "description": "Tous les agents sont disponibles pour utilisation automatique",
+      "info": "Ces agents de ~/.claude/agents/ sont automatiquement disponibles pendant l'exécution des tâches. Le système sélectionne le spécialiste le plus pertinent en fonction du contexte — aucune assignation manuelle nécessaire."
+    },
     "adaptiveThinking": {
       "badge": "Adaptatif",
       "tooltip": "Opus utilise la réflexion adaptative — il décide dynamiquement de la profondeur de réflexion dans la limite du budget défini par le niveau de réflexion."
@@ -971,6 +983,40 @@
       "createAnthropicKey": "Créer une clé API Anthropic",
       "openai": "Ceci ressemble à une API OpenAI. Vous aurez besoin d'une clé API.",
       "createOpenaiKey": "Créer une clé API OpenAI"
+    },
+    "globalMcps": {
+      "title": "MCPs Claude Code (Global)",
+      "description": "Serveurs MCP configurés dans Claude Code (~/.claude.json et ~/.claude/settings.json)",
+      "noGlobalMcps": "Aucun serveur MCP global configuré dans Claude Code",
+      "source": {
+        "plugin": "Plugin",
+        "settings": "Paramètres",
+        "claudeJson": "Config Claude"
+      },
+      "badge": "Global",
+      "serverType": {
+        "command": "Commande",
+        "http": "HTTP",
+        "sse": "SSE"
+      },
+      "refreshTooltip": "Actualiser la liste des MCP globaux",
+      "readOnly": "Lecture seule — configurez dans les paramètres Claude Code CLI",
+      "checkHealth": "Vérifier",
+      "healthCheckFailed": "Échec de la vérification de santé",
+      "statusUnknown": "Statut inconnu — cliquez Vérifier",
+      "useIn": "Utiliser dans :",
+      "phases": {
+        "spec": "Spec",
+        "build": "Build",
+        "qa": "QA",
+        "utility": "Utilitaire",
+        "ideation": "Idéation"
+      }
+    },
+    "customAgents": {
+      "title": "Agents Personnalisés (Global)",
+      "description": "Définitions d'agents personnalisés depuis ~/.claude/agents/",
+      "refreshTooltip": "Actualiser la liste des agents"
     }
   },
   "terminalFonts": {
@@ -1113,6 +1159,75 @@
       "label": "Remplisseur de modèle PR",
       "description": "Remplit intelligemment les modèles de PR GitHub à partir des changements de code"
     }
+  },
+  "projectSelector": {
+    "placeholder": "Sélectionner un projet...",
+    "noProjects": "Aucun projet",
+    "addProject": "Ajouter un projet...",
+    "addCustomer": "Ajouter un client..."
+  },
+  "linear": {
+    "enableSync": "Activer la synchronisation Linear",
+    "enableSyncDescription": "Créer et mettre à jour les issues Linear automatiquement",
+    "apiKey": "Clé API",
+    "apiKeyDescription": "Obtenez votre clé API depuis",
+    "linearSettings": "Paramètres Linear",
+    "connectionStatus": "État de la connexion",
+    "checking": "Vérification...",
+    "connected": "Connecté à {{team}}",
+    "connectedNoTeam": "Connecté",
+    "notConnected": "Non connecté",
+    "tasksAvailable": "{{count}}+ tâches disponibles à importer",
+    "importTitle": "Importer les tâches existantes",
+    "importDescription": "Sélectionnez les issues Linear à importer dans AutoBuild.",
+    "importButton": "Importer depuis Linear",
+    "realtimeSync": "Synchronisation en temps réel",
+    "realtimeSyncDescription": "Importer automatiquement les nouvelles tâches créées dans Linear",
+    "realtimeSyncWarning": "Lorsqu'activé, les nouvelles issues Linear seront automatiquement importées dans AutoBuild. Assurez-vous de configurer les filtres équipe/projet ci-dessous.",
+    "teamId": "ID d'équipe (Optionnel)",
+    "projectId": "ID de projet (Optionnel)"
+  },
+  "github": {
+    "enableIssues": "Activer les issues GitHub",
+    "enableIssuesDescription": "Synchroniser les issues depuis GitHub et créer des tâches automatiquement",
+    "connectedViaCLI": "Connecté via GitHub CLI",
+    "authenticatedAs": "Authentifié en tant que {{username}}",
+    "useDifferentToken": "Utiliser un autre token",
+    "authentication": "Authentification GitHub",
+    "useManualToken": "Utiliser un token manuel",
+    "personalAccessToken": "Token d'accès personnel",
+    "useOAuthInstead": "Utiliser OAuth à la place",
+    "tokenInstructions": "Créez un token avec",
+    "tokenScopeFrom": "scope depuis",
+    "githubSettings": "Paramètres GitHub",
+    "clonedRepositories": "Dépôts clonés",
+    "cloneRepositories": "Cloner des dépôts",
+    "cloned": "Cloné",
+    "cloning": "Clonage",
+    "clone": "Cloner",
+    "refresh": "Actualiser",
+    "loadRepos": "Charger les dépôts",
+    "searchRepos": "Rechercher des dépôts...",
+    "repository": "Dépôt",
+    "repositoryFormat": "Format : owner/repo (ex. : facebook/react)",
+    "selectRepository": "Sélectionner un dépôt...",
+    "enterManually": "Saisir manuellement",
+    "loadingRepositories": "Chargement des dépôts...",
+    "noMatchingRepositories": "Aucun dépôt correspondant",
+    "noRepositoriesFound": "Aucun dépôt trouvé",
+    "selected": "Sélectionné",
+    "connectionStatus": "État de la connexion",
+    "checking": "Vérification...",
+    "connectedTo": "Connecté à {{repo}}",
+    "notConnected": "Non connecté",
+    "issuesAvailable": "Issues disponibles",
+    "issuesAvailableDescription": "Accédez aux issues GitHub depuis la barre latérale pour les consulter, les analyser et créer des tâches.",
+    "autoSyncOnLoad": "Synchronisation automatique",
+    "autoSyncDescription": "Synchroniser automatiquement les issues au chargement du projet",
+    "failedToLoadBranches": "Échec du chargement des branches",
+    "failedToLoadRepositories": "Échec du chargement des dépôts",
+    "cloneFailed": "Échec du clonage",
+    "failedToRegisterProject": "Échec de l'enregistrement du projet cloné"
   },
   "provider": {
     "title": "Fournisseur IA",

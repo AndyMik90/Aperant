@@ -28,6 +28,13 @@ import { Button } from './ui/button';
 import { ScrollArea } from './ui/scroll-area';
 import { Separator } from './ui/separator';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from './ui/select';
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -45,7 +52,7 @@ import { cn } from '../lib/utils';
 import {
   useProjectStore,
   removeProject,
-  initializeProject
+  initializeProject,
 } from '../stores/project-store';
 import { useSettingsStore, saveSettings } from '../stores/settings-store';
 import {
@@ -67,6 +74,7 @@ interface SidebarProps {
   onNewTaskClick: () => void;
   activeView?: SidebarView;
   onViewChange?: (view: SidebarView) => void;
+  onCustomerAdded?: (project: Project) => void;
 }
 
 interface NavItem {
@@ -105,11 +113,13 @@ export function Sidebar({
   onSettingsClick,
   onNewTaskClick,
   activeView = 'kanban',
-  onViewChange
+  onViewChange,
+  onCustomerAdded
 }: SidebarProps) {
   const { t } = useTranslation(['navigation', 'dialogs', 'common']);
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
+  const selectProject = useProjectStore((state) => state.selectProject);
   const settings = useSettingsStore((state) => state.settings);
 
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
@@ -120,6 +130,29 @@ export function Sidebar({
   const [isInitializing, setIsInitializing] = useState(false);
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
+
+  // Normalize path separators for cross-platform customer/child comparisons.
+  const normalizePath = (value: string) => value.replace(/\\/g, '/').replace(/\/+$/, '');
+
+  // Determine customer context: the parent customer for the selected project
+  const customerContext = useMemo(() => {
+    if (!selectedProject) return null;
+    if ((selectedProject as Project & { type?: string }).type === 'customer') return selectedProject;
+    const normalizedSelected = normalizePath(selectedProject.path);
+    const parentCustomer = projects.find(
+      p => (p as Project & { type?: string }).type === 'customer' && normalizedSelected.startsWith(normalizePath(p.path) + '/')
+    );
+    return parentCustomer ?? null;
+  }, [selectedProject, projects]);
+
+  // Child repos belonging to the current customer context
+  const customerChildRepos = useMemo(() => {
+    if (!customerContext) return [];
+    const normalizedCustomer = normalizePath(customerContext.path);
+    return projects.filter(
+      p => p.id !== customerContext.id && normalizePath(p.path).startsWith(normalizedCustomer + '/')
+    );
+  }, [customerContext, projects]);
 
   // Sidebar collapsed state from settings
   const isCollapsed = settings.sidebarCollapsed ?? false;
@@ -135,20 +168,22 @@ export function Sidebar({
   // Track the last loaded project ID to avoid redundant loads
   const lastLoadedProjectIdRef = useRef<string | null>(null);
 
-  // Compute visible nav items based on GitHub/GitLab enabled state from store
+  // When inside a Customer context, always show GitHub nav
+  const inCustomerContext = !!customerContext;
+
+  // Compute visible nav items -- show GitHub OR GitLab based on what's configured
   const visibleNavItems = useMemo(() => {
     const items = [...baseNavItems];
-
-    if (githubEnabled) {
+    const effectiveGithubEnabled = githubEnabled || inCustomerContext;
+    if (effectiveGithubEnabled && !gitlabEnabled) {
       items.push(...githubNavItems);
-    }
-
-    if (gitlabEnabled) {
+    } else if (gitlabEnabled && !effectiveGithubEnabled) {
       items.push(...gitlabNavItems);
+    } else if (effectiveGithubEnabled && gitlabEnabled) {
+      items.push(...githubNavItems, ...gitlabNavItems);
     }
-
     return items;
-  }, [githubEnabled, gitlabEnabled]);
+  }, [githubEnabled, gitlabEnabled, inCustomerContext]);
 
   // Load envConfig when project changes to ensure store is populated
   useEffect(() => {
@@ -212,16 +247,25 @@ export function Sidebar({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedProjectId, onViewChange, visibleNavItems]);
 
-  // Check git status when project changes
+  // Track which project IDs had git modal dismissed to avoid re-showing
+  const gitModalDismissedRef = useRef<Set<string>>(new Set());
+
+  // Check git status when project changes (skip for customer-type projects)
   useEffect(() => {
     const checkGit = async () => {
       if (selectedProject) {
+        // Customer folders don't require git
+        if ((selectedProject as Project & { type?: string }).type === 'customer') {
+          setGitStatus(null);
+          return;
+        }
         try {
           const result = await window.electronAPI.checkGitStatus(selectedProject.path);
           if (result.success && result.data) {
             setGitStatus(result.data);
             // Show git setup modal if project is not a git repo or has no commits
-            if (!result.data.isGitRepo || !result.data.hasCommits) {
+            // but only if user hasn't already dismissed it for this project
+            if ((!result.data.isGitRepo || !result.data.hasCommits) && !gitModalDismissedRef.current.has(selectedProject.id)) {
               setShowGitSetupModal(true);
             }
           }
@@ -233,7 +277,7 @@ export function Sidebar({
       }
     };
     checkGit();
-  }, [selectedProject]);
+  }, [selectedProjectId]);
 
   const handleProjectAdded = (project: Project, needsInit: boolean) => {
     if (needsInit) {
@@ -399,6 +443,30 @@ export function Sidebar({
                   {t('sections.project')}
                 </h3>
               )}
+
+              {/* Repo Selector Dropdown -- only visible in customer context */}
+              {customerContext && customerChildRepos.length > 0 && !isCollapsed && (
+                <div className="mb-3 px-1">
+                  <Select
+                    value={(selectedProject as Project & { type?: string })?.type === 'customer' ? '' : (selectedProjectId ?? '')}
+                    onValueChange={(value) => {
+                      selectProject(value);
+                    }}
+                  >
+                    <SelectTrigger className="h-9 text-xs">
+                      <SelectValue placeholder={t('navigation:projectSelector.selectRepo')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {customerChildRepos.map((child) => (
+                        <SelectItem key={child.id} value={child.id}>
+                          <span className="truncate">{child.name}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <nav className="space-y-1">
                 {visibleNavItems.map(renderNavItem)}
               </nav>
@@ -569,7 +637,13 @@ export function Sidebar({
       {/* Git Setup Modal */}
       <GitSetupModal
         open={showGitSetupModal}
-        onOpenChange={setShowGitSetupModal}
+        onOpenChange={(open) => {
+          setShowGitSetupModal(open);
+          // When user closes the modal, remember not to show it again for this project
+          if (!open && selectedProjectId) {
+            gitModalDismissedRef.current.add(selectedProjectId);
+          }
+        }}
         project={selectedProject || null}
         gitStatus={gitStatus}
         onGitInitialized={handleGitInitialized}

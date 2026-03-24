@@ -16,6 +16,84 @@ import type {
 import { openTerminalWithCommand } from './claude-code-handlers';
 
 /**
+ * Known Ollama embedding model dimensions.
+ * Single source of truth for the frontend — mirrors the backend's
+ * KNOWN_EMBEDDING_MODELS in ollama_model_detector.py and
+ * KNOWN_OLLAMA_EMBEDDING_MODELS in ollama_embedder.py.
+ */
+const KNOWN_OLLAMA_EMBEDDING_DIMS: Record<string, number> = {
+  'embeddinggemma': 768,
+  'embeddinggemma:300m': 768,
+  'qwen3-embedding': 1024,
+  'qwen3-embedding:0.6b': 1024,
+  'qwen3-embedding:4b': 2560,
+  'qwen3-embedding:8b': 4096,
+  'nomic-embed-text': 768,
+  'nomic-embed-text:latest': 768,
+  'mxbai-embed-large': 1024,
+  'mxbai-embed-large:latest': 1024,
+  'bge-large': 1024,
+  'bge-large:latest': 1024,
+  'bge-large-en': 1024,
+  'bge-base-en': 768,
+  'bge-small-en': 384,
+  'bge-m3': 1024,
+  'bge-m3:latest': 1024,
+  'all-minilm': 384,
+  'all-minilm:latest': 384,
+  'snowflake-arctic-embed': 1024,
+  'jina-embeddings-v2-base-en': 768,
+  'e5-small': 384,
+  'e5-base': 768,
+  'e5-large': 1024,
+  'paraphrase-multilingual': 768,
+};
+
+/**
+ * Look up the embedding dimension for an Ollama model.
+ * Tries exact match, base-name match, prefix match, then heuristic fallback.
+ */
+function lookupEmbeddingDim(modelName: string): { dim: number; source: 'known' | 'fallback' } | null {
+  const nameLower = modelName.toLowerCase();
+
+  // Exact match
+  if (nameLower in KNOWN_OLLAMA_EMBEDDING_DIMS) {
+    return { dim: KNOWN_OLLAMA_EMBEDDING_DIMS[nameLower], source: 'known' };
+  }
+
+  // Base name match (strip :tag)
+  const baseName = nameLower.split(':')[0];
+  if (baseName in KNOWN_OLLAMA_EMBEDDING_DIMS) {
+    return { dim: KNOWN_OLLAMA_EMBEDDING_DIMS[baseName], source: 'known' };
+  }
+
+  // Prefix match
+  for (const [key, dim] of Object.entries(KNOWN_OLLAMA_EMBEDDING_DIMS)) {
+    if (nameLower.startsWith(key)) {
+      return { dim, source: 'known' };
+    }
+  }
+
+  // Heuristic fallback based on name patterns.
+  // WARNING: These are guesses and may be incorrect for unknown models.
+  // The 'fallback' source flag allows callers to surface this uncertainty.
+  if (nameLower.includes('large')) {
+    console.warn(`[OllamaEmbedding] Using heuristic dimension guess (1024) for unknown model: ${modelName}`);
+    return { dim: 1024, source: 'fallback' };
+  }
+  if (nameLower.includes('base')) {
+    console.warn(`[OllamaEmbedding] Using heuristic dimension guess (768) for unknown model: ${modelName}`);
+    return { dim: 768, source: 'fallback' };
+  }
+  if (nameLower.includes('small') || nameLower.includes('mini')) {
+    console.warn(`[OllamaEmbedding] Using heuristic dimension guess (384) for unknown model: ${modelName}`);
+    return { dim: 384, source: 'fallback' };
+  }
+
+  return null;
+}
+
+/**
  * Ollama Service Status
  * Contains information about Ollama service availability and configuration
  */
@@ -591,5 +669,46 @@ export function registerMemoryHandlers(): void {
         };
       }
     },
+  );
+
+  // ============================================
+  // Ollama Embedding Dimension Lookup
+  // ============================================
+
+  /**
+   * Get the embedding dimension for an Ollama model.
+   * Single source of truth — the renderer calls this instead of
+   * maintaining its own hardcoded dimension map.
+   */
+  ipcMain.handle(
+    IPC_CHANNELS.OLLAMA_GET_EMBEDDING_DIM,
+    async (
+      _,
+      modelName: string
+    ): Promise<IPCResult<{ model: string; dim: number; source: 'known' | 'fallback' }>> => {
+      try {
+        if (!modelName || typeof modelName !== 'string') {
+          return { success: false, error: 'Model name is required' };
+        }
+
+        const result = lookupEmbeddingDim(modelName);
+        if (result) {
+          return {
+            success: true,
+            data: { model: modelName, dim: result.dim, source: result.source },
+          };
+        }
+
+        return {
+          success: false,
+          error: `Unknown embedding model: ${modelName}. Dimension could not be determined.`,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : 'Failed to get embedding dimension',
+        };
+      }
+    }
   );
 }

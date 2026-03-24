@@ -127,7 +127,15 @@ export function GitHubSetupModal({
           const hasAIAuth = accounts.length > 0;
 
           // Determine starting step based on existing auth
-          if (hasGitHubAuth && hasAIAuth) {
+          if (hasGitHubAuth && (project as Project & { type?: string }).type === 'customer') {
+            // Customer with existing GitHub auth -- just complete with token
+            onComplete({
+              githubToken: ghTokenResult.data!.token,
+              githubRepo: '',
+              mainBranch: '',
+              githubAuthMethod: 'oauth'
+            });
+          } else if (hasGitHubAuth && hasAIAuth) {
             // Both authenticated, go directly to repo detection
             setGithubToken(ghTokenResult.data!.token);
             setStep('repo'); // Temporary, detectRepository will update
@@ -240,6 +248,17 @@ export function GitHubSetupModal({
   // Handle GitHub OAuth success
   const handleGitHubAuthSuccess = async (token: string) => {
     setGithubToken(token);
+
+    // For customers, we only need the GitHub token -- skip repo/branch/claude steps
+    if ((project as Project & { type?: string }).type === 'customer') {
+      onComplete({
+        githubToken: token,
+        githubRepo: '',
+        mainBranch: '',
+        githubAuthMethod: 'oauth'
+      });
+      return;
+    }
 
     // Check if user already has AI provider accounts configured
     try {

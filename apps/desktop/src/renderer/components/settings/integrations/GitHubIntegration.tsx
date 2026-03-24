@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Github, RefreshCw, KeyRound, Loader2, CheckCircle2, AlertCircle, User, Lock, Globe, ChevronDown, GitBranch } from 'lucide-react';
+import { Github, RefreshCw, KeyRound, Loader2, CheckCircle2, AlertCircle, User, Lock, Globe, ChevronDown, GitBranch, Download, FolderGit2 } from 'lucide-react';
+import { useProjectStore } from '../../../stores/project-store';
 import { Input } from '../../ui/input';
 import { Label } from '../../ui/label';
 import { Switch } from '../../ui/switch';
@@ -10,6 +11,7 @@ import { Combobox } from '../../ui/combobox';
 import { GitHubOAuthFlow } from '../../project-settings/GitHubOAuthFlow';
 import { PasswordInput } from '../../project-settings/PasswordInput';
 import { buildBranchOptions } from '../../../lib/branch-utils';
+import { cn } from '../../../lib/utils';
 import type { ProjectEnvConfig, GitHubSyncStatus, ProjectSettings, GitBranchDetail } from '../../../../shared/types';
 
 // Debug logging
@@ -38,6 +40,9 @@ interface GitHubIntegrationProps {
   gitHubConnectionStatus: GitHubSyncStatus | null;
   isCheckingGitHub: boolean;
   projectPath?: string; // Project path for fetching git branches
+  projectType?: 'project' | 'customer'; // Project type for customer-specific UI
+  projectName?: string; // Project name for display
+  projectId?: string; // Project ID for store lookups
   // Project settings for mainBranch (used by kanban tasks and terminal worktrees)
   settings?: ProjectSettings;
   setSettings?: React.Dispatch<React.SetStateAction<ProjectSettings>>;
@@ -55,6 +60,9 @@ export function GitHubIntegration({
   gitHubConnectionStatus,
   isCheckingGitHub,
   projectPath,
+  projectType,
+  projectName,
+  projectId,
   settings,
   setSettings
 }: GitHubIntegrationProps) {
@@ -69,6 +77,23 @@ export function GitHubIntegration({
   const [branches, setBranches] = useState<GitBranchDetail[]>([]);
   const [isLoadingBranches, setIsLoadingBranches] = useState(false);
   const [branchesError, setBranchesError] = useState<string | null>(null);
+
+  // Customer clone repos state
+  const [customerRepos, setCustomerRepos] = useState<GitHubRepo[]>([]);
+  const [isLoadingCustomerRepos, setIsLoadingCustomerRepos] = useState(false);
+  const [customerReposError, setCustomerReposError] = useState<string | null>(null);
+  const [cloneStatuses, setCloneStatuses] = useState<Record<string, 'idle' | 'cloning' | 'done' | 'error'>>({});
+  const [cloneErrors, setCloneErrors] = useState<Record<string, string>>({});
+  const [customerRepoSearch, setCustomerRepoSearch] = useState('');
+
+  // Get child projects (repos cloned into customer folder)
+  const allProjects = useProjectStore((state) => state.projects);
+  const customerChildProjects = useMemo(() => {
+    if (projectType !== 'customer' || !projectPath) return [];
+    const normalize = (p: string) => p.replace(/\\/g, '/');
+    const normalizedCustomerPath = normalize(projectPath);
+    return allProjects.filter(p => p.id !== projectId && normalize(p.path).startsWith(normalizedCustomerPath + '/'));
+  }, [projectType, projectPath, projectId, allProjects]);
 
   debugLog('Render - authMode:', authMode);
   debugLog('Render - projectPath:', projectPath);
@@ -221,6 +246,66 @@ export function GitHubIntegration({
     updateEnvConfig({ githubRepo: repoFullName });
   };
 
+  // Customer-specific: load repos for cloning
+  const loadCustomerRepos = async () => {
+    setIsLoadingCustomerRepos(true);
+    setCustomerReposError(null);
+    try {
+      const result = await window.electronAPI.listGitHubUserRepos();
+      if (result.success && result.data) {
+        setCustomerRepos(result.data.repos);
+      } else {
+        setCustomerReposError(result.error || 'Failed to load repositories');
+      }
+    } catch (err) {
+      setCustomerReposError(err instanceof Error ? err.message : 'Failed to load repositories');
+    } finally {
+      setIsLoadingCustomerRepos(false);
+    }
+  };
+
+  // Customer-specific: clone a repo into the customer folder
+  const handleCloneRepo = async (repo: GitHubRepo) => {
+    if (!projectPath) return;
+    setCloneStatuses(prev => ({ ...prev, [repo.fullName]: 'cloning' }));
+    setCloneErrors(prev => {
+      const next = { ...prev };
+      delete next[repo.fullName];
+      return next;
+    });
+
+    try {
+      const result = await window.electronAPI.cloneGitHubRepo(repo.fullName, projectPath);
+      if (!result.success || !result.data) {
+        setCloneStatuses(prev => ({ ...prev, [repo.fullName]: 'error' }));
+        setCloneErrors(prev => ({ ...prev, [repo.fullName]: result.error || 'Clone failed' }));
+        return;
+      }
+
+      // Register cloned repo as a project
+      const addResult = await window.electronAPI.addProject(result.data.path);
+      if (addResult?.success && addResult?.data) {
+        const store = useProjectStore.getState();
+        store.addProject(addResult.data);
+        setCloneStatuses(prev => ({ ...prev, [repo.fullName]: 'done' }));
+      } else {
+        setCloneStatuses(prev => ({ ...prev, [repo.fullName]: 'error' }));
+        setCloneErrors(prev => ({ ...prev, [repo.fullName]: addResult?.error || 'Failed to register project' }));
+      }
+    } catch (err) {
+      setCloneStatuses(prev => ({ ...prev, [repo.fullName]: 'error' }));
+      setCloneErrors(prev => ({
+        ...prev,
+        [repo.fullName]: err instanceof Error ? err.message : 'Clone failed'
+      }));
+    }
+  };
+
+  const filteredCustomerRepos = customerRepos.filter(repo =>
+    repo.fullName.toLowerCase().includes(customerRepoSearch.toLowerCase()) ||
+    (repo.description?.toLowerCase().includes(customerRepoSearch.toLowerCase()))
+  );
+
   // Selected branch for Combobox value
   const selectedBranch = settings?.mainBranch || envConfig?.defaultBranch || '';
   const pushNewBranches = settings?.pushNewBranches !== false;
@@ -344,98 +429,240 @@ export function GitHubIntegration({
             </>
           )}
 
-          {envConfig.githubToken && envConfig.githubRepo && (
-            <ConnectionStatus
-              isChecking={isCheckingGitHub}
-              connectionStatus={gitHubConnectionStatus}
-            />
-          )}
-
-          {gitHubConnectionStatus?.connected && <IssuesAvailableInfo />}
-
-          <Separator />
-
-          {/* Default Branch Selector */}
-          {projectPath && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-2">
-                    <GitBranch className="h-4 w-4 text-info" />
-                    <Label className="text-sm font-medium text-foreground">
-                      {t('settings:projectSections.github.defaultBranch.label')}
-                    </Label>
-                  </div>
-                  <p className="text-xs text-muted-foreground pl-6">
-                    {t('settings:projectSections.github.defaultBranch.description')}
-                  </p>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={fetchBranches}
-                  disabled={isLoadingBranches}
-                  className="h-7 px-2"
-                >
-                  <RefreshCw className={`h-3 w-3 ${isLoadingBranches ? 'animate-spin' : ''}`} />
-                </Button>
-              </div>
-
-              {branchesError && (
-                <div className="flex items-center gap-2 text-xs text-destructive pl-6">
-                  <AlertCircle className="h-3 w-3" />
-                  {branchesError}
-                </div>
-              )}
-
-              <div className="pl-6">
-                <Combobox
-                  options={branchOptions}
-                  value={selectedBranch}
-                  onValueChange={handleBranchChange}
-                  placeholder={t('settings:projectSections.github.defaultBranch.autoDetect')}
-                  searchPlaceholder={t('settings:projectSections.github.defaultBranch.searchPlaceholder')}
-                  emptyMessage={t('settings:projectSections.github.defaultBranch.noBranchesFound')}
-                  disabled={isLoadingBranches}
-                  className="w-full"
-                />
-              </div>
-
-              {selectedBranch && (
-                <p className="text-xs text-muted-foreground pl-6">
-                  {t('settings:projectSections.github.defaultBranch.selectedBranchHelp', { branch: selectedBranch })}
-                </p>
-              )}
-            </div>
-          )}
-
-          {setSettings && (
+          {/* Customer-specific: Clone Repositories */}
+          {projectType === 'customer' && envConfig.githubToken && (
             <>
               <Separator />
 
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="font-normal text-foreground">
-                    {t('settings:projectSections.github.pushNewBranches.label')}
+              {/* Already cloned repos */}
+              {customerChildProjects.length > 0 && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-foreground flex items-center gap-2">
+                    <FolderGit2 className="h-4 w-4" />
+                    Cloned Repositories
                   </Label>
-                  <p className="text-xs text-muted-foreground">
-                    {t('settings:projectSections.github.pushNewBranches.description')}
-                  </p>
+                  <div className="space-y-1.5">
+                    {customerChildProjects.map((child) => (
+                      <div
+                        key={child.id}
+                        className="flex items-center gap-2 rounded-md border border-border bg-muted/50 px-3 py-2 text-sm"
+                      >
+                        <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                        <span className="truncate font-medium">{child.name}</span>
+                        <span className="text-xs text-muted-foreground truncate ml-auto">{child.path}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <Switch
-                  checked={pushNewBranches}
-                  onCheckedChange={(checked) => setSettings(prev => ({ ...prev, pushNewBranches: checked }))}
-                />
+              )}
+
+              {/* Clone new repos */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium text-foreground flex items-center gap-2">
+                    <Download className="h-4 w-4" />
+                    Clone Repositories
+                  </Label>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={loadCustomerRepos}
+                    disabled={isLoadingCustomerRepos}
+                  >
+                    {isLoadingCustomerRepos ? (
+                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
+                    )}
+                    {customerRepos.length > 0 ? 'Refresh' : 'Load Repos'}
+                  </Button>
+                </div>
+
+                {customerReposError && (
+                  <div className="flex items-center gap-2 text-xs text-destructive">
+                    <AlertCircle className="h-3 w-3" />
+                    {customerReposError}
+                  </div>
+                )}
+
+                {customerRepos.length > 0 && (
+                  <>
+                    {/* Search */}
+                    <Input
+                      type="text"
+                      value={customerRepoSearch}
+                      onChange={(e) => setCustomerRepoSearch(e.target.value)}
+                      placeholder="Search repositories..."
+                      className="h-8 text-xs"
+                    />
+
+                    {/* Repo list */}
+                    <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
+                      {filteredCustomerRepos.map((repo) => {
+                        const status = cloneStatuses[repo.fullName] || 'idle';
+                        const alreadyCloned = customerChildProjects.some(
+                          p => p.name === repo.fullName.split('/').pop()
+                        );
+                        const cloneError = cloneErrors[repo.fullName];
+
+                        return (
+                          <div
+                            key={repo.fullName}
+                            className={cn(
+                              'flex items-center gap-2 rounded-md border px-3 py-2 text-sm',
+                              status === 'done' || alreadyCloned
+                                ? 'border-green-500/30 bg-green-500/5'
+                                : 'border-border'
+                            )}
+                          >
+                            <Github className="h-4 w-4 shrink-0 text-muted-foreground" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-xs font-medium truncate">{repo.fullName}</span>
+                                {repo.isPrivate ? (
+                                  <Lock className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                ) : (
+                                  <Globe className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                )}
+                              </div>
+                              {repo.description && (
+                                <p className="text-xs text-muted-foreground truncate">{repo.description}</p>
+                              )}
+                              {cloneError && (
+                                <p className="text-xs text-destructive">{cloneError}</p>
+                              )}
+                            </div>
+
+                            <div className="shrink-0">
+                              {alreadyCloned || status === 'done' ? (
+                                <span className="flex items-center gap-1 text-xs text-green-600">
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  Cloned
+                                </span>
+                              ) : status === 'cloning' ? (
+                                <Button variant="outline" size="sm" disabled className="h-7 text-xs">
+                                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                  Cloning...
+                                </Button>
+                              ) : (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleCloneRepo(repo)}
+                                  className="h-7 text-xs"
+                                >
+                                  <Download className="mr-1 h-3 w-3" />
+                                  Clone
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
               </div>
             </>
           )}
 
-          <Separator />
+          {/* Regular project: repo connection + branch + auto-sync */}
+          {projectType !== 'customer' && (
+            <>
+              {envConfig.githubToken && envConfig.githubRepo && (
+                <ConnectionStatus
+                  isChecking={isCheckingGitHub}
+                  connectionStatus={gitHubConnectionStatus}
+                />
+              )}
 
-          <AutoSyncToggle
-            enabled={envConfig.githubAutoSync || false}
-            onToggle={(checked) => updateEnvConfig({ githubAutoSync: checked })}
-          />
+              {gitHubConnectionStatus?.connected && <IssuesAvailableInfo />}
+
+              <Separator />
+
+              {/* Default Branch Selector */}
+              {projectPath && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <GitBranch className="h-4 w-4 text-info" />
+                        <Label className="text-sm font-medium text-foreground">
+                          {t('settings:projectSections.github.defaultBranch.label')}
+                        </Label>
+                      </div>
+                      <p className="text-xs text-muted-foreground pl-6">
+                        {t('settings:projectSections.github.defaultBranch.description')}
+                      </p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={fetchBranches}
+                      disabled={isLoadingBranches}
+                      className="h-7 px-2"
+                    >
+                      <RefreshCw className={`h-3 w-3 ${isLoadingBranches ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </div>
+
+                  {branchesError && (
+                    <div className="flex items-center gap-2 text-xs text-destructive pl-6">
+                      <AlertCircle className="h-3 w-3" />
+                      {branchesError}
+                    </div>
+                  )}
+
+                  <div className="pl-6">
+                    <Combobox
+                      options={branchOptions}
+                      value={selectedBranch}
+                      onValueChange={handleBranchChange}
+                      placeholder={t('settings:projectSections.github.defaultBranch.autoDetect')}
+                      searchPlaceholder={t('settings:projectSections.github.defaultBranch.searchPlaceholder')}
+                      emptyMessage={t('settings:projectSections.github.defaultBranch.noBranchesFound')}
+                      disabled={isLoadingBranches}
+                      className="w-full"
+                    />
+                  </div>
+
+                  {selectedBranch && (
+                    <p className="text-xs text-muted-foreground pl-6">
+                      {t('settings:projectSections.github.defaultBranch.selectedBranchHelp', { branch: selectedBranch })}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {setSettings && (
+                <>
+                  <Separator />
+
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <Label className="font-normal text-foreground">
+                        {t('settings:projectSections.github.pushNewBranches.label')}
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        {t('settings:projectSections.github.pushNewBranches.description')}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={pushNewBranches}
+                      onCheckedChange={(checked) => setSettings(prev => ({ ...prev, pushNewBranches: checked }))}
+                    />
+                  </div>
+                </>
+              )}
+
+              <Separator />
+
+              <AutoSyncToggle
+                enabled={envConfig.githubAutoSync || false}
+                onToggle={(checked) => updateEnvConfig({ githubAutoSync: checked })}
+              />
+            </>
+          )}
         </>
       )}
     </div>

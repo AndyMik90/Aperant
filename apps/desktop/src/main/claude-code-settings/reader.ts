@@ -147,6 +147,36 @@ function isValidSettings(obj: unknown): obj is ClaudeCodeSettings {
     }
   }
 
+  // Validate and sanitize enabledPlugins field
+  if ('enabledPlugins' in obj) {
+    if (isPlainObject(obj.enabledPlugins)) {
+      const plugins: Record<string, boolean> = {};
+      let hasValidPlugins = false;
+      for (const [key, value] of Object.entries(obj.enabledPlugins as Record<string, unknown>)) {
+        if (typeof value === 'boolean') {
+          plugins[key] = value;
+          hasValidPlugins = true;
+        }
+      }
+      if (hasValidPlugins) {
+        sanitized.enabledPlugins = plugins;
+        hasValidFields = true;
+      }
+    } else {
+      debugLog(`${LOG_PREFIX} Skipping invalid enabledPlugins field`);
+    }
+  }
+
+  // Validate and sanitize mcpServers field (pass through as Record<string, unknown>)
+  if ('mcpServers' in obj) {
+    if (isPlainObject(obj.mcpServers)) {
+      sanitized.mcpServers = obj.mcpServers as Record<string, unknown>;
+      hasValidFields = true;
+    } else {
+      debugLog(`${LOG_PREFIX} Skipping invalid mcpServers field`);
+    }
+  }
+
   // If we have at least one valid field, mutate the original object to contain only sanitized fields
   if (hasValidFields) {
     // Clear the original object and copy sanitized fields
@@ -195,7 +225,7 @@ function readJsonFile(filePath: string): ClaudeCodeSettings | undefined {
  * 2. CLAUDE_CONFIG_DIR environment variable
  * 3. Default: ~/.claude
  */
-function getUserConfigDir(): string {
+export function getUserConfigDir(): string {
   // Try to get configDir from the active Claude profile.
   // We use a lazy import to avoid circular dependencies and to handle
   // the case where ClaudeProfileManager hasn't been initialized yet.

@@ -15,6 +15,7 @@ import {
 } from './ui/dropdown-menu';
 import { cn, formatRelativeTime, sanitizeMarkdownForDisplay } from '../lib/utils';
 import { PhaseProgressIndicator } from './PhaseProgressIndicator';
+import { AgentAnalysisBanner } from './AgentAnalysisBanner';
 import {
   TASK_CATEGORY_LABELS,
   TASK_CATEGORY_COLORS,
@@ -503,6 +504,19 @@ export const TaskCard = memo(function TaskCard({
                 {task.metadata.securitySeverity} {t('metadata.severity')}
               </Badge>
             )}
+          </div>
+        )}
+
+        {/* Agent analysis banner — shows current/next subtask and elapsed time */}
+        {isRunning && hasActiveExecution && (
+          <div className="mt-3">
+            <AgentAnalysisBanner
+              currentSubtask={task.executionProgress?.currentSubtask}
+              subtasks={task.subtasks}
+              phase={executionPhase}
+              executionProgress={task.executionProgress}
+              startedAt={task.executionProgress?.startedAt}
+            />
           </div>
         )}
 

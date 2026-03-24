@@ -10,7 +10,10 @@ import type {
   VersionSuggestion,
   PaginatedIssuesResult,
   PRStatusUpdate,
-  PollingMetadata
+  PollingMetadata,
+  MultiRepoGitHubStatus,
+  MultiRepoIssuesResult,
+  MultiRepoPRsResult
 } from '../../../shared/types';
 import { createIpcListener, invokeIpc, sendIpc, IpcListenerCleanup } from './ipc-utils';
 
@@ -195,6 +198,20 @@ export interface GitHubAPI {
   onGitHubAuthChanged: (
     callback: (data: { oldUsername: string | null; newUsername: string }) => void
   ) => IpcListenerCleanup;
+
+  // Multi-repo operations (Customer projects)
+  checkMultiRepoConnection: (customerId: string) => Promise<IPCResult<MultiRepoGitHubStatus>>;
+  getMultiRepoIssues: (
+    customerId: string,
+    state?: 'open' | 'closed' | 'all',
+    page?: number
+  ) => Promise<IPCResult<MultiRepoIssuesResult>>;
+  getMultiRepoIssueDetail: (
+    customerId: string,
+    repoFullName: string,
+    issueNumber: number
+  ) => Promise<IPCResult<GitHubIssue>>;
+  getMultiRepoPRs: (customerId: string) => Promise<IPCResult<MultiRepoPRsResult>>;
 
   // Repository detection and management
   detectGitHubRepo: (projectPath: string) => Promise<IPCResult<string>>;
@@ -601,6 +618,27 @@ export const createGitHubAPI = (): GitHubAPI => ({
     callback: (data: { oldUsername: string | null; newUsername: string }) => void
   ): IpcListenerCleanup =>
     createIpcListener(IPC_CHANNELS.GITHUB_AUTH_CHANGED, callback),
+
+  // Multi-repo operations (Customer projects)
+  checkMultiRepoConnection: (customerId: string): Promise<IPCResult<MultiRepoGitHubStatus>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_CHECK_MULTI_REPO_CONNECTION, customerId),
+
+  getMultiRepoIssues: (
+    customerId: string,
+    state?: 'open' | 'closed' | 'all',
+    page?: number
+  ): Promise<IPCResult<MultiRepoIssuesResult>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_GET_MULTI_REPO_ISSUES, customerId, state, page),
+
+  getMultiRepoIssueDetail: (
+    customerId: string,
+    repoFullName: string,
+    issueNumber: number
+  ): Promise<IPCResult<GitHubIssue>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_GET_MULTI_REPO_ISSUE_DETAIL, customerId, repoFullName, issueNumber),
+
+  getMultiRepoPRs: (customerId: string): Promise<IPCResult<MultiRepoPRsResult>> =>
+    invokeIpc(IPC_CHANNELS.GITHUB_GET_MULTI_REPO_PRS, customerId),
 
   // Repository detection and management
   detectGitHubRepo: (projectPath: string): Promise<IPCResult<string>> =>
