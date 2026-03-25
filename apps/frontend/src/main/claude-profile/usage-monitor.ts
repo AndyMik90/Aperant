@@ -792,6 +792,31 @@ export class UsageMonitor extends EventEmitter {
       }
     }
 
+    // Include API profiles (custom endpoints like MiniMax)
+    try {
+      const { loadProfilesFile } = await import('../services/profile/profile-manager');
+      const apiProfilesFile = await loadProfilesFile();
+      for (const apiProfile of apiProfilesFile.profiles) {
+        // Skip if already in the list (shouldn't happen but be safe)
+        if (allProfiles.some(p => p.profileId === apiProfile.id)) continue;
+
+        const isActiveApi = apiProfile.id === apiProfilesFile.activeProfileId;
+        allProfiles.push({
+          profileId: apiProfile.id,
+          profileName: apiProfile.name || apiProfile.baseUrl || 'API Endpoint',
+          sessionPercent: 0,
+          weeklyPercent: 0,
+          isAuthenticated: !!apiProfile.apiKey,
+          isRateLimited: false,
+          availabilityScore: apiProfile.apiKey ? 50 : 0,
+          isActive: isActiveApi,
+          lastFetchedAt: new Date().toISOString(),
+        });
+      }
+    } catch {
+      // API profiles not available — continue with OAuth profiles only
+    }
+
     // Sort by availability score (highest first = most available)
     allProfiles.sort((a, b) => b.availabilityScore - a.availabilityScore);
 
