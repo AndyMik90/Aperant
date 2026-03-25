@@ -69,6 +69,7 @@ export function toTaskMetadata(options?: TaskOptions): TaskMetadata {
     requireReviewBeforeCoding: options.requireReviewBeforeCoding,
     baseBranch: options.baseBranch,
     model: options.model,
+    providerId: options.provider,  // Provider name passed through — resolved to account ID at spawn time
   };
 
   // Convert phase models

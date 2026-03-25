@@ -226,6 +226,9 @@ export interface TaskMetadata {
   // Review settings
   requireReviewBeforeCoding?: boolean;  // Require human review of spec/plan before coding starts
 
+  // Provider selection (per-task provider override)
+  providerId?: string;  // Unified account ID (e.g., 'oauth-{id}' or 'api-{id}') — overrides global active profile
+
   // Agent configuration (from agent profile or manual selection)
   model?: ModelType;  // Claude model to use (haiku, sonnet, opus) - used when not auto profile
   thinkingLevel?: ThinkingLevel;  // Thinking budget level (low, medium, high)

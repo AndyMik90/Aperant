@@ -61,6 +61,9 @@ export interface PhaseThinking {
  * Task creation options
  */
 export interface TaskOptions {
+  // Provider selection
+  provider?: string;  // Provider name (e.g., 'MiniMax', 'Primary') — resolved to providerId
+
   // Model configuration
   model?: ModelType;
   phaseModels?: PhaseModels;

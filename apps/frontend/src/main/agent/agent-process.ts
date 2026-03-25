@@ -14,7 +14,7 @@ import { ProcessType, ExecutionProgressData } from './types';
 import type { CompletablePhase } from '../../shared/constants/phase-protocol';
 import { parseTaskEvent } from './task-event-parser';
 import { detectRateLimit, createSDKRateLimitInfo, getBestAvailableProfileEnv, detectAuthFailure } from '../rate-limit-detector';
-import { getAPIProfileEnv } from '../services/profile';
+import { getAPIProfileEnv, getAPIProfileEnvById } from '../services/profile';
 import { projectStore } from '../project-store';
 import { getClaudeProfileManager } from '../claude-profile-manager';
 import { parsePythonCommand, validatePythonPath } from '../python-detector';
@@ -684,10 +684,29 @@ export class AgentProcessManager {
     // Get Python environment (PYTHONPATH for bundled packages, etc.)
     const pythonEnv = pythonEnvManager.getPythonEnv();
 
-    // Get active API profile environment variables
+    // Get API profile environment variables
+    // If the task has a specific providerId, use that profile; otherwise use global active
     let apiProfileEnv: Record<string, string> = {};
     try {
-      apiProfileEnv = await getAPIProfileEnv();
+      // Read task metadata to check for per-task provider override
+      const specDir = path.join(cwd, '.auto-claude', 'specs', taskId);
+      const metaPath = path.join(specDir, 'task_metadata.json');
+      let taskProviderId: string | undefined;
+      if (existsSync(metaPath)) {
+        try {
+          const meta = JSON.parse(readFileSync(metaPath, 'utf-8'));
+          taskProviderId = meta.providerId;
+        } catch { /* ignore parse errors */ }
+      }
+
+      if (taskProviderId) {
+        // Per-task provider override — use the specific API profile
+        debugLog('[AgentProcess] Using per-task provider:', taskProviderId);
+        apiProfileEnv = await getAPIProfileEnvById(taskProviderId);
+      } else {
+        // Default: use global active API profile
+        apiProfileEnv = await getAPIProfileEnv();
+      }
     } catch (error) {
       console.error('[Agent Process] Failed to get API profile env:', error);
       // Continue with empty profile env (falls back to OAuth mode)

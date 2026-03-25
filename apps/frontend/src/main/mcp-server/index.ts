@@ -115,6 +115,7 @@ const PhaseThinkingSchema = z.object({
 }).optional();
 
 const TaskOptionsSchema = z.object({
+  provider: z.string().optional().describe('Provider name (e.g., "MiniMax", "Primary") — overrides global active account for this task'),
   model: ModelTypeSchema.optional(),
   phaseModels: PhaseModelsSchema,
   phaseThinking: PhaseThinkingSchema,
@@ -212,7 +213,7 @@ const server = new McpServer({
 
 server.tool(
   'create_task',
-  'Create a new task in Auto-Claude with optional configuration for models, thinking levels, and review settings',
+  'Create a new task in Aperant-MCP with optional configuration for provider, models, thinking levels, and review settings',
   {
     projectId: z.string().describe('The project ID (UUID) to create the task in'),
     projectPath: z.string().optional().describe('Fallback filesystem path if projectId UUID not found'),

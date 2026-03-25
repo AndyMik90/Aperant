@@ -1301,6 +1301,21 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                 />
               </div>
 
+              {/* Profile Combinations toggle (independent of auto-switching) */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm font-medium">{t('accounts.autoSwitching.enableProfileCombinations', 'Enable profile combinations')}</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t('accounts.autoSwitching.profileCombinationsDescription', 'When enabled, tasks can specify which provider to use independently')}
+                  </p>
+                </div>
+                <Switch
+                  checked={autoSwitchSettings?.profileCombinations ?? false}
+                  onCheckedChange={(value) => handleUpdateAutoSwitch({ profileCombinations: value })}
+                  disabled={isLoadingAutoSwitch}
+                />
+              </div>
+
               {autoSwitchSettings?.enabled && (
                 <>
                   {/* Proactive Monitoring Section */}

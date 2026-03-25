@@ -55,6 +55,12 @@ interface TaskFormFieldsProps {
   title: string;
   onTitleChange: (value: string) => void;
 
+  // Provider selection (only shown when profile combinations enabled)
+  providerId?: string;
+  onProviderChange?: (providerId: string) => void;
+  providerOptions?: Array<{ id: string; name: string; type: 'oauth' | 'api'; usagePercent?: number }>;
+  showProviderSelector?: boolean;
+
   // Agent profile
   profileId: string;
   model: ModelType | '';
@@ -117,6 +123,10 @@ export function TaskFormFields({
   descriptionRef: externalDescriptionRef,
   title,
   onTitleChange,
+  providerId,
+  onProviderChange,
+  providerOptions,
+  showProviderSelector = false,
   profileId,
   model,
   thinkingLevel,
@@ -466,6 +476,30 @@ export function TaskFormFields({
             {t('tasks:form.titleHelpText')}
           </p>
         </div>
+
+        {/* Provider Selection (only when profile combinations enabled) */}
+        {showProviderSelector && providerOptions && providerOptions.length > 0 && onProviderChange && (
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">{t('tasks:form.provider', 'Provider')}</Label>
+            <select
+              value={providerId || ''}
+              onChange={(e) => onProviderChange(e.target.value)}
+              disabled={disabled}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <option value="">{t('tasks:form.providerAuto', 'Auto (use active account)')}</option>
+              {providerOptions.map((provider) => (
+                <option key={provider.id} value={provider.id}>
+                  {provider.name} ({provider.type === 'oauth' ? 'Claude Code' : 'API'})
+                  {provider.usagePercent !== undefined ? ` — ${provider.usagePercent}%` : ''}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              {t('tasks:form.providerDescription', 'Choose which account to use for this task')}
+            </p>
+          </div>
+        )}
 
         {/* Agent Profile Selection */}
         <AgentProfileSelector

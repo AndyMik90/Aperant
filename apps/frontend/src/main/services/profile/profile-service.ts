@@ -296,6 +296,38 @@ export async function getAPIProfileEnv(): Promise<Record<string, string>> {
 }
 
 /**
+ * Get API profile environment variables for a SPECIFIC profile by ID.
+ * Used for per-task provider selection when a task has a providerId set.
+ */
+export async function getAPIProfileEnvById(profileId: string): Promise<Record<string, string>> {
+  const file = await loadProfilesFile();
+  const profile = file.profiles.find((p) => p.id === profileId);
+
+  if (!profile) {
+    return {};
+  }
+
+  const envVars: Record<string, string> = {
+    ANTHROPIC_BASE_URL: profile.baseUrl || '',
+    ANTHROPIC_AUTH_TOKEN: profile.apiKey || '',
+    ANTHROPIC_MODEL: profile.models?.default || '',
+    ANTHROPIC_DEFAULT_HAIKU_MODEL: profile.models?.haiku || '',
+    ANTHROPIC_DEFAULT_SONNET_MODEL: profile.models?.sonnet || '',
+    ANTHROPIC_DEFAULT_OPUS_MODEL: profile.models?.opus || '',
+  };
+
+  const filteredEnvVars: Record<string, string> = {};
+  for (const [key, value] of Object.entries(envVars)) {
+    const trimmedValue = value?.trim();
+    if (trimmedValue && trimmedValue !== '') {
+      filteredEnvVars[key] = trimmedValue;
+    }
+  }
+
+  return filteredEnvVars;
+}
+
+/**
  * Test API profile connection
  *
  * Validates credentials by making a minimal API request to the /v1/models endpoint.

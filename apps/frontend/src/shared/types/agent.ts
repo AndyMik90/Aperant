@@ -234,6 +234,12 @@ export interface ClaudeAutoSwitchSettings {
 
   /** Whether to automatically switch on authentication failure (vs. prompting user) */
   autoSwitchOnAuthFailure: boolean;
+
+  // Profile combinations
+  /** When enabled, tasks can specify which provider to use independently */
+  profileCombinations: boolean;
+  /** Default provider ID for new tasks (undefined = use global active) */
+  defaultProviderId?: string;
 }
 
 export interface ClaudeAuthResult {

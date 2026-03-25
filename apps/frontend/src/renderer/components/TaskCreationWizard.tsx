@@ -107,6 +107,44 @@ export function TaskCreationWizard({
   const [complexity, setComplexity] = useState<TaskComplexity | ''>('');
   const [impact, setImpact] = useState<TaskImpact | ''>('');
 
+  // Provider selection
+  const [providerId, setProviderId] = useState<string>('');
+  const [providerOptions, setProviderOptions] = useState<Array<{ id: string; name: string; type: 'oauth' | 'api'; usagePercent?: number }>>([]);
+  const [profileCombinationsEnabled, setProfileCombinationsEnabled] = useState(false);
+
+  // Load provider options and profile combinations setting
+  useEffect(() => {
+    const loadProviders = async () => {
+      try {
+        // Check if profile combinations is enabled
+        const switchResult = await window.electronAPI.getAutoSwitchSettings?.();
+        if (switchResult?.success && switchResult.data) {
+          setProfileCombinationsEnabled(switchResult.data.profileCombinations ?? false);
+          if (switchResult.data.defaultProviderId) {
+            setProviderId(switchResult.data.defaultProviderId);
+          }
+        }
+
+        // Load all accounts for the provider dropdown
+        const usageResult = await window.electronAPI.requestAllProfilesUsage?.();
+        if (usageResult?.success && usageResult.data) {
+          const options = usageResult.data.allProfiles.map(profile => ({
+            id: profile.profileId,
+            name: profile.profileName || profile.profileId,
+            type: (profile.profileId.startsWith('api-') ? 'api' : 'oauth') as 'oauth' | 'api',
+            usagePercent: profile.sessionPercent,
+          }));
+          setProviderOptions(options);
+        }
+      } catch (_err) {
+        // Silently fail — provider selector just won't show
+      }
+    };
+    if (isOpen) {
+      loadProviders();
+    }
+  }, [isOpen]);
+
   // Model configuration
   const [profileId, setProfileId] = useState<string>(settings.selectedAgentProfile || 'auto');
   const [model, setModel] = useState<ModelType | ''>(selectedProfile.model);
@@ -433,6 +471,7 @@ export function TaskCreationWizard({
       if (priority) metadata.priority = priority;
       if (complexity) metadata.complexity = complexity;
       if (impact) metadata.impact = impact;
+      if (providerId) metadata.providerId = providerId;
       if (model) metadata.model = model;
       if (thinkingLevel) metadata.thinkingLevel = thinkingLevel;
       if (phaseModels && phaseThinking) {
@@ -643,6 +682,10 @@ export function TaskCreationWizard({
           descriptionRef={descriptionRef}
           title={title}
           onTitleChange={setTitle}
+          providerId={providerId}
+          onProviderChange={setProviderId}
+          providerOptions={providerOptions}
+          showProviderSelector={profileCombinationsEnabled}
           profileId={profileId}
           model={model}
           thinkingLevel={thinkingLevel}
