@@ -122,6 +122,10 @@ function createAutoClaudeServer(specDir: string): McpServerConfig {
  * JIRA MCP server - issue tracking integration.
  * Conditionally enabled when project has JIRA configured.
  * Requires JIRA_HOST, JIRA_EMAIL, JIRA_TOKEN environment variables.
+ *
+ * Uses the community @modelcontextprotocol/server-atlassian package.
+ * If no suitable MCP server is available, JIRA access is handled
+ * directly via the IPC handlers (jira/issue-handlers.ts) instead.
  */
 function createJiraServer(env: Record<string, string>): McpServerConfig {
   return {
@@ -132,11 +136,11 @@ function createJiraServer(env: Record<string, string>): McpServerConfig {
     transport: {
       type: 'stdio',
       command: 'npx',
-      args: ['-y', '@anthropic-ai/jira-mcp-server'],
+      args: ['-y', '@modelcontextprotocol/server-atlassian'],
       env: {
-        JIRA_HOST: env.JIRA_HOST || '',
-        JIRA_EMAIL: env.JIRA_EMAIL || '',
-        JIRA_TOKEN: env.JIRA_TOKEN || '',
+        ATLASSIAN_SITE_URL: env.JIRA_HOST || '',
+        ATLASSIAN_USER_EMAIL: env.JIRA_EMAIL || '',
+        ATLASSIAN_API_TOKEN: env.JIRA_TOKEN || '',
       },
     },
   };
@@ -145,7 +149,9 @@ function createJiraServer(env: Record<string, string>): McpServerConfig {
 /**
  * Vault MCP server - external vault/Obsidian integration.
  * Conditionally enabled when vault path is configured.
- * Provides file access to vault directory for agent context.
+ * Provides read-only file access to vault directory for agent context.
+ *
+ * Uses the official @modelcontextprotocol/server-filesystem package.
  */
 function createVaultServer(vaultPath: string): McpServerConfig {
   return {
@@ -156,7 +162,7 @@ function createVaultServer(vaultPath: string): McpServerConfig {
     transport: {
       type: 'stdio',
       command: 'npx',
-      args: ['-y', '@anthropic-ai/filesystem-mcp-server', vaultPath],
+      args: ['-y', '@modelcontextprotocol/server-filesystem', vaultPath],
     },
   };
 }
