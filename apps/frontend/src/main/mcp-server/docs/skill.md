@@ -45,6 +45,7 @@ Use this skill when the user wants to:
   "description": "Detailed task description...",
   "title": "Optional - auto-generated if empty",
   "options": {
+    "provider": "MiniMax",
     "model": "opus",
     "requireReviewBeforeCoding": false,
     "baseBranch": "MCD",

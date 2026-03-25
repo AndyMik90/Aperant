@@ -67,6 +67,7 @@ Use this skill when the user wants to:
   "description": "Detailed task description...",
   "title": "Optional - auto-generated if empty",
   "options": {
+    "provider": "MiniMax",
     "model": "opus",
     "requireReviewBeforeCoding": false,
     "baseBranch": "MCD",
@@ -77,6 +78,8 @@ Use this skill when the user wants to:
   }
 }
 ```
+
+**Provider parameter:** Specify which account to use (e.g., "MiniMax", "Primary"). Omit to use the global active account. Requires "Enable profile combinations" in Settings > Accounts.
 
 ### list_tasks - List Project Tasks
 
