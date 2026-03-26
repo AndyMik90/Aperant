@@ -358,35 +358,47 @@ function createWindow(): void {
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
 
-    // Restore virtual desktop position on Windows 11 (after crash/freeze restart)
+    // Windows 11 Virtual Desktop persistence
     if (isWindows() && mainWindow) {
-      try {
-        const vdStatePath = join(app.getPath('appData'), 'auto-claude-ui', 'virtual-desktop-state.json');
-        if (existsSync(vdStatePath)) {
-          const vdState = JSON.parse(readFileSync(vdStatePath, 'utf-8'));
-          if (vdState.desktopId) {
-            const { moveWindowToVirtualDesktop } = require('./platform/windows/virtual-desktop');
-            const hwnd = mainWindow.getNativeWindowHandle();
-            moveWindowToVirtualDesktop(hwnd, vdState.desktopId);
-          }
-        }
-      } catch (err) {
-        console.warn('[main] Failed to restore virtual desktop:', err);
-      }
-
-      // Save virtual desktop position every 60 seconds
-      setInterval(() => {
+      import('./platform/windows/virtual-desktop').then(({ getWindowVirtualDesktopId, moveWindowToVirtualDesktop }) => {
+        // Restore: move window back to saved desktop (after crash/freeze restart)
         try {
-          if (!mainWindow || mainWindow.isDestroyed()) return;
-          const { getWindowVirtualDesktopId } = require('./platform/windows/virtual-desktop');
-          const hwnd = mainWindow.getNativeWindowHandle();
-          const desktopId = getWindowVirtualDesktopId(hwnd);
-          if (desktopId) {
-            const vdPath = join(app.getPath('appData'), 'auto-claude-ui', 'virtual-desktop-state.json');
-            writeFileSync(vdPath, JSON.stringify({ desktopId, savedAt: new Date().toISOString() }), 'utf-8');
+          const vdStatePath = join(app.getPath('appData'), 'auto-claude-ui', 'virtual-desktop-state.json');
+          if (existsSync(vdStatePath)) {
+            const vdState = JSON.parse(readFileSync(vdStatePath, 'utf-8'));
+            if (vdState.desktopId && mainWindow) {
+              console.log('[VirtualDesktop] Restoring to desktop:', vdState.desktopId);
+              const hwnd = mainWindow.getNativeWindowHandle();
+              moveWindowToVirtualDesktop(hwnd, vdState.desktopId);
+            }
           }
-        } catch { /* silent */ }
-      }, 60_000);
+        } catch (err) {
+          console.warn('[VirtualDesktop] Failed to restore:', err);
+        }
+
+        // Save desktop GUID immediately + every 60 seconds
+        const saveDesktopState = (): void => {
+          try {
+            if (!mainWindow || mainWindow.isDestroyed()) return;
+            const hwnd = mainWindow.getNativeWindowHandle();
+            const desktopId = getWindowVirtualDesktopId(hwnd);
+            console.log('[VirtualDesktop] Save attempt, desktopId:', desktopId);
+            if (desktopId) {
+              const vdPath = join(app.getPath('appData'), 'auto-claude-ui', 'virtual-desktop-state.json');
+              writeFileSync(vdPath, JSON.stringify({ desktopId, savedAt: new Date().toISOString() }), 'utf-8');
+              console.log('[VirtualDesktop] State saved:', desktopId);
+            }
+          } catch (err) {
+            console.warn('[VirtualDesktop] Failed to save:', err);
+          }
+        };
+
+        // Save immediately on startup, then every 60s
+        setTimeout(saveDesktopState, 5_000);
+        setInterval(saveDesktopState, 60_000);
+      }).catch(err => {
+        console.warn('[VirtualDesktop] Module import failed:', err);
+      });
     }
 
     // Check for crash flag and notify Claude Code if app was restarted after crash
