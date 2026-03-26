@@ -357,6 +357,37 @@ function createWindow(): void {
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
 
+    // Restore virtual desktop position on Windows 11 (after crash/freeze restart)
+    if (isWindows() && mainWindow) {
+      try {
+        const vdStatePath = join(app.getPath('appData'), 'auto-claude-ui', 'virtual-desktop-state.json');
+        if (existsSync(vdStatePath)) {
+          const vdState = JSON.parse(readFileSync(vdStatePath, 'utf-8'));
+          if (vdState.desktopId) {
+            const { moveWindowToVirtualDesktop } = require('./platform/windows/virtual-desktop');
+            const hwnd = mainWindow.getNativeWindowHandle();
+            moveWindowToVirtualDesktop(hwnd, vdState.desktopId);
+          }
+        }
+      } catch (err) {
+        console.warn('[main] Failed to restore virtual desktop:', err);
+      }
+
+      // Save virtual desktop position every 60 seconds
+      setInterval(() => {
+        try {
+          if (!mainWindow || mainWindow.isDestroyed()) return;
+          const { getWindowVirtualDesktopId } = require('./platform/windows/virtual-desktop');
+          const hwnd = mainWindow.getNativeWindowHandle();
+          const desktopId = getWindowVirtualDesktopId(hwnd);
+          if (desktopId) {
+            const vdPath = join(app.getPath('appData'), 'auto-claude-ui', 'virtual-desktop-state.json');
+            writeFileSync(vdPath, JSON.stringify({ desktopId, savedAt: new Date().toISOString() }), 'utf-8');
+          }
+        } catch { /* silent */ }
+      }, 60_000);
+    }
+
     // Check for crash flag and notify Claude Code if app was restarted after crash
     if (mainWindow) {
       checkAndNotifyCrash(mainWindow).catch((error) => {

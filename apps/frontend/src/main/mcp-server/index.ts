@@ -208,6 +208,55 @@ const server = new McpServer({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Tool: open_project
+// ─────────────────────────────────────────────────────────────────────────────
+
+server.tool(
+  'open_project',
+  'Open a project folder in Aperant-MCP, making it available for task creation and management. Returns the project ID for use in subsequent MCP calls.',
+  {
+    path: z.string().describe('Filesystem path to the project folder'),
+    setActive: z.boolean().optional().default(true).describe('Switch the active tab to this project'),
+  },
+  withMonitoring('open_project', async ({ path: projectPath, setActive }) => {
+    if (!existsSync(projectPath)) {
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ error: `Directory does not exist: ${projectPath}` }) }] };
+    }
+
+    const existing = projectStore.getProjectByPath(projectPath);
+    const project = projectStore.addProject(projectPath);
+    const isNew = !existing;
+
+    if (setActive) {
+      const tabState = projectStore.getTabState();
+      const openIds = tabState.openProjectIds.includes(project.id)
+        ? tabState.openProjectIds
+        : [...tabState.openProjectIds, project.id];
+      projectStore.saveTabState({
+        openProjectIds: openIds,
+        activeProjectId: project.id,
+        tabOrder: openIds,
+      });
+      notifyRendererTaskRefresh(project.id);
+    }
+
+    return {
+      content: [{
+        type: 'text' as const,
+        text: JSON.stringify({
+          projectId: project.id,
+          name: project.name,
+          path: project.path,
+          isNew,
+          autoBuildPath: project.autoBuildPath,
+          isInitialized: !!project.autoBuildPath,
+        }, null, 2)
+      }]
+    };
+  })
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Tool: create_task
 // ─────────────────────────────────────────────────────────────────────────────
 
