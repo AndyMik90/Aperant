@@ -375,9 +375,22 @@ function createWindow(): void {
             const hwnd = mainWindow.getNativeWindowHandle();
             const desktopId = getWindowVirtualDesktopId(hwnd);
             if (desktopId) {
+              // Also get the desktop number for the VirtualDesktop PowerShell module
+              let desktopNumber: number | null = null;
+              try {
+                const { execSync: exec } = require('child_process');
+                const numScript = `Import-Module VirtualDesktop -EA Stop; $d = Get-DesktopList | Where-Object { $_.Visible -eq $true }; if ($d) { Write-Output $d.Number }`;
+                const numEncoded = Buffer.from(numScript, 'utf16le').toString('base64');
+                const numResult = exec(
+                  `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${numEncoded}`,
+                  { windowsHide: true, timeout: 8000, encoding: 'utf8' }
+                ).trim();
+                if (numResult !== '') desktopNumber = parseInt(numResult, 10);
+              } catch { /* silent */ }
+
               const vdPath = join(app.getPath('appData'), 'auto-claude-ui', 'virtual-desktop-state.json');
-              writeFileSync(vdPath, JSON.stringify({ desktopId, savedAt: new Date().toISOString() }), 'utf-8');
-              console.log('[VirtualDesktop] State saved:', desktopId);
+              writeFileSync(vdPath, JSON.stringify({ desktopId, desktopNumber, savedAt: new Date().toISOString() }), 'utf-8');
+              console.log('[VirtualDesktop] State saved:', desktopId, 'number:', desktopNumber);
             }
           } catch (err) {
             console.warn('[VirtualDesktop] Failed to save:', err);

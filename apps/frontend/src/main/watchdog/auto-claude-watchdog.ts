@@ -275,6 +275,12 @@ export class AutoClaudeWatchdog extends EventEmitter {
     // which causes '"path"' is not recognized errors.
     const isWindows = process.platform === 'win32';
 
+    // Switch to saved virtual desktop BEFORE spawning Electron (Windows 11)
+    // MoveWindowToDesktop fails with E_ACCESSDENIED — switching desktop first is the only reliable approach
+    if (isWindows) {
+      this.switchToSavedDesktop();
+    }
+
     this.process = spawn(resolvedElectronPath, [resolvedAppPath, ...args], {
       stdio: ['inherit', 'pipe', 'pipe'],
       detached: false,
@@ -284,11 +290,6 @@ export class AutoClaudeWatchdog extends EventEmitter {
         WATCHDOG_ENABLED: 'true'
       }
     });
-
-    // Restore virtual desktop position on Windows (must be done from external process)
-    if (isWindows) {
-      this.restoreVirtualDesktop();
-    }
 
     // Monitor process exit
     this.process.on('exit', (code, signal) => {
@@ -366,79 +367,50 @@ export class AutoClaudeWatchdog extends EventEmitter {
    * Handle process exit (normal or crash)
    */
   /**
-   * Restore Electron window to its previous virtual desktop (Windows 11 only).
-   * Must be called from the watchdog (external process) because MoveWindowToDesktop
-   * returns E_ACCESSDENIED when called from the process that owns the window.
+   * Switch to saved virtual desktop BEFORE spawning Electron (Windows 11 only).
+   * MoveWindowToDesktop returns E_ACCESSDENIED — the only reliable approach is to
+   * switch to the target desktop first, spawn Electron (appears on current desktop),
+   * then switch back. Uses the VirtualDesktop PowerShell module (must be installed).
    */
-  private restoreVirtualDesktop(): void {
+  private switchToSavedDesktop(): void {
     try {
       const appData = process.env.APPDATA || '';
       const statePath = path.join(appData, APP_DATA_DIR_NAME, 'virtual-desktop-state.json');
       if (!fs.existsSync(statePath)) {
-        this.log('INFO', '[VD] No virtual desktop state file — skipping restore');
+        this.log('INFO', '[VD] No virtual desktop state file — skipping');
         return;
       }
       const state = JSON.parse(fs.readFileSync(statePath, 'utf-8'));
-      if (!state.desktopId) return;
+      if (!state.desktopNumber && state.desktopNumber !== 0) {
+        this.log('INFO', '[VD] No desktop number in state file — skipping');
+        return;
+      }
 
-      const desktopGuid = state.desktopId;
-      this.log('INFO', `[VD] Will restore to desktop: ${desktopGuid} (waiting 4s for window)`);
+      const targetDesktop = state.desktopNumber;
+      this.log('INFO', `[VD] Switching to desktop ${targetDesktop} before spawn`);
 
-      // Wait for Electron window to be visible, then move it
-      const attemptMove = (attempt: number): void => {
+      // Switch to target desktop, spawn will happen on it, then switch back
+      const script = `Import-Module VirtualDesktop -ErrorAction Stop; Switch-Desktop ${targetDesktop}`;
+      const encoded = Buffer.from(script, 'utf16le').toString('base64');
+      execSync(
+        `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${encoded}`,
+        { windowsHide: true, timeout: 8000, encoding: 'utf8' }
+      );
+      this.log('INFO', `[VD] ✅ Switched to desktop ${targetDesktop}`);
+
+      // Switch back to user's desktop after spawn (3s delay for window to appear)
+      setTimeout(() => {
         try {
-          const script = `
-$ProgressPreference = 'SilentlyContinue'
-Add-Type -TypeDefinition @"
-using System; using System.Runtime.InteropServices;
-[ComImport][InterfaceType(ComInterfaceType.InterfaceIsIUnknown)][Guid("a5cd92ff-29be-454c-8d04-d82879fb3f1b")]
-public interface IVirtualDesktopManager {
-    [PreserveSig] int IsWindowOnCurrentVirtualDesktop(IntPtr hw, out int r);
-    [PreserveSig] int GetWindowDesktopId(IntPtr hw, out Guid id);
-    [PreserveSig] int MoveWindowToDesktop(IntPtr hw, [MarshalAs(UnmanagedType.LPStruct)] Guid id);
-}
-public static class VDM {
-    [DllImport("ole32.dll")] static extern int CoCreateInstance([MarshalAs(UnmanagedType.LPStruct)] Guid a, IntPtr b, uint c, [MarshalAs(UnmanagedType.LPStruct)] Guid d, out IVirtualDesktopManager e);
-    public static int Move(IntPtr hwnd, string guid) {
-        IVirtualDesktopManager m; CoCreateInstance(new Guid("aa509086-5ca9-4c25-8f95-589d3c07b48a"), IntPtr.Zero, 1, new Guid("a5cd92ff-29be-454c-8d04-d82879fb3f1b"), out m);
-        return m.MoveWindowToDesktop(hwnd, new Guid(guid));
-    }
-}
-"@
-$$p = Get-Process -Name 'electron' -EA SilentlyContinue | Where-Object { $$_.MainWindowHandle -ne [IntPtr]::Zero } | Select-Object -First 1
-if ($$p) { $$hr = [VDM]::Move($$p.MainWindowHandle, "${desktopGuid}"); Write-Output "HR:$$hr" } else { Write-Output "NO_WINDOW" }
-`;
-          // Encode for -EncodedCommand (UTF-16LE Base64)
-          const encoded = Buffer.from(script.replace(/\$\$/g, '$'), 'utf16le').toString('base64');
-          const result = execSync(
-            `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${encoded}`,
-            { windowsHide: true, timeout: 10000, encoding: 'utf8' }
-          ).trim();
-
-          this.log('INFO', `[VD] Move attempt ${attempt}: ${result}`);
-
-          if (result === 'NO_WINDOW' && attempt < 3) {
-            // Window not ready yet, retry
-            setTimeout(() => attemptMove(attempt + 1), 2000);
-          } else if (result.includes('HR:0')) {
-            this.log('INFO', `[VD] ✅ Restored to desktop: ${desktopGuid}`);
-          } else if (attempt < 3) {
-            setTimeout(() => attemptMove(attempt + 1), 2000);
-          } else {
-            this.log('WARN', `[VD] Failed to restore after ${attempt} attempts: ${result}`);
-          }
-        } catch (err) {
-          this.log('WARN', `[VD] Move attempt ${attempt} error: ${err}`);
-          if (attempt < 3) {
-            setTimeout(() => attemptMove(attempt + 1), 2000);
-          }
-        }
-      };
-
-      // First attempt after 4 seconds
-      setTimeout(() => attemptMove(1), 4000);
+          const backScript = `Import-Module VirtualDesktop -ErrorAction Stop; $d = Get-DesktopList | Where-Object { $_.Visible -eq $true }; if ($d) { Write-Output "Already on visible desktop" } else { Switch-Desktop ${state.userDesktopNumber || 0} }`;
+          const backEncoded = Buffer.from(backScript, 'utf16le').toString('base64');
+          execSync(
+            `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${backEncoded}`,
+            { windowsHide: true, timeout: 8000, encoding: 'utf8' }
+          );
+        } catch { /* silent — user may have already switched */ }
+      }, 3000);
     } catch (err) {
-      this.log('WARN', `[VD] restoreVirtualDesktop error: ${err}`);
+      this.log('WARN', `[VD] switchToSavedDesktop error: ${err}`);
     }
   }
 
