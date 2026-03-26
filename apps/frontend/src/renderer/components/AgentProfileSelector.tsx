@@ -54,6 +54,8 @@ interface AgentProfileSelectorProps {
   onPhaseThinkingChange?: (phaseThinking: PhaseThinkingConfig) => void;
   /** Whether the selector is disabled */
   disabled?: boolean;
+  /** Override model display names per provider (e.g., MiniMax model IDs instead of "Claude Opus 4.6") */
+  providerModelLabels?: Record<string, string>;
 }
 
 const iconMap: Record<string, React.ElementType> = {
@@ -82,9 +84,16 @@ export function AgentProfileSelector({
   onThinkingLevelChange,
   onPhaseModelsChange,
   onPhaseThinkingChange,
-  disabled
+  disabled,
+  providerModelLabels
 }: AgentProfileSelectorProps) {
   const { t } = useTranslation('settings');
+
+  // Resolve model labels — use provider overrides if available, else default AVAILABLE_MODELS
+  const resolveModelLabel = (modelValue: string): string => {
+    if (providerModelLabels?.[modelValue]) return providerModelLabels[modelValue];
+    return AVAILABLE_MODELS.find(m => m.value === modelValue)?.label || modelValue;
+  };
   const [showPhaseDetails, setShowPhaseDetails] = useState(false);
 
   const isCustom = profileId === 'custom';
@@ -182,7 +191,7 @@ export function AgentProfileSelector({
           <SelectContent>
             {DEFAULT_AGENT_PROFILES.map((profile) => {
               const ProfileIcon = iconMap[profile.icon || 'Scale'] || Scale;
-              const modelLabel = AVAILABLE_MODELS.find(m => m.value === profile.model)?.label;
+              const modelLabel = resolveModelLabel(profile.model);
               return (
                 <SelectItem key={profile.id} value={profile.id}>
                   <div className="flex items-center gap-2">
@@ -250,7 +259,7 @@ export function AgentProfileSelector({
             <div className="px-4 pb-4 -mt-1">
               <div className="grid grid-cols-2 gap-2 text-xs">
                 {(Object.keys(PHASE_LABEL_KEYS) as Array<keyof PhaseModelConfig>).map((phase) => {
-                  const modelLabel = AVAILABLE_MODELS.find(m => m.value === currentPhaseModels[phase])?.label?.replace('Claude ', '') || currentPhaseModels[phase];
+                  const modelLabel = resolveModelLabel(currentPhaseModels[phase]).replace('Claude ', '');
                   return (
                     <div key={phase} className="flex items-center justify-between rounded bg-background/50 px-2 py-1">
                       <span className="text-muted-foreground">{t(PHASE_LABEL_KEYS[phase].label)}:</span>

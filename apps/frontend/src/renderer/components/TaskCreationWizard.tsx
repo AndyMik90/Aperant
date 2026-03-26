@@ -111,6 +111,38 @@ export function TaskCreationWizard({
   const [providerId, setProviderId] = useState<string>('');
   const [providerOptions, setProviderOptions] = useState<Array<{ id: string; name: string; type: 'oauth' | 'api'; usagePercent?: number }>>([]);
   const [profileCombinationsEnabled, setProfileCombinationsEnabled] = useState(false);
+  const [providerModelLabels, setProviderModelLabels] = useState<Record<string, string> | undefined>(undefined);
+
+  // When provider changes, resolve model labels for that provider
+  useEffect(() => {
+    if (!providerId || !providerId.startsWith('api-')) {
+      setProviderModelLabels(undefined); // Claude Code = use defaults
+      return;
+    }
+    // Fetch API profile's custom model names
+    const loadModelLabels = async () => {
+      try {
+        const profilesResult = await window.electronAPI.getAPIProfiles?.();
+        if (profilesResult?.success && profilesResult.data) {
+          const apiProfileId = providerId.replace('api-', '');
+          const profile = profilesResult.data.profiles.find((p: { id: string }) => p.id === apiProfileId);
+          if (profile?.models) {
+            const labels: Record<string, string> = {};
+            if (profile.models.opus) labels['opus'] = profile.models.opus;
+            if (profile.models.sonnet) labels['sonnet'] = profile.models.sonnet;
+            if (profile.models.haiku) labels['haiku'] = profile.models.haiku;
+            if (profile.models.default) labels['default'] = profile.models.default;
+            setProviderModelLabels(Object.keys(labels).length > 0 ? labels : undefined);
+          } else {
+            setProviderModelLabels(undefined);
+          }
+        }
+      } catch {
+        setProviderModelLabels(undefined);
+      }
+    };
+    loadModelLabels();
+  }, [providerId]);
 
   // Load provider options and profile combinations setting
   useEffect(() => {
@@ -686,6 +718,7 @@ export function TaskCreationWizard({
           onProviderChange={setProviderId}
           providerOptions={providerOptions}
           showProviderSelector={profileCombinationsEnabled}
+          providerModelLabels={providerModelLabels}
           profileId={profileId}
           model={model}
           thinkingLevel={thinkingLevel}

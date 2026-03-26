@@ -1301,21 +1301,6 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                 />
               </div>
 
-              {/* Profile Combinations toggle (independent of auto-switching) */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-sm font-medium">{t('accounts.autoSwitching.enableProfileCombinations', 'Enable profile combinations')}</Label>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {t('accounts.autoSwitching.profileCombinationsDescription', 'When enabled, tasks can specify which provider to use independently')}
-                  </p>
-                </div>
-                <Switch
-                  checked={autoSwitchSettings?.profileCombinations ?? false}
-                  onCheckedChange={(value) => handleUpdateAutoSwitch({ profileCombinations: value })}
-                  disabled={isLoadingAutoSwitch}
-                />
-              </div>
-
               {autoSwitchSettings?.enabled && (
                 <>
                   {/* Proactive Monitoring Section */}
@@ -1434,6 +1419,131 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                     />
                   </div>
                 </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Provider Combinations Section — separate from Auto-Switch */}
+        {totalAccounts > 1 && (
+          <div className="space-y-4 pt-6 border-t border-border">
+            <div className="flex items-center gap-2">
+              <svg className="h-4 w-4 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+              <h4 className="text-sm font-semibold text-foreground">{t('accounts.providerCombinations.title', 'Provider Combinations')}</h4>
+            </div>
+
+            <div className="rounded-lg bg-muted/30 border border-border p-4 space-y-4">
+              {/* Toggle */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label className="text-sm font-medium">{t('accounts.providerCombinations.enable', 'Enable profile combinations')}</Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t('accounts.providerCombinations.description', 'When enabled, tasks can specify which provider to use independently')}
+                  </p>
+                </div>
+                <Switch
+                  checked={autoSwitchSettings?.profileCombinations ?? false}
+                  onCheckedChange={(value) => handleUpdateAutoSwitch({ profileCombinations: value })}
+                  disabled={isLoadingAutoSwitch}
+                />
+              </div>
+
+              {/* Provider cards — only show when enabled */}
+              {autoSwitchSettings?.profileCombinations && (
+                <div className="space-y-3 pt-2 border-t border-border/50">
+                  <p className="text-xs text-muted-foreground font-medium">
+                    {t('accounts.providerCombinations.configuredProviders', 'Configured Providers')}
+                  </p>
+
+                  {unifiedAccounts.map((account) => (
+                    <div
+                      key={account.id}
+                      className={`rounded-md border p-3 space-y-1.5 ${
+                        account.isActive
+                          ? 'border-primary/40 bg-primary/5'
+                          : 'border-border bg-background/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">{account.displayName}</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                            account.type === 'oauth'
+                              ? 'bg-blue-500/10 text-blue-500'
+                              : 'bg-amber-500/10 text-amber-500'
+                          }`}>
+                            {account.type === 'oauth' ? 'Claude Code' : 'API'}
+                          </span>
+                        </div>
+                        <span className={`text-[10px] font-medium ${
+                          account.isActive ? 'text-green-500' : 'text-muted-foreground'
+                        }`}>
+                          {account.isActive ? t('accounts.providerCombinations.active', 'Active') : t('accounts.providerCombinations.available', 'Available')}
+                        </span>
+                      </div>
+
+                      {/* Model names */}
+                      <div className="text-xs text-muted-foreground">
+                        {account.type === 'api' ? (
+                          (() => {
+                            const apiProfile = apiProfiles.find(p => `api-${p.id}` === account.id);
+                            const models = apiProfile?.models;
+                            const modelList = [
+                              models?.opus && `opus: ${models.opus}`,
+                              models?.sonnet && `sonnet: ${models.sonnet}`,
+                              models?.haiku && `haiku: ${models.haiku}`,
+                              models?.default && `default: ${models.default}`,
+                            ].filter(Boolean);
+                            return modelList.length > 0
+                              ? `Models: ${modelList.join(', ')}`
+                              : 'Models: Using provider defaults';
+                          })()
+                        ) : (
+                          'Models: Claude Opus 4.6, Sonnet 4.5, Haiku 4.5'
+                        )}
+                      </div>
+
+                      {/* Usage bars */}
+                      {!account.hasUnlimitedUsage && (
+                        <div className="flex items-center gap-3 text-xs">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-muted-foreground">Session:</span>
+                            <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${
+                                  (account.sessionPercent ?? 0) >= 90 ? 'bg-red-500' : (account.sessionPercent ?? 0) >= 70 ? 'bg-yellow-500' : 'bg-green-500'
+                                }`}
+                                style={{ width: `${Math.min(account.sessionPercent ?? 0, 100)}%` }}
+                              />
+                            </div>
+                            <span className="tabular-nums">{Math.round(account.sessionPercent ?? 0)}%</span>
+                          </div>
+                          {account.type === 'oauth' && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-muted-foreground">Weekly:</span>
+                              <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full ${
+                                    (account.weeklyPercent ?? 0) >= 90 ? 'bg-red-500' : (account.weeklyPercent ?? 0) >= 70 ? 'bg-yellow-500' : 'bg-green-500'
+                                  }`}
+                                  style={{ width: `${Math.min(account.weeklyPercent ?? 0, 100)}%` }}
+                                />
+                              </div>
+                              <span className="tabular-nums">{Math.round(account.weeklyPercent ?? 0)}%</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {account.hasUnlimitedUsage && (
+                        <div className="text-xs text-muted-foreground/70">Pay-per-use</div>
+                      )}
+                    </div>
+                  ))}
+
+                  <p className="text-[11px] text-muted-foreground/70 pt-1">
+                    {t('accounts.providerCombinations.hint', 'Select a provider per task in the Create Task dialog or via MCP tools.')}
+                  </p>
+                </div>
               )}
             </div>
           </div>

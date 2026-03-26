@@ -60,6 +60,8 @@ interface TaskFormFieldsProps {
   onProviderChange?: (providerId: string) => void;
   providerOptions?: Array<{ id: string; name: string; type: 'oauth' | 'api'; usagePercent?: number }>;
   showProviderSelector?: boolean;
+  /** Override model labels per provider (e.g., MiniMax model names) */
+  providerModelLabels?: Record<string, string>;
 
   // Agent profile
   profileId: string;
@@ -127,6 +129,7 @@ export function TaskFormFields({
   onProviderChange,
   providerOptions,
   showProviderSelector = false,
+  providerModelLabels,
   profileId,
   model,
   thinkingLevel,
@@ -514,6 +517,7 @@ export function TaskFormFields({
           onPhaseModelsChange={onPhaseModelsChange}
           onPhaseThinkingChange={onPhaseThinkingChange}
           disabled={disabled}
+          providerModelLabels={providerModelLabels}
         />
 
         {/* Classification Toggle */}

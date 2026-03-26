@@ -792,20 +792,52 @@ export class UsageMonitor extends EventEmitter {
       }
     }
 
-    // Include API profiles (custom endpoints like MiniMax)
+    // Include API profiles (custom endpoints like MiniMax) with real usage data
     try {
       const { loadProfilesFile } = await import('../services/profile/profile-manager');
+      const { detectProvider } = await import('../../shared/utils/provider-detection');
       const apiProfilesFile = await loadProfilesFile();
       for (const apiProfile of apiProfilesFile.profiles) {
-        // Skip if already in the list (shouldn't happen but be safe)
+        // Skip if already in the list
         if (allProfiles.some(p => p.profileId === apiProfile.id)) continue;
 
         const isActiveApi = apiProfile.id === apiProfilesFile.activeProfileId;
+        let sessionPercent = 0;
+        let weeklyPercent = 0;
+
+        // Try to fetch real usage for known providers
+        const provider = detectProvider(apiProfile.baseUrl);
+        const endpointConfig = PROVIDER_USAGE_ENDPOINTS.find(e => e.provider === provider);
+        if (endpointConfig && apiProfile.apiKey) {
+          try {
+            const baseUrl = apiProfile.baseUrl.replace(/\/+$/, '');
+            const usageUrl = `${baseUrl.replace(/\/anthropic$/, '')}${endpointConfig.usagePath}`;
+            const response = await fetch(usageUrl, {
+              headers: {
+                'Authorization': `Bearer ${apiProfile.apiKey}`,
+                'Content-Type': 'application/json',
+              },
+            });
+            if (response.ok) {
+              const rawData = await response.json();
+              if (provider === 'minimax') {
+                const normalized = this.normalizeMiniMaxResponse(rawData, apiProfile.id, apiProfile.name);
+                if (normalized) {
+                  sessionPercent = normalized.sessionPercent;
+                  weeklyPercent = normalized.weeklyPercent;
+                }
+              }
+            }
+          } catch {
+            // Usage fetch failed — show 0%
+          }
+        }
+
         allProfiles.push({
           profileId: apiProfile.id,
           profileName: apiProfile.name || apiProfile.baseUrl || 'API Endpoint',
-          sessionPercent: 0,
-          weeklyPercent: 0,
+          sessionPercent,
+          weeklyPercent,
           isAuthenticated: !!apiProfile.apiKey,
           isRateLimited: false,
           availabilityScore: apiProfile.apiKey ? 50 : 0,
