@@ -276,10 +276,13 @@ export async function getAPIProfileEnv(): Promise<Record<string, string>> {
   const envVars: Record<string, string> = {
     ANTHROPIC_BASE_URL: profile.baseUrl || '',
     ANTHROPIC_AUTH_TOKEN: profile.apiKey || '',
+    ANTHROPIC_API_KEY: profile.apiKey || '',
     ANTHROPIC_MODEL: profile.models?.default || '',
     ANTHROPIC_DEFAULT_HAIKU_MODEL: profile.models?.haiku || '',
     ANTHROPIC_DEFAULT_SONNET_MODEL: profile.models?.sonnet || '',
     ANTHROPIC_DEFAULT_OPUS_MODEL: profile.models?.opus || '',
+    // Clear OAuth token so SDK uses the API key instead of OAuth
+    CLAUDE_CODE_OAUTH_TOKEN: '',
   };
 
   // Filter out empty/whitespace string values (only set env vars that have values)
@@ -310,10 +313,13 @@ export async function getAPIProfileEnvById(profileId: string): Promise<Record<st
   const envVars: Record<string, string> = {
     ANTHROPIC_BASE_URL: profile.baseUrl || '',
     ANTHROPIC_AUTH_TOKEN: profile.apiKey || '',
+    ANTHROPIC_API_KEY: profile.apiKey || '',
     ANTHROPIC_MODEL: profile.models?.default || '',
     ANTHROPIC_DEFAULT_HAIKU_MODEL: profile.models?.haiku || '',
     ANTHROPIC_DEFAULT_SONNET_MODEL: profile.models?.sonnet || '',
     ANTHROPIC_DEFAULT_OPUS_MODEL: profile.models?.opus || '',
+    // Clear OAuth token so SDK uses the API key instead of OAuth
+    CLAUDE_CODE_OAUTH_TOKEN: '',
   };
 
   const filteredEnvVars: Record<string, string> = {};
