@@ -736,16 +736,26 @@ app.whenReady().then(() => {
       const signal = JSON.parse(readFileSync(signalPath, 'utf-8'));
       rmSync(signalPath, { force: true });
       // Signal is fresh (within last 30 seconds)
-      if (signal.timestamp && Date.now() - signal.timestamp < 30_000 && mainWindow && !mainWindow.isDestroyed()) {
-        console.log('[main] MCP open_project signal received, switching to project:', signal.projectId);
-        // Reload the renderer's project list and tab state
-        mainWindow.webContents.send('TASK_LIST_REFRESH', signal.projectId);
-        // Force renderer to re-read tab state by executing JS in the renderer context
+      if (signal.timestamp && Date.now() - signal.timestamp < 30_000 && signal.projectPath && mainWindow && !mainWindow.isDestroyed()) {
+        console.log('[main] MCP open_project signal received for path:', signal.projectPath);
+        // Add the project to Electron's own project store (MCP server has a separate store)
+        const { projectStore: mainProjectStore } = require('./project-store');
+        const project = mainProjectStore.addProject(signal.projectPath);
+        const tabState = mainProjectStore.getTabState();
+        const openIds = tabState.openProjectIds.includes(project.id)
+          ? tabState.openProjectIds
+          : [...tabState.openProjectIds, project.id];
+        mainProjectStore.saveTabState({
+          openProjectIds: openIds,
+          activeProjectId: project.id,
+          tabOrder: openIds,
+        });
+        console.log('[main] Project added to Electron store:', project.id, project.name);
+        // Tell renderer to reload projects and switch tab
         mainWindow.webContents.executeJavaScript(`
           try {
             window.electronAPI?.getTabState?.().then(result => {
               if (result?.success && result.data) {
-                // Trigger a React state update via custom event
                 window.dispatchEvent(new CustomEvent('mcp-project-switch', { detail: result.data }));
               }
             });
