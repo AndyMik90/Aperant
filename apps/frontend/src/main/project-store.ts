@@ -685,7 +685,8 @@ export class ProjectStore {
     // Preserve backlog (user explicitly moved here), ai_review (QA in progress),
     // error (needs investigation), human_review, done, pr_created.
     // IMPORTANT: backlog must be preserved — user drags tasks to Planning intentionally via FORCE_BACKLOG.
-    if (!allCompleted || finalStatus === 'backlog' || finalStatus === 'human_review' || finalStatus === 'done' || finalStatus === 'pr_created' || finalStatus === 'ai_review' || finalStatus === 'error') {
+    // Also skip if task is still in planning/spec phase — subtasks are spec validation subtasks, not coding subtasks
+    if (!allCompleted || finalStatus === 'backlog' || finalStatus === 'human_review' || finalStatus === 'done' || finalStatus === 'pr_created' || finalStatus === 'ai_review' || finalStatus === 'error' || plan?.executionPhase === 'planning') {
       return { status: finalStatus, reviewReason: finalReviewReason };
     }
 
