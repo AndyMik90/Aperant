@@ -140,10 +140,10 @@ export function TaskCreationWizard({
         // Silently fail — provider selector just won't show
       }
     };
-    if (isOpen) {
+    if (open) {
       loadProviders();
     }
-  }, [isOpen]);
+  }, [open]);
 
   // Model configuration
   const [profileId, setProfileId] = useState<string>(settings.selectedAgentProfile || 'auto');
