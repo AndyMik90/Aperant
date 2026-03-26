@@ -79,6 +79,7 @@ export function UsageIndicator() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAvailable, setIsAvailable] = useState(false);
   const [activeProfileNeedsReauth, setActiveProfileNeedsReauth] = useState(false);
+  const [profileCombinationsEnabled, setProfileCombinationsEnabled] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -348,6 +349,13 @@ export function UsageIndicator() {
     };
     fetchUsage();
 
+    // Check if profile combinations is enabled (for showing side-by-side badges)
+    window.electronAPI.getAutoSwitchSettings?.().then((result) => {
+      if (result?.success && result.data) {
+        setProfileCombinationsEnabled(result.data.profileCombinations ?? false);
+      }
+    }).catch(() => {});
+
     // Request all profiles usage immediately on mount (so other accounts show right away)
     window.electronAPI.requestAllProfilesUsage?.().then((result) => {
       if (result.success && result.data) {
@@ -480,6 +488,7 @@ export function UsageIndicator() {
     Activity;
 
   return (
+    <div className="flex items-center gap-1.5">
     <Popover open={isOpen} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <button
@@ -781,5 +790,22 @@ export function UsageIndicator() {
         </div>
       </PopoverContent>
     </Popover>
+
+    {/* Side-by-side badges for other providers when profile combinations enabled */}
+    {profileCombinationsEnabled && otherProfiles.filter(p => p.isAuthenticated).map((profile) => (
+      <div
+        key={profile.profileId}
+        className={`flex items-center gap-1 px-2 py-1.5 rounded-md border transition-all ${getBadgeColorClasses(profile.sessionPercent)}`}
+        title={`${profile.profileName}: ${Math.round(profile.sessionPercent)}% session`}
+      >
+        <span className="text-[10px] font-medium truncate max-w-[60px]">
+          {profile.profileName}
+        </span>
+        <span className={`text-xs font-semibold font-mono ${getColorClass(profile.sessionPercent)}`}>
+          {Math.round(profile.sessionPercent)}
+        </span>
+      </div>
+    ))}
+    </div>
   );
 }
