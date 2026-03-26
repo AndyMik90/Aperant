@@ -286,9 +286,14 @@ export async function getAPIProfileEnv(): Promise<Record<string, string>> {
   };
 
   // Filter out empty/whitespace string values (only set env vars that have values)
-  // This handles empty strings, null, undefined, and whitespace-only values
+  // EXCEPT CLAUDE_CODE_OAUTH_TOKEN which MUST be empty to override OAuth mode
   const filteredEnvVars: Record<string, string> = {};
   for (const [key, value] of Object.entries(envVars)) {
+    // Always keep CLAUDE_CODE_OAUTH_TOKEN (even empty) to clear OAuth credentials
+    if (key === 'CLAUDE_CODE_OAUTH_TOKEN') {
+      filteredEnvVars[key] = '';
+      continue;
+    }
     const trimmedValue = value?.trim();
     if (trimmedValue && trimmedValue !== '') {
       filteredEnvVars[key] = trimmedValue;
@@ -322,8 +327,13 @@ export async function getAPIProfileEnvById(profileId: string): Promise<Record<st
     CLAUDE_CODE_OAUTH_TOKEN: '',
   };
 
+  // Filter out empty values EXCEPT CLAUDE_CODE_OAUTH_TOKEN which must be empty to clear OAuth
   const filteredEnvVars: Record<string, string> = {};
   for (const [key, value] of Object.entries(envVars)) {
+    if (key === 'CLAUDE_CODE_OAUTH_TOKEN') {
+      filteredEnvVars[key] = '';
+      continue;
+    }
     const trimmedValue = value?.trim();
     if (trimmedValue && trimmedValue !== '') {
       filteredEnvVars[key] = trimmedValue;

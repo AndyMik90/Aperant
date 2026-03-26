@@ -712,6 +712,15 @@ export class AgentProcessManager {
       // Continue with empty profile env (falls back to OAuth mode)
     }
 
+    // Log which provider the task will actually use
+    console.log(`[AgentProcess:${taskId}] PROVIDER DEBUG:`, {
+      taskProviderId: (() => { try { const m = JSON.parse(readFileSync(path.join(cwd, '.auto-claude', 'specs', taskId, 'task_metadata.json'), 'utf-8')); return m.providerId || '(none)'; } catch { return '(no metadata)'; } })(),
+      hasApiKey: !!apiProfileEnv.ANTHROPIC_API_KEY,
+      hasAuthToken: !!apiProfileEnv.ANTHROPIC_AUTH_TOKEN,
+      baseUrl: apiProfileEnv.ANTHROPIC_BASE_URL || '(not set — using Anthropic default)',
+      clearsOAuth: apiProfileEnv.CLAUDE_CODE_OAUTH_TOKEN === '',
+    });
+
     // Get OAuth mode clearing vars (clears stale ANTHROPIC_* vars when in OAuth mode)
     const oauthModeClearVars = getOAuthModeClearVars(apiProfileEnv);
 
