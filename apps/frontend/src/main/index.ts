@@ -367,9 +367,23 @@ function createWindow(): void {
           if (existsSync(vdStatePath)) {
             const vdState = JSON.parse(readFileSync(vdStatePath, 'utf-8'));
             if (vdState.desktopId && mainWindow) {
-              console.log('[VirtualDesktop] Restoring to desktop:', vdState.desktopId);
-              const hwnd = mainWindow.getNativeWindowHandle();
-              moveWindowToVirtualDesktop(hwnd, vdState.desktopId);
+              // Delay move — window must be fully visible and focused first (E_ACCESSDENIED otherwise)
+              setTimeout(() => {
+                if (!mainWindow || mainWindow.isDestroyed()) return;
+                console.log('[VirtualDesktop] Restoring to desktop:', vdState.desktopId);
+                mainWindow.focus(); // Ensure window is focused before move
+                const hwnd = mainWindow.getNativeWindowHandle();
+                const success = moveWindowToVirtualDesktop(hwnd, vdState.desktopId);
+                if (!success) {
+                  // Retry once more after another delay
+                  setTimeout(() => {
+                    if (!mainWindow || mainWindow.isDestroyed()) return;
+                    console.log('[VirtualDesktop] Retry move to desktop:', vdState.desktopId);
+                    const hwnd2 = mainWindow.getNativeWindowHandle();
+                    moveWindowToVirtualDesktop(hwnd2, vdState.desktopId);
+                  }, 3000);
+                }
+              }, 2000);
             }
           }
         } catch (err) {
