@@ -358,45 +358,22 @@ function createWindow(): void {
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
 
-    // Windows 11 Virtual Desktop persistence
+    // Windows 11 Virtual Desktop persistence (save only — restore is done by watchdog)
     if (isWindows() && mainWindow) {
-      import('./platform/windows/virtual-desktop').then(({ getWindowVirtualDesktopId, moveWindowToVirtualDesktop }) => {
-        // Restore: move window back to saved desktop (after crash/freeze restart)
-        try {
-          const vdStatePath = join(app.getPath('appData'), 'auto-claude-ui', 'virtual-desktop-state.json');
-          if (existsSync(vdStatePath)) {
-            const vdState = JSON.parse(readFileSync(vdStatePath, 'utf-8'));
-            if (vdState.desktopId && mainWindow) {
-              // Delay move — window must be fully visible and focused first (E_ACCESSDENIED otherwise)
-              setTimeout(() => {
-                if (!mainWindow || mainWindow.isDestroyed()) return;
-                console.log('[VirtualDesktop] Restoring to desktop:', vdState.desktopId);
-                mainWindow.focus(); // Ensure window is focused before move
-                const hwnd = mainWindow.getNativeWindowHandle();
-                const success = moveWindowToVirtualDesktop(hwnd, vdState.desktopId);
-                if (!success) {
-                  // Retry once more after another delay
-                  setTimeout(() => {
-                    if (!mainWindow || mainWindow.isDestroyed()) return;
-                    console.log('[VirtualDesktop] Retry move to desktop:', vdState.desktopId);
-                    const hwnd2 = mainWindow.getNativeWindowHandle();
-                    moveWindowToVirtualDesktop(hwnd2, vdState.desktopId);
-                  }, 3000);
-                }
-              }, 2000);
-            }
-          }
-        } catch (err) {
-          console.warn('[VirtualDesktop] Failed to restore:', err);
-        }
+      import('./platform/windows/virtual-desktop').then(({ getWindowVirtualDesktopId }) => {
+        // Skip saving for first 10 seconds to prevent overwriting state before watchdog restores
+        let skipSaveUntilRestored = true;
+        setTimeout(() => { skipSaveUntilRestored = false; }, 10_000);
 
-        // Save desktop GUID immediately + every 60 seconds
         const saveDesktopState = (): void => {
           try {
+            if (skipSaveUntilRestored) {
+              console.log('[VirtualDesktop] Skipping save — waiting for watchdog restore');
+              return;
+            }
             if (!mainWindow || mainWindow.isDestroyed()) return;
             const hwnd = mainWindow.getNativeWindowHandle();
             const desktopId = getWindowVirtualDesktopId(hwnd);
-            console.log('[VirtualDesktop] Save attempt, desktopId:', desktopId);
             if (desktopId) {
               const vdPath = join(app.getPath('appData'), 'auto-claude-ui', 'virtual-desktop-state.json');
               writeFileSync(vdPath, JSON.stringify({ desktopId, savedAt: new Date().toISOString() }), 'utf-8');
