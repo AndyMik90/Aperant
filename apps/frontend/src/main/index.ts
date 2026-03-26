@@ -38,6 +38,7 @@ for (const envPath of possibleEnvPaths) {
 import { app, BrowserWindow, shell, nativeImage, session, screen, Menu, MenuItem } from 'electron';
 import { join } from 'path';
 import { accessSync, readFileSync, writeFileSync, rmSync, mkdirSync } from 'fs';
+import { projectStore } from './project-store';
 import { optimizer } from '@electron-toolkit/utils';
 
 // Custom safe implementation to avoid module-level electron.app access
@@ -739,13 +740,12 @@ app.whenReady().then(() => {
       if (signal.timestamp && Date.now() - signal.timestamp < 30_000 && signal.projectPath && mainWindow && !mainWindow.isDestroyed()) {
         console.log('[main] MCP open_project signal received for path:', signal.projectPath);
         // Add the project to Electron's own project store (MCP server has a separate store)
-        const { projectStore: mainProjectStore } = require('./project-store');
-        const project = mainProjectStore.addProject(signal.projectPath);
-        const tabState = mainProjectStore.getTabState();
+        const project = projectStore.addProject(signal.projectPath);
+        const tabState = projectStore.getTabState();
         const openIds = tabState.openProjectIds.includes(project.id)
           ? tabState.openProjectIds
           : [...tabState.openProjectIds, project.id];
-        mainProjectStore.saveTabState({
+        projectStore.saveTabState({
           openProjectIds: openIds,
           activeProjectId: project.id,
           tabOrder: openIds,
