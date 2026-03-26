@@ -234,6 +234,23 @@ function saveTabStateToMain(): void {
 /**
  * Load projects from main process
  */
+// Listen for MCP open_project signal relayed from main process
+if (typeof window !== 'undefined') {
+  window.addEventListener('mcp-project-switch', ((event: CustomEvent) => {
+    const tabState = event.detail;
+    if (tabState?.activeProjectId) {
+      console.log('[ProjectStore] MCP project switch signal:', tabState.activeProjectId);
+      useProjectStore.setState({
+        openProjectIds: tabState.openProjectIds || [],
+        activeProjectId: tabState.activeProjectId,
+        tabOrder: tabState.tabOrder || [],
+      });
+      // Reload projects to pick up the new one
+      loadProjects();
+    }
+  }) as EventListener);
+}
+
 export async function loadProjects(): Promise<void> {
   const store = useProjectStore.getState();
   store.setLoading(true);

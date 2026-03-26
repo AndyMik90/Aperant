@@ -238,6 +238,21 @@ server.tool(
         tabOrder: openIds,
       });
       notifyRendererTaskRefresh(project.id);
+
+      // Signal Electron main process to switch tab (MCP runs as separate process,
+      // can't send IPC directly — use signal file that main process watches)
+      try {
+        const { writeFileSync } = require('fs');
+        const { join } = require('path');
+        const { homedir } = require('os');
+        const appData = process.env.APPDATA || join(homedir(), 'AppData', 'Roaming');
+        const signalPath = join(appData, 'auto-claude-ui', 'open-project-signal.json');
+        writeFileSync(signalPath, JSON.stringify({
+          projectId: project.id,
+          projectPath: project.path,
+          timestamp: Date.now(),
+        }), 'utf-8');
+      } catch { /* ignore signal write failure */ }
     }
 
     return {

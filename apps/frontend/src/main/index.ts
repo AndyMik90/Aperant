@@ -728,6 +728,33 @@ app.whenReady().then(() => {
   // Start heartbeat writer for watchdog freeze detection (Layer 2)
   startHeartbeat();
 
+  // Poll for MCP open_project signals (MCP server can't send IPC directly)
+  const signalPath = join(app.getPath('appData'), 'auto-claude-ui', 'open-project-signal.json');
+  setInterval(() => {
+    try {
+      if (!existsSync(signalPath)) return;
+      const signal = JSON.parse(readFileSync(signalPath, 'utf-8'));
+      rmSync(signalPath, { force: true });
+      // Signal is fresh (within last 30 seconds)
+      if (signal.timestamp && Date.now() - signal.timestamp < 30_000 && mainWindow && !mainWindow.isDestroyed()) {
+        console.log('[main] MCP open_project signal received, switching to project:', signal.projectId);
+        // Reload the renderer's project list and tab state
+        mainWindow.webContents.send('TASK_LIST_REFRESH', signal.projectId);
+        // Force renderer to re-read tab state by executing JS in the renderer context
+        mainWindow.webContents.executeJavaScript(`
+          try {
+            window.electronAPI?.getTabState?.().then(result => {
+              if (result?.success && result.data) {
+                // Trigger a React state update via custom event
+                window.dispatchEvent(new CustomEvent('mcp-project-switch', { detail: result.data }));
+              }
+            });
+          } catch {}
+        `).catch(() => {});
+      }
+    } catch { /* ignore */ }
+  }, 2_000);
+
   // Start activity monitor for functional freeze detection (Layer 3)
   activityMonitor.configure(agentManager, () => mainWindow);
   activityMonitor.start();
