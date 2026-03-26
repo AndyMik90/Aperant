@@ -689,7 +689,10 @@ export class AgentProcessManager {
     let apiProfileEnv: Record<string, string> = {};
     try {
       // Read task metadata to check for per-task provider override
-      const specDir = path.join(cwd, '.auto-claude', 'specs', taskId);
+      // Use --project-dir from args (cwd is the Python backend dir, NOT the project)
+      const projectDirIdx = args.indexOf('--project-dir');
+      const projectDir = projectDirIdx !== -1 && args[projectDirIdx + 1] ? args[projectDirIdx + 1] : cwd;
+      const specDir = path.join(projectDir, '.auto-claude', 'specs', taskId);
       const metaPath = path.join(specDir, 'task_metadata.json');
       let taskProviderId: string | undefined;
       if (existsSync(metaPath)) {
@@ -713,8 +716,13 @@ export class AgentProcessManager {
     }
 
     // Log which provider the task will actually use
+    const projectDirDbg = (() => { const i = args.indexOf('--project-dir'); return i !== -1 && args[i + 1] ? args[i + 1] : cwd; })();
+    const metaDebugPath = path.join(projectDirDbg, '.auto-claude', 'specs', taskId, 'task_metadata.json');
     console.log(`[AgentProcess:${taskId}] PROVIDER DEBUG:`, {
-      taskProviderId: (() => { try { const m = JSON.parse(readFileSync(path.join(cwd, '.auto-claude', 'specs', taskId, 'task_metadata.json'), 'utf-8')); return m.providerId || '(none)'; } catch { return '(no metadata)'; } })(),
+      cwd,
+      metaPath: metaDebugPath,
+      metaExists: existsSync(metaDebugPath),
+      taskProviderId: (() => { try { const m = JSON.parse(readFileSync(metaDebugPath, 'utf-8')); return m.providerId || '(none)'; } catch { return '(no metadata)'; } })(),
       hasApiKey: !!apiProfileEnv.ANTHROPIC_API_KEY,
       hasAuthToken: !!apiProfileEnv.ANTHROPIC_AUTH_TOKEN,
       baseUrl: apiProfileEnv.ANTHROPIC_BASE_URL || '(not set — using Anthropic default)',
