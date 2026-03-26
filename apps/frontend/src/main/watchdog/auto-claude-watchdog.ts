@@ -413,7 +413,7 @@ export class AutoClaudeWatchdog extends EventEmitter {
         }
       };
 
-      setTimeout(() => attemptMove(1), 4000);
+      setTimeout(() => attemptMove(1), 8000);
     } catch (err) {
       this.log('WARN', `[VD] restoreVirtualDesktop error: ${err}`);
     }

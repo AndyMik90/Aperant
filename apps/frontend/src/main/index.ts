@@ -358,12 +358,46 @@ function createWindow(): void {
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
 
-    // Windows 11 Virtual Desktop persistence (save only — restore is done by watchdog)
+    // Windows 11 Virtual Desktop persistence
     if (isWindows() && mainWindow) {
       import('./platform/windows/virtual-desktop').then(({ getWindowVirtualDesktopId }) => {
-        // Skip saving for first 10 seconds to prevent overwriting state before watchdog restores
+        // Restore: try Move-Window via VirtualDesktop PowerShell module from Electron itself
+        // (Electron is on the same desktop as its own window — no cross-desktop context issue)
         let skipSaveUntilRestored = true;
-        setTimeout(() => { skipSaveUntilRestored = false; }, 10_000);
+        try {
+          const vdStatePath = join(app.getPath('appData'), 'auto-claude-ui', 'virtual-desktop-state.json');
+          if (existsSync(vdStatePath)) {
+            const vdState = JSON.parse(readFileSync(vdStatePath, 'utf-8'));
+            if (vdState.desktopNumber != null) {
+              setTimeout(() => {
+                try {
+                  if (!mainWindow || mainWindow.isDestroyed()) return;
+                  const { execSync: exec } = require('child_process');
+                  const hwnd = mainWindow.getNativeWindowHandle();
+                  const hwndInt = hwnd.length === 8 ? Number(hwnd.readBigUInt64LE()) : hwnd.readUInt32LE();
+                  const psScript = `Import-Module VirtualDesktop -EA Stop; Move-Window ([IntPtr]${hwndInt}) (Get-Desktop ${vdState.desktopNumber}); Write-Output MOVED`;
+                  const psEncoded = Buffer.from(psScript, 'utf16le').toString('base64');
+                  const result = exec(`powershell.exe -NoProfile -NonInteractive -EncodedCommand ${psEncoded}`, { windowsHide: true, timeout: 10000, encoding: 'utf8' }).trim();
+                  const lastLine = result.split('\n').pop()?.trim() || '';
+                  console.log('[VirtualDesktop] Restore from Electron:', lastLine);
+                  if (lastLine === 'MOVED') {
+                    skipSaveUntilRestored = false; // Restore done, allow saving
+                  }
+                } catch (err) {
+                  console.warn('[VirtualDesktop] Restore failed:', err);
+                }
+                skipSaveUntilRestored = false;
+              }, 5000);
+            } else {
+              skipSaveUntilRestored = false;
+            }
+          } else {
+            skipSaveUntilRestored = false;
+          }
+        } catch {
+          skipSaveUntilRestored = false;
+        }
+        setTimeout(() => { skipSaveUntilRestored = false; }, 15_000); // Safety: always allow saving after 15s
 
         const saveDesktopState = (): void => {
           try {
