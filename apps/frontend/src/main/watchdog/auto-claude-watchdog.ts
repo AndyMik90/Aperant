@@ -275,12 +275,6 @@ export class AutoClaudeWatchdog extends EventEmitter {
     // which causes '"path"' is not recognized errors.
     const isWindows = process.platform === 'win32';
 
-    // Switch to saved virtual desktop BEFORE spawning Electron (Windows 11)
-    // MoveWindowToDesktop fails with E_ACCESSDENIED — switching desktop first is the only reliable approach
-    if (isWindows) {
-      this.switchToSavedDesktop();
-    }
-
     this.process = spawn(resolvedElectronPath, [resolvedAppPath, ...args], {
       stdio: ['inherit', 'pipe', 'pipe'],
       detached: false,
@@ -290,6 +284,11 @@ export class AutoClaudeWatchdog extends EventEmitter {
         WATCHDOG_ENABLED: 'true'
       }
     });
+
+    // Restore virtual desktop position AFTER spawn (Windows 11)
+    if (isWindows) {
+      this.restoreVirtualDesktop();
+    }
 
     // Monitor process exit
     this.process.on('exit', (code, signal) => {
@@ -372,45 +371,51 @@ export class AutoClaudeWatchdog extends EventEmitter {
    * switch to the target desktop first, spawn Electron (appears on current desktop),
    * then switch back. Uses the VirtualDesktop PowerShell module (must be installed).
    */
-  private switchToSavedDesktop(): void {
+  /**
+   * Restore Electron window to saved virtual desktop using VirtualDesktop PowerShell module.
+   * Uses Move-Window which wraps undocumented IVirtualDesktopManagerInternal — works from external process.
+   */
+  private restoreVirtualDesktop(): void {
     try {
       const appData = process.env.APPDATA || '';
       const statePath = path.join(appData, APP_DATA_DIR_NAME, 'virtual-desktop-state.json');
-      if (!fs.existsSync(statePath)) {
-        this.log('INFO', '[VD] No virtual desktop state file — skipping');
-        return;
-      }
+      if (!fs.existsSync(statePath)) return;
+
       const state = JSON.parse(fs.readFileSync(statePath, 'utf-8'));
-      if (!state.desktopNumber && state.desktopNumber !== 0) {
-        this.log('INFO', '[VD] No desktop number in state file — skipping');
-        return;
-      }
+      if (state.desktopNumber == null) return;
 
-      const targetDesktop = state.desktopNumber;
-      this.log('INFO', `[VD] Switching to desktop ${targetDesktop} before spawn`);
+      const target = state.desktopNumber;
+      this.log('INFO', `[VD] Will move window to desktop ${target} after spawn`);
 
-      // Switch to target desktop, spawn will happen on it, then switch back
-      const script = `Import-Module VirtualDesktop -ErrorAction Stop; Switch-Desktop ${targetDesktop}`;
-      const encoded = Buffer.from(script, 'utf16le').toString('base64');
-      execSync(
-        `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${encoded}`,
-        { windowsHide: true, timeout: 8000, encoding: 'utf8' }
-      );
-      this.log('INFO', `[VD] ✅ Switched to desktop ${targetDesktop}`);
-
-      // Switch back to user's desktop after spawn (3s delay for window to appear)
-      setTimeout(() => {
+      const attemptMove = (attempt: number): void => {
         try {
-          const backScript = `Import-Module VirtualDesktop -ErrorAction Stop; $d = Get-DesktopList | Where-Object { $_.Visible -eq $true }; if ($d) { Write-Output "Already on visible desktop" } else { Switch-Desktop ${state.userDesktopNumber || 0} }`;
-          const backEncoded = Buffer.from(backScript, 'utf16le').toString('base64');
-          execSync(
-            `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${backEncoded}`,
-            { windowsHide: true, timeout: 8000, encoding: 'utf8' }
-          );
-        } catch { /* silent — user may have already switched */ }
-      }, 3000);
+          const script = `Import-Module VirtualDesktop -EA Stop; $p = Get-Process electron -EA SilentlyContinue | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero } | Select-Object -First 1; if ($p) { Move-Window $p.MainWindowHandle (Get-Desktop ${target}); Write-Output OK } else { Write-Output NO_WINDOW }`;
+          const encoded = Buffer.from(script, 'utf16le').toString('base64');
+          const result = execSync(
+            `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${encoded}`,
+            { windowsHide: true, timeout: 10000, encoding: 'utf8' }
+          ).trim();
+
+          // Check last line of output (module may print warnings)
+          const lastLine = result.split('\n').pop()?.trim() || result;
+          this.log('INFO', `[VD] Attempt ${attempt}: ${lastLine}`);
+
+          if (lastLine === 'NO_WINDOW' && attempt < 3) {
+            setTimeout(() => attemptMove(attempt + 1), 2000);
+          } else if (lastLine === 'OK') {
+            this.log('INFO', `[VD] ✅ Moved to desktop ${target}`);
+          } else if (attempt < 3) {
+            setTimeout(() => attemptMove(attempt + 1), 2000);
+          }
+        } catch (err) {
+          this.log('WARN', `[VD] Attempt ${attempt} error: ${err}`);
+          if (attempt < 3) setTimeout(() => attemptMove(attempt + 1), 2000);
+        }
+      };
+
+      setTimeout(() => attemptMove(1), 4000);
     } catch (err) {
-      this.log('WARN', `[VD] switchToSavedDesktop error: ${err}`);
+      this.log('WARN', `[VD] restoreVirtualDesktop error: ${err}`);
     }
   }
 
