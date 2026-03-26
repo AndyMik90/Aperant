@@ -52,7 +52,7 @@ function notifyRendererTaskRefresh(projectId: string): void {
   } catch { /* standalone mode — no Electron window */ }
 }
 import type { TaskInfo } from '../ipc-handlers/rdr-handlers.js';
-import { existsSync, readFileSync, unlinkSync } from 'fs';
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { homedir, tmpdir } from 'os';
 import { spawnSync } from 'child_process';
@@ -242,9 +242,6 @@ server.tool(
       // Signal Electron main process to switch tab (MCP runs as separate process,
       // can't send IPC directly — use signal file that main process watches)
       try {
-        const { writeFileSync } = require('fs');
-        const { join } = require('path');
-        const { homedir } = require('os');
         const appData = process.env.APPDATA || join(homedir(), 'AppData', 'Roaming');
         const signalPath = join(appData, 'auto-claude-ui', 'open-project-signal.json');
         writeFileSync(signalPath, JSON.stringify({
@@ -252,7 +249,10 @@ server.tool(
           projectPath: project.path,
           timestamp: Date.now(),
         }), 'utf-8');
-      } catch { /* ignore signal write failure */ }
+        console.log('[MCP:open_project] Signal file written:', signalPath);
+      } catch (err) {
+        console.error('[MCP:open_project] Failed to write signal file:', err);
+      }
     }
 
     return {
