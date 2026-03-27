@@ -309,7 +309,9 @@ export async function getAPIProfileEnv(): Promise<Record<string, string>> {
  */
 export async function getAPIProfileEnvById(profileId: string): Promise<Record<string, string>> {
   const file = await loadProfilesFile();
-  const profile = file.profiles.find((p) => p.id === profileId);
+  // Search by ID first, then by name (MCP tools may pass name like "MiniMax" instead of UUID)
+  const profile = file.profiles.find((p) => p.id === profileId)
+    || file.profiles.find((p) => p.name.toLowerCase() === profileId.toLowerCase());
 
   if (!profile) {
     return {};
