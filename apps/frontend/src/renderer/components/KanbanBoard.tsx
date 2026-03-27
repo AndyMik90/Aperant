@@ -1753,7 +1753,24 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       const result = await window.electronAPI.getVSCodeWindows();
       if (result.success && result.data) {
         setVsCodeWindows(result.data);
-        // Auto-select first window if none selected
+
+        // Check for persisted window assignment (from MCP assign_window tool)
+        if (projectId && selectedWindowHandle === null) {
+          try {
+            const assigned = await (window.electronAPI as any).getAssignedWindow?.(projectId);
+            if (assigned?.success && assigned.data?.processId) {
+              const matchedWindow = result.data.find(w => w.processId === assigned.data.processId);
+              if (matchedWindow) {
+                console.log('[KanbanBoard] Using assigned window for project:', matchedWindow.title);
+                setSelectedWindowHandle(matchedWindow.handle);
+                setIsLoadingWindows(false);
+                return;
+              }
+            }
+          } catch { /* no assignment or IPC not available */ }
+        }
+
+        // Fallback: auto-select first window if none selected
         if (result.data.length > 0 && selectedWindowHandle === null) {
           setSelectedWindowHandle(result.data[0].handle);
         }
@@ -1763,7 +1780,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     } finally {
       setIsLoadingWindows(false);
     }
-  }, [selectedWindowHandle]);
+  }, [selectedWindowHandle, projectId]);
 
   // Load windows on mount
   useEffect(() => {

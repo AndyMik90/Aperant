@@ -208,6 +208,93 @@ const server = new McpServer({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Tool: assign_window
+// ─────────────────────────────────────────────────────────────────────────────
+
+server.tool(
+  'assign_window',
+  'Register a VS Code window as the master LLM for a specific project. RDR will target this window for task recovery messages. Auto-detects the calling window by project folder name in the title.',
+  {
+    projectId: z.string().describe('Project ID (UUID) to assign this window to'),
+    projectPath: z.string().optional().describe('Project folder path — used to auto-detect VS Code window by title'),
+    windowTitle: z.string().optional().describe('Explicit VS Code window title pattern to match (auto-detected from projectPath if omitted)'),
+  },
+  withMonitoring('assign_window', async ({ projectId, projectPath, windowTitle }) => {
+    try {
+      // Enumerate VS Code windows using PowerShell (same as window-manager.ts)
+      const psScript = `$ProgressPreference='SilentlyContinue'; Get-Process -Name Code -EA SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | ForEach-Object { @{ handle=$_.MainWindowHandle.ToInt64(); title=$_.MainWindowTitle; processId=$_.Id } } | ConvertTo-Json`;
+      const psEncoded = Buffer.from(psScript, 'utf16le').toString('base64');
+      let windows: Array<{ handle: number; title: string; processId: number }> = [];
+      try {
+        const raw = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', psEncoded], {
+          windowsHide: true, timeout: 8000, encoding: 'utf8'
+        }).stdout.trim();
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          windows = Array.isArray(parsed) ? parsed : [parsed];
+        }
+      } catch { /* no windows found */ }
+
+      if (windows.length === 0) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'No VS Code windows found' }) }] };
+      }
+
+      // Match window by title
+      let matchedWindow = null;
+      if (windowTitle) {
+        matchedWindow = windows.find(w => w.title.toLowerCase().includes(windowTitle.toLowerCase()));
+      } else if (projectPath) {
+        // Auto-detect: extract folder name from path and match in title
+        const folderName = projectPath.replace(/\\/g, '/').split('/').pop() || '';
+        matchedWindow = windows.find(w => w.title.toLowerCase().includes(folderName.toLowerCase()));
+      }
+
+      if (!matchedWindow && windows.length === 1) {
+        matchedWindow = windows[0]; // Only one window, use it
+      }
+
+      if (!matchedWindow) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({
+          error: 'Could not find matching VS Code window',
+          availableWindows: windows.map(w => ({ title: w.title, processId: w.processId })),
+          hint: 'Pass windowTitle parameter with a substring of the target window title'
+        }, null, 2) }] };
+      }
+
+      // Write assignment to signal file
+      const appData = process.env.APPDATA || join(homedir(), 'AppData', 'Roaming');
+      const assignmentPath = join(appData, 'auto-claude-ui', 'window-assignments.json');
+      let assignments: Record<string, { processId: number; title: string; assignedAt: string }> = {};
+      try {
+        if (existsSync(assignmentPath)) {
+          assignments = JSON.parse(readFileSync(assignmentPath, 'utf-8')).assignments || {};
+        }
+      } catch { /* fresh file */ }
+
+      assignments[projectId] = {
+        processId: matchedWindow.processId,
+        title: matchedWindow.title,
+        assignedAt: new Date().toISOString(),
+      };
+
+      writeFileSync(assignmentPath, JSON.stringify({ assignments, updatedAt: new Date().toISOString() }, null, 2), 'utf-8');
+
+      return { content: [{ type: 'text' as const, text: JSON.stringify({
+        success: true,
+        projectId,
+        assignedWindow: {
+          processId: matchedWindow.processId,
+          title: matchedWindow.title,
+        },
+        message: `Window "${matchedWindow.title}" assigned to project ${projectId}. RDR will target this window.`
+      }, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ error: String(err) }) }] };
+    }
+  })
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Tool: open_project
 // ─────────────────────────────────────────────────────────────────────────────
 

@@ -815,6 +815,33 @@ app.whenReady().then(() => {
     } catch { /* ignore */ }
   }, 2_000);
 
+  // Window assignments for per-project RDR targeting
+  // MCP assign_window tool writes to this file, Electron reads and exposes via IPC
+  const windowAssignmentsPath = join(app.getPath('appData'), 'auto-claude-ui', 'window-assignments.json');
+  let windowAssignments: Record<string, { processId: number; title: string; assignedAt: string }> = {};
+
+  // Load assignments on startup and poll for updates
+  const loadWindowAssignments = (): void => {
+    try {
+      if (existsSync(windowAssignmentsPath)) {
+        const data = JSON.parse(readFileSync(windowAssignmentsPath, 'utf-8'));
+        windowAssignments = data.assignments || {};
+      }
+    } catch { /* ignore */ }
+  };
+  loadWindowAssignments();
+  setInterval(loadWindowAssignments, 5_000);
+
+  // IPC handler for renderer to get assigned window for a project
+  const { ipcMain } = require('electron');
+  ipcMain.handle('rdr:getAssignedWindow', (_event: unknown, projectId: string) => {
+    const assignment = windowAssignments[projectId];
+    if (assignment) {
+      return { success: true, data: assignment };
+    }
+    return { success: false, data: null };
+  });
+
   // Start activity monitor for functional freeze detection (Layer 3)
   activityMonitor.configure(agentManager, () => mainWindow);
   activityMonitor.start();
