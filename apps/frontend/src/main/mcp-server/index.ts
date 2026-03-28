@@ -261,10 +261,16 @@ server.tool(
         }, null, 2) }] };
       }
 
+      // Detect provider from window title
+      // "Visual Studio Code" = Claude Code extension = anthropic
+      // "Kilo Code" in title = Kilo Code extension = minimax
+      const titleLower = matchedWindow.title.toLowerCase();
+      const provider = titleLower.includes('kilo') ? 'minimax' : 'anthropic';
+
       // Write assignment to signal file
       const appData = process.env.APPDATA || join(homedir(), 'AppData', 'Roaming');
       const assignmentPath = join(appData, 'auto-claude-ui', 'window-assignments.json');
-      let assignments: Record<string, { processId: number; title: string; assignedAt: string }> = {};
+      let assignments: Record<string, { processId: number; title: string; provider: string; assignedAt: string }> = {};
       try {
         if (existsSync(assignmentPath)) {
           assignments = JSON.parse(readFileSync(assignmentPath, 'utf-8')).assignments || {};
@@ -274,6 +280,7 @@ server.tool(
       assignments[projectId] = {
         processId: matchedWindow.processId,
         title: matchedWindow.title,
+        provider,
         assignedAt: new Date().toISOString(),
       };
 
@@ -285,8 +292,9 @@ server.tool(
         assignedWindow: {
           processId: matchedWindow.processId,
           title: matchedWindow.title,
+          provider,
         },
-        message: `Window "${matchedWindow.title}" assigned to project ${projectId}. RDR will target this window.`
+        message: `Window "${matchedWindow.title}" (${provider}) assigned to project ${projectId}. RDR will target this window.`
       }, null, 2) }] };
     } catch (err) {
       return { content: [{ type: 'text' as const, text: JSON.stringify({ error: String(err) }) }] };

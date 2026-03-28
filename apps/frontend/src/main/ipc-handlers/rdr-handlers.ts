@@ -221,7 +221,7 @@ function loadRdrPauseState(): void {
 }
 
 /** Pause RDR — block all sends until rate limit resets (100% session usage) */
-export function pauseRdr(reason: string, rateLimitResetAt: number): void {
+export function pauseRdr(reason: string, rateLimitResetAt: number, provider?: string): void {
   // Reject invalid or already-past reset times — stale cached usage data can trigger
   // pauseRdr() after the limit has already reset, creating a zombie pause state
   if (!rateLimitResetAt || !Number.isFinite(rateLimitResetAt) || rateLimitResetAt <= Date.now()) {
@@ -239,9 +239,9 @@ export function pauseRdr(reason: string, rateLimitResetAt: number): void {
   persistRdrPauseState();
 
   const remainingMin = Math.ceil((rateLimitResetAt - Date.now()) / 60_000);
-  console.log(`[RDR] PAUSED: ${reason} (resets in ${remainingMin}min)`);
+  console.log(`[RDR] PAUSED: ${reason} (resets in ${remainingMin}min)${provider ? ` [provider: ${provider}]` : ''}`);
 
-  // Notify renderer
+  // Notify renderer (include provider so renderer can filter per-project)
   try {
     const allWindows = BrowserWindow?.getAllWindows() || [];
     for (const win of allWindows) {
@@ -251,6 +251,7 @@ export function pauseRdr(reason: string, rateLimitResetAt: number): void {
           warning: true,
           reason,
           rateLimitResetAt,
+          provider, // "anthropic" | "minimax" | undefined (global)
         });
       }
     }
@@ -301,19 +302,19 @@ export function warnRdr(reason: string, rateLimitResetAt: number): void {
 }
 
 /** Resume RDR — rate limit cleared, trigger immediate send */
-export function resumeRdr(reason: string): void {
+export function resumeRdr(reason: string, provider?: string): void {
   if (!rdrPauseState.paused && !rdrPauseState.warning) return;
 
-  console.log(`[RDR] RESUMED: ${reason}`);
+  console.log(`[RDR] RESUMED: ${reason}${provider ? ` [provider: ${provider}]` : ''}`);
   rdrPauseState = { paused: false, warning: false, reason: '', pausedAt: 0, rateLimitResetAt: 0 };
   persistRdrPauseState();
 
-  // Notify renderer
+  // Notify renderer (include provider so it can filter per-project)
   try {
     const allWindows = BrowserWindow?.getAllWindows() || [];
     for (const win of allWindows) {
       if (!win.isDestroyed()) {
-        win.webContents.send(IPC_CHANNELS.RDR_RATE_LIMIT_CLEARED, { reason });
+        win.webContents.send(IPC_CHANNELS.RDR_RATE_LIMIT_CLEARED, { reason, provider });
       }
     }
   } catch (err) {

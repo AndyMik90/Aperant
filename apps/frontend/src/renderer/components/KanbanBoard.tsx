@@ -1742,7 +1742,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const RDR_IN_FLIGHT_TIMEOUT_MS = 120000; // 2 min safety net (activity monitor handles session death sooner)
 
   // RDR rate limit pause state
-  const [rdrCooldown, setRdrCooldown] = useState<{ paused: boolean; warning: boolean; reason: string; rateLimitResetAt: number }>({ paused: false, warning: false, reason: '', rateLimitResetAt: 0 });
+  const [rdrCooldown, setRdrCooldown] = useState<{ paused: boolean; warning: boolean; reason: string; rateLimitResetAt: number; provider?: string }>({ paused: false, warning: false, reason: '', rateLimitResetAt: 0 });
   const rdrCooldownRef = useRef(rdrCooldown);
   rdrCooldownRef.current = rdrCooldown;
 
@@ -2270,17 +2270,50 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }).catch(() => { /* ignore */ });
 
     const unsubLimited = window.electronAPI.onRdrRateLimited((data) => {
-      console.log(`[RDR] Rate limit ${data.paused ? 'pause' : 'warning'} activated:`, data.reason);
-      setRdrCooldown({
-        paused: data.paused ?? true,
-        warning: data.warning ?? true,
-        reason: data.reason,
-        rateLimitResetAt: data.rateLimitResetAt,
-      });
+      const provider = (data as any).provider;
+      console.log(`[RDR] Rate limit ${data.paused ? 'pause' : 'warning'} activated:`, data.reason, provider ? `[${provider}]` : '');
+
+      // When provider combinations enabled: only apply pause if this project's window uses the same provider
+      // Check assigned window provider for current project
+      if (provider && projectId) {
+        (window.electronAPI as any).getAssignedWindow?.(projectId).then((assigned: any) => {
+          const windowProvider = assigned?.data?.provider;
+          if (windowProvider && windowProvider !== provider) {
+            console.log(`[RDR] Ignoring ${provider} rate limit — this project uses ${windowProvider}`);
+            return; // Different provider, don't pause this project's RDR
+          }
+          setRdrCooldown({
+            paused: data.paused ?? true,
+            warning: data.warning ?? true,
+            reason: data.reason,
+            rateLimitResetAt: data.rateLimitResetAt,
+            provider,
+          });
+        }).catch(() => {
+          // No assignment — apply globally (backward compatible)
+          setRdrCooldown({
+            paused: data.paused ?? true,
+            warning: data.warning ?? true,
+            reason: data.reason,
+            rateLimitResetAt: data.rateLimitResetAt,
+            provider,
+          });
+        });
+      } else {
+        // No provider info or no project — apply globally (backward compatible)
+        setRdrCooldown({
+          paused: data.paused ?? true,
+          warning: data.warning ?? true,
+          reason: data.reason,
+          rateLimitResetAt: data.rateLimitResetAt,
+          provider,
+        });
+      }
     });
 
     const unsubCleared = window.electronAPI.onRdrRateLimitCleared((data) => {
-      console.log('[RDR] Rate limit cleared — triggering RDR:', data.reason);
+      const provider = (data as any).provider;
+      console.log('[RDR] Rate limit cleared — triggering RDR:', data.reason, provider ? `[${provider}]` : '');
       setRdrCooldown({ paused: false, warning: false, reason: '', rateLimitResetAt: 0 });
       // Trigger immediate RDR send now that rate limit cleared
       handleAutoRdr();

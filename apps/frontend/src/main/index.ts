@@ -818,7 +818,7 @@ app.whenReady().then(() => {
   // Window assignments for per-project RDR targeting
   // MCP assign_window tool writes to this file, Electron reads and exposes via IPC
   const windowAssignmentsPath = join(app.getPath('appData'), 'auto-claude-ui', 'window-assignments.json');
-  let windowAssignments: Record<string, { processId: number; title: string; assignedAt: string }> = {};
+  let windowAssignments: Record<string, { processId: number; title: string; provider?: string; assignedAt: string }> = {};
 
   // Load assignments on startup and poll for updates
   const loadWindowAssignments = (): void => {
