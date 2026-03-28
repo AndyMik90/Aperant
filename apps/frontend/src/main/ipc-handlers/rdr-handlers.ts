@@ -303,7 +303,8 @@ export function warnRdr(reason: string, rateLimitResetAt: number): void {
 
 /** Resume RDR — rate limit cleared, trigger immediate send */
 export function resumeRdr(reason: string, provider?: string): void {
-  if (!rdrPauseState.paused && !rdrPauseState.warning) return;
+  // ALWAYS notify renderer even if main process already cleared — prevents desync
+  // where renderer stays paused after overnight rate limit reset
 
   console.log(`[RDR] RESUMED: ${reason}${provider ? ` [provider: ${provider}]` : ''}`);
   rdrPauseState = { paused: false, warning: false, reason: '', pausedAt: 0, rateLimitResetAt: 0 };
