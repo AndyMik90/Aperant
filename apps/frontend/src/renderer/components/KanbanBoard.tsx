@@ -1730,7 +1730,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
   // VS Code window state for RDR direct sending
   const [vsCodeWindows, setVsCodeWindows] = useState<Array<{ handle: number; title: string; processId: number }>>([]);
-  const [selectedWindowHandle, setSelectedWindowHandle] = useState<number | null>(null);
+  const [selectedWindowPid, setSelectedWindowPid] = useState<number | null>(null);
   const [isLoadingWindows, setIsLoadingWindows] = useState(false);
 
   // RDR auto timer state
@@ -1755,14 +1755,14 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         setVsCodeWindows(result.data);
 
         // Check for persisted window assignment (from MCP assign_window tool)
-        if (projectId && selectedWindowHandle === null) {
+        if (projectId && selectedWindowPid === null) {
           try {
             const assigned = await (window.electronAPI as any).getAssignedWindow?.(projectId);
             if (assigned?.success && assigned.data?.processId) {
               const matchedWindow = result.data.find(w => w.processId === assigned.data.processId);
               if (matchedWindow) {
                 console.log('[KanbanBoard] Using assigned window for project:', matchedWindow.title);
-                setSelectedWindowHandle(matchedWindow.handle);
+                setSelectedWindowPid(matchedWindow.processId);
                 setIsLoadingWindows(false);
                 return;
               }
@@ -1771,8 +1771,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         }
 
         // Fallback: auto-select first window if none selected
-        if (result.data.length > 0 && selectedWindowHandle === null) {
-          setSelectedWindowHandle(result.data[0].handle);
+        if (result.data.length > 0 && selectedWindowPid === null) {
+          setSelectedWindowPid(result.data[0].processId);
         }
       }
     } catch (error) {
@@ -1780,7 +1780,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     } finally {
       setIsLoadingWindows(false);
     }
-  }, [selectedWindowHandle, projectId]);
+  }, [selectedWindowPid, projectId]);
 
   // Load windows on mount
   useEffect(() => {
@@ -2103,11 +2103,11 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       return;
     }
 
-    if (rdrCooldownRef.current.paused || !selectedWindowHandle || !projectId) {
+    if (rdrCooldownRef.current.paused || !selectedWindowPid || !projectId) {
       return;
     }
 
-    const selectedWindow = vsCodeWindows.find(w => w.handle === selectedWindowHandle);
+    const selectedWindow = vsCodeWindows.find(w => w.processId === selectedWindowPid);
     if (!selectedWindow) {
       return;
     }
@@ -2176,7 +2176,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
         rdrMessageInFlightRef.current = false;
       }, 10_000);
     }
-  }, [selectedWindowHandle, projectId, buildRdrMessage, toast, t, vsCodeWindows]);
+  }, [selectedWindowPid, projectId, buildRdrMessage, toast, t, vsCodeWindows]);
 
   // EVENT-DRIVEN RDR: Check immediately on startup, then respond to idle events
   useEffect(() => {
@@ -2187,7 +2187,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
 
     // Only start timer if RDR is enabled AND a window is selected
-    if (rdrEnabled && selectedWindowHandle) {
+    if (rdrEnabled && selectedWindowPid) {
       console.log(`[RDR] Starting event-driven RDR - delayed initial check + idle event triggers`);
 
       // DELAYED CHECK: Give OutputMonitor time to detect current state (5s grace period)
@@ -2251,7 +2251,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     } else {
       console.log('[RDR] Auto-send timer not started (RDR disabled or no window selected)');
     }
-  }, [rdrEnabled, selectedWindowHandle, handleAutoRdr]);
+  }, [rdrEnabled, selectedWindowPid, handleAutoRdr]);
 
   // RDR Rate Limit Pause: subscribe to IPC events + query initial state
   useEffect(() => {
@@ -2508,9 +2508,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
 
     // Check if a window is selected for direct sending
-    if (selectedWindowHandle) {
+    if (selectedWindowPid) {
       // Find window title from selected handle
-      const selectedWindow = vsCodeWindows.find(w => w.handle === selectedWindowHandle);
+      const selectedWindow = vsCodeWindows.find(w => w.processId === selectedWindowPid);
       if (!selectedWindow) {
         toast({
           title: t('kanban.rdrSendFailed'),
@@ -2549,7 +2549,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
             description: t('kanban.rdrSendSuccessDesc'),
             variant: 'default'
           });
-          console.log(`[KanbanBoard] RDR message sent to window handle ${selectedWindowHandle}`);
+          console.log(`[KanbanBoard] RDR message sent to window handle ${selectedWindowPid}`);
         } else {
           toast({
             title: t('kanban.rdrSendFailed'),
@@ -2777,15 +2777,15 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
                   </Tooltip>
 
                   <Select
-                    value={selectedWindowHandle?.toString() ?? ''}
-                    onValueChange={(value) => setSelectedWindowHandle(value ? parseInt(value, 10) : null)}
+                    value={selectedWindowPid?.toString() ?? ''}
+                    onValueChange={(value) => setSelectedWindowPid(value ? parseInt(value, 10) : null)}
                   >
                     <SelectTrigger className="h-7 w-[140px] text-xs">
                       <SelectValue placeholder={t('kanban.rdrSelectWindow')} />
                     </SelectTrigger>
                     <SelectContent>
                       {vsCodeWindows.map((win) => (
-                        <SelectItem key={win.handle} value={win.handle.toString()}>
+                        <SelectItem key={win.processId} value={win.processId.toString()}>
                           <span className="truncate max-w-[120px]" title={win.title}>
                             {win.title.length > 25 ? `${win.title.substring(0, 25)}...` : win.title}
                           </span>
@@ -2807,10 +2807,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
                       variant="ghost"
                       size="sm"
                       onClick={handlePingRdr}
-                      disabled={!selectedWindowHandle}
+                      disabled={!selectedWindowPid}
                       className={cn(
                         "h-7 w-7 p-0",
-                        selectedWindowHandle
+                        selectedWindowPid
                           ? "text-yellow-500 hover:text-yellow-400"
                           : "text-muted-foreground/50"
                       )}
@@ -2819,7 +2819,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-xs">
-                    <p>{selectedWindowHandle ? t('kanban.rdrPingTooltip') : t('kanban.rdrSelectWindowFirst')}</p>
+                    <p>{selectedWindowPid ? t('kanban.rdrPingTooltip') : t('kanban.rdrSelectWindowFirst')}</p>
                   </TooltipContent>
                 </Tooltip>
 
