@@ -1753,26 +1753,13 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       const result = await window.electronAPI.getVSCodeWindows();
       if (result.success && result.data) {
         setVsCodeWindows(result.data);
-
-        // Check for persisted window assignment (from MCP assign_window tool)
-        if (projectId && selectedWindowPid === null) {
-          try {
-            const assigned = await (window.electronAPI as any).getAssignedWindow?.(projectId);
-            if (assigned?.success && assigned.data?.processId) {
-              const matchedWindow = result.data.find(w => w.processId === assigned.data.processId);
-              if (matchedWindow) {
-                console.log('[KanbanBoard] Using assigned window for project:', matchedWindow.title);
-                setSelectedWindowPid(matchedWindow.processId);
-                setIsLoadingWindows(false);
-                return;
-              }
-            }
-          } catch { /* no assignment or IPC not available */ }
-        }
-
-        // Fallback: auto-select first window if none selected
-        if (result.data.length > 0 && selectedWindowPid === null) {
-          setSelectedWindowPid(result.data[0].processId);
+        // Always auto-select first window — handles change every enumeration,
+        // so the first window is always the currently focused one.
+        // This is how it worked for months before the processId change.
+        if (result.data.length > 0) {
+          setSelectedWindowPid(result.data[0].handle);
+        } else {
+          setSelectedWindowPid(null);
         }
       }
     } catch (error) {
@@ -2107,7 +2094,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       return;
     }
 
-    const selectedWindow = vsCodeWindows.find(w => w.processId === selectedWindowPid);
+    const selectedWindow = vsCodeWindows.find(w => w.handle === selectedWindowPid);
     if (!selectedWindow) {
       return;
     }
@@ -2510,7 +2497,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     // Check if a window is selected for direct sending
     if (selectedWindowPid) {
       // Find window title from selected handle
-      const selectedWindow = vsCodeWindows.find(w => w.processId === selectedWindowPid);
+      const selectedWindow = vsCodeWindows.find(w => w.handle === selectedWindowPid);
       if (!selectedWindow) {
         toast({
           title: t('kanban.rdrSendFailed'),
@@ -2785,7 +2772,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
                     </SelectTrigger>
                     <SelectContent>
                       {vsCodeWindows.map((win) => (
-                        <SelectItem key={win.processId} value={win.processId.toString()}>
+                        <SelectItem key={win.handle} value={win.handle.toString()}>
                           <span className="truncate max-w-[120px]" title={win.title}>
                             {win.title.length > 25 ? `${win.title.substring(0, 25)}...` : win.title}
                           </span>
