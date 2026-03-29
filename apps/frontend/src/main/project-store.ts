@@ -686,7 +686,10 @@ export class ProjectStore {
     // error (needs investigation), human_review, done, pr_created.
     // IMPORTANT: backlog must be preserved — user drags tasks to Planning intentionally via FORCE_BACKLOG.
     // Also skip if task is still in planning/spec phase — subtasks are spec validation subtasks, not coding subtasks
-    if (!allCompleted || finalStatus === 'backlog' || finalStatus === 'human_review' || finalStatus === 'done' || finalStatus === 'pr_created' || finalStatus === 'ai_review' || finalStatus === 'error' || plan?.executionPhase === 'planning') {
+    // Only skip planning phase if there are NO completed phases (truly in spec creation).
+    // If phases exist with completed subtasks, the executionPhase field is stale — allow correction.
+    const isGenuinePlanning = plan?.executionPhase === 'planning' && (!plan?.phases || plan.phases.length === 0);
+    if (!allCompleted || finalStatus === 'backlog' || finalStatus === 'human_review' || finalStatus === 'done' || finalStatus === 'pr_created' || finalStatus === 'ai_review' || finalStatus === 'error' || isGenuinePlanning) {
       return { status: finalStatus, reviewReason: finalReviewReason };
     }
 

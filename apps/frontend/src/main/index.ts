@@ -399,41 +399,37 @@ function createWindow(): void {
         }
         setTimeout(() => { skipSaveUntilRestored = false; }, 15_000); // Safety: always allow saving after 15s
 
+        // Non-blocking virtual desktop save — uses async exec to avoid blocking the event loop
         const saveDesktopState = (): void => {
           try {
-            if (skipSaveUntilRestored) {
-              console.log('[VirtualDesktop] Skipping save — waiting for watchdog restore');
-              return;
-            }
+            if (skipSaveUntilRestored) return;
             if (!mainWindow || mainWindow.isDestroyed()) return;
             const hwnd = mainWindow.getNativeWindowHandle();
             const desktopId = getWindowVirtualDesktopId(hwnd);
             if (desktopId) {
-              // Also get the desktop number for the VirtualDesktop PowerShell module
-              let desktopNumber: number | null = null;
-              try {
-                const { execSync: exec } = require('child_process');
-                const numScript = `Import-Module VirtualDesktop -EA Stop; $d = Get-DesktopList | Where-Object { $_.Visible -eq $true }; if ($d) { Write-Output $d.Number }`;
-                const numEncoded = Buffer.from(numScript, 'utf16le').toString('base64');
-                const numResult = exec(
-                  `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${numEncoded}`,
-                  { windowsHide: true, timeout: 8000, encoding: 'utf8' }
-                ).trim();
-                if (numResult !== '') desktopNumber = parseInt(numResult, 10);
-              } catch { /* silent */ }
-
-              const vdPath = join(app.getPath('appData'), 'auto-claude-ui', 'virtual-desktop-state.json');
-              writeFileSync(vdPath, JSON.stringify({ desktopId, desktopNumber, savedAt: new Date().toISOString() }), 'utf-8');
-              console.log('[VirtualDesktop] State saved:', desktopId, 'number:', desktopNumber);
+              // Get desktop number asynchronously (non-blocking)
+              const { exec: execAsync } = require('child_process');
+              const numScript = `Import-Module VirtualDesktop -EA Stop; $d = Get-DesktopList | Where-Object { $_.Visible -eq $true }; if ($d) { Write-Output $d.Number }`;
+              const numEncoded = Buffer.from(numScript, 'utf16le').toString('base64');
+              execAsync(
+                `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${numEncoded}`,
+                { windowsHide: true, timeout: 8000, encoding: 'utf8' },
+                (err: Error | null, stdout: string) => {
+                  let desktopNumber: number | null = null;
+                  if (!err && stdout?.trim()) desktopNumber = parseInt(stdout.trim(), 10);
+                  try {
+                    const vdPath = join(app.getPath('appData'), 'auto-claude-ui', 'virtual-desktop-state.json');
+                    writeFileSync(vdPath, JSON.stringify({ desktopId, desktopNumber, savedAt: new Date().toISOString() }), 'utf-8');
+                  } catch { /* silent */ }
+                }
+              );
             }
-          } catch (err) {
-            console.warn('[VirtualDesktop] Failed to save:', err);
-          }
+          } catch { /* silent */ }
         };
 
-        // Save immediately on startup, then every 60s
-        setTimeout(saveDesktopState, 5_000);
-        setInterval(saveDesktopState, 60_000);
+        // Save on startup (10s delay), then every 120s (non-blocking, no rush)
+        setTimeout(saveDesktopState, 10_000);
+        setInterval(saveDesktopState, 120_000);
       }).catch(err => {
         console.warn('[VirtualDesktop] Module import failed:', err);
       });
