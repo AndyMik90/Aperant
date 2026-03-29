@@ -58,24 +58,52 @@ export function getVSCodeWindows(): VSCodeWindow[] {
   try {
     // Simple PowerShell script to enumerate VS Code windows
     // Added $ProgressPreference to suppress CLIXML progress output
+    // Use EnumWindows + GetWindowThreadProcessId to find ALL VS Code windows
+    // across ALL virtual desktops. Process.MainWindowHandle only returns one.
     const script = `
 $ProgressPreference = 'SilentlyContinue'
-$windows = @()
-Get-Process -Name "Code" -ErrorAction SilentlyContinue |
-Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle } |
-ForEach-Object {
-    $cleanTitle = ($_.MainWindowTitle -replace '[\x00-\x1f\x7f]', '')
-    $windows += @{
-        handle = $_.MainWindowHandle.ToInt64()
-        title = $cleanTitle
-        processId = $_.Id
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+using System.Collections.Generic;
+public class WinEnum {
+    [DllImport("user32.dll")] static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+    [DllImport("user32.dll")] static extern int GetWindowTextLength(IntPtr hWnd);
+    [DllImport("user32.dll", CharSet=CharSet.Unicode)] static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr hWnd);
+    delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+    public static List<long[]> handles = new List<long[]>();
+    public static List<string> titles = new List<string>();
+    public static void Find() {
+        handles.Clear(); titles.Clear();
+        EnumWindows((hWnd, p) => {
+            if (!IsWindowVisible(hWnd)) return true;
+            int len = GetWindowTextLength(hWnd);
+            if (len == 0) return true;
+            var sb = new StringBuilder(len + 1);
+            GetWindowText(hWnd, sb, sb.Capacity);
+            string title = sb.ToString();
+            if (title.Contains("Visual Studio Code")) {
+                uint pid; GetWindowThreadProcessId(hWnd, out pid);
+                handles.Add(new long[] { hWnd.ToInt64(), pid });
+                titles.Add(title);
+            }
+            return true;
+        }, IntPtr.Zero);
     }
 }
-if ($windows.Count -eq 0) {
-    Write-Output "[]"
-} else {
-    $windows | ConvertTo-Json -Compress
+"@
+[WinEnum]::Find()
+$windows = @()
+for ($i = 0; $i -lt [WinEnum]::handles.Count; $i++) {
+    $h = [WinEnum]::handles[$i]
+    $t = [WinEnum]::titles[$i] -replace '[\x00-\x1f\x7f]', ''
+    $windows += @{ handle = $h[0]; title = $t; processId = [int]$h[1] }
 }
+if ($windows.Count -eq 0) { Write-Output "[]" }
+else { $windows | ConvertTo-Json -Compress }
 `;
 
     const encoded = encodePS(script);
