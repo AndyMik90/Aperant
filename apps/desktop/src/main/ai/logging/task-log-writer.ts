@@ -18,8 +18,47 @@
 import { writeFileSync, readFileSync, existsSync, mkdirSync, renameSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import type { TaskLogs, TaskLogPhase, TaskLogPhaseStatus, TaskLogEntry, TaskLogEntryType } from '../../../shared/types';
-import type { StreamEvent } from '../session/types';
+import type { StreamEvent, SessionError } from '../session/types';
 import type { Phase } from '../config/types';
+
+// =============================================================================
+// Error formatting
+// =============================================================================
+
+function sanitizeErrorMessage(message: string): string {
+  return message
+    .replace(/sk-[a-zA-Z0-9-_]{20,}/g, 'sk-***')
+    .replace(/Bearer [a-zA-Z0-9\-_.+/=]+/gi, 'Bearer ***')
+    .replace(/token[=:]\s*[a-zA-Z0-9\-_.+/=]+/gi, 'token=***');
+}
+
+function extractErrorMessage(error: SessionError): string {
+  const direct = error?.message?.trim();
+  if (direct) return sanitizeErrorMessage(direct);
+
+  const cause = error?.cause as unknown;
+  if (cause instanceof Error && cause.message?.trim()) {
+    return sanitizeErrorMessage(cause.message);
+  }
+
+  if (typeof cause === 'string' && cause.trim()) {
+    return sanitizeErrorMessage(cause);
+  }
+
+  if (cause && typeof cause === 'object') {
+    const maybeMessage = (cause as { message?: unknown }).message;
+    if (typeof maybeMessage === 'string' && maybeMessage.trim()) {
+      return sanitizeErrorMessage(maybeMessage);
+    }
+    const maybeError = (cause as { error?: unknown }).error;
+    if (typeof maybeError === 'string' && maybeError.trim()) {
+      return sanitizeErrorMessage(maybeError);
+    }
+  }
+
+  if (error?.code) return `Error: ${error.code}`;
+  return 'Unknown error';
+}
 
 // =============================================================================
 // Phase Mapping
@@ -147,7 +186,7 @@ export class TaskLogWriter {
 
       case 'error':
         this.flushPendingText();
-        this.addEntry(logPhase, 'error', event.error.message);
+        this.addEntry(logPhase, 'error', extractErrorMessage(event.error));
         this.save();
         break;
 
