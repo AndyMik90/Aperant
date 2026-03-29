@@ -2774,9 +2774,13 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
                         <SelectItem key={win.handle} value={win.handle.toString()}>
                           <span className="truncate max-w-[120px]" title={win.title}>
                             {(() => {
-                              // "filename - FolderName - Visual Studio Code" → "FolderName"
-                              const parts = win.title.split(' - ');
-                              const folder = parts.length >= 3 ? parts[parts.length - 2] : parts[0];
+                              // Strip "Visual Studio Code" and suffixes like "Untracked"
+                              const cleaned = win.title
+                                .replace(/ - Visual Studio Code.*$/, '')
+                                .trim();
+                              // "filename - FolderName" → take last segment as folder
+                              const parts = cleaned.split(' - ');
+                              const folder = parts.length >= 2 ? parts[parts.length - 1] : parts[0] || 'VS Code';
                               return folder.length > 25 ? `${folder.substring(0, 25)}...` : folder;
                             })()}
                           </span>
