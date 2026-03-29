@@ -35,7 +35,7 @@ for (const envPath of possibleEnvPaths) {
   }
 }
 
-import { app, BrowserWindow, shell, nativeImage, session, screen, Menu, MenuItem } from 'electron';
+import { app, BrowserWindow, shell, nativeImage, session, screen, Menu, MenuItem, Tray, globalShortcut } from 'electron';
 import { join } from 'path';
 import { accessSync, readFileSync, writeFileSync, rmSync, mkdirSync } from 'fs';
 import { projectStore } from './project-store';
@@ -365,8 +365,11 @@ function createWindow(): void {
         // (Electron is on the same desktop as its own window — no cross-desktop context issue)
         let skipSaveUntilRestored = true;
         try {
+          // Only restore virtual desktop on CRASH restart (watchdog), not fresh bat launch
+          const crashFlagPath = join(app.getPath('appData'), 'auto-claude-ui', 'crash-flag.json');
+          const isCrashRestart = existsSync(crashFlagPath);
           const vdStatePath = join(app.getPath('appData'), 'auto-claude-ui', 'virtual-desktop-state.json');
-          if (existsSync(vdStatePath)) {
+          if (isCrashRestart && existsSync(vdStatePath)) {
             const vdState = JSON.parse(readFileSync(vdStatePath, 'utf-8'));
             if (vdState.desktopNumber != null) {
               setTimeout(() => {
@@ -771,6 +774,47 @@ app.whenReady().then(() => {
 
   // Create window
   createWindow();
+
+  // System tray icon — click to move window to current desktop, right-click for menu
+  let tray: Tray | null = null;
+  try {
+    const iconPath = join(__dirname, '../../resources/icon-256.png');
+    const trayIcon = nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 });
+    tray = new Tray(trayIcon);
+    tray.setToolTip('Aperant-MCP');
+
+    const moveToCurrentDesktop = (): void => {
+      if (!mainWindow || mainWindow.isDestroyed()) return;
+      // Move window to current desktop using VirtualDesktop module, then show
+      if (isWindows()) {
+        try {
+          const { execSync: exec } = require('child_process');
+          const hwnd = mainWindow.getNativeWindowHandle();
+          const hwndInt = hwnd.length === 8 ? Number(hwnd.readBigUInt64LE()) : hwnd.readUInt32LE();
+          // Get current desktop number, then move window there
+          const psScript = `Import-Module VirtualDesktop -EA Stop; $cur = Get-DesktopList | Where-Object { $_.Visible -eq $true }; if ($cur) { Move-Window ([IntPtr]${hwndInt}) (Get-Desktop $cur.Number) }; Write-Output OK`;
+          const psEncoded = Buffer.from(psScript, 'utf16le').toString('base64');
+          exec(`powershell.exe -NoProfile -NonInteractive -EncodedCommand ${psEncoded}`, { windowsHide: true, timeout: 10000, encoding: 'utf8' });
+        } catch { /* silent */ }
+      }
+      mainWindow.show();
+      mainWindow.focus();
+    };
+
+    tray.on('click', moveToCurrentDesktop);
+
+    const contextMenu = Menu.buildFromTemplate([
+      { label: 'Show Aperant-MCP', click: moveToCurrentDesktop },
+      { type: 'separator' },
+      { label: 'Quit', click: () => { app.quit(); } }
+    ]);
+    tray.setContextMenu(contextMenu);
+
+    // Global hotkey: Ctrl+Shift+< to summon window
+    globalShortcut.register('Ctrl+Shift+,', moveToCurrentDesktop);
+  } catch (err) {
+    console.warn('[main] Failed to create system tray:', err);
+  }
 
   // Start heartbeat writer for watchdog freeze detection (Layer 2)
   startHeartbeat();
