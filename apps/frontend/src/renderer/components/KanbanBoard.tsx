@@ -1731,6 +1731,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   // VS Code window state for RDR direct sending
   const [vsCodeWindows, setVsCodeWindows] = useState<Array<{ handle: number; title: string; processId: number }>>([]);
   const [selectedWindowPid, setSelectedWindowPid] = useState<number | null>(null);
+  const selectedWindowPidRef = useRef<number | null>(null);
+  selectedWindowPidRef.current = selectedWindowPid;
   const [isLoadingWindows, setIsLoadingWindows] = useState(false);
 
   // RDR auto timer state
@@ -1753,13 +1755,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       const result = await window.electronAPI.getVSCodeWindows();
       if (result.success && result.data) {
         setVsCodeWindows(result.data);
-        // Always auto-select first window — handles change every enumeration,
-        // so the first window is always the currently focused one.
-        // This is how it worked for months before the processId change.
-        if (result.data.length > 0) {
+        // Only auto-select on first load (when nothing selected yet)
+        // User's manual selection persists until they press Refresh
+        if (result.data.length > 0 && !selectedWindowPidRef.current) {
           setSelectedWindowPid(result.data[0].handle);
-        } else {
-          setSelectedWindowPid(null);
         }
       }
     } catch (error) {
@@ -1767,7 +1766,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     } finally {
       setIsLoadingWindows(false);
     }
-  }, [selectedWindowPid, projectId]);
+  }, [projectId]);
 
   // Load windows on mount
   useEffect(() => {
@@ -2751,7 +2750,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={loadVsCodeWindows}
+                        onClick={() => { selectedWindowPidRef.current = null; setSelectedWindowPid(null); loadVsCodeWindows(); }}
                         disabled={isLoadingWindows}
                         className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
                       >
@@ -2774,7 +2773,12 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
                       {vsCodeWindows.map((win) => (
                         <SelectItem key={win.handle} value={win.handle.toString()}>
                           <span className="truncate max-w-[120px]" title={win.title}>
-                            {win.title.length > 25 ? `${win.title.substring(0, 25)}...` : win.title}
+                            {(() => {
+                              // "filename - FolderName - Visual Studio Code" → "FolderName"
+                              const parts = win.title.split(' - ');
+                              const folder = parts.length >= 3 ? parts[parts.length - 2] : parts[0];
+                              return folder.length > 25 ? `${folder.substring(0, 25)}...` : folder;
+                            })()}
                           </span>
                         </SelectItem>
                       ))}
