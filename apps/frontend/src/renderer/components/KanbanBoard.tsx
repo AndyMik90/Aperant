@@ -1730,7 +1730,19 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
   // VS Code window state for RDR direct sending
   const [vsCodeWindows, setVsCodeWindows] = useState<Array<{ handle: number; title: string; processId: number }>>([]);
-  const [selectedWindowPid, setSelectedWindowPid] = useState<number | null>(null);
+  // Per-project window selection — each project tab has its own RDR target window
+  const perProjectWindowRef = useRef<Map<string, number>>(new Map());
+  const selectedWindowPid = projectId ? (perProjectWindowRef.current.get(projectId) ?? null) : null;
+  const setSelectedWindowPid = (handle: number | null) => {
+    if (projectId && handle) {
+      perProjectWindowRef.current.set(projectId, handle);
+    } else if (projectId) {
+      perProjectWindowRef.current.delete(projectId);
+    }
+    // Force re-render
+    setWindowSelectionTick(t => t + 1);
+  };
+  const [, setWindowSelectionTick] = useState(0);
   const selectedWindowPidRef = useRef<number | null>(null);
   selectedWindowPidRef.current = selectedWindowPid;
   const [isLoadingWindows, setIsLoadingWindows] = useState(false);
