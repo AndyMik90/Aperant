@@ -32,6 +32,8 @@ export interface PromptContext {
   recoveryHints?: string[];
   /** Phase-specific planning retry context */
   planningRetryContext?: string;
+  /** UI language code for agent response language (e.g., 'en', 'ru') */
+  language?: string;
 }
 
 // =============================================================================

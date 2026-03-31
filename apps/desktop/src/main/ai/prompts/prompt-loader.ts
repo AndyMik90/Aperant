@@ -223,7 +223,17 @@ export function injectContext(promptTemplate: string, context: PromptContext): s
     sections.push(context.recoveryContext);
   }
 
-  // 3. Human input
+  // 3. Language instruction (non-English only)
+  if (context.language && context.language !== 'en') {
+    const langNames: Record<string, string> = { ru: 'Russian', fr: 'French' };
+    const langName = langNames[context.language] ?? context.language;
+    sections.push(
+      `**LANGUAGE**: Always respond in ${langName}. All code comments, ` +
+      `documentation, commit messages, and explanations must be in ${langName}.\n\n`
+    );
+  }
+
+  // 4. Human input
   if (context.humanInput) {
     sections.push(
       `## HUMAN INPUT (READ THIS FIRST!)\n\n` +
@@ -234,7 +244,7 @@ export function injectContext(promptTemplate: string, context: PromptContext): s
     );
   }
 
-  // 4. Project instructions (AGENTS.md or CLAUDE.md fallback)
+  // 5. Project instructions (AGENTS.md or CLAUDE.md fallback)
   if (context.projectInstructions) {
     sections.push(
       `## PROJECT INSTRUCTIONS\n\n` +
@@ -243,7 +253,7 @@ export function injectContext(promptTemplate: string, context: PromptContext): s
     );
   }
 
-  // 5. Base prompt
+  // 6. Base prompt
   sections.push(promptTemplate);
 
   return sections.join('');

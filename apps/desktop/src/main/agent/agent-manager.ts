@@ -128,6 +128,11 @@ export class AgentManager extends EventEmitter {
     return accounts.length > 0;
   }
 
+  private getSettingsLanguage(): string | undefined {
+    const settings = readSettingsFile();
+    return (settings?.language as string | undefined) ?? undefined;
+  }
+
   /**
    * Resolve auth using the provider accounts priority queue.
    * Falls back to legacy Claude profile if no provider accounts exist.
@@ -389,6 +394,7 @@ export class AgentManager extends EventEmitter {
       maxSteps: 1000,
       specDir: resolvedSpecDir,
       projectDir: projectPath,
+      language: this.getSettingsLanguage(),
       provider: resolved.provider,
       modelId: resolved.modelId,
       apiKey: resolved.auth?.apiKey,
@@ -510,6 +516,7 @@ export class AgentManager extends EventEmitter {
       maxSteps: 1000,
       specDir: worktreeSpecDir,
       projectDir: effectiveProjectDir,
+      language: this.getSettingsLanguage(),
       // When running in a worktree, sourceSpecDir points to the main project spec dir
       // so the subtask iterator can sync phase updates in real time (not just on exit).
       sourceSpecDir: worktreePath ? specDir : undefined,
@@ -616,6 +623,7 @@ export class AgentManager extends EventEmitter {
       maxSteps: 1000,
       specDir: effectiveSpecDir,
       projectDir: effectiveProjectDir,
+      language: this.getSettingsLanguage(),
       provider: resolved.provider,
       modelId: resolved.modelId,
       apiKey: resolved.auth?.apiKey,

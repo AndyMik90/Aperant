@@ -27,6 +27,19 @@ import frTaskReview from './locales/fr/taskReview.json';
 import frTerminal from './locales/fr/terminal.json';
 import frErrors from './locales/fr/errors.json';
 
+// Import Russian translation resources
+import ruCommon from './locales/ru/common.json';
+import ruNavigation from './locales/ru/navigation.json';
+import ruSettings from './locales/ru/settings.json';
+import ruTasks from './locales/ru/tasks.json';
+import ruWelcome from './locales/ru/welcome.json';
+import ruOnboarding from './locales/ru/onboarding.json';
+import ruDialogs from './locales/ru/dialogs.json';
+import ruGitlab from './locales/ru/gitlab.json';
+import ruTaskReview from './locales/ru/taskReview.json';
+import ruTerminal from './locales/ru/terminal.json';
+import ruErrors from './locales/ru/errors.json';
+
 export const defaultNS = 'common';
 
 export const resources = {
@@ -55,6 +68,19 @@ export const resources = {
     taskReview: frTaskReview,
     terminal: frTerminal,
     errors: frErrors
+  },
+  ru: {
+    common: ruCommon,
+    navigation: ruNavigation,
+    settings: ruSettings,
+    tasks: ruTasks,
+    welcome: ruWelcome,
+    onboarding: ruOnboarding,
+    dialogs: ruDialogs,
+    gitlab: ruGitlab,
+    taskReview: ruTaskReview,
+    terminal: ruTerminal,
+    errors: ruErrors
   }
 } as const;
 

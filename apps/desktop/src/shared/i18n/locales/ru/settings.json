@@ -1,0 +1,1188 @@
+{
+  "title": "Настройки",
+  "tabs": {
+    "app": "Настройки приложения",
+    "project": "Настройки проекта"
+  },
+  "sections": {
+    "appearance": {
+      "title": "Внешний вид",
+      "description": "Настройте отображение Aperant"
+    },
+    "display": {
+      "title": "Отображение",
+      "description": "Настройте размер элементов интерфейса"
+    },
+    "language": {
+      "title": "Язык",
+      "description": "Выберите предпочитаемый язык"
+    },
+    "devtools": {
+      "title": "Инструменты разработчика",
+      "description": "Настройки IDE и терминала"
+    },
+    "agent": {
+      "title": "Настройки агента",
+      "description": "Модель и фреймворк по умолчанию"
+    },
+    "paths": {
+      "title": "Пути",
+      "description": "Пути к CLI-инструментам и фреймворкам"
+    },
+    "accounts": {
+      "title": "Аккаунты",
+      "description": "Аккаунты Claude и API-эндпоинты"
+    },
+    "updates": {
+      "title": "Обновления",
+      "description": "Обновления Aperant"
+    },
+    "notifications": {
+      "title": "Уведомления",
+      "description": "Настройки оповещений"
+    },
+    "debug": {
+      "title": "Отладка и логи",
+      "description": "Инструменты диагностики"
+    },
+    "terminal-fonts": {
+      "title": "Шрифты терминала",
+      "description": "Настройте внешний вид шрифтов терминала"
+    }
+  },
+  "apiProfiles": {
+    "title": "API-профили",
+    "description": "Настройте пользовательские Anthropic-совместимые API-эндпоинты",
+    "addButton": "Добавить профиль",
+    "presets": {
+      "anthropic": "Anthropic",
+      "openrouter": "OpenRouter",
+      "groq": "Groq",
+      "zaiGlobal": "z.AI (Глобальный)",
+      "zaiChina": "z.AI (Китай)"
+    },
+    "fields": {
+      "name": "Название",
+      "preset": "Шаблон",
+      "baseUrl": "Базовый URL",
+      "apiKey": "API-ключ"
+    },
+    "placeholders": {
+      "name": "Мой пользовательский API",
+      "preset": "Выберите шаблон провайдера",
+      "baseUrl": "https://api.anthropic.com",
+      "apiKey": "sk-ant-..."
+    },
+    "hints": {
+      "preset": "Шаблоны заполняют базовый URL; API-ключ нужно вставить самостоятельно.",
+      "baseUrl": "Пример: https://api.anthropic.com или http://localhost:8080"
+    },
+    "validation": {
+      "nameRequired": "Название обязательно",
+      "baseUrlRequired": "Базовый URL обязателен",
+      "baseUrlInvalid": "Неверный формат URL (должен начинаться с http:// или https://)",
+      "apiKeyRequired": "API-ключ обязателен",
+      "apiKeyInvalid": "Неверный формат API-ключа"
+    },
+    "actions": {
+      "save": "Сохранить профиль",
+      "saving": "Сохранение...",
+      "cancel": "Отмена",
+      "changeKey": "Изменить",
+      "cancelKeyChange": "Отмена"
+    },
+    "testConnection": {
+      "label": "Проверить подключение",
+      "testing": "Проверка...",
+      "success": "Подключение успешно",
+      "failure": "Подключение не удалось"
+    },
+    "models": {
+      "title": "Необязательно: маппинг названий моделей",
+      "description": "Выберите модели вашего API-провайдера. Оставьте пустым для использования значений по умолчанию.",
+      "defaultLabel": "Модель по умолчанию (необязательно)",
+      "haikuLabel": "Модель Haiku (необязательно)",
+      "sonnetLabel": "Модель Sonnet (необязательно)",
+      "opusLabel": "Модель Opus (необязательно)",
+      "defaultPlaceholder": "напр., claude-sonnet-4-6",
+      "haikuPlaceholder": "напр., claude-haiku-4-5-20251001",
+      "sonnetPlaceholder": "напр., claude-sonnet-4-6",
+      "opusPlaceholder": "напр., claude-opus-4-6",
+      "opus1mPlaceholder": "напр., claude-opus-4-6 (контекст 1M)"
+    },
+    "empty": {
+      "title": "API-профили не настроены",
+      "description": "Создайте профиль для настройки пользовательских API-эндпоинтов для сборок.",
+      "action": "Создать первый профиль"
+    },
+    "switchToOauth": {
+      "label": "Переключиться на OAuth",
+      "loading": "Переключение..."
+    },
+    "activeBadge": "Активен",
+    "customModels": "Пользовательские модели: {{models}}",
+    "setActive": {
+      "label": "Сделать активным",
+      "loading": "Применение..."
+    },
+    "tooltips": {
+      "edit": "Редактировать профиль",
+      "deleteActive": "Переключитесь на OAuth перед удалением",
+      "deleteInactive": "Удалить профиль"
+    },
+    "deleteAriaLabel": "Удалить профиль {{name}}",
+    "toast": {
+      "create": {
+        "title": "Профиль создан",
+        "description": "«{{name}}» успешно добавлен."
+      },
+      "update": {
+        "title": "Профиль обновлён",
+        "description": "«{{name}}» успешно обновлён."
+      },
+      "delete": {
+        "title": "Профиль удалён",
+        "description": "«{{name}}» удалён.",
+        "errorTitle": "Не удалось удалить профиль",
+        "errorFallback": "При удалении профиля произошла ошибка."
+      },
+      "switch": {
+        "oauthTitle": "Переключено на OAuth",
+        "oauthDescription": "Используется OAuth-аутентификация",
+        "profileTitle": "Профиль активирован",
+        "profileDescription": "Используется {{name}}",
+        "errorTitle": "Не удалось сменить аутентификацию",
+        "errorFallback": "При смене метода аутентификации произошла ошибка."
+      }
+    },
+    "dialog": {
+      "createTitle": "Добавить API-профиль",
+      "editTitle": "Редактировать профиль",
+      "description": "Настройте пользовательский Anthropic-совместимый API-эндпоинт для сборок.",
+      "deleteTitle": "Удалить профиль?",
+      "deleteDescription": "Вы уверены, что хотите удалить «{{name}}»? Это действие нельзя отменить.",
+      "cancel": "Отмена",
+      "delete": "Удалить",
+      "deleting": "Удаление..."
+    }
+  },
+  "modelSelect": {
+    "placeholder": "Выберите модель или введите вручную",
+    "placeholderManual": "Введите название модели (напр., claude-sonnet-4-6)",
+    "searchPlaceholder": "Поиск моделей...",
+    "noResults": "Модели не найдены",
+    "discoveryNotAvailable": "Обнаружение моделей недоступно. Введите название модели вручную.",
+    "ollamaLoading": "Загрузка моделей Ollama...",
+    "ollamaNoModels": "Модели Ollama не установлены",
+    "ollamaNoModelsHint": "Установите модели в Настройках агента → вкладка Ollama",
+    "apiKeyOnly": "Только API-ключ"
+  },
+  "language": {
+    "label": "Язык интерфейса",
+    "description": "Выберите язык для интерфейса приложения"
+  },
+  "scale": {
+    "presets": "Предустановки масштаба",
+    "presetsDescription": "Быстрые варианты масштаба для распространённых предпочтений",
+    "fineTune": "Точная настройка масштаба",
+    "fineTuneDescription": "Настройка от 75% до 200% с шагом 5%",
+    "default": "По умолчанию",
+    "comfortable": "Комфортный",
+    "large": "Крупный"
+  },
+  "logOrder": {
+    "label": "Порядок логов",
+    "description": "Выберите отображение логов в детальном виде задачи",
+    "chronological": "Хронологический (сначала старые)",
+    "reverseChronological": "Обратный хронологический (сначала новые)"
+  },
+  "gpuAcceleration": {
+    "label": "Аппаратное ускорение GPU",
+    "description": "Использовать WebGL для рендеринга терминала (экспериментально, быстрее при большом количестве терминалов)",
+    "auto": "Авто (использовать WebGL при поддержке)",
+    "on": "Всегда включено",
+    "off": "Выключено (по умолчанию)",
+    "helperText": "Изменения применяются только к новым терминалам"
+  },
+  "general": {
+    "otherAgentSettings": "Другие настройки агента",
+    "otherAgentSettingsDescription": "Дополнительные параметры настройки агента",
+    "agentFramework": "Фреймворк агента",
+    "agentFrameworkDescription": "Фреймворк разработки для автономных задач",
+    "agentFrameworkAutoClaude": "Aperant",
+    "aiTerminalNaming": "AI-именование терминалов",
+    "aiTerminalNamingDescription": "Автоматически называть терминалы на основе команд (использует модель AI Naming)",
+    "featureModelSettings": "Настройки модели функций",
+    "featureModelSettingsDescription": "Модель и уровень мышления для Аналитики, Генерации идей и Дорожной карты",
+    "model": "Модель",
+    "thinkingLevel": "Уровень мышления",
+    "paths": "Пути",
+    "pathsDescription": "Настройте пути к исполняемым файлам и фреймворкам",
+    "pythonPath": "Путь к Python",
+    "pythonPathDescription": "Путь к исполняемому файлу Python (оставьте пустым для автоопределения)",
+    "pythonPathPlaceholder": "python3 (по умолчанию)",
+    "gitPath": "Путь к Git",
+    "gitPathDescription": "Путь к исполняемому файлу Git (оставьте пустым для автоопределения)",
+    "gitPathPlaceholder": "git (по умолчанию)",
+    "githubCLIPath": "Путь к GitHub CLI",
+    "githubCLIPathDescription": "Путь к исполняемому файлу GitHub CLI (gh) (оставьте пустым для автоопределения)",
+    "githubCLIPathPlaceholder": "gh (по умолчанию)",
+    "gitlabCLIPath": "Путь к GitLab CLI",
+    "gitlabCLIPathDescription": "Путь к исполняемому файлу GitLab CLI (glab) (оставьте пустым для автоопределения)",
+    "gitlabCLIPathPlaceholder": "glab (по умолчанию)",
+    "claudePath": "Путь к Claude CLI",
+    "claudePathDescription": "Путь к исполняемому файлу Claude CLI (оставьте пустым для автоопределения)",
+    "claudePathPlaceholder": "claude (по умолчанию)",
+    "detectedPath": "Обнаружен автоматически",
+    "detectedVersion": "Версия",
+    "detectedSource": "Источник",
+    "sourceUserConfig": "Конфигурация пользователя",
+    "sourceVenv": "Виртуальное окружение",
+    "sourceHomebrew": "Homebrew",
+    "sourceNvm": "NVM",
+    "sourceSystemPath": "Системный PATH",
+    "sourceBundled": "Встроенный",
+    "sourceFallback": "Запасной вариант",
+    "notDetected": "Не обнаружен",
+    "autoClaudePath": "Путь Aperant",
+    "autoClaudePathDescription": "Относительный путь к директории auto-claude в проектах",
+    "autoClaudePathPlaceholder": "auto-claude (по умолчанию)",
+    "autoNameTerminals": "Автоматически именовать терминалы",
+    "autoNameTerminalsDescription": "Использовать AI для генерации описательных имён вкладок терминала на основе активности"
+  },
+  "theme": {
+    "title": "Внешний вид",
+    "description": "Настройте отображение Aperant",
+    "mode": "Режим",
+    "modeDescription": "Выберите светлую или тёмную тему",
+    "light": "Светлая",
+    "dark": "Тёмная",
+    "system": "Системная",
+    "colorTheme": "Цветовая тема",
+    "colorThemeDescription": "Выберите предпочитаемую цветовую палитру"
+  },
+  "devtools": {
+    "title": "Инструменты разработчика",
+    "description": "Настройте предпочитаемые IDE, терминал и шрифты терминала",
+    "detecting": "Обнаружение установленных инструментов...",
+    "detectAgain": "Обнаружить снова",
+    "tabTools": "Инструменты",
+    "tabTerminalFonts": "Шрифты терминала",
+    "ide": {
+      "label": "Предпочитаемая IDE",
+      "description": "Aperant будет открывать воркtree в этом редакторе",
+      "placeholder": "Выберите IDE...",
+      "customPath": "Пользовательский путь к IDE",
+      "customPathPlaceholder": "/путь/к/вашей/ide"
+    },
+    "terminal": {
+      "label": "Предпочитаемый терминал",
+      "description": "Aperant будет открывать терминальные сессии здесь",
+      "placeholder": "Выберите терминал...",
+      "customPath": "Пользовательский путь к терминалу",
+      "customPathPlaceholder": "/путь/к/вашему/терминалу"
+    },
+    "cli": {
+      "label": "Предпочитаемый CLI",
+      "description": "CLI-инструмент для терминальных сессий с AI",
+      "placeholder": "Выберите CLI...",
+      "customPath": "Пользовательский путь к CLI",
+      "customPathPlaceholder": "/путь/к/вашему/cli"
+    },
+    "detected": "Обнаружен",
+    "notInstalled": "Не установлен",
+    "detectedSummary": "Обнаружено в системе:",
+    "noToolsDetected": "Дополнительные инструменты не обнаружены (будут использоваться VS Code и системный терминал)",
+    "autoNameClaude": {
+      "label": "Автоименование Claude-терминалов",
+      "description": "Использовать AI для генерации описательного имени Claude-терминалов на основе первого сообщения"
+    },
+    "yoloMode": {
+      "label": "Режим YOLO",
+      "description": "Запустить Claude с флагом --dangerously-skip-permissions, обходя все запросы безопасности. Используйте с крайней осторожностью.",
+      "warning": "Этот режим обходит систему разрешений Claude. Включайте только если полностью доверяете выполняемому коду."
+    }
+  },
+  "updates": {
+    "title": "Обновления",
+    "description": "Управление обновлениями Aperant",
+    "appUpdateReady": "Обновление приложения готово",
+    "newVersion": "Новая версия",
+    "released": "Выпущено",
+    "downloading": "Загрузка...",
+    "updateDownloaded": "Обновление загружено! Нажмите «Установить» для перезапуска и применения обновления.",
+    "installAndRestart": "Установить и перезапустить",
+    "downloadUpdate": "Загрузить обновление",
+    "version": "Версия",
+    "loading": "Загрузка...",
+    "checkingForUpdates": "Проверка обновлений...",
+    "newVersionAvailable": "Доступна новая версия:",
+    "latestVersion": "У вас установлена последняя версия.",
+    "viewRelease": "Посмотреть полный релиз на GitHub",
+    "unableToCheck": "Не удалось проверить обновления",
+    "checkForUpdates": "Проверить обновления",
+    "autoUpdateProjects": "Автообновление проектов",
+    "autoUpdateProjectsDescription": "Автоматически обновлять Aperant в проектах при выходе новой версии",
+    "betaUpdates": "Бета-обновления",
+    "betaUpdatesDescription": "Получать предрелизные бета-версии с новыми функциями (может быть менее стабильным)",
+    "stableDowngradeAvailable": "Доступна стабильная версия",
+    "stableDowngradeDescription": "Вы используете бета-версию. Поскольку бета-обновления отключены, можно переключиться на последний стабильный релиз.",
+    "stableVersion": "Стабильная версия",
+    "downloadStableVersion": "Загрузить стабильную версию",
+    "readOnlyVolumeTitle": "Невозможно установить с образа диска",
+    "readOnlyVolumeDescription": "Aperant запущен с образа диска только для чтения (DMG). Перетащите приложение в папку «Программы» и перезапустите его оттуда для установки обновлений.",
+    "downloadError": "Не удалось загрузить обновление"
+  },
+  "notifications": {
+    "title": "Уведомления",
+    "description": "Настройте параметры уведомлений по умолчанию",
+    "onTaskComplete": "При завершении задачи",
+    "onTaskCompleteDescription": "Уведомлять при успешном завершении задачи",
+    "onTaskFailed": "При ошибке задачи",
+    "onTaskFailedDescription": "Уведомлять при возникновении ошибки в задаче",
+    "onReviewNeeded": "При необходимости проверки",
+    "onReviewNeededDescription": "Уведомлять когда QA требует вашей проверки",
+    "sound": "Звук",
+    "soundDescription": "Воспроизводить звук с уведомлениями"
+  },
+  "actions": {
+    "save": "Сохранить настройки",
+    "rerunWizard": "Перезапустить мастер настройки",
+    "rerunWizardDescription": "Запустить мастер настройки снова"
+  },
+  "projectSections": {
+    "general": {
+      "title": "Основные",
+      "description": "Конфигурация Auto-Build и агента",
+      "useClaudeMd": "Использовать CLAUDE.md",
+      "useClaudeMdDescription": "Включить инструкции CLAUDE.md в контекст агента"
+    },
+    "claude": {
+      "title": "Авторизация Claude",
+      "description": "Аутентификация Claude"
+    },
+    "linear": {
+      "title": "Linear",
+      "description": "Интеграция с Linear",
+      "integrationTitle": "Интеграция с Linear",
+      "integrationDescription": "Подключитесь к Linear для отслеживания задач и импорта",
+      "syncDescription": "Синхронизация с Linear для отслеживания задач"
+    },
+    "github": {
+      "title": "GitHub",
+      "description": "Синхронизация GitHub Issues",
+      "integrationTitle": "Интеграция с GitHub",
+      "integrationDescription": "Подключитесь к GitHub для отслеживания задач",
+      "syncDescription": "Синхронизация с GitHub Issues",
+      "defaultBranch": {
+        "label": "Ветка по умолчанию",
+        "description": "Базовая ветка для создания воркtree задач",
+        "autoDetect": "Автоопределение (main/master)",
+        "searchPlaceholder": "Поиск веток...",
+        "noBranchesFound": "Ветки не найдены",
+        "selectedBranchHelp": "Все новые задачи будут ветвиться от {{branch}}"
+      },
+      "pushNewBranches": {
+        "label": "Автоматически отправлять новые ветки",
+        "description": "Отправлять новые ветки задач и воркtree на GitHub и автоматически настраивать отслеживание"
+      }
+    },
+    "gitlab": {
+      "title": "GitLab",
+      "description": "Синхронизация GitLab Issues",
+      "integrationTitle": "Интеграция с GitLab",
+      "integrationDescription": "Подключитесь к GitLab для отслеживания задач",
+      "syncDescription": "Синхронизация с GitLab Issues"
+    },
+    "memory": {
+      "title": "Память",
+      "description": "Бэкенд памяти Graphiti",
+      "integrationTitle": "Память",
+      "integrationDescription": "Настройте постоянную межсессионную память для агентов",
+      "syncDescription": "Настройте постоянную память"
+    }
+  },
+  "agentProfile": {
+    "label": "Профиль агента",
+    "title": "Профиль агента по умолчанию",
+    "sectionDescription": "Выберите предустановленную конфигурацию модели и уровня мышления",
+    "profilesInfo": "Профили агентов предоставляют предустановленные конфигурации модели и уровня мышления Claude. При создании новой задачи эти настройки используются по умолчанию. Их всегда можно переопределить в мастере создания задачи.",
+    "custom": "Пользовательский",
+    "customConfiguration": "Пользовательская конфигурация",
+    "customDescription": "Выберите модель и уровень мышления",
+    "phaseConfiguration": "Конфигурация фаз",
+    "phaseConfigurationDescription": "Настройте модель и уровень мышления для каждой фазы",
+    "clickToCustomize": "Нажмите для настройки",
+    "model": "Модель",
+    "thinking": "Мышление",
+    "thinkingLevel": "Уровень мышления",
+    "selectModel": "Выберите модель",
+    "selectThinkingLevel": "Выберите уровень мышления",
+    "perPhaseOptimization": "(оптимизация по фазам)",
+    "resetToDefaults": "Сбросить к значениям по умолчанию",
+    "resetToProfileDefaults": "Сбросить к настройкам {{profile}} по умолчанию",
+    "customized": "Настроен",
+    "ollamaNotConfigured": "Выберите модели ниже",
+    "phaseConfigNote": "Эти настройки будут использоваться по умолчанию при создании новых задач с данным профилем. Их можно переопределить для каждой задачи в мастере создания задачи.",
+    "adaptiveThinking": {
+      "badge": "Адаптивное",
+      "tooltip": "Opus использует адаптивное мышление — он динамически решает, сколько думать в рамках установленного бюджетного лимита уровня мышления."
+    },
+    "reasoning": {
+      "adaptive": "Адаптивное",
+      "budget": "Бюджет",
+      "reasoning": "Рассуждение",
+      "thinking": "Мышление",
+      "noThinking": "(Без мышления)",
+      "toggle": {
+        "off": "Выкл",
+        "on": "Вкл"
+      },
+      "badgeTooltip": {
+        "adaptive_effort": "Динамически решает, сколько думать в рамках бюджетного лимита",
+        "thinking_tokens": "Мышление на основе бюджета с настраиваемым распределением токенов",
+        "reasoning_effort": "Уровни усилий рассуждения (низкий/средний/высокий)",
+        "thinking_toggle": "Включение/выключение мышления",
+        "none": "Расширенное мышление не поддерживается"
+      }
+    },
+    "phases": {
+      "spec": {
+        "label": "Создание спецификации",
+        "description": "Исследование, требования, сбор контекста"
+      },
+      "planning": {
+        "label": "Планирование",
+        "description": "Планирование реализации и архитектура"
+      },
+      "coding": {
+        "label": "Разработка",
+        "description": "Непосредственная реализация кода"
+      },
+      "qa": {
+        "label": "QA-проверка",
+        "description": "Обеспечение качества и валидация"
+      }
+    },
+    "providerOverrides": {
+      "title": "Маппинг моделей провайдера",
+      "description": "Настройте, какую модель использует каждый провайдер для каждого сокращённого имени",
+      "defaultMapping": "По умолчанию",
+      "yourOverride": "Ваш вариант",
+      "shorthand": "Сокращённое имя",
+      "useDefault": "Использовать по умолчанию",
+      "resetAll": "Сбросить всё",
+      "noConnectedProviders": "Нет подключённых провайдеров. Добавьте аккаунты в настройках Аккаунтов для настройки маппинга моделей.",
+      "equivalentNote": "Когда активен не-Anthropic провайдер, эти маппинги определяют, какая модель используется для каждой фазы."
+    },
+    "providerTabs": {
+      "moreProviders": "Ещё",
+      "noProviders": "Нет подключённых провайдеров. Добавьте аккаунты в настройках Аккаунтов для настройки специфических параметров агента провайдера.",
+      "configureFor": "Настроить параметры агента для {{provider}}",
+      "crossProvider": "Кросс-провайдерный",
+      "crossProviderDisabledTooltip": "Подключите два или более аккаунта провайдеров для включения кросс-провайдерных возможностей",
+      "needsSetup": "Требуется настройка"
+    },
+    "crossProviderTab": {
+      "title": "Кросс-провайдерная конфигурация",
+      "description": "Назначьте разный провайдер и модель для каждой фазы конвейера для максимальной гибкости.",
+      "activateInfo": "Задачи, созданные при активной данной конфигурации, будут использовать кросс-провайдерную настройку.",
+      "featureModelsTitle": "Модели функций",
+      "featureModelsDescription": "Настройте модели для функций вне конвейера (Аналитика, Генерация идей и др.)"
+    },
+    "customProfile": {
+      "name": "Пользовательский (кросс-провайдерный)",
+      "description": "Смешивайте разных провайдеров и модели для каждой фазы",
+      "phaseAssignment": "Назначьте провайдера и модель для каждой фазы"
+    },
+    "ollamaModels": {
+      "title": "Модели Ollama",
+      "description": "Управляйте локально установленными моделями для задач AI-агента",
+      "installed": "Установленные модели",
+      "installedCount": "{{count}} модел(и)",
+      "noModels": "Модели LLM не установлены",
+      "recommended": "Рекомендуется для разработки",
+      "recommendedDescription": "Популярные модели, оптимизированные для генерации кода и рассуждений",
+      "download": "Загрузить",
+      "downloading": "Загрузка...",
+      "refresh": "Обновить",
+      "loading": "Загрузка моделей...",
+      "ollamaNotAvailable": "Подключите Ollama в настройках Аккаунтов для управления моделями"
+    }
+  },
+  "workspace": {
+    "roles": {
+      "backend": "Бэкенд",
+      "frontend": "Фронтенд",
+      "mobile": "Мобильный",
+      "shared": "Общий",
+      "apiGateway": "API-шлюз",
+      "worker": "Воркер",
+      "other": "Другое"
+    }
+  },
+  "integrations": {
+    "title": "Интеграции",
+    "description": "Управление аккаунтами Claude и API-ключами",
+    "claudeAccounts": "Аккаунты Claude",
+    "claudeAccountsDescription": "Добавьте несколько подписок Claude для автоматического переключения при достижении лимитов запросов.",
+    "claudeAccountsWarning": "При аутентификации убедитесь, что вошли в правильный аккаунт Claude в браузере. Каждый профиль должен использовать отдельную подписку.",
+    "noAccountsYet": "Аккаунты пока не настроены",
+    "default": "По умолчанию",
+    "active": "Активен",
+    "authenticated": "Аутентифицирован",
+    "needsAuth": "Требуется авторизация",
+    "authenticate": "Аутентифицировать",
+    "authenticating": "Аутентификация...",
+    "setActive": "Сделать активным",
+    "manualTokenEntry": "Ввод токена вручную",
+    "runSetupToken": "Запустите claude и введите /login для аутентификации",
+    "tokenPlaceholder": "sk-ant-oat01-...",
+    "emailPlaceholder": "Email (необязательно, для отображения)",
+    "saveToken": "Сохранить токен",
+    "accountNamePlaceholder": "Название аккаунта (напр., Работа, Личный)",
+    "autoSwitching": "Автоматическое переключение аккаунтов",
+    "autoSwitchingDescription": "Автоматически переключаться между аккаунтами Claude во избежание прерываний. Настройте проактивный мониторинг для переключения до достижения лимитов.",
+    "enableAutoSwitching": "Включить автоматическое переключение",
+    "masterSwitch": "Главный переключатель для всех функций автосмены",
+    "proactiveMonitoring": "Проактивный мониторинг",
+    "proactiveDescription": "Регулярно проверять использование и переключаться до достижения лимитов",
+    "checkUsageEvery": "Проверять использование каждые",
+    "seconds15": "15 секунд",
+    "seconds30": "30 секунд (рекомендуется)",
+    "minute1": "1 минуту",
+    "disabled": "Отключено",
+    "sessionThreshold": "Порог использования сессии",
+    "sessionThresholdDescription": "Переключаться при достижении данного уровня использования сессии (рекомендуется: 95%)",
+    "weeklyThreshold": "Недельный порог использования",
+    "weeklyThresholdDescription": "Переключаться при достижении данного уровня недельного использования (рекомендуется: 99%)",
+    "reactiveRecovery": "Реактивное восстановление",
+    "reactiveDescription": "Автосмена при неожиданном достижении лимита запросов",
+    "autoSwitchOnAuthFailure": "Автосмена при сбое авторизации",
+    "autoSwitchOnAuthFailureDescription": "Автоматически переключаться на другой аутентифицированный аккаунт при сбое аутентификации",
+    "apiKeys": "API-ключи",
+    "apiKeysInfo": "Ключи, установленные здесь, используются по умолчанию. Отдельные проекты могут переопределить их в своих настройках.",
+    "openaiKey": "API-ключ OpenAI",
+    "openaiKeyDescription": "Необходим для бэкенда памяти Graphiti (эмбеддинги)",
+    "toast": {
+      "authSuccess": "Профиль аутентифицирован",
+      "authSuccessWithEmail": "Подключено как {{email}}",
+      "authSuccessGeneric": "Аутентификация выполнена. Теперь можно использовать этот профиль.",
+      "authStartFailed": "Ошибка аутентификации",
+      "addProfileFailed": "Не удалось добавить профиль",
+      "loadProfilesFailed": "Не удалось загрузить профили",
+      "deleteProfileFailed": "Не удалось удалить профиль",
+      "renameProfileFailed": "Не удалось переименовать профиль",
+      "setActiveProfileFailed": "Не удалось установить активный профиль",
+      "profileCreatedAuthFailed": "Профиль создан — требуется аутентификация",
+      "profileCreatedAuthFailedDescription": "Профиль добавлен, но аутентификация не удалась. Нажмите кнопку входа для аутентификации.",
+      "tokenSaved": "Токен сохранён",
+      "tokenSavedDescription": "Ваш токен успешно сохранён.",
+      "tokenSaveFailed": "Не удалось сохранить токен",
+      "settingsUpdateFailed": "Не удалось обновить настройки",
+      "tryAgain": "Попробуйте ещё раз.",
+      "terminalCreationFailed": "Не удалось создать терминал авторизации",
+      "terminalCreationFailedDescription": "Не удалось запустить процесс аутентификации. {{error}}",
+      "maxTerminalsReached": "Достигнуто максимальное количество терминалов",
+      "maxTerminalsReachedDescription": "Закройте часть терминалов и попробуйте снова. Одновременно можно открыть не более 12 терминалов.",
+      "terminalError": "Ошибка терминала",
+      "terminalErrorDescription": "Не удалось создать терминал: {{error}}",
+      "authProcessFailed": "Процесс аутентификации не удалось запустить",
+      "authProcessFailedDescription": "Не удалось создать терминал аутентификации. Попробуйте снова или проверьте логи для получения подробностей."
+    },
+    "alerts": {
+      "profileCreatedAuthFailed": "Профиль создан, но не удалось подготовить аутентификацию: {{error}}",
+      "authPrepareFailed": "Не удалось подготовить аутентификацию: {{error}}",
+      "authStartFailedMessage": "Не удалось запустить аутентификацию. Попробуйте ещё раз."
+    }
+  },
+  "accounts": {
+    "title": "Аккаунты",
+    "description": "Управление аккаунтами Claude и API-эндпоинтами",
+    "tabs": {
+      "claudeCode": "Claude Code",
+      "customEndpoints": "Пользовательские эндпоинты"
+    },
+    "claudeCode": {
+      "description": "Добавьте несколько подписок Claude для автоматического переключения при достижении лимитов запросов.",
+      "noAccountsYet": "Аккаунты пока не настроены",
+      "default": "По умолчанию",
+      "active": "Активен",
+      "authenticated": "Аутентифицирован",
+      "needsAuth": "Требуется авторизация",
+      "authenticate": "Аутентифицировать",
+      "authenticating": "Аутентификация...",
+      "setActive": "Сделать активным",
+      "manualTokenEntry": "Ввод токена вручную",
+      "runSetupToken": "Запустите claude и введите /login для аутентификации",
+      "tokenPlaceholder": "sk-ant-oat01-...",
+      "emailPlaceholder": "Email (необязательно, для отображения)",
+      "saveToken": "Сохранить токен",
+      "accountNamePlaceholder": "Название аккаунта (напр., Работа, Личный)"
+    },
+    "customEndpoints": {
+      "description": "Настройте пользовательские Anthropic-совместимые API-эндпоинты",
+      "addButton": "Добавить профиль",
+      "activeBadge": "Активен",
+      "customModels": "Пользовательские модели: {{models}}",
+      "setActive": {
+        "label": "Сделать активным",
+        "loading": "Применение..."
+      },
+      "switchToOauth": {
+        "label": "Использовать Claude Code",
+        "loading": "Переключение..."
+      },
+      "tooltips": {
+        "edit": "Редактировать профиль",
+        "deleteActive": "Нельзя удалить активный профиль",
+        "deleteInactive": "Удалить профиль"
+      },
+      "empty": {
+        "title": "Нет пользовательских эндпоинтов",
+        "description": "Настройте пользовательские Anthropic-совместимые API-эндпоинты для использования альтернативных провайдеров.",
+        "action": "Добавить профиль"
+      },
+      "dialog": {
+        "deleteTitle": "Удалить профиль",
+        "deleteDescription": "Вы уверены, что хотите удалить «{{name}}»? Это действие нельзя отменить.",
+        "cancel": "Отмена",
+        "delete": "Удалить",
+        "deleting": "Удаление..."
+      }
+    },
+    "autoSwitching": {
+      "title": "Автоматическое переключение аккаунтов",
+      "description": "Автоматически переключаться между аккаунтами во избежание прерываний. Настройте проактивный мониторинг для переключения до достижения лимитов.",
+      "enableAutoSwitching": "Включить автоматическое переключение",
+      "masterSwitch": "Главный переключатель для всех функций автосмены",
+      "proactiveMonitoring": "Проактивный мониторинг",
+      "proactiveDescription": "Регулярно проверять использование и переключаться до достижения лимитов",
+      "sessionThreshold": "Порог использования сессии",
+      "sessionThresholdDescription": "Переключаться при достижении данного уровня использования сессии (рекомендуется: 95%)",
+      "weeklyThreshold": "Недельный порог использования",
+      "weeklyThresholdDescription": "Переключаться при достижении данного уровня недельного использования (рекомендуется: 99%)",
+      "reactiveRecovery": "Реактивное восстановление",
+      "reactiveDescription": "Автосмена при неожиданном достижении лимита запросов",
+      "autoSwitchOnAuthFailure": "Автосмена при сбое авторизации",
+      "autoSwitchOnAuthFailureDescription": "Автоматически переключаться на другой аутентифицированный аккаунт при сбое аутентификации"
+    },
+    "priority": {
+      "title": "Приоритет аккаунтов",
+      "description": "Перетащите для изменения порядка. Система будет переключаться на следующий доступный аккаунт по порядку.",
+      "tabs": {
+        "default": "По умолчанию",
+        "crossProvider": "Кросс-провайдерный"
+      },
+      "crossProviderDescription": "Этот приоритет используется при активном кросс-провайдерном режиме. Когда несколько аккаунтов используют одного провайдера, система выбирает лучший доступный на основе этого порядка.",
+      "setActive": "Сделать активным",
+      "setActiveTooltip": "Сделать основным аккаунтом",
+      "noAccounts": "Аккаунты не настроены. Добавьте аккаунты выше для установки приоритета.",
+      "noEmail": "Нет email",
+      "active": "Активен",
+      "inUse": "Используется",
+      "next": "Следующий",
+      "unlimited": "Без ограничений",
+      "unavailable": "Недоступен",
+      "typeOAuth": "OAuth",
+      "typeAPI": "API",
+      "payPerUse": "Оплата за использование",
+      "needsAuth": "Не аутентифицирован",
+      "duplicateUsage": "Дублирующийся шаблон использования",
+      "duplicateUsageHint": "Эти OAuth-профили имеют совпадающие значения использования. Убедитесь, что каждый профиль привязан к разному аккаунту, если это неожиданно.",
+      "needsReauth": "Требуется повторная авторизация",
+      "needsReauthHint": "Токен обновления этого профиля недействителен. Нажмите для повторной аутентификации.",
+      "sessionUsage": "Использование сессии (5-часовое окно)",
+      "weeklyUsage": "Недельное использование (7-дневное окно)",
+      "oauthSection": "Аккаунты Claude (сначала циклически перебираются)",
+      "apiSection": "Запасные эндпоинты (когда все аккаунты исчерпаны)",
+      "tipTitle": "Как работает приоритет",
+      "tipDescription": "Аккаунты Claude входят в вашу подписку и будут перебираться первыми. API-эндпоинты оплачиваются за запрос и используются как запасные, когда все аккаунты Claude достигли своих лимитов.",
+      "status": {
+        "healthy": "В норме",
+        "moderate": "Умеренно",
+        "highUsage": "Высокое использование",
+        "nearLimit": "Близко к лимиту",
+        "rateLimited": "Лимит запросов"
+      }
+    },
+    "toast": {
+      "loadProfilesFailed": "Не удалось загрузить профили",
+      "addProfileFailed": "Не удалось добавить профиль",
+      "deleteProfileFailed": "Не удалось удалить профиль",
+      "renameProfileFailed": "Не удалось переименовать профиль",
+      "setActiveProfileFailed": "Не удалось установить активный профиль",
+      "tokenSaved": "Токен сохранён",
+      "tokenSavedDescription": "Ваш токен успешно сохранён.",
+      "tokenSaveFailed": "Не удалось сохранить токен",
+      "settingsUpdateFailed": "Не удалось обновить настройки",
+      "tryAgain": "Попробуйте ещё раз."
+    },
+    "alerts": {
+      "profileCreatedAuthFailed": "Профиль создан, но не удалось подготовить аутентификацию: {{error}}",
+      "authPrepareFailed": "Не удалось подготовить аутентификацию: {{error}}",
+      "authStartFailedMessage": "Не удалось запустить аутентификацию. Попробуйте ещё раз."
+    }
+  },
+  "providers": {
+    "card": {
+      "oauth": "OAuth",
+      "codex": "Codex",
+      "codexSubscription": "Подписка Codex",
+      "claudeCode": "Claude Code",
+      "claudeCodeSubscription": "Подписка Claude Code",
+      "zaiCodingPlan": "Тарифный план для разработки",
+      "zaiUsageBased": "Оплата за использование",
+      "zaiCodingPlanSubscription": "Z.AI Тарифный план для разработки",
+      "apiKey": "API-ключ",
+      "active": "Активен",
+      "setDefault": "Сделать активным",
+      "edit": "Редактировать аккаунт",
+      "reauth": "Повторно аутентифицироваться",
+      "delete": "Удалить аккаунт",
+      "showKey": "Показать API-ключ",
+      "hideKey": "Скрыть API-ключ",
+      "oauthAccount": "OAuth-аккаунт",
+      "oauthLinked": "Связанный аккаунт",
+      "noEndpoint": "Нет эндпоинта",
+      "customModels": "{{count}} модел(и) настроено"
+    },
+    "section": {
+      "envDetected": "Из окружения",
+      "envCredentialDetected": "Учётные данные обнаружены из переменной окружения {{envVar}}",
+      "noAccounts": "Аккаунты не настроены",
+      "addOAuth": "Добавить OAuth-аккаунт",
+      "addClaudeCode": "Добавить аккаунт Claude Code",
+      "addCodexSubscription": "Добавить подписку Codex",
+      "addCodingPlan": "Добавить тарифный план для разработки",
+      "addUsageBased": "Добавить API-ключ с оплатой за использование",
+      "addApiKey": "Добавить API-ключ",
+      "addEndpoint": "Добавить эндпоинт"
+    },
+    "dialog": {
+      "addTitle": "Добавить аккаунт",
+      "editTitle": "Редактировать аккаунт",
+      "deleteTitle": "Удалить аккаунт?",
+      "deleteDescription": "Вы уверены, что хотите удалить этот аккаунт? Это действие нельзя отменить.",
+      "cancel": "Отмена",
+      "close": "Закрыть",
+      "delete": "Удалить",
+      "deleting": "Удаление...",
+      "save": "Сохранить изменения",
+      "add": "Добавить аккаунт",
+      "optional": "(необязательно)",
+      "oauthDescription": "Подключиться с помощью OAuth-аутентификации",
+      "apiKeyDescription": "Добавьте ваш API-ключ и конфигурацию",
+      "zaiCodingPlanDescription": "Добавьте ваш API-ключ Z.AI Coding Plan для использования моделей GLM по подписке",
+      "zaiUsageBasedDescription": "Добавьте ваш API-ключ Z.AI с оплатой за использование для доступа к моделям GLM",
+      "codexOAuthDescription": "Войдите с подпиской ChatGPT Plus или Pro для использования моделей Codex",
+      "codexAuthenticating": "Открывается вход в OpenAI в браузере...",
+      "codexWaiting": "Ожидание аутентификации в браузере...",
+      "codexSuccess": "Аутентификация через OpenAI Codex выполнена",
+      "codexError": "Ошибка аутентификации OpenAI: {{error}}",
+      "codexAuthenticate": "Аутентифицироваться через OpenAI",
+      "codexReauthenticate": "Повторно аутентифицироваться через OpenAI",
+      "oauthInstructions": "Для добавления OAuth-аккаунта используйте процесс аутентификации Claude Code на вкладке Claude Code выше. OAuth-аккаунты привязаны к вашей подписке Claude.ai.",
+      "oauthAuthenticate": "Аутентифицироваться через Anthropic",
+      "oauthReauthenticate": "Повторно аутентифицироваться через Anthropic",
+      "oauthAuthenticating": "Открывается браузер...",
+      "oauthWaiting": "Ожидание авторизации...",
+      "oauthSuccess": "Аутентифицировано как {{email}}",
+      "oauthError": "Ошибка аутентификации: {{error}}",
+      "oauthFallback": "Использовать терминал (запасной вариант)",
+      "oauthFallbackDescription": "Если вход через браузер не работает, используйте встроенный терминал",
+      "oauthNameRequired": "Введите название аккаунта перед аутентификацией",
+      "modelsDescription": "Добавьте ID моделей, доступных на этом эндпоинте. Они появятся в выборщике моделей.",
+      "fields": {
+        "name": "Название аккаунта",
+        "apiKey": "API-ключ",
+        "baseUrl": "Базовый URL",
+        "region": "Регион AWS",
+        "models": "Модели"
+      },
+      "placeholders": {
+        "name": "Мой аккаунт",
+        "apiKey": "sk-...",
+        "baseUrl": "https://...",
+        "modelId": "ID модели (напр. llama-3.1-70b)",
+        "modelLabel": "Отображаемое имя"
+      },
+      "toast": {
+        "added": "Аккаунт добавлен",
+        "updated": "Аккаунт обновлён",
+        "error": "Не удалось сохранить аккаунт",
+        "duplicateEmail": "Этот email уже зарегистрирован как «{{existingName}}»",
+        "createProfileFailed": "Не удалось создать профиль",
+        "authPrepareFailed": "Не удалось подготовить терминал",
+        "unexpectedError": "Неожиданная ошибка"
+      }
+    },
+    "toast": {
+      "deleted": "Аккаунт удалён",
+      "deleteFailed": "Не удалось удалить аккаунт",
+      "reauthStarted": "Открывается аутентификация...",
+      "reauthSuccess": "Повторная аутентификация выполнена успешно",
+      "reauthFailed": "Повторная аутентификация не удалась"
+    },
+    "categories": {
+      "popular": "Популярные",
+      "infrastructure": "Инфраструктура",
+      "local": "Локальные и пользовательские"
+    },
+    "ollama": {
+      "connection": {
+        "checking": "Проверка подключения к Ollama...",
+        "connected": "Подключено",
+        "connectedDescription": "Ollama запущен и готов к работе",
+        "modelsAvailable": "Установлено {{count}} модел(и) LLM",
+        "noModels": "Модели LLM пока не установлены",
+        "customUrl": "Пользовательский URL",
+        "customUrlPlaceholder": "http://localhost:11434",
+        "notInstalled": "Ollama не установлен",
+        "notInstalledDescription": "Установите Ollama для запуска открытых AI-моделей локально",
+        "notRunning": "Ollama не запущен",
+        "notRunningDescription": "Запустите сервис Ollama для подключения",
+        "install": "Установить Ollama",
+        "retry": "Повторить",
+        "learnMore": "Узнать больше",
+        "autoConnected": "Автоматически подключено как локальный провайдер",
+        "startCommand": "Выполните 'ollama serve' в терминале"
+      }
+    }
+  },
+  "debug": {
+    "title": "Отладка и логи",
+    "description": "Доступ к логам и отладочной информации для диагностики",
+    "errorReporting": {
+      "label": "Анонимные отчёты об ошибках",
+      "description": "Отправлять отчёты о сбоях для улучшения Aperant. Персональные данные и код не собираются."
+    },
+    "openLogsFolder": "Открыть папку логов",
+    "copyDebugInfo": "Скопировать отладочную информацию",
+    "copied": "Скопировано!",
+    "loadInfo": "Загрузить отладочную информацию",
+    "systemInfo": "Информация о системе",
+    "logsLocation": "Расположение логов",
+    "recentErrors": "Последние ошибки",
+    "noRecentErrors": "Последних ошибок нет",
+    "helpTitle": "Сообщение о проблемах",
+    "helpText": "При сообщении об ошибках нажмите «Скопировать отладочную информацию» для получения сведений о системе и последних ошибках, которые помогут нам диагностировать проблему."
+  },
+  "projectSettings": {
+    "noProjectSelected": {
+      "title": "Проект не выбран",
+      "description": "Выберите проект в боковой панели для настройки его параметров."
+    }
+  },
+  "mcp": {
+    "title": "Обзор MCP-серверов",
+    "titleWithProject": "Обзор MCP-серверов для {{projectName}}",
+    "description": "Настройте, какие MCP-серверы доступны агентам в этом проекте",
+    "descriptionNoProject": "Выберите проект для настройки MCP-серверов",
+    "serversEnabled": "Включено серверов: {{count}}",
+    "configuration": "Конфигурация MCP-серверов",
+    "configurationHint": "Отключённые серверы снижают использование контекста и время запуска",
+    "noProjectSelected": "Проект не выбран",
+    "noProjectSelectedDescription": "Выберите проект из выпадающего списка для просмотра и настройки MCP-серверов.",
+    "projectNotInitialized": "Проект не инициализирован",
+    "projectNotInitializedDescription": "Инициализируйте Aperant для этого проекта, чтобы настроить MCP-серверы.",
+    "browserAutomation": "Автоматизация браузера (только для QA-агентов)",
+    "alwaysEnabled": "всегда включено",
+    "addServer": "Добавить сервер",
+    "addMcpTo": "Добавить MCP-сервер к {{agent}}",
+    "addMcpDescription": "Выберите MCP-сервер для добавления к этому агенту",
+    "allMcpsAdded": "Все доступные MCP-серверы уже добавлены",
+    "added": "добавлен",
+    "removed": "удалён",
+    "remove": "Удалить",
+    "restore": "Восстановить",
+    "noMcpServers": "Нет MCP-серверов",
+    "cannotRemove": "Нельзя удалить (обязательный)",
+    "servers": {
+      "context7": {
+        "name": "Context7",
+        "description": "Поиск документации для библиотек"
+      },
+      "graphiti": {
+        "name": "Graphiti Memory",
+        "description": "Граф знаний для межсессионного контекста",
+        "notConfigured": "Требуется настройка памяти (см. настройки Памяти)"
+      },
+      "linear": {
+        "name": "Linear",
+        "description": "Интеграция с системой управления проектами",
+        "notConfigured": "Требуется интеграция с Linear (см. настройки Linear)"
+      },
+      "electron": {
+        "name": "Electron",
+        "description": "Автоматизация десктопного приложения через Chrome DevTools"
+      },
+      "puppeteer": {
+        "name": "Puppeteer",
+        "description": "Автоматизация веб-браузера для тестирования"
+      },
+      "autoClaude": {
+        "name": "Инструменты Aperant",
+        "description": "Отслеживание прогресса сборки"
+      }
+    },
+    "customServers": "Пользовательские серверы",
+    "addCustomServer": "Добавить пользовательский сервер",
+    "editCustomServer": "Редактировать пользовательский сервер",
+    "customServerDescription": "Добавьте MCP-сервер на основе команды или HTTP",
+    "serverType": "Тип сервера",
+    "typeCommand": "Команда (npx/npm)",
+    "typeHttp": "HTTP",
+    "serverName": "Название",
+    "serverNamePlaceholder": "Мой MCP-сервер",
+    "serverDescription": "Описание",
+    "serverDescriptionPlaceholder": "Что делает этот сервер",
+    "command": "Команда",
+    "args": "Аргументы",
+    "argsHint": "Аргументы, разделённые пробелами",
+    "url": "URL",
+    "headers": "Заголовки",
+    "headerName": "Название заголовка",
+    "headerValue": "Значение заголовка",
+    "noCustomServers": "Пользовательские серверы не настроены. Добавьте один для использования с агентами.",
+    "errorNameRequired": "Название сервера обязательно",
+    "errorIdExists": "Сервер с таким ID уже существует",
+    "errorCommandRequired": "Команда обязательна для серверов на основе команды",
+    "errorUrlRequired": "URL обязателен для HTTP-серверов",
+    "testConnection": "Проверить",
+    "testing": "Проверка...",
+    "authToken": "Токен аутентификации",
+    "authTokenPlaceholder": "Вставьте ваш API-токен или PAT сюда",
+    "authTokenHint": "Используется как Bearer-токен в заголовке Authorization",
+    "advancedHeaders": "Дополнительные заголовки",
+    "status": {
+      "healthy": "Сервер отвечает",
+      "unhealthy": "Сервер не отвечает",
+      "needsAuth": "Требуется аутентификация",
+      "checking": "Проверка...",
+      "unknown": "Статус неизвестен"
+    },
+    "hints": {
+      "github": "Похоже на GitHub MCP-сервер. Вам потребуется Personal Access Token с соответствующими правами.",
+      "createGithubPat": "Создать GitHub PAT",
+      "google": "Похоже на Google API. Вам потребуется OAuth-токен или API-ключ.",
+      "createGoogleToken": "Создать учётные данные Google",
+      "anthropic": "Похоже на Anthropic API. Вам потребуется API-ключ.",
+      "createAnthropicKey": "Создать Anthropic API-ключ",
+      "openai": "Похоже на OpenAI API. Вам потребуется API-ключ.",
+      "createOpenaiKey": "Создать OpenAI API-ключ"
+    }
+  },
+  "terminalFonts": {
+    "title": "Шрифты терминала",
+    "description": "Настройте внешний вид и поведение шрифтов терминала",
+    "configActions": "Конфигурация:",
+    "export": "Экспорт JSON",
+    "import": "Импорт JSON",
+    "copy": "Копировать в буфер обмена",
+    "fontConfig": {
+      "title": "Конфигурация шрифта",
+      "description": "Настройте семейство, размер, насыщенность, межстрочный интервал и трекинг",
+      "fontFamily": "Семейство шрифтов",
+      "fontFamilyDescription": "Основной моноширинный шрифт для текста терминала",
+      "selectFont": "Выберите шрифт...",
+      "searchFont": "Поиск шрифтов...",
+      "noFonts": "Шрифты не найдены",
+      "fontChain": "Цепочка шрифтов:",
+      "fontSize": "Размер шрифта",
+      "fontSizeDescription": "Базовый размер шрифта в пикселях (10–24px)",
+      "decreaseFontSize": "Уменьшить размер шрифта на {{step}}px",
+      "increaseFontSize": "Увеличить размер шрифта на {{step}}px",
+      "pixels": "пикселей",
+      "fontWeight": "Насыщенность шрифта",
+      "fontWeightDescription": "Насыщенность шрифта от 100 (тонкий) до 900 (чёрный) с шагом 100",
+      "commonWeights": "Часто используемые: 400 (обычный), 600 (полужирный), 700 (жирный)",
+      "decreaseFontWeight": "Уменьшить насыщенность шрифта на {{step}}",
+      "increaseFontWeight": "Увеличить насыщенность шрифта на {{step}}",
+      "lineHeight": "Межстрочный интервал",
+      "lineHeightDescription": "Межстрочный интервал как множитель от размера шрифта (1.0–2.0)",
+      "letterSpacing": "Трекинг",
+      "letterSpacingDescription": "Горизонтальное расстояние между символами (от -2 до 5px)"
+    },
+    "cursorConfig": {
+      "title": "Конфигурация курсора",
+      "description": "Настройте стиль, мигание и акцентный цвет курсора",
+      "cursorStyle": "Стиль курсора",
+      "cursorStyleDescription": "Выберите внешний вид курсора терминала",
+      "selectStyle": "Выберите стиль курсора...",
+      "currentStyle": "Текущий:",
+      "styleBlock": "Блок",
+      "styleBlockDescription": "Полный блочный курсор",
+      "styleUnderline": "Подчёркивание",
+      "styleUnderlineDescription": "Курсор в виде подчёркивания",
+      "styleBar": "Полоса",
+      "styleBarDescription": "Курсор в виде вертикальной полосы",
+      "cursorBlink": "Мигание курсора",
+      "cursorBlinkDescription": "Включить или отключить анимацию мигания курсора",
+      "blinkStatus": "Статус:",
+      "enabled": "Включено",
+      "disabled": "Отключено",
+      "cursorAccentColor": "Акцентный цвет курсора",
+      "cursorAccentColorDescription": "Выберите цвет курсора терминала",
+      "cursorColorLabel": "Акцентный цвет курсора",
+      "cursorColorDescription": "Текущий цвет: {{color}}",
+      "pickColor": "Нажмите для выбора цвета",
+      "resetColor": "Сбросить к чёрному",
+      "reset": "Сброс",
+      "preview": "Предпросмотр:"
+    },
+    "performanceConfig": {
+      "title": "Настройки производительности",
+      "description": "Настройте лимит прокрутки и другие параметры производительности",
+      "presets": "Быстрые шаблоны",
+      "presetsDescription": "Общие лимиты прокрутки для различных сценариев использования",
+      "scrollback": "Лимит прокрутки",
+      "scrollbackDescription": "Максимальное количество строк в истории терминала",
+      "scrollbackPresets": "Быстрые шаблоны",
+      "presetMinimal": "Минимальный",
+      "presetMinimalDescription": "Минимальная история (1K строк)",
+      "presetStandard": "Стандартный",
+      "presetStandardDescription": "Стандартная история (10K строк)",
+      "presetExtended": "Расширенный",
+      "presetExtendedDescription": "Расширенная история (50K строк)",
+      "presetMaximum": "Максимальный",
+      "presetMaximumDescription": "Максимальная история (100K строк)",
+      "decreaseScrollback": "Уменьшить лимит прокрутки на {{step}}",
+      "increaseScrollback": "Увеличить лимит прокрутки на {{step}}",
+      "lines": "строк",
+      "kValue": "{{value}}K",
+      "scrollbackValue": "{{value}} строк"
+    },
+    "presets": {
+      "title": "Быстрые шаблоны",
+      "description": "Применяйте предустановленные настройки шрифтов терминала или сохраняйте свои",
+      "builtin": "Встроенные шаблоны",
+      "builtinDescription": "Нажмите для применения предустановленного шаблона",
+      "vscode": "Consolas 14px, блочный курсор",
+      "vscodeName": "VS Code",
+      "intellij": "JetBrains Mono 13px, блочный курсор",
+      "intellijName": "IntelliJ IDEA",
+      "macos": "SF Mono 13px, блочный курсор",
+      "macosName": "macOS Terminal",
+      "ubuntu": "Ubuntu Mono 13px, блочный курсор",
+      "ubuntuName": "Ubuntu Terminal",
+      "reset": "Сбросить к значениям по умолчанию",
+      "resetDescription": "Восстановить настройки по умолчанию для вашей операционной системы",
+      "resetToOS": "Сбросить к значениям по умолчанию {{os}}",
+      "resetButton": "Сбросить к настройкам ОС",
+      "custom": "Пользовательские шаблоны",
+      "customDescription": "Сохраните текущую конфигурацию как пользовательский шаблон",
+      "presetNamePlaceholder": "Название шаблона...",
+      "savePreset": "Сохранить текущую конфигурацию как шаблон",
+      "applyPreset": "Применить этот шаблон",
+      "deletePreset": "Удалить этот шаблон",
+      "noCustomPresets": "Пользовательских шаблонов пока нет. Сохраните текущую конфигурацию для начала.",
+      "duplicateName": "Шаблон с таким именем уже существует",
+      "saved": "Шаблон «{{name}}» сохранён",
+      "deleted": "Шаблон «{{name}}» удалён",
+      "unknownFont": "Неизвестный",
+      "applyFailed": "Не удалось применить шаблон «{{name}}»",
+      "presetNameLabel": "Название шаблона",
+      "summary": "{{font}}, {{size}}px, курсор {{cursor}}"
+    },
+    "preview": {
+      "title": "Предпросмотр в реальном времени",
+      "description": "Предпросмотр настроек терминала в реальном времени (обновление в течение 300 мс)",
+      "ariaLabel": "Предпросмотр шрифтов терминала",
+      "infoText": "Этот предпросмотр обновляется в течение 300 мс после любого изменения, показывая, как настройки будут выглядеть в реальных терминалах."
+    },
+    "importExport": {
+      "exportSuccess": "Настройки успешно экспортированы",
+      "exportFailed": "Не удалось экспортировать настройки",
+      "importSuccess": "Настройки успешно импортированы",
+      "importFailed": "Не удалось импортировать настройки: неверный формат JSON",
+      "importFailedRange": "Не удалось импортировать настройки: значения вне допустимого диапазона",
+      "copySuccess": "Настройки скопированы в буфер обмена",
+      "copyFailed": "Не удалось скопировать в буфер обмена",
+      "fileTooLarge": "Файл импорта слишком большой (макс. 10KB)",
+      "readError": "Не удалось прочитать файл"
+    },
+    "slider": {
+      "decrease": "Уменьшить {{label}} на {{step}}",
+      "increase": "Увеличить {{label}} на {{step}}",
+      "currentValue": "Текущее значение: {{value}}"
+    }
+  },
+  "agents": {
+    "pr_template_filler": {
+      "label": "Заполнитель шаблонов PR",
+      "description": "AI заполняет шаблоны GitHub PR на основе изменений кода"
+    }
+  },
+  "provider": {
+    "title": "AI-провайдер",
+    "description": "Настройте предпочтения AI-провайдера и модели",
+    "selection": {
+      "label": "Провайдер",
+      "description": "Выберите AI-провайдера для задач агента",
+      "anthropic": "Anthropic",
+      "openai": "OpenAI",
+      "ollama": "Ollama (локальный)",
+      "openrouter": "OpenRouter"
+    },
+    "apiKey": {
+      "label": "API-ключ",
+      "description": "Ваш API-ключ для выбранного провайдера",
+      "placeholder": "Введите ваш API-ключ",
+      "anthropicPlaceholder": "sk-ant-...",
+      "openaiPlaceholder": "sk-...",
+      "openrouterPlaceholder": "sk-or-...",
+      "validation": {
+        "required": "API-ключ обязателен для этого провайдера",
+        "invalid": "Неверный формат API-ключа"
+      }
+    },
+    "ollama": {
+      "endpointUrl": "URL эндпоинта Ollama",
+      "endpointDescription": "URL, по которому запущен ваш экземпляр Ollama",
+      "endpointPlaceholder": "http://localhost:11434",
+      "validation": {
+        "urlRequired": "URL эндпоинта обязателен для Ollama",
+        "urlInvalid": "Неверный формат URL (должен начинаться с http:// или https://)"
+      }
+    },
+    "phaseModels": {
+      "title": "Настройки модели для каждой фазы",
+      "description": "Настройте, какую модель использовать для каждой фазы конвейера",
+      "spec": {
+        "label": "Модель создания спецификации",
+        "description": "Модель для исследования, требований и сбора контекста"
+      },
+      "planning": {
+        "label": "Модель планирования",
+        "description": "Модель для планирования реализации и архитектуры"
+      },
+      "coding": {
+        "label": "Модель разработки",
+        "description": "Модель для реализации кода"
+      },
+      "qa": {
+        "label": "Модель QA-проверки",
+        "description": "Модель для обеспечения качества и валидации"
+      },
+      "placeholder": "Выберите модель",
+      "useDefault": "Использовать модель по умолчанию"
+    },
+    "testConnection": {
+      "label": "Проверить подключение",
+      "testing": "Проверка...",
+      "success": "Подключение успешно",
+      "failure": "Подключение не удалось"
+    },
+    "toast": {
+      "saved": {
+        "title": "Настройки провайдера сохранены",
+        "description": "Конфигурация вашего AI-провайдера обновлена."
+      },
+      "error": {
+        "title": "Не удалось сохранить настройки провайдера",
+        "description": "При сохранении конфигурации провайдера произошла ошибка."
+      }
+    }
+  }
+}

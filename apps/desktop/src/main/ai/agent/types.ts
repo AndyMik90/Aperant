@@ -77,6 +77,8 @@ export interface SerializableSessionConfig {
   };
   /** Enable agentic orchestration mode where the AI drives the pipeline via SpawnSubagent tool */
   useAgenticOrchestration?: boolean;
+  /** UI language code for agent response language (e.g., 'en', 'ru') */
+  language?: string;
   /** Tool context serialized fields */
   toolContext: {
     cwd: string;

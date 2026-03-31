@@ -1,0 +1,162 @@
+{
+  "terminal": {
+    "openTerminal": "Открыть терминал",
+    "openInbuilt": "Открыть во встроенном терминале",
+    "openExternal": "Открыть во внешнем терминале"
+  },
+  "merge": {
+    "branchHasNewCommits": "Ветка {{branch}} содержит {{count}} новый коммит.",
+    "branchHasNewCommits_other": "Ветка {{branch}} содержит {{count}} новых коммита.",
+    "branchHasNewCommitsSinceWorktree": "Ветка {{branch}} содержит {{count}} новый коммит с момента создания этого воркдерева.",
+    "branchHasNewCommitsSinceWorktree_other": "Ветка {{branch}} содержит {{count}} новых коммита с момента создания этого воркдерева.",
+    "filesNeedMerging": "{{count}} файл требует слияния.",
+    "filesNeedMerging_other": "{{count}} файла требуют слияния.",
+    "filesNeedIntelligentMerging": "{{count}} файл потребует интеллектуального слияния:",
+    "filesNeedIntelligentMerging_other": "{{count}} файла потребуют интеллектуального слияния:",
+    "branchHasNewCommitsSinceBuild": "Ветка {{branch}} содержит {{count}} новый коммит с начала этой сборки.",
+    "branchHasNewCommitsSinceBuild_other": "Ветка {{branch}} содержит {{count}} новых коммита с начала этой сборки.",
+    "filesNeedAIMergeDueToRenames": "{{count}} файл требует AI-слияния из-за {{renameCount}} переименования файла.",
+    "filesNeedAIMergeDueToRenames_other": "{{count}} файла требуют AI-слияния из-за {{renameCount}} переименований файлов.",
+    "filesNeedAIMergeDueToRenamesPlural": "{{count}} файл требует AI-слияния из-за {{renameCount}} переименований файлов.",
+    "filesNeedAIMergeDueToRenamesPlural_other": "{{count}} файла требуют AI-слияния из-за {{renameCount}} переименований файлов.",
+    "fileRenamesDetected": "{{count}} переименование файла обнаружено — AI выполнит слияние.",
+    "fileRenamesDetected_other": "{{count}} переименования файлов обнаружено — AI выполнит слияние.",
+    "filesRenamedOrMoved": "Файлы могли быть переименованы или перемещены — AI выполнит слияние.",
+    "alreadyMergedTitle": "Изменения уже в вашей ветке",
+    "alreadyMergedDescription": "Похоже, эти изменения уже существуют в вашей текущей ветке. Вы можете безопасно отметить эту задачу как выполненную.",
+    "alreadyMergedTooltip": "Изменения задачи уже присутствуют в вашей ветке. Пометка как выполнено очистит воркдерево без слияния.",
+    "matchingFiles": "Совпадающие файлы",
+    "supersededTitle": "Изменения устарели",
+    "supersededDescription": "Ваша текущая ветка содержит более новую версию этих изменений. Рассмотрите возможность отклонения этой задачи или просмотра сравнения.",
+    "supersededCompareTooltip": "Просмотрите подробное сравнение, чтобы увидеть, чем текущая ветка отличается от изменений этой задачи.",
+    "supersededDiscardTooltip": "Удалите воркдерево этой задачи, поскольку изменения больше не нужны.",
+    "status": {
+      "branchDiverged": "Ветки разошлись",
+      "aiWillResolve": "AI разрешит конфликт",
+      "filesRenamed": "Файлы переименованы",
+      "branchBehind": "Ветка отстаёт",
+      "readyToMerge": "Готово к слиянию",
+      "files": "файлы",
+      "file": "файл",
+      "conflict": "конфликт",
+      "conflicts": "конфликты",
+      "details": "Детали",
+      "refresh": "Обновить",
+      "stageOnly": "Только подготовить (проверить в IDE перед коммитом)",
+      "discardBuild": "Отклонить сборку"
+    },
+    "buttons": {
+      "stageWithAIMerge": "Подготовить с AI-слиянием",
+      "mergeWithAI": "Слить с AI",
+      "stageTo": "Подготовить в {{branch}}",
+      "mergeTo": "Слить в {{branch}}",
+      "resolving": "Разрешение...",
+      "staging": "Подготовка...",
+      "merging": "Слияние...",
+      "completing": "Завершение..."
+    },
+    "actions": {
+      "markAsDone": "Отметить как выполнено",
+      "discardTask": "Отклонить задачу",
+      "viewComparison": "Просмотреть сравнение"
+    }
+  },
+  "pr": {
+    "title": "Создать Pull Request",
+    "description": "Отправить ветку и создать pull request для «{{taskTitle}}»",
+    "errors": {
+      "unknown": "Произошла неизвестная ошибка при создании pull request",
+      "invalidBranchName": "Имя ветки содержит недопустимые символы. Используйте только буквы, цифры, дефисы (-), подчёркивания (_) и косую черту (/).",
+      "emptyTitle": "Заголовок pull request не может быть пустым."
+    },
+    "success": {
+      "created": "Pull request успешно создан!",
+      "alreadyExists": "Pull request для этой ветки уже существует"
+    },
+    "actions": {
+      "retry": "Повторить",
+      "creating": "Создание PR...",
+      "create": "Создать Pull Request"
+    },
+    "labels": {
+      "sourceBranch": "Исходная ветка",
+      "targetBranch": "Целевая ветка",
+      "commits": "Коммиты",
+      "changes": "Изменения",
+      "prTitle": "Заголовок PR (необязательно)",
+      "draftPR": "Создать как черновой PR",
+      "unknown": "Неизвестно"
+    },
+    "hints": {
+      "targetBranch": "Оставьте пустым для использования ветки по умолчанию",
+      "prTitle": "Оставьте пустым для использования заголовка задачи"
+    }
+  },
+  "mergeProgress": {
+    "stages": {
+      "analyzing": "Анализ изменений",
+      "detectingConflicts": "Обнаружение конфликтов",
+      "resolving": "Разрешение конфликтов",
+      "validating": "Проверка слияния",
+      "complete": "Слияние завершено",
+      "error": "Ошибка слияния",
+      "stalled": "Слияние зависло"
+    },
+    "conflictCounter": "{{found}} обнаружено, {{resolved}} разрешено",
+    "currentFile": "Текущий файл",
+    "viewLogs": "Просмотреть логи",
+    "hideLogs": "Скрыть логи",
+    "logTypes": {
+      "info": "Информация",
+      "warning": "Предупреждение",
+      "error": "Ошибка",
+      "conflict": "Конфликт",
+      "resolution": "Разрешение"
+    },
+    "completionMessage": "Все изменения успешно слиты.",
+    "errorMessage": "Во время процесса слияния произошла ошибка."
+  },
+  "stagedSuccess": {
+    "title": "Изменения успешно подготовлены",
+    "aiCommitMessage": "Сообщение коммита, сгенерированное AI",
+    "copied": "Скопировано!",
+    "copy": "Скопировать",
+    "editHint": "Отредактируйте по необходимости, затем скопируйте и используйте с",
+    "nextSteps": "Следующие шаги:",
+    "reviewChanges": "Проверьте подготовленные изменения с помощью",
+    "commitWhenReady": "Зафиксируйте, когда будете готовы:",
+    "pushToRemote": "Отправьте на удалённый сервер, когда удовлетворены результатом",
+    "cleaningUp": "Очистка...",
+    "markingDone": "Отметка как выполнено...",
+    "resetting": "Сброс...",
+    "deleteWorktreeAndMarkDone": "Удалить воркдерево и отметить как выполнено",
+    "markDoneOnly": "Только отметить как выполнено",
+    "markAsDone": "Отметить как выполнено",
+    "reviewAgain": "Проверить снова",
+    "commitMessagePlaceholder": "Сообщение коммита...",
+    "worktreeExplanation": "«Удалить воркдерево и отметить как выполнено» очищает изолированное рабочее пространство. «Только отметить как выполнено» оставляет его для справки.",
+    "errors": {
+      "failedToDeleteWorktree": "Не удалось удалить воркдерево",
+      "worktreeDeletedButStatusFailed": "Воркдерево удалено, но не удалось обновить статус задачи: {{error}}",
+      "failedToMarkAsDone": "Не удалось отметить как выполнено",
+      "failedToResetStagedState": "Не удалось сбросить состояние подготовки"
+    }
+  },
+  "bulkPR": {
+    "title": "Создать Pull Request-ы",
+    "description": "Создать pull request-ы для {{count}} выбранных задач",
+    "creating": "Создание PR {{current}} из {{total}}...",
+    "creatingPR": "Создание PR {{current}} из {{total}}",
+    "resultsDescription": "{{success}} успешно, {{failed}} с ошибками",
+    "tasksToProcess": "Задачи для обработки",
+    "targetBranchHint": "Оставьте пустым для использования ветки по умолчанию каждой задачи. Будет применено ко всем PR.",
+    "createAll": "Создать {{count}} PR",
+    "completed": "завершено",
+    "succeeded": "успешно",
+    "failed": "с ошибкой",
+    "skipped": "пропущено",
+    "alreadyExisted": "уже существовало",
+    "noWorktree": "Воркдерево для этой задачи не найдено",
+    "resultsDescriptionWithSkipped": "{{success}} успешно, {{skipped}} пропущено, {{failed}} с ошибками"
+  }
+}

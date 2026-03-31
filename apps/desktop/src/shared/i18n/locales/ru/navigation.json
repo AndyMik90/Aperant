@@ -1,0 +1,87 @@
+{
+  "sections": {
+    "project": "Проект",
+    "tools": "Инструменты"
+  },
+  "items": {
+    "kanban": "Kanban-доска",
+    "terminals": "Терминалы агентов",
+    "insights": "Аналитика",
+    "roadmap": "Дорожная карта",
+    "ideation": "Генерация идей",
+    "changelog": "История изменений",
+    "context": "Контекст",
+    "githubIssues": "GitHub Issues",
+    "githubPRs": "GitHub PRs",
+    "gitlabIssues": "GitLab Issues",
+    "gitlabMRs": "GitLab MRs",
+    "worktrees": "Воркtree-ветки",
+    "agentTools": "Обзор MCP"
+  },
+  "actions": {
+    "settings": "Настройки",
+    "help": "Помощь и обратная связь",
+    "newTask": "Новая задача",
+    "collapseSidebar": "Свернуть боковую панель",
+    "expandSidebar": "Развернуть боковую панель",
+    "sponsor": "Поддержать нас"
+  },
+  "tooltips": {
+    "settings": "Настройки приложения",
+    "help": "Помощь и обратная связь"
+  },
+  "messages": {
+    "initializeToCreateTasks": "Инициализируйте Aperant для создания задач"
+  },
+  "updateBanner": {
+    "title": "Доступно обновление",
+    "version": "Версия {{version}} готова к установке",
+    "updateAndRestart": "Обновить и перезапустить",
+    "installAndRestart": "Установить и перезапустить",
+    "downloading": "Загрузка...",
+    "dismiss": "Закрыть",
+    "downloadError": "Не удалось загрузить обновление",
+    "readOnlyVolumeWarning": "Перенесите приложение в папку «Программы» для обновления"
+  },
+  "claudeCode": {
+    "checking": "Проверка Claude Code...",
+    "upToDate": "Claude Code актуален",
+    "updateAvailable": "Доступно обновление Claude Code",
+    "notInstalled": "Claude Code не установлен",
+    "error": "Ошибка при проверке Claude Code",
+    "installed": "Установлен",
+    "outdated": "Доступно обновление",
+    "missing": "Не установлен",
+    "current": "Текущая",
+    "latest": "Последняя",
+    "path": "Путь",
+    "lastChecked": "Последняя проверка",
+    "learnMore": "Узнать больше о Claude Code",
+    "learnMoreAriaLabel": "Узнать больше о Claude Code (откроется в новом окне)",
+    "viewChangelog": "Просмотреть историю изменений Claude Code",
+    "viewChangelogAriaLabel": "Просмотреть историю изменений Claude Code (откроется в новом окне)",
+    "updateWarningTitle": "Обновить Claude Code?",
+    "updateWarningDescription": "При обновлении все активные сессии Claude Code будут закрыты. Несохранённые данные в этих сессиях могут быть утеряны. Сохраните работу перед продолжением.",
+    "updateWarningTerminalNote": "Откроется окно терминала для выполнения команды установки. Дождитесь завершения установки перед продолжением.",
+    "updateAnyway": "Открыть терминал и обновить",
+    "switchVersion": "Сменить версию",
+    "selectVersion": "Выбрать версию",
+    "loadingVersions": "Загрузка версий...",
+    "failedToLoadVersions": "Не удалось загрузить версии",
+    "installingVersion": "Установка версии {{version}}...",
+    "rollbackWarningTitle": "Переключиться на версию {{version}}?",
+    "rollbackWarningDescription": "При смене версии все активные сессии Claude Code будут закрыты. Несохранённые данные в этих сессиях могут быть утеряны. Сохраните работу перед продолжением.",
+    "rollbackWarningTerminalNote": "Откроется окно терминала для выполнения команды установки. Дождитесь завершения установки перед продолжением.",
+    "switchAnyway": "Открыть терминал и переключить",
+    "currentVersion": "Текущая",
+    "switchInstallation": "Сменить установку",
+    "selectInstallation": "Выбрать установку",
+    "loadingInstallations": "Загрузка установок...",
+    "failedToLoadInstallations": "Не удалось загрузить установки",
+    "activeInstallation": "Активная",
+    "pathChangeWarningTitle": "Сменить установку CLI?",
+    "pathChangeWarningDescription": "При смене установки CLI будет использоваться другой бинарный файл Claude Code. Текущие сессии продолжат использовать предыдущую установку до перезапуска.",
+    "switchInstallationConfirm": "Переключить",
+    "versionUnknown": "версия неизвестна"
+  }
+}

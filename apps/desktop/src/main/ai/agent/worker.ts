@@ -230,6 +230,7 @@ async function assemblePrompt(
     specDir: session.specDir,
     projectDir: session.projectDir,
     projectInstructions: cachedProjectInstructions,
+    language: session.language,
   });
 }
 
