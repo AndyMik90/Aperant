@@ -436,7 +436,7 @@
     "postCleanReview": "Опубликовать чистую проверку",
     "postingCleanReview": "Публикация...",
     "cleanReviewPosted": "Чистая проверка опубликована",
-    "cleanReviewMessageTitle": "## ✅ Aperant PR Review - PASSED",
+    "cleanReviewMessageTitle": "## ✅ Aperant PR Review - ПРОЙДЕНО",
     "cleanReviewMessageStatus": "**Статус:** Весь код в порядке",
     "cleanReviewMessageFooter": "*Автоматическая проверка не обнаружила проблем. Сгенерировано Aperant.*",
     "failedPostCleanReview": "Не удалось опубликовать чистую проверку",

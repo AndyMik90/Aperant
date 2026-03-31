@@ -186,7 +186,7 @@ export async function createAgentClient(
     model,
     tools,
     mcpClients,
-    systemPrompt: injectLanguageInstruction(systemPrompt),
+    systemPrompt,
     maxSteps,
     thinkingLevel: resolvedThinkingLevel,
     cleanup,
