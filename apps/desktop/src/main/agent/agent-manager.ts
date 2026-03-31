@@ -130,7 +130,7 @@ export class AgentManager extends EventEmitter {
 
   private getSettingsLanguage(): string | undefined {
     const settings = readSettingsFile();
-    return (settings?.language as string | undefined) ?? undefined;
+    return settings?.language as string | undefined;
   }
 
   /**

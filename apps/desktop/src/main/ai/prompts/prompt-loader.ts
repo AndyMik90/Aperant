@@ -15,6 +15,7 @@ import { join } from 'node:path';
 import { execSync } from 'node:child_process';
 
 import type { ProjectCapabilities, PromptContext, PromptValidationResult } from './types';
+import { buildLanguageInstruction } from './language-utils';
 
 // =============================================================================
 // Expected prompt files (used for startup validation)
@@ -224,13 +225,9 @@ export function injectContext(promptTemplate: string, context: PromptContext): s
   }
 
   // 3. Language instruction (non-English only)
-  if (context.language && context.language !== 'en') {
-    const langNames: Record<string, string> = { ru: 'Russian', fr: 'French' };
-    const langName = langNames[context.language] ?? context.language;
-    sections.push(
-      `**LANGUAGE**: Always respond in ${langName}. All code comments, ` +
-      `documentation, commit messages, and explanations must be in ${langName}.\n\n`
-    );
+  if (context.language) {
+    const instruction = buildLanguageInstruction(context.language);
+    if (instruction) sections.push(instruction);
   }
 
   // 4. Human input

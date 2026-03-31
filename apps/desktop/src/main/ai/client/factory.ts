@@ -16,6 +16,7 @@ import type { Tool as AITool } from 'ai';
 
 import { resolveAuth, resolveAuthFromQueue, buildDefaultQueueConfig } from '../auth/resolver';
 import { readSettingsFile } from '../../settings-utils';
+import { buildLanguageInstruction } from '../prompts/language-utils';
 import {
   getDefaultThinkingLevel,
   getRequiredMcpServers,
@@ -197,18 +198,11 @@ export async function createAgentClient(
 // Language Injection
 // =============================================================================
 
-const LANG_NAMES: Record<string, string> = { ru: 'Russian', fr: 'French' };
-
 function injectLanguageInstruction(prompt: string): string {
   const settings = readSettingsFile();
   const lang = (settings?.language as string | undefined) ?? 'en';
-  if (lang === 'en') return prompt;
-  const langName = LANG_NAMES[lang] ?? lang;
-  return (
-    `**LANGUAGE**: Always respond in ${langName}. All code comments, ` +
-    `documentation, commit messages, and explanations must be in ${langName}.\n\n` +
-    prompt
-  );
+  const instruction = buildLanguageInstruction(lang);
+  return instruction ? instruction + prompt : prompt;
 }
 
 // =============================================================================
