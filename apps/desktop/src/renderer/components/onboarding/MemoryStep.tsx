@@ -21,14 +21,14 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
   const { settings, updateSettings } = useSettingsStore();
 
   const [config, setConfig] = useState<MemoryPanelConfig>({
-    enabled: true,
-    embeddingProvider: 'ollama',
+    enabled: settings.memoryEnabled ?? true,
+    embeddingProvider: settings.memoryEmbeddingProvider || 'ollama',
     openaiApiKey: settings.globalOpenAIApiKey || '',
     openaiEmbeddingModel: settings.memoryOpenaiEmbeddingModel || '',
-    azureOpenaiApiKey: '',
-    azureOpenaiBaseUrl: '',
-    azureOpenaiEmbeddingDeployment: '',
-    voyageApiKey: '',
+    azureOpenaiApiKey: settings.memoryAzureApiKey || '',
+    azureOpenaiBaseUrl: settings.memoryAzureBaseUrl || '',
+    azureOpenaiEmbeddingDeployment: settings.memoryAzureEmbeddingDeployment || '',
+    voyageApiKey: settings.memoryVoyageApiKey || '',
     voyageEmbeddingModel: settings.memoryVoyageEmbeddingModel || '',
     googleApiKey: settings.globalGoogleApiKey || '',
     googleEmbeddingModel: settings.memoryGoogleEmbeddingModel || '',
