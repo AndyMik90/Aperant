@@ -125,6 +125,13 @@ export interface RunnerOptions {
   onAccountSwitch?: (failedAccountId: string, error: SessionError) => Promise<QueueResolvedAuth | null>;
   /** Current account ID from the priority queue (needed for account-switch retry) */
   currentAccountId?: string;
+  /**
+   * Stream inactivity timeout in milliseconds. If no stream parts arrive within
+   * this period, the stream is aborted. Defaults to 60 seconds. Local providers
+   * (e.g., Ollama) may need a higher value since model inference can take much
+   * longer than cloud providers.
+   */
+  streamInactivityTimeoutMs?: number;
 }
 
 // =============================================================================
@@ -149,7 +156,7 @@ export async function runAgentSession(
   config: SessionConfig,
   options: RunnerOptions = {},
 ): Promise<SessionResult> {
-  const { onEvent, onAuthRefresh, onModelRefresh, tools, memoryContext, onAccountSwitch, currentAccountId } = options;
+  const { onEvent, onAuthRefresh, onModelRefresh, tools, memoryContext, onAccountSwitch, currentAccountId, streamInactivityTimeoutMs } = options;
   const startTime = Date.now();
 
   let authRetries = 0;
@@ -159,7 +166,7 @@ export async function runAgentSession(
   // Retry loop for auth refresh and account switching
   while (authRetries <= MAX_AUTH_RETRIES) {
     try {
-      const result = await executeStream(activeConfig, tools, onEvent, memoryContext);
+      const result = await executeStream(activeConfig, tools, onEvent, memoryContext, streamInactivityTimeoutMs);
       return {
         ...result,
         durationMs: Date.now() - startTime,
@@ -265,6 +272,7 @@ async function executeStream(
   tools: Record<string, AITool> | undefined,
   onEvent: SessionEventCallback | undefined,
   memoryContext: MemorySessionContext | undefined,
+  inactivityTimeoutMs: number = STREAM_INACTIVITY_TIMEOUT_MS,
 ): Promise<Omit<SessionResult, 'durationMs'>> {
   const baseMaxSteps = config.maxSteps ?? DEFAULT_MAX_STEPS;
 
@@ -472,14 +480,14 @@ async function executeStream(
   });
 
   // Consume the full stream with inactivity timeout protection.
-  // The timer fires if no stream parts arrive within STREAM_INACTIVITY_TIMEOUT_MS,
+  // The timer fires if no stream parts arrive within inactivityTimeoutMs,
   // aborting the stream and preventing indefinite worker hangs.
   let streamInactivityTimer: ReturnType<typeof setTimeout> | null = null;
   const resetStreamInactivityTimer = () => {
     if (streamInactivityTimer) clearTimeout(streamInactivityTimer);
     streamInactivityTimer = setTimeout(() => {
       streamInactivityController.abort(STREAM_INACTIVITY_REASON);
-    }, STREAM_INACTIVITY_TIMEOUT_MS);
+    }, inactivityTimeoutMs);
   };
 
   resetStreamInactivityTimer(); // Arm for initial response
@@ -503,7 +511,7 @@ async function executeStream(
         usage: summary.usage,
         error: {
           code: 'stream_timeout',
-          message: `Stream inactivity timeout — no data received from provider for ${STREAM_INACTIVITY_TIMEOUT_MS / 1000}s`,
+          message: `Stream inactivity timeout — no data received from provider for ${inactivityTimeoutMs / 1000}s`,
           retryable: true,
         },
         messages,

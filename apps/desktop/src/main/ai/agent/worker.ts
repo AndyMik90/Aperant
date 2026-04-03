@@ -341,6 +341,9 @@ async function runSingleSession(
           modelId: phaseModelId,
         })
       : undefined,
+    // Local providers like Ollama can take much longer than 60s to generate a
+    // response on slower hardware. Use a 5-minute timeout instead of the default.
+    streamInactivityTimeoutMs: baseSession.provider === 'ollama' ? 300_000 : undefined,
   };
 
   let sessionResult: SessionResult;
@@ -517,6 +520,7 @@ async function runDefaultSession(
             modelId: session.modelId,
           })
         : undefined,
+      streamInactivityTimeoutMs: session.provider === 'ollama' ? 300_000 : undefined,
     }, {
       contextWindowLimit,
       apiKey: session.apiKey,
@@ -1113,6 +1117,7 @@ async function runAgenticSpecOrchestrator(
             modelId: session.modelId,
           })
         : undefined,
+      streamInactivityTimeoutMs: session.provider === 'ollama' ? 300_000 : undefined,
     }, {
       contextWindowLimit,
       apiKey: session.apiKey,
