@@ -163,7 +163,7 @@ export class AgentProcessManager {
 
   private setupProcessEnvironment(
     extraEnv: Record<string, string>
-  ): NodeJS.ProcessEnv {
+  ): { env: NodeJS.ProcessEnv; profileId: string; profileName: string } {
     // Get best available Claude profile environment (automatically handles rate limits)
     const profileResult = getBestAvailableProfileEnv();
     const profileEnv = profileResult.env;
@@ -253,7 +253,7 @@ export class AgentProcessManager {
       apiKeyPrefix: mergedEnv.ANTHROPIC_API_KEY?.substring(0, 8) || '(not set)',
     });
 
-    return mergedEnv;
+    return { env: mergedEnv, profileId: profileResult.profileId, profileName: profileResult.profileName };
   }
 
   private handleProcessFailure(
@@ -263,7 +263,8 @@ export class AgentProcessManager {
   ): boolean {
     console.log('[AgentProcess] Checking for rate limit in output (last 500 chars):', allOutput.slice(-500));
 
-    const rateLimitDetection = detectRateLimit(allOutput);
+    const profileAssignment = this.state.getTaskProfileAssignment(taskId);
+    const rateLimitDetection = detectRateLimit(allOutput, profileAssignment?.profileId);
     console.log('[AgentProcess] Rate limit detection result:', {
       isRateLimited: rateLimitDetection.isRateLimited,
       resetTime: rateLimitDetection.resetTime,
@@ -549,7 +550,8 @@ export class AgentProcessManager {
       spawnId
     });
 
-    const env = this.setupProcessEnvironment(extraEnv);
+    const { env, profileId: spawnedProfileId, profileName: spawnedProfileName } = this.setupProcessEnvironment(extraEnv);
+    this.state.assignProfileToTask(taskId, spawnedProfileId, spawnedProfileName, 'proactive');
 
     // Get active API profile environment variables
     let apiProfileEnv: Record<string, string> = {};
