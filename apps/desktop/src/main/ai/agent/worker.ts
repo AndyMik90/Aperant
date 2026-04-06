@@ -710,6 +710,9 @@ async function runBuildOrchestrator(
     });
   } else {
     // Pre-QA failure (planning or coding phase)
+    if (outcome.error) {
+      postError(`Build failed: ${outcome.error}`);
+    }
     postTaskEvent('CODING_FAILED', { error: outcome.error });
   }
 
