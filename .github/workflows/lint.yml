@@ -60,7 +60,7 @@ jobs:
       - name: Setup Biome
         uses: biomejs/setup-biome@v2
         with:
-          version: 2.3.11
+          version: 2.4.10
 
       - name: Run Biome
         working-directory: apps/frontend

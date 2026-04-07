@@ -42,7 +42,7 @@
     "electron"
   ],
   "devDependencies": {
-    "jsdom": "^27.4.0"
+    "jsdom": "^29.0.2"
   },
   "dependencies": {
     "lucide-react": "^0.562.0"

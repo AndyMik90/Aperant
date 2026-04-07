@@ -107,7 +107,7 @@
     "zustand": "^5.0.9"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.3.11",
+    "@biomejs/biome": "2.4.10",
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@electron/rebuild": "^4.0.2",
@@ -122,19 +122,19 @@
     "@types/react-dom": "^19.2.3",
     "@types/semver": "^7.7.1",
     "@types/uuid": "^11.0.0",
-    "@vitejs/plugin-react": "^5.1.2",
+    "@vitejs/plugin-react": "^6.0.1",
     "autoprefixer": "^10.4.22",
     "cross-env": "^10.1.0",
     "electron": "40.0.0",
     "electron-builder": "^26.4.0",
     "electron-vite": "^5.0.0",
     "husky": "^9.1.7",
-    "jsdom": "^27.3.0",
+    "jsdom": "^29.0.2",
     "lint-staged": "^16.2.7",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.17",
     "typescript": "^5.9.3",
-    "vite": "^7.2.7",
+    "vite": "^8.0.5",
     "vitest": "^4.0.16"
   },
   "overrides": {
