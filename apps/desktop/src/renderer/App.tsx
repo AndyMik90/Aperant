@@ -163,6 +163,7 @@ export function App() {
   const [showRemoveProjectDialog, setShowRemoveProjectDialog] = useState(false);
   const [removeProjectError, setRemoveProjectError] = useState<string | null>(null);
   const [projectToRemove, setProjectToRemove] = useState<Project | null>(null);
+  const [isRemovingProject, setIsRemovingProject] = useState(false);
 
   // Setup drag sensors
   const sensors = useSensors(
@@ -662,16 +663,23 @@ export function App() {
     }
   };
 
-  const handleConfirmRemoveProject = () => {
+  const handleConfirmRemoveProject = async () => {
     if (projectToRemove) {
       try {
         // Clear any previous error
         setRemoveProjectError(null);
-        // Remove the project from the app (files are preserved on disk for re-adding later)
-        removeProject(projectToRemove.id);
-        // Only clear dialog state on success
-        setShowRemoveProjectDialog(false);
-        setProjectToRemove(null);
+        setIsRemovingProject(true);
+        // Await removal so the backend fully completes before the dialog closes.
+        // Without await, a race condition allows addProject() to run while
+        // removeProject() is still in-flight, causing the backend to return the
+        // old project ID and later wipe all tasks when removal finally resolves.
+        const success = await removeProject(projectToRemove.id);
+        if (success) {
+          setShowRemoveProjectDialog(false);
+          setProjectToRemove(null);
+        } else {
+          setRemoveProjectError(t('dialogs:removeProject.error'));
+        }
       } catch (err) {
         // Log error and keep dialog open so user can retry or cancel
         console.error('[App] Failed to remove project:', err);
@@ -679,6 +687,8 @@ export function App() {
         setRemoveProjectError(
           err instanceof Error ? err.message : t('common:errors.unknownError')
         );
+      } finally {
+        setIsRemovingProject(false);
       }
     }
   };
@@ -687,6 +697,7 @@ export function App() {
     setShowRemoveProjectDialog(false);
     setProjectToRemove(null);
     setRemoveProjectError(null);
+    setIsRemovingProject(false);
   };
 
   // Handle drag start - set the active dragged project
@@ -1122,10 +1133,10 @@ export function App() {
               </div>
             )}
             <DialogFooter>
-              <Button variant="outline" onClick={handleCancelRemoveProject}>
+              <Button variant="outline" onClick={handleCancelRemoveProject} disabled={isRemovingProject}>
                 {t('removeProject.cancel')}
               </Button>
-              <Button variant="destructive" onClick={handleConfirmRemoveProject}>
+              <Button variant="destructive" onClick={handleConfirmRemoveProject} disabled={isRemovingProject}>
                 {t('removeProject.remove')}
               </Button>
             </DialogFooter>
