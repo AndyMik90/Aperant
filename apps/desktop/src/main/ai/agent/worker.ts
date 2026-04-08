@@ -678,6 +678,18 @@ async function runBuildOrchestrator(
   // state that doesn't map to a log phase. In that case, close whichever log phase
   // is still marked 'active' so the UI shows "Complete" instead of "Running".
   if (logWriter) {
+    // Write the failure reason to the log before closing the phase so the
+    // Logs tab shows a visible error entry. outcome.error originates from
+    // build-level validation failures that never flow through onEvent.
+    if (!outcome.success && outcome.error) {
+      const data = logWriter.getData();
+      const activePhase = (['validation', 'coding', 'planning'] as const).find(
+        (p) => data.phases[p]?.status === 'active'
+      );
+      const errorPhase: 'qa' | 'coding' | 'planning' =
+        activePhase === 'validation' ? 'qa' : (activePhase ?? 'planning');
+      logWriter.logText(outcome.error, errorPhase, 'error');
+    }
     const finalLogPhase = mapExecutionPhaseToPhase(outcome.finalPhase);
     if (finalLogPhase) {
       logWriter.endPhase(finalLogPhase, outcome.success);
@@ -946,6 +958,14 @@ async function runSpecOrchestrator(
 
   // Ensure any still-active log phase is closed and flushed
   if (logWriter) {
+    // Write the failure reason to the log before closing the phase so the
+    // Logs tab shows a visible error entry instead of just a red badge with
+    // no message. outcome.error comes from spec phase validation failures
+    // (e.g. "expected files not created: context.json") which never flow
+    // through the onEvent stream callback.
+    if (!outcome.success && outcome.error) {
+      logWriter.logText(outcome.error, 'spec', 'error');
+    }
     const data = logWriter.getData();
     // toLogPhase('spec') maps to 'planning' in the log writer
     if (data.phases.planning?.status === 'active') {
