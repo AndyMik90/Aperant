@@ -20,6 +20,8 @@ import * as fs from 'fs';
 import * as http from 'http';
 import * as path from 'path';
 import * as url from 'url';
+import { fetch as undiciFetch } from 'undici';
+import { getProxyAgentFromEnvironment } from '../../utils/runtime-proxy-config';
 
 // Electron APIs loaded lazily to avoid crashing in worker threads
 // (workers don't have access to Electron main-process modules)
@@ -354,10 +356,12 @@ async function exchangeCodeForTokens(code: string, codeVerifier: string): Promis
     code_verifier: codeVerifier,
   });
 
-  const response = await fetch(TOKEN_ENDPOINT, {
+  const proxyAgent = getProxyAgentFromEnvironment();
+  const response = await undiciFetch(TOKEN_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString(),
+    dispatcher: proxyAgent,
   });
 
   debugLog('Token exchange response', { status: response.status, ok: response.ok });
@@ -419,10 +423,12 @@ export async function refreshCodexToken(refreshToken: string): Promise<CodexAuth
     client_id: CLIENT_ID,
   });
 
-  const response = await fetch(TOKEN_ENDPOINT, {
+  const proxyAgent = getProxyAgentFromEnvironment();
+  const response = await undiciFetch(TOKEN_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString(),
+    dispatcher: proxyAgent,
   });
 
   debugLog('Token refresh response', { status: response.status, ok: response.ok });

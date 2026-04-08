@@ -70,6 +70,7 @@ import { isProfileAuthenticated } from './claude-profile/profile-utils';
 import { isMacOS, isWindows } from './platform';
 import { ptyDaemonClient } from './terminal/pty-daemon-client';
 import type { AppSettings, AuthFailureInfo } from '../shared/types';
+import { applyRuntimeProxyConfig } from './utils/runtime-proxy-config';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Migrate userData from old app name (auto-claude-ui → aperant)
@@ -443,6 +444,15 @@ app.whenReady().then(() => {
 
   // Initialize agent manager
   agentManager = new AgentManager();
+
+  // Apply runtime proxy env from persisted app settings at startup
+  const startupProxyConfig = applyRuntimeProxyConfig(loadSettingsSync());
+  if (startupProxyConfig.state === 'invalid') {
+    console.warn(
+      '[main] Invalid proxy settings on startup. Runtime proxy was not applied:',
+      startupProxyConfig.errors.map((entry) => entry.message).join(' ')
+    );
+  }
 
   // Load settings and configure agent manager with Python and auto-claude paths
   // Uses EAFP pattern (try/catch) instead of LBYL (existsSync) to avoid TOCTOU race conditions

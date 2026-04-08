@@ -25,6 +25,7 @@ import type { APIProfile } from '../../shared/types/profile';
 import type { ClaudeProfile } from '../../shared/types/agent';
 import { loadProfilesFile } from '../utils/profile-manager';
 import { loadProfileStore } from '../claude-profile/profile-storage';
+import { applyRuntimeProxyConfig, normalizeRuntimeProxyConfig } from '../utils/runtime-proxy-config';
 
 const settingsPath = getSettingsPath();
 
@@ -439,6 +440,20 @@ export function registerSettingsHandlers(
         const { providerAccounts: _pa, globalPriorityOrder: _gpo, ...safeSettings } = settings;
         const newSettings = { ...currentSettings, ...safeSettings };
 
+        const runtimeProxyConfig = normalizeRuntimeProxyConfig({
+          proxyEnabled: newSettings.proxyEnabled,
+          proxyHttpUrl: newSettings.proxyHttpUrl,
+          proxyHttpsUrl: newSettings.proxyHttpsUrl,
+        });
+
+        if (runtimeProxyConfig.state === 'invalid') {
+          const formattedErrors = runtimeProxyConfig.errors.map((entry) => entry.message).join(' ');
+          return {
+            success: false,
+            error: `Invalid proxy settings. ${formattedErrors}`,
+          };
+        }
+
         // Sync defaultModel when agent profile changes (#414)
         if (settings.selectedAgentProfile) {
           const profile = DEFAULT_AGENT_PROFILES.find(p => p.id === settings.selectedAgentProfile);
@@ -448,6 +463,20 @@ export function registerSettingsHandlers(
         }
 
         writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2), 'utf-8');
+
+        // Apply runtime proxy env after successful persistence
+        const appliedProxyConfig = applyRuntimeProxyConfig({
+          proxyEnabled: newSettings.proxyEnabled,
+          proxyHttpUrl: newSettings.proxyHttpUrl,
+          proxyHttpsUrl: newSettings.proxyHttpsUrl,
+        });
+
+        if (appliedProxyConfig.state === 'invalid') {
+          console.error(
+            '[SETTINGS_SAVE] Proxy validation unexpectedly failed after pre-validation:',
+            appliedProxyConfig.errors.map((entry) => entry.message).join(' ')
+          );
+        }
 
         // Apply Python path if changed
         if (settings.pythonPath || settings.autoBuildPath) {

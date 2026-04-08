@@ -114,6 +114,7 @@
     "remark-gfm": "^4.0.1",
     "semver": "^7.7.4",
     "tailwind-merge": "^3.5.0",
+    "undici": "^8.0.2",
     "uuid": "^13.0.0",
     "web-tree-sitter": "^0.26.7",
     "xstate": "^5.28.0",

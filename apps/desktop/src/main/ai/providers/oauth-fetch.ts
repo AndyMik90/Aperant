@@ -9,6 +9,8 @@
  */
 
 import * as fs from 'node:fs';
+import { fetch as undiciFetch } from 'undici';
+import { getProxyAgentFromEnvironment } from '../../utils/runtime-proxy-config';
 
 // =============================================================================
 // Debug Logging
@@ -114,10 +116,12 @@ async function refreshOAuthToken(
     client_id: providerSpec.clientId,
   });
 
-  const response = await fetch(providerSpec.tokenEndpoint, {
+  const proxyAgent = getProxyAgentFromEnvironment();
+  const response = await undiciFetch(providerSpec.tokenEndpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: body.toString(),
+    dispatcher: proxyAgent,
   });
 
   debugLog('Token refresh response', { status: response.status, ok: response.ok });
@@ -271,8 +275,9 @@ export function createOAuthProviderFetch(
       debugLog(`${originalUrl} -> ${url} (token: [redacted])`);
     }
 
-    const finalInit = { ...init, headers };
-    const response = await globalThis.fetch(url, finalInit);
+      const proxyAgent = getProxyAgentFromEnvironment();
+    const finalInit = { ...init, headers, dispatcher: proxyAgent } as any;
+    const response = await undiciFetch(url, finalInit);
 
     if (DEBUG) {
       debugLog(`Response: ${response.status} ${response.statusText}`, { url });
@@ -287,6 +292,6 @@ export function createOAuthProviderFetch(
       }
     }
 
-    return response;
+    return response as unknown as Response;
   };
 }

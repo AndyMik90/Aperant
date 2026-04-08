@@ -48,6 +48,10 @@
     "terminal-fonts": {
       "title": "Polices de terminal",
       "description": "Personnaliser l'apparence des polices de terminal"
+    },
+    "proxy": {
+      "title": "Proxy",
+      "description": "Paramètres de proxy réseau globaux"
     }
   },
   "apiProfiles": {
@@ -301,6 +305,28 @@
       "label": "Mode YOLO",
       "description": "Démarrer Claude avec le flag --dangerously-skip-permissions, contournant toutes les invites de sécurité. À utiliser avec une extrême prudence.",
       "warning": "Ce mode contourne le système de permissions de Claude. N'activez que si vous faites entièrement confiance au code exécuté."
+    }
+  },
+  "proxy": {
+    "title": "Paramètres du proxy",
+    "description": "Configurer les paramètres de proxy globaux pour les requêtes réseau sortantes",
+    "enabled": {
+      "label": "Activer le proxy",
+      "description": "Acheminer toutes les requêtes réseau sortantes via un serveur proxy"
+    },
+    "httpUrl": {
+      "label": "URL du proxy HTTP",
+      "description": "URL du serveur proxy pour les requêtes HTTP",
+      "placeholder": "http://127.0.0.1:7890"
+    },
+    "httpsUrl": {
+      "label": "URL du proxy HTTPS",
+      "description": "URL du serveur proxy pour les requêtes HTTPS",
+      "placeholder": "http://127.0.0.1:7890"
+    },
+    "validation": {
+      "invalidUrl": "Format d'URL invalide (doit être http:// ou https://)",
+      "requiredWhenEnabled": "L'URL est requise lorsque le proxy est activé"
     }
   },
   "updates": {

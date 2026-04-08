@@ -506,15 +506,19 @@ export async function loadSettings(): Promise<void> {
  */
 export async function saveSettings(updates: Partial<AppSettings>): Promise<boolean> {
   const store = useSettingsStore.getState();
+  store.setError(null);
 
   try {
     const result = await window.electronAPI.saveSettings(updates);
     if (result.success) {
       store.updateSettings(updates);
+      store.setError(null);
       return true;
     }
+    store.setError(result.error || 'Failed to save settings');
     return false;
-  } catch {
+  } catch (error) {
+    store.setError(error instanceof Error ? error.message : 'Failed to save settings');
     return false;
   }
 }

@@ -264,6 +264,9 @@ export interface AppSettings {
   colorTheme?: ColorTheme;
   defaultModel: string;
   agentFramework: string;
+  proxyEnabled?: boolean;
+  proxyHttpUrl?: string;
+  proxyHttpsUrl?: string;
   pythonPath?: string;
   gitPath?: string;
   githubCLIPath?: string;
@@ -362,5 +365,4 @@ export interface AppSettings {
 
 // GPU acceleration mode for terminal WebGL rendering
 export type GpuAcceleration = 'auto' | 'on' | 'off';
-
 

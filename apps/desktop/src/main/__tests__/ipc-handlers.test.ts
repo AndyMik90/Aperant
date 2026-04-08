@@ -564,6 +564,30 @@ describe("IPC Handlers", { timeout: 30000 }, () => {
 
       expect(mockAgentManager.configure).toHaveBeenCalledWith("/usr/bin/python3", undefined);
     });
+
+    it("should reject malformed proxy URL settings", async () => {
+      const { setupIpcHandlers } = await import("../ipc-handlers");
+      setupIpcHandlers(
+        mockAgentManager as never,
+        mockTerminalManager as never,
+        () => mockMainWindow as never
+      );
+
+      const result = await ipcMain.invokeHandler("settings:save", {}, {
+        proxyEnabled: true,
+        proxyHttpUrl: "notaurl",
+        proxyHttpsUrl: "http://127.0.0.1:7890",
+      });
+
+      expect(result).toEqual({
+        success: false,
+        error: expect.stringContaining("Invalid proxy settings."),
+      });
+
+      const getResult = await ipcMain.invokeHandler("settings:get", {});
+      const data = (getResult as { data: { proxyEnabled: boolean } }).data;
+      expect(data.proxyEnabled).toBe(false);
+    });
   });
 
   describe("app:version handler", () => {

@@ -20,6 +20,7 @@ import {
   updateKeychainCredentials,
   clearKeychainCache,
 } from './credential-utils';
+import { fetchWithProxy } from '../utils/proxy-fetch';
 
 // =============================================================================
 // Constants
@@ -52,6 +53,10 @@ const MAX_REFRESH_RETRIES = 2;
  * Delay between retry attempts (exponential backoff base)
  */
 const RETRY_DELAY_BASE_MS = 1000;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
 
 // =============================================================================
 // Types
@@ -207,7 +212,7 @@ export async function refreshOAuthToken(
         client_id: CLAUDE_CODE_CLIENT_ID
       });
 
-      const response = await fetch(ANTHROPIC_TOKEN_ENDPOINT, {
+      const response = await fetchWithProxy(ANTHROPIC_TOKEN_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded'
@@ -216,15 +221,24 @@ export async function refreshOAuthToken(
       });
 
       if (!response.ok) {
-        let errorData: Record<string, string> = {};
+        let errorCode = `http_${response.status}`;
+        let errorDescription = response.statusText;
+
         try {
-          errorData = await response.json();
+          const parsed = await response.json();
+          if (isRecord(parsed)) {
+            const parsedError = parsed.error;
+            const parsedDescription = parsed.error_description;
+            if (typeof parsedError === 'string' && parsedError.length > 0) {
+              errorCode = parsedError;
+            }
+            if (typeof parsedDescription === 'string' && parsedDescription.length > 0) {
+              errorDescription = parsedDescription;
+            }
+          }
         } catch {
           // Ignore JSON parse errors
         }
-
-        const errorCode = errorData.error || `http_${response.status}`;
-        const errorDescription = errorData.error_description || response.statusText;
 
         // Check for permanent errors that shouldn't be retried
         if (errorCode === 'invalid_grant' || errorCode === 'invalid_client') {
@@ -254,8 +268,7 @@ export async function refreshOAuthToken(
 
       // Parse successful response
       const data = await response.json();
-
-      if (!data.access_token) {
+      if (!isRecord(data) || typeof data.access_token !== 'string') {
         return {
           success: false,
           error: 'Response missing access_token',
@@ -265,7 +278,7 @@ export async function refreshOAuthToken(
 
       // Calculate expiry timestamp
       // expires_in is in seconds, convert to ms and add to current time
-      const expiresIn = data.expires_in || 28800; // Default 8 hours if not provided
+      const expiresIn = typeof data.expires_in === 'number' ? data.expires_in : 28800; // Default 8 hours if not provided
       const expiresAt = Date.now() + (expiresIn * 1000);
 
       if (isDebug) {
@@ -279,7 +292,7 @@ export async function refreshOAuthToken(
       return {
         success: true,
         accessToken: data.access_token,
-        refreshToken: data.refresh_token,
+        refreshToken: typeof data.refresh_token === 'string' ? data.refresh_token : undefined,
         expiresAt,
         expiresIn
       };

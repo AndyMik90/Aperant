@@ -48,6 +48,10 @@
     "terminal-fonts": {
       "title": "Terminal Fonts",
       "description": "Customize terminal font appearance"
+    },
+    "proxy": {
+      "title": "Proxy",
+      "description": "Global network proxy settings"
     }
   },
   "apiProfiles": {
@@ -301,6 +305,28 @@
       "label": "YOLO Mode",
       "description": "Start Claude with --dangerously-skip-permissions flag, bypassing all safety prompts. Use with extreme caution.",
       "warning": "This mode bypasses Claude's permission system. Only enable if you fully trust the code being executed."
+    }
+  },
+  "proxy": {
+    "title": "Proxy Settings",
+    "description": "Configure global proxy settings for outbound network requests",
+    "enabled": {
+      "label": "Enable Proxy",
+      "description": "Route all outbound network requests through a proxy server"
+    },
+    "httpUrl": {
+      "label": "HTTP Proxy URL",
+      "description": "Proxy server URL for HTTP requests",
+      "placeholder": "http://127.0.0.1:7890"
+    },
+    "httpsUrl": {
+      "label": "HTTPS Proxy URL",
+      "description": "Proxy server URL for HTTPS requests",
+      "placeholder": "http://127.0.0.1:7890"
+    },
+    "validation": {
+      "invalidUrl": "Invalid URL format (must be http:// or https://)",
+      "requiredWhenEnabled": "URL is required when proxy is enabled"
     }
   },
   "updates": {

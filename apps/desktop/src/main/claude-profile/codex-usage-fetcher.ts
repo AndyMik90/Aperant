@@ -1,4 +1,6 @@
 import type { ClaudeUsageSnapshot } from '../../shared/types/agent';
+import { fetch as undiciFetch } from 'undici';
+import { getProxyAgentFromEnvironment } from '../utils/runtime-proxy-config';
 
 // =============================================================================
 // Constants
@@ -59,10 +61,12 @@ export async function fetchCodexUsage(
   const timeout = setTimeout(() => controller.abort(), 15000);
 
   try {
-    const response = await fetch(CODEX_USAGE_ENDPOINT, {
+    const proxyAgent = getProxyAgentFromEnvironment();
+    const response = await undiciFetch(CODEX_USAGE_ENDPOINT, {
       method: 'GET',
       headers,
       signal: controller.signal,
+      dispatcher: proxyAgent,
     });
 
     if (!response.ok) {

@@ -21,9 +21,10 @@ import { reactiveTokenRefresh, ensureValidToken } from './token-refresh';
 import { isProfileRateLimited } from './rate-limit-manager';
 import { getOperationRegistry } from './operation-registry';
 import { ensureValidCodexToken } from '../ai/auth/codex-oauth';
-import { fetchCodexUsage, normalizeCodexResponse } from './codex-usage-fetcher';
+import { fetchCodexUsage, normalizeCodexResponse, type CodexUsageResponse } from './codex-usage-fetcher';
 import { readSettingsFileAsync, writeSettingsFile } from '../settings-utils';
 import type { ProviderAccount } from '../../shared/types/provider-account';
+import { fetchWithProxy } from '../utils/proxy-fetch';
 
 // Re-export for backward compatibility
 export type { ApiProvider };
@@ -40,6 +41,10 @@ function getCredentialFingerprint(credential: string | null | undefined): string
   if (!credential) return 'null';
   if (credential.length <= 16) return credential.slice(0, 4) + '...' + credential.slice(-2);
   return credential.slice(0, 8) + '...' + credential.slice(-4);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
 /**
@@ -1104,7 +1109,7 @@ export class UsageMonitor extends EventEmitter {
         try {
           // CodeQL: file data in outbound request - validate API key is a non-empty string before use
           const safeApiKey = typeof account.apiKey === 'string' && account.apiKey.length > 0 ? account.apiKey : '';
-          const response = await fetch('https://api.z.ai/api/monitor/usage/quota/limit', {
+          const response = await fetchWithProxy('https://api.z.ai/api/monitor/usage/quota/limit', {
             headers: {
               'Authorization': safeApiKey,
             },
@@ -1112,7 +1117,7 @@ export class UsageMonitor extends EventEmitter {
           if (response.ok) {
             const json = await response.json();
             // Z.AI wraps response in a data field
-            const rawData = json.data ?? json;
+            const rawData = isRecord(json) && 'data' in json ? json.data : json;
             const normalized = this.normalizeZAIResponse(rawData, account.id, account.name);
             if (normalized) {
               allProfiles.push({
@@ -2187,9 +2192,9 @@ export class UsageMonitor extends EventEmitter {
         }
       }
 
-      const response = await fetch(usageEndpoint, {
+      const response = await fetchWithProxy(usageEndpoint, {
         method: 'GET',
-        headers
+        headers,
       });
 
       if (!response.ok) {
@@ -2286,9 +2291,9 @@ export class UsageMonitor extends EventEmitter {
 
       // Step 6: Extract data wrapper for z.ai and ZHIPU responses
       // These providers wrap the actual usage data in a 'data' field
-      let responseData = rawData;
+      let responseData: unknown = rawData;
       if (provider === 'zai' || provider === 'zhipu') {
-        if (rawData.data) {
+        if (isRecord(rawData) && 'data' in rawData) {
           responseData = rawData.data;
           this.traceLog('[UsageMonitor:PROVIDER] Extracted data field from response:', {
             provider,
@@ -2297,7 +2302,7 @@ export class UsageMonitor extends EventEmitter {
         } else {
           this.traceLog('[UsageMonitor:PROVIDER] No data field found in response, using raw response:', {
             provider,
-            responseKeys: Object.keys(rawData)
+            responseKeys: isRecord(rawData) ? Object.keys(rawData) : []
           });
         }
       }
@@ -2314,9 +2319,13 @@ export class UsageMonitor extends EventEmitter {
         case 'anthropic':
           normalizedUsage = this.normalizeAnthropicResponse(rawData, profileId, profileName, profileEmail);
           break;
-        case 'openai':
-          normalizedUsage = normalizeCodexResponse(rawData, profileId, profileName, profileEmail);
+        case 'openai': {
+          const codexData: CodexUsageResponse = isRecord(rawData)
+            ? (rawData as CodexUsageResponse)
+            : {};
+          normalizedUsage = normalizeCodexResponse(codexData, profileId, profileName, profileEmail);
           break;
+        }
         case 'zai':
           normalizedUsage = this.normalizeZAIResponse(responseData, profileId, profileName, profileEmail);
           break;
