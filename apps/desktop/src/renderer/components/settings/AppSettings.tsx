@@ -198,7 +198,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
       case 'paths':
         return <GeneralSettings settings={settings} onSettingsChange={setSettings} section="paths" />;
       case 'proxy':
-        return <ProxySettings settings={settings} onSettingsChange={setSettings} />;
+        return <ProxySettings settings={settings} onSettingsChange={setSettings} saveError={error} />;
       case 'accounts':
         return <AccountSettings settings={settings} onSettingsChange={setSettings} isOpen={open} />;
       case 'updates':

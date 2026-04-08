@@ -4,7 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import '../../../../shared/i18n';
+import '@shared/i18n';
 import { AppSettingsDialog } from '../AppSettings';
 
 const mockSaveSettings = vi.fn<() => Promise<boolean>>();
@@ -67,7 +67,13 @@ vi.mock('../GeneralSettings', () => ({ GeneralSettings: () => <div data-testid="
 vi.mock('../AdvancedSettings', () => ({ AdvancedSettings: () => <div data-testid="advanced-settings" /> }));
 vi.mock('../DevToolsSettings', () => ({ DevToolsSettings: () => <div data-testid="devtools-settings" /> }));
 vi.mock('../DebugSettings', () => ({ DebugSettings: () => <div data-testid="debug-settings" /> }));
-vi.mock('../ProxySettings', () => ({ ProxySettings: () => <div data-testid="proxy-settings" /> }));
+vi.mock('../ProxySettings', () => ({
+  ProxySettings: ({ saveError }: { saveError?: string | null }) => (
+    <div data-testid="proxy-settings">
+      {saveError && <div data-testid="proxy-section-error">{saveError}</div>}
+    </div>
+  ),
+}));
 vi.mock('../terminal-font-settings/TerminalFontSettings', () => ({
   TerminalFontSettings: () => <div data-testid="terminal-font-settings" />,
 }));
@@ -96,10 +102,16 @@ describe('AppSettingsDialog proxy navigation', () => {
 
   it('keeps dialog open and shows error when app save fails', async () => {
     const onOpenChange = vi.fn();
-    mockUseSettingsState.error = 'Proxy URL for HTTP is invalid.';
-    mockSaveSettings.mockResolvedValue(false);
+    mockSaveSettings.mockImplementation(async () => {
+      mockUseSettingsState.error = 'Proxy URL for HTTP is invalid.';
+      return false;
+    });
 
-    render(<AppSettingsDialog open onOpenChange={onOpenChange} initialSection="proxy" />);
+    const { rerender } = render(
+      <AppSettingsDialog open onOpenChange={onOpenChange} initialSection="proxy" />
+    );
+
+    expect(screen.queryByText('Proxy URL for HTTP is invalid.')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /save/i }));
 
@@ -107,8 +119,11 @@ describe('AppSettingsDialog proxy navigation', () => {
       expect(mockSaveSettings).toHaveBeenCalledTimes(1);
     });
 
+    rerender(<AppSettingsDialog open onOpenChange={onOpenChange} initialSection="proxy" />);
+
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
     expect(mockCommitTheme).not.toHaveBeenCalled();
-    expect(screen.getByText('Proxy URL for HTTP is invalid.')).toBeInTheDocument();
+    expect(screen.getAllByText('Proxy URL for HTTP is invalid.')).toHaveLength(2);
+    expect(screen.getByTestId('proxy-section-error')).toHaveTextContent('Proxy URL for HTTP is invalid.');
   });
 });

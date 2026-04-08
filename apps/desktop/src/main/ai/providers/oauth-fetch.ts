@@ -116,7 +116,7 @@ async function refreshOAuthToken(
     client_id: providerSpec.clientId,
   });
 
-  const proxyAgent = getProxyAgentFromEnvironment();
+  const proxyAgent = getProxyAgentFromEnvironment(providerSpec.tokenEndpoint);
   const response = await undiciFetch(providerSpec.tokenEndpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -275,7 +275,7 @@ export function createOAuthProviderFetch(
       debugLog(`${originalUrl} -> ${url} (token: [redacted])`);
     }
 
-      const proxyAgent = getProxyAgentFromEnvironment();
+      const proxyAgent = getProxyAgentFromEnvironment(url);
     const finalInit = { ...init, headers, dispatcher: proxyAgent } as any;
     const response = await undiciFetch(url, finalInit);
 

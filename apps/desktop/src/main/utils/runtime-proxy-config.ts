@@ -1,8 +1,51 @@
-import type { AppSettings } from '../../shared/types/settings';
+import type { AppSettings } from '@shared/types/settings';
 import { ProxyAgent } from 'undici';
 
 export const HTTP_PROXY_KEYS = ['HTTP_PROXY', 'http_proxy'] as const;
 export const HTTPS_PROXY_KEYS = ['HTTPS_PROXY', 'https_proxy'] as const;
+
+const proxyAgentCache = new Map<string, ProxyAgent>();
+
+function tryDisposeAgent(agent: ProxyAgent): void {
+  try {
+    if (typeof (agent as unknown as { close?: () => Promise<void> }).close === 'function') {
+      void (agent as unknown as { close: () => Promise<void> }).close();
+      return;
+    }
+
+    if (typeof (agent as unknown as { destroy?: () => void }).destroy === 'function') {
+      (agent as unknown as { destroy: () => void }).destroy();
+    }
+  } catch {
+    // Best-effort cleanup only.
+  }
+}
+
+function pruneStaleProxyAgents(activeProxyUrls: Set<string>): void {
+  for (const [url, agent] of proxyAgentCache.entries()) {
+    if (activeProxyUrls.has(url)) {
+      continue;
+    }
+    tryDisposeAgent(agent);
+    proxyAgentCache.delete(url);
+  }
+}
+
+function getRequestScheme(target?: string | URL): string | undefined {
+  if (!target) {
+    return undefined;
+  }
+
+  if (target instanceof URL) {
+    return target.protocol;
+  }
+
+  try {
+    return new URL(target).protocol;
+  } catch {
+    return undefined;
+  }
+}
 
 export type RuntimeProxyInput = Pick<
   AppSettings,
@@ -165,23 +208,54 @@ export function applyRuntimeProxyConfig(input: RuntimeProxyInput): RuntimeProxyC
 /**
  * Shared env lookup order for runtime proxy consumers.
  */
-export function getProxyUrlFromEnvironment(): string | undefined {
+export function getProxyUrlFromEnvironment(target?: string | URL): string | undefined {
+  const scheme = getRequestScheme(target);
+  const httpProxy = process.env.HTTP_PROXY || process.env.http_proxy;
   const httpsProxy = process.env.HTTPS_PROXY || process.env.https_proxy;
+
+  if (scheme === 'http:') {
+    return httpProxy || httpsProxy;
+  }
+
+  if (scheme === 'https:') {
+    return httpsProxy || httpProxy;
+  }
+
   if (httpsProxy) {
     return httpsProxy;
   }
 
-  return process.env.HTTP_PROXY || process.env.http_proxy;
+  return httpProxy;
 }
 
 /**
  * Shared proxy agent creation for runtime network consumers.
  */
-export function getProxyAgentFromEnvironment(): ProxyAgent | undefined {
-  const proxyUrl = getProxyUrlFromEnvironment();
+export function getProxyAgentFromEnvironment(target?: string | URL): ProxyAgent | undefined {
+  const httpProxy = process.env.HTTP_PROXY || process.env.http_proxy;
+  const httpsProxy = process.env.HTTPS_PROXY || process.env.https_proxy;
+
+  const activeProxyUrls = new Set<string>();
+  if (httpProxy) {
+    activeProxyUrls.add(httpProxy);
+  }
+  if (httpsProxy) {
+    activeProxyUrls.add(httpsProxy);
+  }
+
+  pruneStaleProxyAgents(activeProxyUrls);
+
+  const proxyUrl = getProxyUrlFromEnvironment(target);
   if (!proxyUrl) {
     return undefined;
   }
 
-  return new ProxyAgent(proxyUrl);
+  const cachedAgent = proxyAgentCache.get(proxyUrl);
+  if (cachedAgent) {
+    return cachedAgent;
+  }
+
+  const agent = new ProxyAgent(proxyUrl);
+  proxyAgentCache.set(proxyUrl, agent);
+  return agent;
 }

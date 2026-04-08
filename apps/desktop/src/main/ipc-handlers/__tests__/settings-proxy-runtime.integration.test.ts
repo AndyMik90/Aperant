@@ -7,13 +7,18 @@ const {
   mockedUndiciFetch,
   settingsState,
   MockProxyAgent,
+  closeMock,
 } = vi.hoisted(() => {
+  const closeSpy = vi.fn(async () => undefined);
+
   class ProxyAgentMock {
     readonly proxyUrl: string;
 
     constructor(proxyUrl: string) {
       this.proxyUrl = proxyUrl;
     }
+
+    close = closeSpy;
   }
 
   return {
@@ -23,6 +28,7 @@ const {
       path: '/tmp/settings-proxy-initial.json',
     },
     MockProxyAgent: ProxyAgentMock,
+    closeMock: closeSpy,
   };
 });
 
@@ -94,7 +100,7 @@ vi.mock('../../claude-profile/profile-storage', () => ({
 import { ipcMain } from 'electron';
 import { registerSettingsHandlers } from '../settings-handlers';
 import type { AgentManager } from '../../agent';
-import { getProxyUrlFromEnvironment } from '../../utils/runtime-proxy-config';
+import { getProxyAgentFromEnvironment, getProxyUrlFromEnvironment } from '../../utils/runtime-proxy-config';
 import { fetchCodexUsage } from '../../claude-profile/codex-usage-fetcher';
 
 const PROXY_ENV_KEYS = ['HTTP_PROXY', 'http_proxy', 'HTTPS_PROXY', 'https_proxy'] as const;
@@ -163,10 +169,36 @@ describe('settings:save proxy runtime integration', () => {
     expect(process.env.HTTP_PROXY).toBe('http://127.0.0.1:8080/');
     expect(process.env.HTTPS_PROXY).toBe('http://127.0.0.1:8080/');
     expect(getProxyUrlFromEnvironment()).toBe('http://127.0.0.1:8080/');
+    expect(getProxyUrlFromEnvironment('http://example.local')).toBe('http://127.0.0.1:8080/');
+    expect(getProxyUrlFromEnvironment('https://example.local')).toBe('http://127.0.0.1:8080/');
 
     const dispatcher = await captureDispatcherForCodexUsage();
     expect(dispatcher).toBeInstanceOf(MockProxyAgent);
     expect((dispatcher as { proxyUrl: string }).proxyUrl).toBe('http://127.0.0.1:8080/');
+  });
+
+  it('selects scheme-specific proxy and reuses/disposes cached proxy agents', () => {
+    process.env.HTTP_PROXY = 'http://http-proxy.local:8080/';
+    process.env.HTTPS_PROXY = 'http://https-proxy.local:9090/';
+
+    const httpProxyUrl = getProxyUrlFromEnvironment('http://service.local/endpoint');
+    const httpsProxyUrl = getProxyUrlFromEnvironment('https://service.local/endpoint');
+
+    expect(httpProxyUrl).toBe('http://http-proxy.local:8080/');
+    expect(httpsProxyUrl).toBe('http://https-proxy.local:9090/');
+
+    const httpAgent = getProxyAgentFromEnvironment('http://service.local/endpoint');
+    const httpAgentAgain = getProxyAgentFromEnvironment('http://service.local/endpoint');
+    const httpsAgent = getProxyAgentFromEnvironment('https://service.local/endpoint');
+
+    expect(httpAgent).toBe(httpAgentAgain);
+    expect(httpAgent).not.toBe(httpsAgent);
+
+    process.env.HTTP_PROXY = 'http://new-http-proxy.local:7070/';
+    const refreshedHttpAgent = getProxyAgentFromEnvironment('http://service.local/endpoint');
+
+    expect(refreshedHttpAgent).not.toBe(httpAgent);
+    expect(closeMock).toHaveBeenCalled();
   });
 
   it('rejects invalid proxy settings and keeps existing environment unchanged', async () => {

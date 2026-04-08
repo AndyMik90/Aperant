@@ -156,6 +156,9 @@ function cleanupTestDirs(): void {
 // Increase timeout for all tests in this file due to dynamic imports and setup overhead.
 // Windows requires longer timeout due to slower file system operations and module loading.
 describe("IPC Handlers", { timeout: 30000 }, () => {
+  const PROXY_ENV_KEYS = ["HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy"] as const;
+  let baselineProxyEnv: Partial<Record<(typeof PROXY_ENV_KEYS)[number], string | undefined>> = {};
+
   let ipcMain: EventEmitter & {
     handlers: Map<string, Function>;
     invokeHandler: (channel: string, event: unknown, ...args: unknown[]) => Promise<unknown>;
@@ -529,6 +532,23 @@ describe("IPC Handlers", { timeout: 30000 }, () => {
   });
 
   describe("settings:save handler", () => {
+    beforeEach(() => {
+      baselineProxyEnv = Object.fromEntries(
+        PROXY_ENV_KEYS.map((key) => [key, process.env[key]])
+      ) as Partial<Record<(typeof PROXY_ENV_KEYS)[number], string | undefined>>;
+    });
+
+    afterEach(() => {
+      for (const key of PROXY_ENV_KEYS) {
+        const originalValue = baselineProxyEnv[key];
+        if (typeof originalValue === "undefined") {
+          delete process.env[key];
+          continue;
+        }
+        process.env[key] = originalValue;
+      }
+    });
+
     it("should save settings successfully", async () => {
       const { setupIpcHandlers } = await import("../ipc-handlers");
       setupIpcHandlers(

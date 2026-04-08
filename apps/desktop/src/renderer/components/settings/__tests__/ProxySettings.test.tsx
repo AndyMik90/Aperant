@@ -4,9 +4,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import '../../../../shared/i18n';
+import '@shared/i18n';
 import { ProxySettings } from '../ProxySettings';
-import type { AppSettings } from '../../../../shared/types';
+import type { AppSettings } from '@shared/types';
 
 const defaultSettings: AppSettings = {
   theme: 'dark',
@@ -69,5 +69,29 @@ describe('ProxySettings', () => {
         proxyHttpsUrl: 'http://127.0.0.1:7890',
       }),
     );
+  });
+
+  it('shows proxy-related save error inside the proxy section', () => {
+    render(
+      <ProxySettings
+        settings={defaultSettings}
+        onSettingsChange={onSettingsChange}
+        saveError="Invalid proxy settings."
+      />,
+    );
+
+    expect(screen.getByText('Invalid proxy settings.')).toBeInTheDocument();
+  });
+
+  it('does not show non-proxy save errors inside the proxy section', () => {
+    render(
+      <ProxySettings
+        settings={defaultSettings}
+        onSettingsChange={onSettingsChange}
+        saveError="Theme update failed"
+      />,
+    );
+
+    expect(screen.queryByText('Theme update failed')).not.toBeInTheDocument();
   });
 });

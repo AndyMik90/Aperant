@@ -38,7 +38,13 @@ export async function fetchWithProxy(
     return fetch(input, init);
   }
 
-  const proxyAgent = getProxyAgentFromEnvironment();
+  const requestUrl =
+    typeof input === 'string' || input instanceof URL
+      ? input
+      : input instanceof Request
+        ? input.url
+        : undefined;
+  const proxyAgent = getProxyAgentFromEnvironment(requestUrl);
 
   if (proxyAgent) {
     const requestDerivedInit: RequestInit =
@@ -47,6 +53,13 @@ export async function fetchWithProxy(
             method: input.method,
             headers: input.headers,
             body: input.body ?? undefined,
+            cache: input.cache,
+            credentials: input.credentials,
+            integrity: input.integrity,
+            keepalive: input.keepalive,
+            mode: input.mode,
+            referrer: input.referrer,
+            referrerPolicy: input.referrerPolicy,
             redirect: input.redirect,
             signal: input.signal,
           }
@@ -54,7 +67,8 @@ export async function fetchWithProxy(
 
     const undiciInput: string | URL = input instanceof Request ? input.url : input;
 
-    // Use undici fetch with proxy dispatcher
+    // Intentional cast: undici fetch init extends standard RequestInit with dispatcher,
+    // but TypeScript sees mixed DOM/undici types in Electron main process.
     return undiciFetch(undiciInput, {
       ...requestDerivedInit,
       ...init,

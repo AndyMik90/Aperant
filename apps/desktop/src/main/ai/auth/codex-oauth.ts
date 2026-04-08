@@ -356,7 +356,7 @@ async function exchangeCodeForTokens(code: string, codeVerifier: string): Promis
     code_verifier: codeVerifier,
   });
 
-  const proxyAgent = getProxyAgentFromEnvironment();
+  const proxyAgent = getProxyAgentFromEnvironment(TOKEN_ENDPOINT);
   const response = await undiciFetch(TOKEN_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -423,7 +423,7 @@ export async function refreshCodexToken(refreshToken: string): Promise<CodexAuth
     client_id: CLIENT_ID,
   });
 
-  const proxyAgent = getProxyAgentFromEnvironment();
+  const proxyAgent = getProxyAgentFromEnvironment(TOKEN_ENDPOINT);
   const response = await undiciFetch(TOKEN_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },

@@ -3,15 +3,17 @@ import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import { Switch } from '../ui/switch';
 import { SettingsSection } from './SettingsSection';
-import type { AppSettings } from '../../../shared/types';
+import type { AppSettings } from '@shared/types';
 
 interface ProxySettingsProps {
   settings: AppSettings;
   onSettingsChange: (settings: AppSettings) => void;
+  saveError?: string | null;
 }
 
-export function ProxySettings({ settings, onSettingsChange }: ProxySettingsProps) {
+export function ProxySettings({ settings, onSettingsChange, saveError }: ProxySettingsProps) {
   const { t } = useTranslation('settings');
+  const proxySaveError = saveError && /proxy/i.test(saveError) ? saveError : null;
 
   const handleToggle = (checked: boolean) => {
     const newSettings = { ...settings, proxyEnabled: checked };
@@ -34,6 +36,12 @@ export function ProxySettings({ settings, onSettingsChange }: ProxySettingsProps
       description={t('proxy.description')}
     >
       <div className="space-y-6">
+        {proxySaveError && (
+          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2 text-sm text-destructive">
+            {proxySaveError}
+          </div>
+        )}
+
         <div className="flex items-center justify-between max-w-md">
           <div className="space-y-1">
             <Label htmlFor="proxyEnabled" className="text-sm font-medium text-foreground">

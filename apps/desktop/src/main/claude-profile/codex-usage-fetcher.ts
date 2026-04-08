@@ -61,7 +61,7 @@ export async function fetchCodexUsage(
   const timeout = setTimeout(() => controller.abort(), 15000);
 
   try {
-    const proxyAgent = getProxyAgentFromEnvironment();
+    const proxyAgent = getProxyAgentFromEnvironment(CODEX_USAGE_ENDPOINT);
     const response = await undiciFetch(CODEX_USAGE_ENDPOINT, {
       method: 'GET',
       headers,
