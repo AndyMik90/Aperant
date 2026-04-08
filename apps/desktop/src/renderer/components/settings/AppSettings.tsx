@@ -69,7 +69,7 @@ interface AppSettingsDialogProps {
 }
 
 // App-level settings sections
-export type AppSection = 'appearance' | 'display' | 'language' | 'devtools' | 'terminal-fonts' | 'agent' | 'paths' | 'integrations' | 'accounts' | 'api-profiles' | 'updates' | 'notifications' | 'debug' | 'proxy';
+export type AppSection = 'appearance' | 'display' | 'language' | 'devtools' | 'terminal-fonts' | 'agent' | 'paths' | 'accounts' | 'updates' | 'notifications' | 'debug' | 'proxy';
 
 interface NavItemConfig<T extends string> {
   id: T;
@@ -208,7 +208,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
       case 'debug':
         return <DebugSettings />;
       default:
-        return null;
+        return ((unreachable: never) => unreachable)(appSection);
     }
   };
 

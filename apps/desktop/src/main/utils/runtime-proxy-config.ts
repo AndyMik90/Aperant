@@ -36,6 +36,22 @@ function pruneStaleProxyAgents(activeProxyUrls: Set<string>): void {
   }
 }
 
+function normalizeEnvProxyUrl(value: string | undefined): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    const parsed = new URL(value);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return undefined;
+    }
+    return parsed.toString();
+  } catch {
+    return undefined;
+  }
+}
+
 function getRequestScheme(target?: string | URL): string | undefined {
   if (!target) {
     return undefined;
@@ -199,6 +215,7 @@ export function applyRuntimeProxyConfig(input: RuntimeProxyInput): RuntimeProxyC
     for (const key of HTTPS_PROXY_KEYS) {
       delete process.env[key];
     }
+    pruneStaleProxyAgents(new Set<string>());
     return normalized;
   }
 
@@ -206,6 +223,8 @@ export function applyRuntimeProxyConfig(input: RuntimeProxyInput): RuntimeProxyC
   process.env.http_proxy = normalized.httpProxyUrl;
   process.env.HTTPS_PROXY = normalized.httpsProxyUrl;
   process.env.https_proxy = normalized.httpsProxyUrl;
+
+  pruneStaleProxyAgents(new Set<string>([normalized.httpProxyUrl, normalized.httpsProxyUrl]));
 
   return normalized;
 }
@@ -215,8 +234,8 @@ export function applyRuntimeProxyConfig(input: RuntimeProxyInput): RuntimeProxyC
  */
 export function getProxyUrlFromEnvironment(target?: string | URL): string | undefined {
   const scheme = getRequestScheme(target);
-  const httpProxy = process.env.HTTP_PROXY || process.env.http_proxy;
-  const httpsProxy = process.env.HTTPS_PROXY || process.env.https_proxy;
+  const httpProxy = normalizeEnvProxyUrl(process.env.HTTP_PROXY || process.env.http_proxy);
+  const httpsProxy = normalizeEnvProxyUrl(process.env.HTTPS_PROXY || process.env.https_proxy);
 
   if (scheme === 'http:') {
     return httpProxy || httpsProxy;
@@ -237,8 +256,8 @@ export function getProxyUrlFromEnvironment(target?: string | URL): string | unde
  * Shared proxy agent creation for runtime network consumers.
  */
 export function getProxyAgentFromEnvironment(target?: string | URL): ProxyAgent | undefined {
-  const httpProxy = process.env.HTTP_PROXY || process.env.http_proxy;
-  const httpsProxy = process.env.HTTPS_PROXY || process.env.https_proxy;
+  const httpProxy = normalizeEnvProxyUrl(process.env.HTTP_PROXY || process.env.http_proxy);
+  const httpsProxy = normalizeEnvProxyUrl(process.env.HTTPS_PROXY || process.env.https_proxy);
 
   const activeProxyUrls = new Set<string>();
   if (httpProxy) {
@@ -260,7 +279,11 @@ export function getProxyAgentFromEnvironment(target?: string | URL): ProxyAgent 
     return cachedAgent;
   }
 
-  const agent = new ProxyAgent(proxyUrl);
-  proxyAgentCache.set(proxyUrl, agent);
-  return agent;
+  try {
+    const agent = new ProxyAgent(proxyUrl);
+    proxyAgentCache.set(proxyUrl, agent);
+    return agent;
+  } catch {
+    return undefined;
+  }
 }

@@ -104,10 +104,28 @@ import { getProxyAgentFromEnvironment, getProxyUrlFromEnvironment } from '../../
 import { fetchCodexUsage } from '../../claude-profile/codex-usage-fetcher';
 
 const PROXY_ENV_KEYS = ['HTTP_PROXY', 'http_proxy', 'HTTPS_PROXY', 'https_proxy'] as const;
+let baselineProxyEnv: Partial<Record<(typeof PROXY_ENV_KEYS)[number], string | undefined>> = {};
 
 function clearProxyEnv(): void {
   for (const key of PROXY_ENV_KEYS) {
     delete process.env[key];
+  }
+}
+
+function snapshotProxyEnv(): Partial<Record<(typeof PROXY_ENV_KEYS)[number], string | undefined>> {
+  return Object.fromEntries(PROXY_ENV_KEYS.map((key) => [key, process.env[key]])) as Partial<
+    Record<(typeof PROXY_ENV_KEYS)[number], string | undefined>
+  >;
+}
+
+function restoreProxyEnv(snapshot: Partial<Record<(typeof PROXY_ENV_KEYS)[number], string | undefined>>): void {
+  for (const key of PROXY_ENV_KEYS) {
+    const value = snapshot[key];
+    if (typeof value === 'undefined') {
+      delete process.env[key];
+      continue;
+    }
+    process.env[key] = value;
   }
 }
 
@@ -138,6 +156,7 @@ async function captureDispatcherForCodexUsage(): Promise<unknown> {
 describe('settings:save proxy runtime integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    baselineProxyEnv = snapshotProxyEnv();
     clearProxyEnv();
 
     settingsState.data = {};
@@ -152,7 +171,7 @@ describe('settings:save proxy runtime integration', () => {
   });
 
   afterEach(() => {
-    clearProxyEnv();
+    restoreProxyEnv(baselineProxyEnv);
   });
 
   it('applies valid proxy from settings save and propagates to network paths', async () => {

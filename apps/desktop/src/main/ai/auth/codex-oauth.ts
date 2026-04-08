@@ -89,6 +89,9 @@ const REFRESH_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 /** Timeout for the OAuth browser flow before giving up */
 const OAUTH_FLOW_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 
+/** Timeout for token endpoint HTTP requests */
+const TOKEN_REQUEST_TIMEOUT_MS = 15_000;
+
 // =============================================================================
 // Types
 // =============================================================================
@@ -356,13 +359,29 @@ async function exchangeCodeForTokens(code: string, codeVerifier: string): Promis
     code_verifier: codeVerifier,
   });
 
-  const proxyAgent = getProxyAgentFromEnvironment(TOKEN_ENDPOINT);
-  const response = await undiciFetch(TOKEN_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-    dispatcher: proxyAgent,
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TOKEN_REQUEST_TIMEOUT_MS);
+
+  let response: Awaited<ReturnType<typeof undiciFetch>>;
+  try {
+    const proxyAgent = getProxyAgentFromEnvironment(TOKEN_ENDPOINT);
+    response = await undiciFetch(TOKEN_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+      signal: controller.signal,
+      dispatcher: proxyAgent,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(
+        `Token exchange timed out after ${Math.floor(TOKEN_REQUEST_TIMEOUT_MS / 1000)} seconds`
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   debugLog('Token exchange response', { status: response.status, ok: response.ok });
 
@@ -423,13 +442,29 @@ export async function refreshCodexToken(refreshToken: string): Promise<CodexAuth
     client_id: CLIENT_ID,
   });
 
-  const proxyAgent = getProxyAgentFromEnvironment(TOKEN_ENDPOINT);
-  const response = await undiciFetch(TOKEN_ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-    dispatcher: proxyAgent,
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TOKEN_REQUEST_TIMEOUT_MS);
+
+  let response: Awaited<ReturnType<typeof undiciFetch>>;
+  try {
+    const proxyAgent = getProxyAgentFromEnvironment(TOKEN_ENDPOINT);
+    response = await undiciFetch(TOKEN_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+      signal: controller.signal,
+      dispatcher: proxyAgent,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error(
+        `Token refresh timed out after ${Math.floor(TOKEN_REQUEST_TIMEOUT_MS / 1000)} seconds`
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   debugLog('Token refresh response', { status: response.status, ok: response.ok });
 

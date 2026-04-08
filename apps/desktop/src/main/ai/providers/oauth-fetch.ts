@@ -247,8 +247,32 @@ export function createOAuthProviderFetch(
       throw new Error('OAuth: No valid token available. Please re-authenticate.');
     }
 
+    const requestDerivedInit: RequestInit =
+      input instanceof Request
+        ? {
+            method: input.method,
+            headers: input.headers,
+            body: input.body ?? undefined,
+            cache: input.cache,
+            credentials: input.credentials,
+            integrity: input.integrity,
+            keepalive: input.keepalive,
+            mode: input.mode,
+            redirect: input.redirect,
+            referrer: input.referrer,
+            referrerPolicy: input.referrerPolicy,
+            signal: input.signal,
+          }
+        : {};
+
     // 2. Build headers — strip dummy Authorization, inject real token
-    const headers = new Headers(init?.headers);
+    const headers = new Headers(requestDerivedInit.headers);
+    if (init?.headers) {
+      const initHeaders = new Headers(init.headers);
+      initHeaders.forEach((value, key) => {
+        headers.set(key, value);
+      });
+    }
     headers.delete('authorization');
     headers.delete('Authorization');
     headers.set('Authorization', `Bearer ${token}`);
@@ -275,8 +299,8 @@ export function createOAuthProviderFetch(
       debugLog(`${originalUrl} -> ${url} (token: [redacted])`);
     }
 
-      const proxyAgent = getProxyAgentFromEnvironment(url);
-    const finalInit = { ...init, headers, dispatcher: proxyAgent } as any;
+    const proxyAgent = getProxyAgentFromEnvironment(url);
+    const finalInit = { ...requestDerivedInit, ...init, headers, dispatcher: proxyAgent } as any;
     const response = await undiciFetch(url, finalInit);
 
     if (DEBUG) {
