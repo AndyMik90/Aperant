@@ -2320,10 +2320,21 @@ export class UsageMonitor extends EventEmitter {
           normalizedUsage = this.normalizeAnthropicResponse(rawData, profileId, profileName, profileEmail);
           break;
         case 'openai': {
-          const codexData: CodexUsageResponse = isRecord(rawData)
-            ? (rawData as CodexUsageResponse)
-            : {};
-          normalizedUsage = normalizeCodexResponse(codexData, profileId, profileName, profileEmail);
+          if (!isRecord(rawData)) {
+            this.traceLog('[UsageMonitor:NORMALIZATION] Invalid OpenAI usage payload shape', {
+              profileId,
+              provider,
+              payloadType: typeof rawData
+            });
+            break;
+          }
+
+          normalizedUsage = normalizeCodexResponse(
+            rawData as CodexUsageResponse,
+            profileId,
+            profileName,
+            profileEmail
+          );
           break;
         }
         case 'zai':

@@ -41,8 +41,22 @@ export async function fetchWithProxy(
   const proxyAgent = getProxyAgentFromEnvironment();
 
   if (proxyAgent) {
+    const requestDerivedInit: RequestInit =
+      input instanceof Request
+        ? {
+            method: input.method,
+            headers: input.headers,
+            body: input.body ?? undefined,
+            redirect: input.redirect,
+            signal: input.signal,
+          }
+        : {};
+
+    const undiciInput: string | URL = input instanceof Request ? input.url : input;
+
     // Use undici fetch with proxy dispatcher
-    return undiciFetch(input as string, {
+    return undiciFetch(undiciInput, {
+      ...requestDerivedInit,
       ...init,
       dispatcher: proxyAgent,
     } as any) as unknown as Response;
