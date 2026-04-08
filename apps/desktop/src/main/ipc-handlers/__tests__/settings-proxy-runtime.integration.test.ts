@@ -221,6 +221,11 @@ describe('settings:save proxy runtime integration', () => {
   });
 
   it('rejects invalid proxy settings and keeps existing environment unchanged', async () => {
+    settingsState.data = {
+      proxyEnabled: true,
+      proxyHttpUrl: 'http://existing-proxy.local:9000/',
+    };
+
     process.env.HTTP_PROXY = 'http://existing-proxy.local:9000/';
     process.env.HTTPS_PROXY = 'http://existing-proxy.local:9000/';
 
@@ -239,6 +244,25 @@ describe('settings:save proxy runtime integration', () => {
     expect(process.env.HTTPS_PROXY).toBe('http://existing-proxy.local:9000/');
   });
 
+  it('allows unrelated settings save when persisted invalid proxy is unchanged', async () => {
+    settingsState.data = {
+      proxyEnabled: true,
+      proxyHttpUrl: 'socks5://127.0.0.1:1080',
+      proxyHttpsUrl: 'socks5://127.0.0.1:1080',
+      uiScale: 100,
+    };
+
+    process.env.HTTP_PROXY = 'http://existing-proxy.local:9000/';
+    process.env.HTTPS_PROXY = 'http://existing-proxy.local:9000/';
+
+    const handler = getSettingsSaveHandler();
+    const result = await handler({}, { uiScale: 110 });
+
+    expect(result).toEqual({ success: true });
+    expect(process.env.HTTP_PROXY).toBe('http://existing-proxy.local:9000/');
+    expect(process.env.HTTPS_PROXY).toBe('http://existing-proxy.local:9000/');
+  });
+
   it('disables proxy via settings save and clears runtime env behavior', async () => {
     const handler = getSettingsSaveHandler();
 
@@ -251,6 +275,12 @@ describe('settings:save proxy runtime integration', () => {
     );
     expect(enableResult).toEqual({ success: true });
     expect(getProxyUrlFromEnvironment()).toBe('http://127.0.0.1:9090/');
+
+    // Mimic persisted state for the second save call in this integration test harness.
+    settingsState.data = {
+      proxyEnabled: true,
+      proxyHttpsUrl: 'http://127.0.0.1:9090/',
+    };
 
     const disableResult = await handler({}, { proxyEnabled: false });
     expect(disableResult).toEqual({ success: true });

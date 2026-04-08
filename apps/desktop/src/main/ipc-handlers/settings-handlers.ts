@@ -439,19 +439,28 @@ export function registerSettingsHandlers(
         // to prevent the general settings save from clobbering them.
         const { providerAccounts: _pa, globalPriorityOrder: _gpo, ...safeSettings } = settings;
         const newSettings = { ...currentSettings, ...safeSettings };
+        const currentAppSettings = currentSettings as AppSettings;
+        const mergedAppSettings = newSettings as AppSettings;
 
-        const runtimeProxyConfig = normalizeRuntimeProxyConfig({
-          proxyEnabled: newSettings.proxyEnabled,
-          proxyHttpUrl: newSettings.proxyHttpUrl,
-          proxyHttpsUrl: newSettings.proxyHttpsUrl,
-        });
+        const proxyTupleChanged =
+          currentAppSettings.proxyEnabled !== mergedAppSettings.proxyEnabled ||
+          currentAppSettings.proxyHttpUrl !== mergedAppSettings.proxyHttpUrl ||
+          currentAppSettings.proxyHttpsUrl !== mergedAppSettings.proxyHttpsUrl;
 
-        if (runtimeProxyConfig.state === 'invalid') {
-          const formattedErrors = runtimeProxyConfig.errors.map((entry) => entry.message).join(' ');
-          return {
-            success: false,
-            error: `Invalid proxy settings. ${formattedErrors}`,
-          };
+        if (proxyTupleChanged) {
+          const runtimeProxyConfig = normalizeRuntimeProxyConfig({
+            proxyEnabled: newSettings.proxyEnabled,
+            proxyHttpUrl: newSettings.proxyHttpUrl,
+            proxyHttpsUrl: newSettings.proxyHttpsUrl,
+          });
+
+          if (runtimeProxyConfig.state === 'invalid') {
+            const formattedErrors = runtimeProxyConfig.errors.map((entry) => entry.message).join(' ');
+            return {
+              success: false,
+              error: `Invalid proxy settings. ${formattedErrors}`,
+            };
+          }
         }
 
         // Sync defaultModel when agent profile changes (#414)
@@ -465,17 +474,19 @@ export function registerSettingsHandlers(
         writeFileSync(settingsPath, JSON.stringify(newSettings, null, 2), 'utf-8');
 
         // Apply runtime proxy env after successful persistence
-        const appliedProxyConfig = applyRuntimeProxyConfig({
-          proxyEnabled: newSettings.proxyEnabled,
-          proxyHttpUrl: newSettings.proxyHttpUrl,
-          proxyHttpsUrl: newSettings.proxyHttpsUrl,
-        });
+        if (proxyTupleChanged) {
+          const appliedProxyConfig = applyRuntimeProxyConfig({
+            proxyEnabled: newSettings.proxyEnabled,
+            proxyHttpUrl: newSettings.proxyHttpUrl,
+            proxyHttpsUrl: newSettings.proxyHttpsUrl,
+          });
 
-        if (appliedProxyConfig.state === 'invalid') {
-          console.error(
-            '[SETTINGS_SAVE] Proxy validation unexpectedly failed after pre-validation:',
-            appliedProxyConfig.errors.map((entry) => entry.message).join(' ')
-          );
+          if (appliedProxyConfig.state === 'invalid') {
+            console.error(
+              '[SETTINGS_SAVE] Proxy validation unexpectedly failed after pre-validation:',
+              appliedProxyConfig.errors.map((entry) => entry.message).join(' ')
+            );
+          }
         }
 
         // Apply Python path if changed
