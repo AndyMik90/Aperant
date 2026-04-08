@@ -9,7 +9,12 @@ const proxyAgentCache = new Map<string, ProxyAgent>();
 function tryDisposeAgent(agent: ProxyAgent): void {
   try {
     if (typeof (agent as unknown as { close?: () => Promise<void> }).close === 'function') {
-      void (agent as unknown as { close: () => Promise<void> }).close();
+      // undici `close()` performs a graceful drain (in-flight requests are not force-aborted).
+      void (agent as unknown as { close: () => Promise<void> })
+        .close()
+        .catch(() => {
+          // Fire-and-forget close should not surface unhandled rejection noise.
+        });
       return;
     }
 
