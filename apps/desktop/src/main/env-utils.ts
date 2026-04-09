@@ -96,9 +96,21 @@ function getNpmGlobalPrefix(): string | null {
 
     return fs.existsSync(normalizedPath) ? normalizedPath : null;
   } catch (_error) {
-    // Fallback for Windows: try default npm global location when npm.cmd is not in PATH
-    // This happens when the packaged app launches from GUI without full shell environment
+    // Fallback for Windows: try reading .npmrc for custom npm prefix before using default path.
+    // This handles cases where Node.js/npm are installed on a non-C drive (e.g., E:\nodejs),
+    // so npm.cmd is not in the augmented PATH, but the user's .npmrc has a custom prefix set.
     if (isWindows()) {
+      const npmrcPrefix = readNpmrcPrefix(os.homedir());
+      if (npmrcPrefix) {
+        const binPath = path.normalize(npmrcPrefix);
+        if (fs.existsSync(binPath)) {
+          console.warn('[env-utils] Using npm prefix from .npmrc:', binPath);
+          return binPath;
+        }
+      }
+
+      // Final fallback: try default npm global location when npm.cmd is not in PATH
+      // This happens when the packaged app launches from GUI without full shell environment
       const defaultNpmPath = WINDOWS_NPM_FALLBACK_PATH();
       if (fs.existsSync(defaultNpmPath)) {
         console.warn('[env-utils] npm command not found, using default npm path:', defaultNpmPath);
@@ -107,6 +119,38 @@ function getNpmGlobalPrefix(): string | null {
     }
     return null;
   }
+}
+
+/**
+ * Read npm global prefix from .npmrc file
+ *
+ * Parses the user's .npmrc file to extract a custom `prefix=` setting.
+ * This is used as a fallback when the npm command itself is not available in PATH
+ * (e.g., when Node.js/npm are installed on a non-standard drive on Windows).
+ *
+ * @param homedir - User's home directory
+ * @returns The npm prefix path if found, otherwise null
+ */
+function readNpmrcPrefix(homedir: string): string | null {
+  const npmrcPath = path.join(homedir, '.npmrc');
+  if (!fs.existsSync(npmrcPath)) {
+    return null;
+  }
+
+  try {
+    const content = fs.readFileSync(npmrcPath, 'utf-8');
+    for (const line of content.split(/\r?\n/)) {
+      const match = line.match(/^prefix\s*=\s*(.+)$/);
+      if (match) {
+        const prefix = match[1].trim();
+        return prefix || null;
+      }
+    }
+  } catch {
+    // Ignore read errors (permission issues, etc.)
+  }
+
+  return null;
 }
 
 /**
@@ -377,9 +421,21 @@ async function getNpmGlobalPrefixAsync(): Promise<string | null> {
       npmGlobalPrefixCache = await existsAsync(normalizedPath) ? normalizedPath : null;
       return npmGlobalPrefixCache;
     } catch (error) {
-      // Fallback for Windows: try default npm global location when npm.cmd is not in PATH
-      // This happens when the packaged app launches from GUI without full shell environment
+      // Fallback for Windows: try reading .npmrc for custom npm prefix before using default path.
+      // This handles cases where Node.js/npm are installed on a non-C drive (e.g., E:\nodejs),
+      // so npm.cmd is not in the augmented PATH, but the user's .npmrc has a custom prefix set.
       if (isWindows()) {
+        const npmrcPrefix = readNpmrcPrefix(os.homedir());
+        if (npmrcPrefix) {
+          const binPath = path.normalize(npmrcPrefix);
+          if (await existsAsync(binPath)) {
+            console.warn('[env-utils] Using npm prefix from .npmrc:', binPath);
+            npmGlobalPrefixCache = binPath;
+            return binPath;
+          }
+        }
+
+        // Final fallback: try default npm global location when npm.cmd is not in PATH
         const defaultNpmPath = WINDOWS_NPM_FALLBACK_PATH();
         if (await existsAsync(defaultNpmPath)) {
           console.warn('[env-utils] npm command not found, using default npm path:', defaultNpmPath);
