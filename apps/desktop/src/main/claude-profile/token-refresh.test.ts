@@ -302,6 +302,36 @@ describe('token-refresh', () => {
         expect.any(Number)
       );
     });
+
+    it('should succeed and retain existing refresh token when refresh response omits refresh_token', async () => {
+      const { getFullCredentialsFromKeychain, updateKeychainCredentials } = await import('./credential-utils');
+      (getFullCredentialsFromKeychain as ReturnType<typeof vi.fn>).mockReturnValue({
+        token: 'old-token',
+        refreshToken: 'existing-refresh-token',
+        expiresAt: Date.now() + 5 * 60 * 1000,
+        email: 'test@example.com'
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          access_token: 'new-token',
+          expires_in: 28800
+        })
+      });
+
+      const result = await ensureValidToken(undefined);
+
+      expect(result.wasRefreshed).toBe(true);
+      expect(result.token).toBe('new-token');
+      expect(updateKeychainCredentials).toHaveBeenCalledWith(
+        undefined,
+        expect.objectContaining({
+          accessToken: 'new-token',
+          refreshToken: 'existing-refresh-token'
+        })
+      );
+    });
   });
 
   describe('reactiveTokenRefresh', () => {
@@ -342,6 +372,36 @@ describe('token-refresh', () => {
 
       expect(result.token).toBeNull();
       expect(result.error).toContain('No refresh token');
+    });
+
+    it('should succeed and retain existing refresh token when reactive refresh response omits refresh_token', async () => {
+      const { getFullCredentialsFromKeychain, updateKeychainCredentials } = await import('./credential-utils');
+      (getFullCredentialsFromKeychain as ReturnType<typeof vi.fn>).mockReturnValue({
+        token: 'current-token',
+        refreshToken: 'existing-refresh-token',
+        expiresAt: Date.now() + 2 * 60 * 60 * 1000,
+        email: 'test@example.com'
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          access_token: 'reactive-new-token',
+          expires_in: 28800
+        })
+      });
+
+      const result = await reactiveTokenRefresh(undefined);
+
+      expect(result.wasRefreshed).toBe(true);
+      expect(result.token).toBe('reactive-new-token');
+      expect(updateKeychainCredentials).toHaveBeenCalledWith(
+        undefined,
+        expect.objectContaining({
+          accessToken: 'reactive-new-token',
+          refreshToken: 'existing-refresh-token'
+        })
+      );
     });
   });
 });

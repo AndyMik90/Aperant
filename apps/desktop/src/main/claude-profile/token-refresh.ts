@@ -406,7 +406,7 @@ export async function ensureValidToken(
   // Step 4: Refresh the token
   const refreshResult = await refreshOAuthToken(creds.refreshToken, expandedConfigDir);
 
-  if (!refreshResult.success || !refreshResult.accessToken || !refreshResult.refreshToken || !refreshResult.expiresAt) {
+  if (!refreshResult.success || !refreshResult.accessToken || !refreshResult.expiresAt) {
     console.error('[TokenRefresh:ensureValidToken] Token refresh failed:', refreshResult.error);
 
     // Check for permanent errors (revoked/invalid tokens)
@@ -433,11 +433,13 @@ export async function ensureValidToken(
     };
   }
 
+  const refreshedTokenForPersistence = refreshResult.refreshToken ?? creds.refreshToken;
+
   // Step 5: CRITICAL - Write new tokens to keychain immediately
   // The old token is now REVOKED, so we must persist the new one
   const updateResult = updateKeychainCredentials(expandedConfigDir, {
     accessToken: refreshResult.accessToken,
-    refreshToken: refreshResult.refreshToken,
+    refreshToken: refreshedTokenForPersistence,
     expiresAt: refreshResult.expiresAt,
     scopes: creds.scopes || undefined
   });
@@ -472,7 +474,7 @@ export async function ensureValidToken(
     onRefreshed(
       expandedConfigDir,
       refreshResult.accessToken,
-      refreshResult.refreshToken,
+      refreshedTokenForPersistence,
       refreshResult.expiresAt
     );
   }
@@ -533,7 +535,7 @@ export async function reactiveTokenRefresh(
   // Perform refresh
   const refreshResult = await refreshOAuthToken(creds.refreshToken, expandedConfigDir);
 
-  if (!refreshResult.success || !refreshResult.accessToken || !refreshResult.refreshToken || !refreshResult.expiresAt) {
+  if (!refreshResult.success || !refreshResult.accessToken || !refreshResult.expiresAt) {
     return {
       token: null,
       wasRefreshed: false,
@@ -542,10 +544,12 @@ export async function reactiveTokenRefresh(
     };
   }
 
+  const refreshedTokenForPersistence = refreshResult.refreshToken ?? creds.refreshToken;
+
   // Write new tokens to keychain
   const updateResult = updateKeychainCredentials(expandedConfigDir, {
     accessToken: refreshResult.accessToken,
-    refreshToken: refreshResult.refreshToken,
+    refreshToken: refreshedTokenForPersistence,
     expiresAt: refreshResult.expiresAt,
     scopes: creds.scopes || undefined
   });
@@ -569,7 +573,7 @@ export async function reactiveTokenRefresh(
     onRefreshed(
       expandedConfigDir,
       refreshResult.accessToken,
-      refreshResult.refreshToken,
+      refreshedTokenForPersistence,
       refreshResult.expiresAt
     );
   }
