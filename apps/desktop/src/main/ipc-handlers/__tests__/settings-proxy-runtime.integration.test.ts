@@ -220,6 +220,26 @@ describe('settings:save proxy runtime integration', () => {
     expect(closeMock).toHaveBeenCalled();
   });
 
+  it('falls back to valid lowercase env proxy when uppercase env proxy is malformed', () => {
+    process.env.HTTP_PROXY = 'http:// bad uppercase';
+    process.env.http_proxy = 'http://lower-http-proxy.local:8080/';
+    process.env.HTTPS_PROXY = ':// malformed';
+    process.env.https_proxy = 'http://lower-https-proxy.local:9090/';
+
+    expect(getProxyUrlFromEnvironment('http://service.local')).toBe('http://lower-http-proxy.local:8080/');
+    expect(getProxyUrlFromEnvironment('https://service.local')).toBe('http://lower-https-proxy.local:9090/');
+
+    const httpAgent = getProxyAgentFromEnvironment('http://service.local');
+    const httpsAgent = getProxyAgentFromEnvironment('https://service.local');
+
+    expect(httpAgent).toBeInstanceOf(MockProxyAgent);
+    expect(httpAgent).toBeDefined();
+    expect((httpAgent as unknown as { proxyUrl: string }).proxyUrl).toBe('http://lower-http-proxy.local:8080/');
+    expect(httpsAgent).toBeInstanceOf(MockProxyAgent);
+    expect(httpsAgent).toBeDefined();
+    expect((httpsAgent as unknown as { proxyUrl: string }).proxyUrl).toBe('http://lower-https-proxy.local:9090/');
+  });
+
   it('rejects invalid proxy settings and keeps existing environment unchanged', async () => {
     settingsState.data = {
       proxyEnabled: true,

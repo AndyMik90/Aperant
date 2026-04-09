@@ -234,8 +234,10 @@ export function applyRuntimeProxyConfig(input: RuntimeProxyInput): RuntimeProxyC
  */
 export function getProxyUrlFromEnvironment(target?: string | URL): string | undefined {
   const scheme = getRequestScheme(target);
-  const httpProxy = normalizeEnvProxyUrl(process.env.HTTP_PROXY || process.env.http_proxy);
-  const httpsProxy = normalizeEnvProxyUrl(process.env.HTTPS_PROXY || process.env.https_proxy);
+  const httpProxy =
+    normalizeEnvProxyUrl(process.env.HTTP_PROXY) || normalizeEnvProxyUrl(process.env.http_proxy);
+  const httpsProxy =
+    normalizeEnvProxyUrl(process.env.HTTPS_PROXY) || normalizeEnvProxyUrl(process.env.https_proxy);
 
   if (scheme === 'http:') {
     return httpProxy || httpsProxy;
@@ -256,8 +258,10 @@ export function getProxyUrlFromEnvironment(target?: string | URL): string | unde
  * Shared proxy agent creation for runtime network consumers.
  */
 export function getProxyAgentFromEnvironment(target?: string | URL): ProxyAgent | undefined {
-  const httpProxy = normalizeEnvProxyUrl(process.env.HTTP_PROXY || process.env.http_proxy);
-  const httpsProxy = normalizeEnvProxyUrl(process.env.HTTPS_PROXY || process.env.https_proxy);
+  const httpProxy =
+    normalizeEnvProxyUrl(process.env.HTTP_PROXY) || normalizeEnvProxyUrl(process.env.http_proxy);
+  const httpsProxy =
+    normalizeEnvProxyUrl(process.env.HTTPS_PROXY) || normalizeEnvProxyUrl(process.env.https_proxy);
 
   const activeProxyUrls = new Set<string>();
   if (httpProxy) {

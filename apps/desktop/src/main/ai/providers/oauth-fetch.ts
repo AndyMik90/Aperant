@@ -71,6 +71,9 @@ interface StoredTokens {
 /** How far before expiry to consider a token "near expiry" and trigger refresh */
 const REFRESH_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
 
+/** Timeout for OAuth token endpoint HTTP requests */
+const TOKEN_REQUEST_TIMEOUT_MS = 15_000;
+
 function readTokenFile(tokenFilePath: string): StoredTokens | null {
   try {
     const raw = fs.readFileSync(tokenFilePath, 'utf8');
@@ -117,12 +120,28 @@ async function refreshOAuthToken(
   });
 
   const proxyAgent = getProxyAgentFromEnvironment(providerSpec.tokenEndpoint);
-  const response = await undiciFetch(providerSpec.tokenEndpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-    dispatcher: proxyAgent,
-  });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), TOKEN_REQUEST_TIMEOUT_MS);
+
+  let response: Awaited<ReturnType<typeof undiciFetch>>;
+  try {
+    response = await undiciFetch(providerSpec.tokenEndpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+      signal: controller.signal,
+      dispatcher: proxyAgent,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      debugLog('Token refresh timed out', { timeoutMs: TOKEN_REQUEST_TIMEOUT_MS });
+      return null;
+    }
+    debugLog('Token refresh request failed', { error: error instanceof Error ? error.message : String(error) });
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   debugLog('Token refresh response', { status: response.status, ok: response.ok });
 
