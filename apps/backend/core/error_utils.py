@@ -113,8 +113,14 @@ def is_authentication_error(error: Exception) -> bool:
             "invalid_token",
             "token_expired",
             "not authenticated",
+            "not logged in",
             "http 401",
             "does not have access to claude",
+            "missing_codex_entitlement",
+            "token_invalidated",
+            "refresh_token_expired",
+            "run `codex login`",
+            "run 'codex login'",
             "please login again",
         ]
     )

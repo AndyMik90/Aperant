@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 import path from 'path';
-import { existsSync, readdirSync } from 'fs';
+import { existsSync, readdirSync, readFileSync } from 'fs';
 import { AgentState } from './agent-state';
 import { AgentEvents } from './agent-events';
 import { AgentProcessManager } from './agent-process';
@@ -8,12 +8,15 @@ import { AgentQueueManager } from './agent-queue';
 import { getClaudeProfileManager, initializeClaudeProfileManager } from '../claude-profile-manager';
 import type { ClaudeProfileManager } from '../claude-profile-manager';
 import { getOperationRegistry } from '../claude-profile/operation-registry';
+import { getAPIProfileEnv, getAPIProfileEnvById } from '../services/profile';
+import { getProviderAccountById, getProviderAccountState } from '../services/provider-account-service';
+import { getCodexAuthState } from '../codex-auth/codex-oauth';
 import {
   SpecCreationMetadata,
   TaskExecutionOptions,
   RoadmapConfig
 } from './types';
-import type { IdeationConfig } from '../../shared/types';
+import type { IdeationConfig, ProviderAccount } from '../../shared/types';
 import { resetStuckSubtasks } from '../ipc-handlers/task/plan-file-utils';
 import { AUTO_BUILD_PATHS, getSpecsDir, sanitizeThinkingLevel } from '../../shared/constants';
 import { projectStore } from '../project-store';
@@ -97,6 +100,150 @@ export class AgentManager extends EventEmitter {
         // Otherwise keep context for potential restart
       }, 1000); // Delay to allow restart logic to run first
     });
+  }
+
+  private getSpecDirForProviderResolution(
+    projectPath: string,
+    specFolderId: string,
+    explicitSpecDir?: string
+  ): string {
+    return explicitSpecDir ?? path.join(projectPath, '.auto-claude', 'specs', specFolderId);
+  }
+
+  private readTaskProviderOverride(
+    projectPath: string,
+    specFolderId: string,
+    explicitSpecDir?: string
+  ): string | undefined {
+    const metaPath = path.join(
+      this.getSpecDirForProviderResolution(projectPath, specFolderId, explicitSpecDir),
+      'task_metadata.json'
+    );
+
+    if (!existsSync(metaPath)) {
+      return undefined;
+    }
+
+    try {
+      const meta = JSON.parse(readFileSync(metaPath, 'utf-8'));
+      return typeof meta.providerId === 'string' ? meta.providerId : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
+  private async resolveExecutionProviderAccount(
+    projectPath: string,
+    specFolderId: string,
+    profileManager: ClaudeProfileManager,
+    explicitSpecDir?: string
+  ): Promise<ProviderAccount | null> {
+    const taskProviderId = this.readTaskProviderOverride(projectPath, specFolderId, explicitSpecDir);
+    if (taskProviderId) {
+      return await getProviderAccountById(taskProviderId);
+    }
+
+    const providerState = await getProviderAccountState();
+    const autoSwitchSettings = profileManager.getAutoSwitchSettings();
+    const candidateProviderIds = [
+      autoSwitchSettings.defaultProviderId,
+      ...providerState.globalPriorityOrder,
+    ].filter((candidateId, index, values): candidateId is string => {
+      return typeof candidateId === 'string' && candidateId.length > 0 && values.indexOf(candidateId) === index;
+    });
+
+    const resolvedProviderId = candidateProviderIds.find((candidateId) =>
+      providerState.accounts.some((account) => account.id === candidateId)
+    );
+
+    if (!resolvedProviderId) {
+      return null;
+    }
+
+    return providerState.accounts.find((account) => account.id === resolvedProviderId)
+      ?? await getProviderAccountById(resolvedProviderId);
+  }
+
+  private async ensureExecutionProviderReady(
+    taskId: string,
+    projectPath: string,
+    specFolderId: string,
+    profileManager: ClaudeProfileManager,
+    explicitSpecDir?: string
+  ): Promise<boolean> {
+    const taskProviderId = this.readTaskProviderOverride(projectPath, specFolderId, explicitSpecDir);
+    const providerAccount = await this.resolveExecutionProviderAccount(
+      projectPath,
+      specFolderId,
+      profileManager,
+      explicitSpecDir
+    );
+
+    if (providerAccount?.provider === 'openai') {
+      const authState = await getCodexAuthState(providerAccount.id);
+      if (authState.isAuthenticated) {
+        return true;
+      }
+
+      this.emit(
+        'error',
+        taskId,
+        'OpenAI Codex authentication required. Please authenticate the selected OpenAI account in Settings > Accounts before starting tasks.'
+      );
+      return false;
+    }
+
+    if (providerAccount?.provider === 'anthropic') {
+      if (providerAccount.claudeProfileId && profileManager.hasValidAuth(providerAccount.claudeProfileId)) {
+        return true;
+      }
+
+      this.emit(
+        'error',
+        taskId,
+        'Claude authentication required. Please authenticate the selected Claude account in Settings > Accounts before starting tasks.'
+      );
+      return false;
+    }
+
+    if (providerAccount?.provider === 'openai-compatible') {
+      if (providerAccount.apiProfileId) {
+        const profileEnv = await getAPIProfileEnvById(providerAccount.apiProfileId);
+        if (profileEnv.ANTHROPIC_AUTH_TOKEN || profileEnv.ANTHROPIC_API_KEY) {
+          return true;
+        }
+      }
+
+      this.emit(
+        'error',
+        taskId,
+        'The selected Custom Endpoint account is missing an API key. Update it in Settings > Accounts before starting tasks.'
+      );
+      return false;
+    }
+
+    if (taskProviderId) {
+      const legacyTaskProfileEnv = await getAPIProfileEnvById(taskProviderId);
+      if (legacyTaskProfileEnv.ANTHROPIC_AUTH_TOKEN || legacyTaskProfileEnv.ANTHROPIC_API_KEY) {
+        return true;
+      }
+    }
+
+    const legacyApiProfileEnv = await getAPIProfileEnv();
+    if (legacyApiProfileEnv.ANTHROPIC_AUTH_TOKEN || legacyApiProfileEnv.ANTHROPIC_API_KEY) {
+      return true;
+    }
+
+    if (profileManager.hasValidAuth()) {
+      return true;
+    }
+
+    this.emit(
+      'error',
+      taskId,
+      'No authenticated execution account is ready. Authenticate Claude Code, sign in to OpenAI Codex, or configure a Custom Endpoint API key in Settings > Accounts before starting tasks.'
+    );
+    return false;
   }
 
   /**
@@ -230,7 +377,7 @@ export class AgentManager extends EventEmitter {
     baseBranch?: string,
     projectId?: string
   ): Promise<void> {
-    // Pre-flight auth check: Verify active profile has valid authentication
+    // Pre-flight auth check: verify the selected execution provider is ready
     // Ensure profile manager is initialized to prevent race condition
     let profileManager: ClaudeProfileManager;
     try {
@@ -240,8 +387,7 @@ export class AgentManager extends EventEmitter {
       this.emit('error', taskId, 'Failed to initialize profile manager. Please check file permissions and disk space.');
       return;
     }
-    if (!profileManager.hasValidAuth()) {
-      this.emit('error', taskId, 'Claude authentication required. Please authenticate in Settings > Claude Profiles before starting tasks.');
+    if (!(await this.ensureExecutionProviderReady(taskId, projectPath, taskId, profileManager, specDir))) {
       return;
     }
 
@@ -342,7 +488,7 @@ export class AgentManager extends EventEmitter {
     options: TaskExecutionOptions = {},
     projectId?: string
   ): Promise<void> {
-    // Pre-flight auth check: Verify active profile has valid authentication
+    // Pre-flight auth check: verify the selected execution provider is ready
     // Ensure profile manager is initialized to prevent race condition
     let profileManager: ClaudeProfileManager;
     try {
@@ -352,8 +498,7 @@ export class AgentManager extends EventEmitter {
       this.emit('error', taskId, 'Failed to initialize profile manager. Please check file permissions and disk space.');
       return;
     }
-    if (!profileManager.hasValidAuth()) {
-      this.emit('error', taskId, 'Claude authentication required. Please authenticate in Settings > Claude Profiles before starting tasks.');
+    if (!(await this.ensureExecutionProviderReady(taskId, projectPath, specId, profileManager))) {
       return;
     }
 

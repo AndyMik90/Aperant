@@ -31,6 +31,7 @@ from core.auth import (
     configure_sdk_authentication,
     get_sdk_env_vars,
 )
+from core.codex_cli_client import CodexCLIClient
 from core.fast_mode import ensure_fast_mode_in_user_settings
 from core.platform import validate_cli_path
 from phase_config import get_thinking_budget
@@ -81,6 +82,18 @@ def create_simple_client(
     Raises:
         ValueError: If agent_type is not found in AGENT_CONFIGS
     """
+    if os.environ.get("APERANT_AI_PROVIDER") == "openai":
+        return CodexCLIClient(
+            project_dir=(cwd.resolve() if cwd else Path.cwd()),
+            model=model,
+            system_prompt=system_prompt
+            or (
+                "You are a concise engineering assistant. Work directly in the "
+                "repository, follow existing patterns, and provide accurate final output."
+            ),
+            cwd=(cwd.resolve() if cwd else Path.cwd()),
+        )
+
     # Get environment variables for SDK (including CLAUDE_CONFIG_DIR if set)
     sdk_env = get_sdk_env_vars()
 

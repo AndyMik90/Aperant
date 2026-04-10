@@ -17,18 +17,19 @@ import { detectRateLimit, createSDKRateLimitInfo, getBestAvailableProfileEnv, de
 import { getAPIProfileEnv, getAPIProfileEnvById } from '../services/profile';
 import { projectStore } from '../project-store';
 import { getClaudeProfileManager } from '../claude-profile-manager';
-import { getProviderAccountById } from '../services/provider-account-service';
+import { getProviderAccountById, getProviderAccountState } from '../services/provider-account-service';
 import { parsePythonCommand, validatePythonPath } from '../python-detector';
 import { pythonEnvManager, getConfiguredPythonPath } from '../python-env-manager';
 import { buildMemoryEnvVars } from '../memory-env-builder';
 import { readSettingsFile } from '../settings-utils';
 import type { AppSettings } from '../../shared/types/settings';
 import { getOAuthModeClearVars } from './env-utils';
-import { getAugmentedEnv } from '../env-utils';
+import { findExecutable, getAugmentedEnv } from '../env-utils';
 import { getToolInfo, getClaudeCliPathForSdk } from '../cli-tool-manager';
 import { killProcessGracefully, isWindows } from '../platform';
 import { tmpdir } from 'os';
 import { debugLog } from '../../shared/utils/debug-logger';
+import { prepareCodexCliHome } from '../codex-auth/codex-oauth';
 
 // ─── PID file helpers (for cross-process kill from MCP server) ─────────────
 const PID_DIR = path.join(tmpdir(), 'auto-claude-pids');
@@ -193,25 +194,34 @@ export class AgentProcessManager {
   }
 
   private setupProcessEnvironment(
-    extraEnv: Record<string, string>
+    extraEnv: Record<string, string>,
+    runtimeProvider: 'anthropic' | 'openai' = 'anthropic'
   ): NodeJS.ProcessEnv {
-    // Get best available Claude profile environment (automatically handles rate limits)
-    const profileResult = getBestAvailableProfileEnv();
-    const profileEnv = profileResult.env;
+    const profileResult = runtimeProvider === 'anthropic'
+      ? getBestAvailableProfileEnv()
+      : null;
+    const profileEnv = profileResult?.env ?? {};
 
-    debugLog('[AgentProcess:setupEnv] Profile result:', {
-      profileId: profileResult.profileId,
-      hasOAuthToken: !!profileEnv.CLAUDE_CODE_OAUTH_TOKEN,
-      hasApiKey: !!profileEnv.ANTHROPIC_API_KEY,
-      hasConfigDir: !!profileEnv.CLAUDE_CONFIG_DIR,
-      configDir: profileEnv.CLAUDE_CONFIG_DIR || '(not set)',
-      oauthTokenPrefix: profileEnv.CLAUDE_CODE_OAUTH_TOKEN?.substring(0, 8) || '(not set)',
-      apiKeyPrefix: profileEnv.ANTHROPIC_API_KEY?.substring(0, 8) || '(not set)',
-    });
+    debugLog('[AgentProcess:setupEnv] Profile result:', profileResult
+      ? {
+        runtimeProvider,
+        profileId: profileResult.profileId,
+        hasOAuthToken: !!profileEnv.CLAUDE_CODE_OAUTH_TOKEN,
+        hasApiKey: !!profileEnv.ANTHROPIC_API_KEY,
+        hasConfigDir: !!profileEnv.CLAUDE_CONFIG_DIR,
+        configDir: profileEnv.CLAUDE_CONFIG_DIR || '(not set)',
+        oauthTokenPrefix: profileEnv.CLAUDE_CODE_OAUTH_TOKEN?.substring(0, 8) || '(not set)',
+        apiKeyPrefix: profileEnv.ANTHROPIC_API_KEY?.substring(0, 8) || '(not set)',
+      }
+      : {
+        runtimeProvider,
+        skippedClaudeProfileResolution: true,
+      }
+    );
 
-    // Warn if profile lacks CLAUDE_CONFIG_DIR - this means the profile has no configDir
-    // and subscription metadata may not propagate correctly to the agent subprocess
-    if (!profileEnv.CLAUDE_CONFIG_DIR) {
+    // Warn if the selected Claude profile lacks CLAUDE_CONFIG_DIR - this means the
+    // profile has no configDir set and subscription metadata may not propagate correctly.
+    if (runtimeProvider === 'anthropic' && !profileEnv.CLAUDE_CONFIG_DIR) {
       console.warn('[AgentProcess:setupEnv] WARNING: Profile env lacks CLAUDE_CONFIG_DIR - profile may not have a configDir set. Subscription metadata may not reach agent subprocess.');
     }
 
@@ -284,7 +294,7 @@ export class AgentProcessManager {
     // configDir is preferred over direct token injection.
     // We check profileEnv specifically (not mergedEnv) to avoid clearing the token
     // when CLAUDE_CONFIG_DIR comes from the shell environment rather than the profile.
-    if (profileEnv.CLAUDE_CONFIG_DIR) {
+    if (runtimeProvider === 'anthropic' && profileEnv.CLAUDE_CONFIG_DIR) {
       mergedEnv.CLAUDE_CODE_OAUTH_TOKEN = '';
       debugLog('[AgentProcess:setupEnv] Profile provides CLAUDE_CONFIG_DIR, cleared CLAUDE_CODE_OAUTH_TOKEN from spawn env');
     }
@@ -680,14 +690,15 @@ export class AgentProcessManager {
       spawnId
     });
 
-    const env = this.setupProcessEnvironment(extraEnv);
-
     // Get Python environment (PYTHONPATH for bundled packages, etc.)
     const pythonEnv = pythonEnvManager.getPythonEnv();
 
     // Get API profile environment variables
     // If the task has a specific providerId, use that profile; otherwise use global active
     let apiProfileEnv: Record<string, string> = {};
+    let providerExecutionEnv: Record<string, string> = {};
+    let resolvedProviderId: string | undefined;
+    let resolvedProviderType = 'legacy-api-profile';
     try {
       // Read task metadata to check for per-task provider override
       // Use --project-dir from args (cwd is the Python backend dir, NOT the project)
@@ -699,35 +710,76 @@ export class AgentProcessManager {
       if (existsSync(metaPath)) {
         try {
           const meta = JSON.parse(readFileSync(metaPath, 'utf-8'));
-          taskProviderId = meta.providerId;
+          taskProviderId = typeof meta.providerId === 'string' ? meta.providerId : undefined;
         } catch { /* ignore parse errors */ }
       }
 
       if (taskProviderId) {
-        // Per-task provider override — resolve provider-account IDs first,
-        // then fall back to the legacy API-profile lookup for backward compatibility.
+        resolvedProviderId = taskProviderId;
         debugLog('[AgentProcess] Using per-task provider:', taskProviderId);
-        const providerAccount = await getProviderAccountById(taskProviderId);
+      } else {
+        const providerState = await getProviderAccountState();
+        const autoSwitchSettings = getClaudeProfileManager().getAutoSwitchSettings();
+        const candidateProviderIds = [
+          autoSwitchSettings.defaultProviderId,
+          ...providerState.globalPriorityOrder,
+        ].filter((candidateId, index, values): candidateId is string => {
+          return typeof candidateId === 'string' && candidateId.length > 0 && values.indexOf(candidateId) === index;
+        });
+
+        resolvedProviderId = candidateProviderIds.find((candidateId) =>
+          providerState.accounts.some((account) => account.id === candidateId)
+        );
+      }
+
+      if (resolvedProviderId) {
+        const providerAccount = await getProviderAccountById(resolvedProviderId);
 
         if (providerAccount?.provider === 'anthropic' && providerAccount.claudeProfileId) {
           apiProfileEnv = getClaudeProfileManager().getProfileEnv(providerAccount.claudeProfileId);
+          resolvedProviderType = 'anthropic';
         } else if (providerAccount?.provider === 'openai-compatible' && providerAccount.apiProfileId) {
           apiProfileEnv = await getAPIProfileEnvById(providerAccount.apiProfileId);
+          resolvedProviderType = 'openai-compatible';
         } else if (providerAccount?.provider === 'openai') {
-          throw new Error(
-            'OpenAI Codex accounts can be authenticated and selected in Settings, but this fork still runs tasks through the Claude-based autonomous runtime. Use Claude Code or Custom Endpoints for execution until the runtime provider migration lands.'
-          );
+          const detectedCodexPath = findExecutable('codex');
+          const codexCliPath = detectedCodexPath && !/\.(cmd|bat|ps1)$/i.test(detectedCodexPath)
+            ? detectedCodexPath
+            : 'codex';
+          const codexHome = await prepareCodexCliHome(providerAccount.id);
+          providerExecutionEnv = {
+            APERANT_AI_PROVIDER: 'openai',
+            APERANT_PROVIDER_ACCOUNT_ID: providerAccount.id,
+            APERANT_CODEX_CLI_PATH: codexCliPath,
+            CODEX_HOME: codexHome,
+            CLAUDE_CODE_OAUTH_TOKEN: '',
+            CLAUDE_CONFIG_DIR: '',
+            ANTHROPIC_API_KEY: '',
+            ANTHROPIC_AUTH_TOKEN: '',
+            ANTHROPIC_BASE_URL: '',
+            ANTHROPIC_MODEL: '',
+            ANTHROPIC_DEFAULT_HAIKU_MODEL: '',
+            ANTHROPIC_DEFAULT_SONNET_MODEL: '',
+            ANTHROPIC_DEFAULT_OPUS_MODEL: '',
+          };
+          resolvedProviderType = 'openai';
         } else {
-          apiProfileEnv = await getAPIProfileEnvById(taskProviderId);
+          apiProfileEnv = await getAPIProfileEnvById(resolvedProviderId);
+          resolvedProviderType = 'legacy-api-profile';
         }
       } else {
-        // Default: use global active API profile
         apiProfileEnv = await getAPIProfileEnv();
+        resolvedProviderType = 'legacy-active-api-profile';
       }
     } catch (error) {
-      console.error('[Agent Process] Failed to get API profile env:', error);
-      // Continue with empty profile env (falls back to OAuth mode)
+      console.error('[Agent Process] Failed to resolve provider environment:', error);
+      // Continue with empty provider env (falls back to OAuth mode / legacy defaults)
     }
+
+    const env = this.setupProcessEnvironment(
+      extraEnv,
+      providerExecutionEnv.APERANT_AI_PROVIDER === 'openai' ? 'openai' : 'anthropic'
+    );
 
     // Log which provider the task will actually use
     const projectDirDbg = (() => { const i = args.indexOf('--project-dir'); return i !== -1 && args[i + 1] ? args[i + 1] : cwd; })();
@@ -737,10 +789,13 @@ export class AgentProcessManager {
       metaPath: metaDebugPath,
       metaExists: existsSync(metaDebugPath),
       taskProviderId: (() => { try { const m = JSON.parse(readFileSync(metaDebugPath, 'utf-8')); return m.providerId || '(none)'; } catch { return '(no metadata)'; } })(),
+      resolvedProviderId: resolvedProviderId || '(none)',
+      resolvedProviderType,
       hasApiKey: !!apiProfileEnv.ANTHROPIC_API_KEY,
       hasAuthToken: !!apiProfileEnv.ANTHROPIC_AUTH_TOKEN,
       baseUrl: apiProfileEnv.ANTHROPIC_BASE_URL || '(not set — using Anthropic default)',
       clearsOAuth: apiProfileEnv.CLAUDE_CODE_OAUTH_TOKEN === '',
+      hasCodexHome: !!providerExecutionEnv.CODEX_HOME,
     });
 
     // Get OAuth mode clearing vars (clears stale ANTHROPIC_* vars when in OAuth mode)
@@ -759,6 +814,11 @@ export class AgentProcessManager {
         hasBaseUrl: !!apiProfileEnv.ANTHROPIC_BASE_URL,
         apiKeyPrefix: apiProfileEnv.ANTHROPIC_API_KEY?.substring(0, 8) || '(not set)',
       },
+      providerExecutionEnv: {
+        provider: providerExecutionEnv.APERANT_AI_PROVIDER || 'anthropic',
+        hasCodexHome: !!providerExecutionEnv.CODEX_HOME,
+        codexCliPath: providerExecutionEnv.APERANT_CODEX_CLI_PATH || '(not set)',
+      },
     });
 
     // Parse Python commandto handle space-separated commands like "py -3"
@@ -771,7 +831,8 @@ export class AgentProcessManager {
           ...env, // Already includes process.env, extraEnv, profileEnv, PYTHONUNBUFFERED, PYTHONUTF8
           ...pythonEnv, // Include Python environment (PYTHONPATH for bundled packages)
           ...oauthModeClearVars, // Clear stale ANTHROPIC_* vars when in OAuth mode
-          ...apiProfileEnv // Include active API profile config (highest priority for ANTHROPIC_* vars)
+          ...apiProfileEnv, // Include active API profile config (highest priority for ANTHROPIC_* vars)
+          ...providerExecutionEnv,
         }
       });
     } catch (err) {
@@ -1032,7 +1093,9 @@ export class AgentProcessManager {
 
       if (code !== 0) {
         console.log('[AgentProcess] Process failed with code:', code, 'for task:', taskId);
-        const wasHandled = this.handleProcessFailure(taskId, allOutput, processType);
+        const wasHandled = providerExecutionEnv.APERANT_AI_PROVIDER === 'openai'
+          ? false
+          : this.handleProcessFailure(taskId, allOutput, processType);
 
         if (wasHandled) {
           this.emitter.emit('exit', taskId, code, processType, projectId);

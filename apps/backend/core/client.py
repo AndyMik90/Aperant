@@ -143,6 +143,7 @@ from core.auth import (
     configure_sdk_authentication,
     get_sdk_env_vars,
 )
+from core.codex_cli_client import CodexCLIClient
 from linear_updater import is_linear_enabled
 from prompts_pkg.project_context import detect_project_capabilities, load_project_index
 from security import bash_security_hook
@@ -442,6 +443,38 @@ def load_claude_md(project_dir: Path) -> str | None:
     return None
 
 
+def build_base_system_prompt(project_dir: Path) -> tuple[str, str]:
+    """
+    Build the shared system prompt used by both Claude SDK and Codex CLI clients.
+
+    Returns:
+        Tuple of (prompt_text, claude_md_status) where status is one of:
+        "included", "missing", or "disabled"
+    """
+    base_prompt = (
+        "You are an expert full-stack developer building production-quality "
+        f"software. Your working directory is: {project_dir.resolve()}\n"
+        "Your filesystem access is RESTRICTED to this directory only. "
+        "Use relative paths (starting with ./) for all file operations. "
+        "Never use absolute paths or try to access files outside your working "
+        "directory.\n\n"
+        "You follow existing code patterns, write clean maintainable code, and "
+        "verify your work through thorough testing. You communicate progress "
+        "through Git commits and build-progress.txt updates."
+    )
+
+    if should_use_claude_md():
+        claude_md_content = load_claude_md(project_dir)
+        if claude_md_content:
+            return (
+                f"{base_prompt}\n\n# Project Instructions (from CLAUDE.md)\n\n{claude_md_content}",
+                "included",
+            )
+        return base_prompt, "missing"
+
+    return base_prompt, "disabled"
+
+
 def create_client(
     project_dir: Path,
     spec_dir: Path,
@@ -502,6 +535,26 @@ def create_client(
        (see security.py for ALLOWED_COMMANDS)
     4. Tool filtering - Each agent type only sees relevant tools (prevents misuse)
     """
+    if os.environ.get("APERANT_AI_PROVIDER") == "openai":
+        base_prompt, claude_md_status = build_base_system_prompt(project_dir)
+        if claude_md_status == "included":
+            print("   - CLAUDE.md: included in system prompt")
+        elif claude_md_status == "missing":
+            print("   - CLAUDE.md: not found in project root")
+        else:
+            print("   - CLAUDE.md: disabled by project settings")
+        print("   - Runtime provider: OpenAI Codex")
+        print()
+
+        return CodexCLIClient(
+            project_dir=project_dir,
+            spec_dir=spec_dir,
+            model=model,
+            system_prompt=base_prompt,
+            output_format=output_format,
+            cwd=project_dir,
+        )
+
     # Collect env vars to pass to SDK (ANTHROPIC_BASE_URL, CLAUDE_CONFIG_DIR, etc.)
     sdk_env = get_sdk_env_vars()
 
@@ -813,25 +866,11 @@ def create_client(
             mcp_servers[server_id] = server_config
 
     # Build system prompt
-    base_prompt = (
-        f"You are an expert full-stack developer building production-quality software. "
-        f"Your working directory is: {project_dir.resolve()}\n"
-        f"Your filesystem access is RESTRICTED to this directory only. "
-        f"Use relative paths (starting with ./) for all file operations. "
-        f"Never use absolute paths or try to access files outside your working directory.\n\n"
-        f"You follow existing code patterns, write clean maintainable code, and verify "
-        f"your work through thorough testing. You communicate progress through Git commits "
-        f"and build-progress.txt updates."
-    )
-
-    # Include CLAUDE.md if enabled and present
-    if should_use_claude_md():
-        claude_md_content = load_claude_md(project_dir)
-        if claude_md_content:
-            base_prompt = f"{base_prompt}\n\n# Project Instructions (from CLAUDE.md)\n\n{claude_md_content}"
-            print("   - CLAUDE.md: included in system prompt")
-        else:
-            print("   - CLAUDE.md: not found in project root")
+    base_prompt, claude_md_status = build_base_system_prompt(project_dir)
+    if claude_md_status == "included":
+        print("   - CLAUDE.md: included in system prompt")
+    elif claude_md_status == "missing":
+        print("   - CLAUDE.md: not found in project root")
     else:
         print("   - CLAUDE.md: disabled by project settings")
     print()

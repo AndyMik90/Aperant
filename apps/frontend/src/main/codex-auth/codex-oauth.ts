@@ -16,6 +16,7 @@ export interface CodexAuthResult {
   accessToken: string;
   refreshToken: string;
   expiresAt: number;
+  idToken?: string;
   email?: string;
 }
 
@@ -29,6 +30,7 @@ interface StoredTokens {
   access_token: string;
   refresh_token: string;
   expires_at: number;
+  id_token?: string;
   email?: string;
 }
 
@@ -50,6 +52,7 @@ function writeStoredTokens(accountId: string, tokens: StoredTokens): void {
     access_token: typeof tokens.access_token === 'string' ? tokens.access_token : '',
     refresh_token: typeof tokens.refresh_token === 'string' ? tokens.refresh_token : '',
     expires_at: typeof tokens.expires_at === 'number' ? tokens.expires_at : 0,
+    ...(typeof tokens.id_token === 'string' ? { id_token: tokens.id_token } : {}),
     ...(typeof tokens.email === 'string' ? { email: tokens.email } : {}),
   };
 
@@ -128,6 +131,7 @@ async function exchangeCodeForTokens(code: string, codeVerifier: string): Promis
     accessToken: data.access_token,
     refreshToken: data.refresh_token,
     expiresAt: Date.now() + expiresIn * 1000,
+    ...(typeof data.id_token === 'string' ? { idToken: data.id_token } : {}),
     ...(typeof data.id_token === 'string' ? { email: getEmailFromIdToken(data.id_token) } : {}),
   };
 }
@@ -172,6 +176,7 @@ export async function refreshCodexToken(
     accessToken: data.access_token,
     refreshToken: typeof data.refresh_token === 'string' ? data.refresh_token : refreshToken,
     expiresAt: Date.now() + expiresIn * 1000,
+    ...(typeof data.id_token === 'string' ? { idToken: data.id_token } : {}),
     ...(email ? { email } : {}),
   };
 
@@ -179,6 +184,7 @@ export async function refreshCodexToken(
     access_token: result.accessToken,
     refresh_token: result.refreshToken,
     expires_at: result.expiresAt,
+    ...(result.idToken ? { id_token: result.idToken } : {}),
     ...(result.email ? { email: result.email } : {}),
   });
 
@@ -201,6 +207,64 @@ export async function ensureValidCodexToken(accountId: string): Promise<string |
   } catch {
     return null;
   }
+}
+
+async function ensureValidCodexTokens(accountId: string): Promise<StoredTokens | null> {
+  const stored = readStoredTokens(accountId);
+  if (!stored) {
+    return null;
+  }
+
+  if (stored.expires_at - Date.now() > REFRESH_THRESHOLD_MS && stored.id_token) {
+    return stored;
+  }
+
+  try {
+    const refreshed = await refreshCodexToken(accountId, stored.refresh_token, stored.email);
+    return readStoredTokens(accountId) ?? {
+      access_token: refreshed.accessToken,
+      refresh_token: refreshed.refreshToken,
+      expires_at: refreshed.expiresAt,
+      ...(refreshed.idToken ? { id_token: refreshed.idToken } : {}),
+      ...(refreshed.email ? { email: refreshed.email } : {}),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function getCodexCliHomePath(accountId: string): string {
+  return path.join(app.getPath('userData'), 'codex-cli-homes', accountId);
+}
+
+export async function prepareCodexCliHome(accountId: string): Promise<string> {
+  const stored = await ensureValidCodexTokens(accountId);
+  if (!stored?.access_token || !stored.refresh_token || !stored.id_token) {
+    throw new Error('OpenAI Codex account is missing a valid OAuth session. Re-authenticate this account and try again.');
+  }
+
+  const codexHome = getCodexCliHomePath(accountId);
+  fs.mkdirSync(codexHome, { recursive: true });
+  fs.mkdirSync(path.join(codexHome, '.tmp'), { recursive: true });
+
+  const authPayload = {
+    auth_mode: 'chatgpt',
+    last_refresh: new Date().toISOString(),
+    OPENAI_API_KEY: null,
+    tokens: {
+      access_token: stored.access_token,
+      refresh_token: stored.refresh_token,
+      id_token: stored.id_token,
+    },
+  };
+
+  fs.writeFileSync(
+    path.join(codexHome, 'auth.json'),
+    JSON.stringify(authPayload, null, 2),
+    'utf8'
+  );
+
+  return codexHome;
 }
 
 export async function getCodexAuthState(accountId: string): Promise<CodexAuthState> {
@@ -319,6 +383,7 @@ export async function startCodexOAuthFlow(accountId: string): Promise<CodexAuthR
             access_token: result.accessToken,
             refresh_token: result.refreshToken,
             expires_at: result.expiresAt,
+            ...(result.idToken ? { id_token: result.idToken } : {}),
             ...(result.email ? { email: result.email } : {}),
           });
           resolve(result);
