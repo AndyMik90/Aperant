@@ -82,8 +82,18 @@ global.fetch = vi.fn(() =>
 
 describe('usage-monitor', () => {
   beforeEach(() => {
+    const existingMonitor = (UsageMonitor as any).instance as UsageMonitor | undefined;
+    existingMonitor?.stop?.();
+    (UsageMonitor as any).instance = undefined;
+
     vi.clearAllMocks();
     vi.useFakeTimers();
+    mockLoadProfilesFile.mockReset();
+    mockLoadProfilesFile.mockImplementation(async () => ({
+      profiles: [],
+      activeProfileId: null,
+      version: 1
+    }));
 
     // Restore default fetch mock after clearAllMocks
     const mockFetch = vi.mocked(global.fetch);
@@ -106,6 +116,10 @@ describe('usage-monitor', () => {
   });
 
   afterEach(() => {
+    const existingMonitor = (UsageMonitor as any).instance as UsageMonitor | undefined;
+    existingMonitor?.stop?.();
+    (UsageMonitor as any).instance = undefined;
+
     vi.restoreAllMocks();
     vi.useRealTimers();
   });
@@ -867,6 +881,7 @@ describe('usage-monitor', () => {
   describe('Credential error handling', () => {
     it('should handle missing credential gracefully', async () => {
       const monitor = getUsageMonitor();
+      vi.spyOn(monitor as any, 'fetchUsageViaCLI').mockResolvedValueOnce(null);
 
       // Call fetchUsage without credential
       const usage = await monitor['fetchUsage']('test-profile-1', undefined);
@@ -878,6 +893,7 @@ describe('usage-monitor', () => {
     it('should handle empty credential string', async () => {
       const monitor = getUsageMonitor();
       const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      vi.spyOn(monitor as any, 'fetchUsageViaCLI').mockResolvedValueOnce(null);
 
       const usage = await monitor['fetchUsage']('test-profile-1', '');
 

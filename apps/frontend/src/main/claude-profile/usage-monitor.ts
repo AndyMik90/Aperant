@@ -20,6 +20,10 @@ import { getCredentialsFromKeychain, clearKeychainCache } from './credential-uti
 import { reactiveTokenRefresh, ensureValidToken } from './token-refresh';
 import { isProfileRateLimited } from './rate-limit-manager';
 import { getOperationRegistry } from './operation-registry';
+import { ensureValidCodexToken, getCodexAuthState } from '../codex-auth/codex-oauth';
+import { fetchCodexUsage, getCodexAccountId, normalizeCodexResponse } from './codex-usage-fetcher';
+import { getProviderAccountState } from '../services/provider-account-service';
+import type { ProviderAccount } from '../../shared/types/provider-account';
 
 // Re-export for backward compatibility
 export type { ApiProvider };
@@ -46,6 +50,7 @@ const ALLOWED_USAGE_API_DOMAINS = new Set([
   'api.anthropic.com',
   'api.z.ai',
   'open.bigmodel.cn',
+  'chatgpt.com',
   'www.minimax.io',
   'api.minimax.io',
 ]);
@@ -196,7 +201,33 @@ interface ActiveProfileResult {
   profileEmail?: string;
   isAPIProfile: boolean;
   baseUrl: string;
+  provider: ApiProvider | 'openai';
+  providerAccountId?: string;
+  providerAccount?: ProviderAccount;
   credential?: string;
+}
+
+function resolveActiveProviderAccountId(
+  accounts: ProviderAccount[],
+  defaultProviderId: string | undefined,
+  activeApiProfileId: string | null,
+  activeClaudeProfileId: string | null
+): string | null {
+  if (defaultProviderId && accounts.some((account) => account.id === defaultProviderId)) {
+    return defaultProviderId;
+  }
+
+  const activeApiAccount = accounts.find(
+    (account) => account.provider === 'openai-compatible' && account.apiProfileId === activeApiProfileId
+  );
+  if (activeApiAccount) {
+    return activeApiAccount.id;
+  }
+
+  const activeClaudeAccount = accounts.find(
+    (account) => account.provider === 'anthropic' && account.claudeProfileId === activeClaudeProfileId
+  );
+  return activeClaudeAccount?.id ?? null;
 }
 
 /**
@@ -213,6 +244,7 @@ export class UsageMonitor extends EventEmitter {
   private intervalId: NodeJS.Timeout | null = null;
   private currentUsage: ClaudeUsageSnapshot | null = null;
   private currentUsageProfileId: string | null = null; // Track which profile's usage is in currentUsage
+  private activeTargetProfileId: string | null = null; // Track which provider account/profile should currently drive the meter
   private lastGoodUsage: ClaudeUsageSnapshot | null = null; // Disk-persisted fallback (never grays out meter)
   private isChecking = false;
 
@@ -335,7 +367,7 @@ export class UsageMonitor extends EventEmitter {
    * Called after every successful fetch and on expired startup data.
    * Pauses RDR at 100% usage, resumes below 100%.
    */
-  private checkRdrThresholds(usage: ClaudeUsageSnapshot): void {
+  private checkRdrThresholds(usage: ClaudeUsageSnapshot, provider?: string): void {
     try {
       // Lazy import to avoid circular dependency at module load time
       // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -355,11 +387,11 @@ export class UsageMonitor extends EventEmitter {
           ? `Weekly at ${weeklyPct}% (resets ${usage.weeklyResetTime || 'in ~7 days'})`
           : `Session at ${sessionPct}% (resets ${usage.sessionResetTime || 'in ~5h'})`;
         console.log(`[DIAG] checkRdrThresholds: PAUSE RDR — binding ${bindingPct}% >= 100`);
-        pauseRdr(reason, resetTimestamp);
+        pauseRdr(reason, resetTimestamp, provider);
         this.lastRdrNotificationState = 'paused';
       } else if (bindingPct < 100 && this.lastRdrNotificationState !== 'none') {
         console.log(`[DIAG] checkRdrThresholds: RESUME RDR — binding ${bindingPct}% < 100`);
-        resumeRdr('Usage below 100%');
+        resumeRdr('Usage below 100%', provider);
         this.lastRdrNotificationState = 'none';
       }
     } catch (err) {
@@ -414,17 +446,37 @@ export class UsageMonitor extends EventEmitter {
       // Non-critical — silently ignore
     }
 
-    // Emit lastGoodUsage immediately so meter shows data before first API call.
-    // Expire stale percentages first — if the 5h/weekly window has reset since last save,
-    // the meter should show ~0% instead of the old 100%.
+    // Emit lastGoodUsage immediately only when it still belongs to the active provider.
+    // This avoids showing a stale MiniMax/Claude meter after switching the active account to OpenAI.
     if (this.lastGoodUsage) {
       const fresh = this.expireStaleUsage(this.lastGoodUsage);
-      this.currentUsage = fresh;
-      this.currentUsageProfileId = fresh.profileId;
-      this.lastEmitTimestamp = 0; // Force first emit through throttle
-      this.throttledEmitUsage(fresh);
-      this.checkRdrThresholds(fresh); // Proactively clear stale pause state if usage expired to 0%
-      this.debugLog('[UsageMonitor] Emitted lastGoodUsage on startup — meter shows data immediately');
+      void this.determineActiveProfile()
+        .then((activeProfile) => {
+          this.activeTargetProfileId = activeProfile?.profileId ?? null;
+
+          if (activeProfile && activeProfile.profileId !== fresh.profileId) {
+            this.debugLog('[UsageMonitor] Skipping lastGoodUsage emit because active provider changed', {
+              cachedProfileId: fresh.profileId,
+              activeProfileId: activeProfile.profileId,
+            });
+            return;
+          }
+
+          this.currentUsage = fresh;
+          this.currentUsageProfileId = fresh.profileId;
+          this.lastEmitTimestamp = 0; // Force first emit through throttle
+          this.throttledEmitUsage(fresh);
+          this.checkRdrThresholds(fresh, activeProfile?.provider); // Proactively clear stale pause state if usage expired to 0%
+          this.debugLog('[UsageMonitor] Emitted lastGoodUsage on startup — meter shows data immediately');
+        })
+        .catch((error) => {
+          this.debugLog('[UsageMonitor] Failed to resolve active provider before emitting lastGoodUsage:', error);
+          this.currentUsage = fresh;
+          this.currentUsageProfileId = fresh.profileId;
+          this.lastEmitTimestamp = 0;
+          this.throttledEmitUsage(fresh);
+          this.checkRdrThresholds(fresh);
+        });
     }
 
     // Check immediately
@@ -465,7 +517,19 @@ export class UsageMonitor extends EventEmitter {
    * Falls back to last-good disk-persisted snapshot so meter never goes gray.
    */
   getCurrentUsage(): ClaudeUsageSnapshot | null {
-    return this.currentUsage ?? this.lastGoodUsage;
+    if (this.currentUsage) {
+      return this.currentUsage;
+    }
+
+    if (!this.lastGoodUsage) {
+      return null;
+    }
+
+    if (this.activeTargetProfileId && this.lastGoodUsage.profileId !== this.activeTargetProfileId) {
+      return null;
+    }
+
+    return this.lastGoodUsage;
   }
 
   /**
@@ -606,6 +670,59 @@ export class UsageMonitor extends EventEmitter {
     });
   }
 
+  private async refreshActiveUsageIfNeeded(forceRefresh: boolean): Promise<ActiveProfileResult | null> {
+    const activeProfile = await this.determineActiveProfile();
+    if (!activeProfile) {
+      this.activeTargetProfileId = null;
+      return null;
+    }
+
+    this.activeTargetProfileId = activeProfile.profileId;
+
+    const shouldRefresh = forceRefresh || this.currentUsageProfileId !== activeProfile.profileId || !this.currentUsage;
+    if (!shouldRefresh) {
+      return activeProfile;
+    }
+
+    const credential = await this.getCredential(activeProfile);
+    const usage = await this.fetchUsage(activeProfile.profileId, credential, activeProfile);
+    if (usage) {
+      usage.needsReauthentication = this.needsReauthProfiles.has(activeProfile.profileId);
+      this.currentUsage = usage;
+      this.currentUsageProfileId = activeProfile.profileId;
+    }
+
+    return activeProfile;
+  }
+
+  private async fetchCodexUsageForAccount(account: ProviderAccount): Promise<ClaudeUsageSnapshot | null> {
+    try {
+      const token = await ensureValidCodexToken(account.id);
+      if (!token) {
+        this.needsReauthProfiles.add(account.id);
+        return null;
+      }
+
+      const response = await fetchCodexUsage(token, getCodexAccountId(token));
+      if (!response) {
+        return null;
+      }
+
+      this.needsReauthProfiles.delete(account.id);
+      return normalizeCodexResponse(response, account.id, account.name, account.email);
+    } catch (error) {
+      if (isHttpError(error) && (error.statusCode === 401 || error.statusCode === 403)) {
+        this.needsReauthProfiles.add(account.id);
+      }
+      this.debugLog('[UsageMonitor] Failed to fetch Codex usage for account:', {
+        accountId: account.id,
+        accountName: account.name,
+        error,
+      });
+      return null;
+    }
+  }
+
   /**
    * Get all profiles usage data (for multi-profile display in UI)
    * Returns cached data if fresh, otherwise fetches for all profiles
@@ -617,7 +734,16 @@ export class UsageMonitor extends EventEmitter {
   async getAllProfilesUsage(forceRefresh: boolean = false): Promise<AllProfilesUsage | null> {
     const profileManager = getClaudeProfileManager();
     const settings = profileManager.getSettings();
-    const activeProfileId = settings.activeProfileId;
+    const providerState = await getProviderAccountState();
+    const apiProfilesFile = await loadProfilesFile().catch(() => null);
+    const activeProfile = await this.refreshActiveUsageIfNeeded(forceRefresh);
+    const activeProfileId = activeProfile?.profileId ?? settings.activeProfileId;
+    const activeProviderAccountId = resolveActiveProviderAccountId(
+      providerState.accounts,
+      profileManager.getAutoSwitchSettings().defaultProviderId,
+      apiProfilesFile?.activeProfileId ?? null,
+      settings.activeProfileId
+    );
 
     // CRITICAL: On startup, currentUsage may be null, but we still need to check for
     // missing credentials to show the re-auth indicator. Proactively check all profiles
@@ -652,15 +778,32 @@ export class UsageMonitor extends EventEmitter {
         needsReauthentication: this.needsReauthProfiles.has(profile.id)
       }));
 
+      for (const account of providerState.accounts.filter((candidate) => candidate.provider === 'openai')) {
+        const authState = await getCodexAuthState(account.id);
+        allProfiles.push({
+          profileId: account.id,
+          profileName: account.name,
+          profileEmail: authState.email || account.email,
+          sessionPercent: 0,
+          weeklyPercent: 0,
+          isAuthenticated: authState.isAuthenticated,
+          isRateLimited: false,
+          availabilityScore: authState.isAuthenticated ? 100 : 0,
+          isActive: activeProviderAccountId === account.id,
+          needsReauthentication: !authState.isAuthenticated || this.needsReauthProfiles.has(account.id)
+        });
+      }
+
       // Return minimal data with auth status - don't return null!
       return {
         activeProfile: {
           profileId: activeProfileId || '',
-          profileName: settings.profiles.find(p => p.id === activeProfileId)?.name || '',
+          profileName: activeProfile?.profileName || settings.profiles.find(p => p.id === activeProfileId)?.name || '',
           sessionPercent: 0,
           weeklyPercent: 0,
           fetchedAt: new Date(),
-          needsReauthentication: this.needsReauthProfiles.has(activeProfileId || '')
+          needsReauthentication: this.needsReauthProfiles.has(activeProfileId || ''),
+          ...(activeProfile?.profileEmail ? { profileEmail: activeProfile.profileEmail } : {})
         },
         allProfiles,
         fetchedAt: new Date()
@@ -801,7 +944,10 @@ export class UsageMonitor extends EventEmitter {
         // Skip if already in the list
         if (allProfiles.some(p => p.profileId === apiProfile.id)) continue;
 
-        const isActiveApi = apiProfile.id === apiProfilesFile.activeProfileId;
+        const providerAccount = providerState.accounts.find(
+          (account) => account.provider === 'openai-compatible' && account.apiProfileId === apiProfile.id
+        );
+        const isActiveApi = providerAccount?.id === activeProviderAccountId;
         let sessionPercent = 0;
         let weeklyPercent = 0;
 
@@ -849,11 +995,68 @@ export class UsageMonitor extends EventEmitter {
       // API profiles not available — continue with OAuth profiles only
     }
 
+    for (const account of providerState.accounts.filter((candidate) => candidate.provider === 'openai')) {
+      if (allProfiles.some((profile) => profile.profileId === account.id)) {
+        continue;
+      }
+
+      const cached = this.allProfilesUsageCache.get(account.id);
+      if (!forceRefresh && cached && (now - cached.fetchedAt) < UsageMonitor.PROFILE_USAGE_CACHE_TTL_MS) {
+        allProfiles.push({
+          ...cached.usage,
+          isActive: account.id === activeProviderAccountId,
+        });
+        continue;
+      }
+
+      const authState = await getCodexAuthState(account.id);
+      const usage = account.id === activeProfileId && this.currentUsageProfileId === account.id
+        ? this.currentUsage
+        : await this.fetchCodexUsageForAccount(account);
+
+      const isAuthenticated = authState.isAuthenticated;
+      const isRateLimited = !!usage && Math.max(usage.sessionPercent, usage.weeklyPercent) >= 100;
+      const rateLimitType = usage?.limitType;
+      const summary: ProfileUsageSummary = {
+        profileId: account.id,
+        profileName: account.name,
+        profileEmail: usage?.profileEmail || authState.email || account.email,
+        sessionPercent: usage?.sessionPercent ?? 0,
+        weeklyPercent: usage?.weeklyPercent ?? 0,
+        sessionResetTimestamp: usage?.sessionResetTimestamp,
+        weeklyResetTimestamp: usage?.weeklyResetTimestamp,
+        isAuthenticated,
+        isRateLimited,
+        rateLimitType,
+        availabilityScore: this.calculateAvailabilityScore(
+          usage?.sessionPercent ?? 0,
+          usage?.weeklyPercent ?? 0,
+          isRateLimited,
+          rateLimitType,
+          isAuthenticated
+        ),
+        isActive: account.id === activeProviderAccountId,
+        lastFetchedAt: usage?.fetchedAt?.toISOString(),
+        needsReauthentication: !isAuthenticated || this.needsReauthProfiles.has(account.id)
+      };
+
+      this.allProfilesUsageCache.set(account.id, { usage: summary, fetchedAt: now });
+      allProfiles.push(summary);
+    }
+
     // Sort by availability score (highest first = most available)
     allProfiles.sort((a, b) => b.availabilityScore - a.availabilityScore);
 
     return {
-      activeProfile: this.currentUsage,
+      activeProfile: this.currentUsage ?? {
+        profileId: activeProfileId || '',
+        profileName: activeProfile?.profileName || '',
+        profileEmail: activeProfile?.profileEmail,
+        sessionPercent: 0,
+        weeklyPercent: 0,
+        fetchedAt: new Date(),
+        needsReauthentication: this.needsReauthProfiles.has(activeProfileId || ''),
+      },
       allProfiles,
       fetchedAt: new Date()
     };
@@ -966,7 +1169,8 @@ export class UsageMonitor extends EventEmitter {
           profileName: profile.name,
           profileEmail: profile.email,
           isAPIProfile: false,
-          baseUrl: 'https://api.anthropic.com'
+          baseUrl: 'https://api.anthropic.com',
+          provider: 'anthropic'
         }
       );
 
@@ -1075,17 +1279,31 @@ export class UsageMonitor extends EventEmitter {
    *
    * @returns The credential string or undefined if none available
    */
-  private async getCredential(): Promise<string | undefined> {
+  private async getCredential(activeProfile?: ActiveProfileResult): Promise<string | undefined> {
+    if (activeProfile?.credential) {
+      return activeProfile.credential;
+    }
+
+    if (activeProfile?.provider === 'openai' && activeProfile.providerAccountId) {
+      const token = await ensureValidCodexToken(activeProfile.providerAccountId);
+      if (!token) {
+        this.needsReauthProfiles.add(activeProfile.profileId);
+        return undefined;
+      }
+      this.needsReauthProfiles.delete(activeProfile.profileId);
+      return token;
+    }
+
     // Try API profile first (highest priority)
     try {
       const profilesFile = await loadProfilesFile();
       if (profilesFile.activeProfileId) {
-        const activeProfile = profilesFile.profiles.find(
-          (p) => p.id === profilesFile.activeProfileId
+        const apiProfile = profilesFile.profiles.find(
+          (profile) => profile.id === profilesFile.activeProfileId
         );
-        if (activeProfile?.apiKey) {
-          this.debugLog('[UsageMonitor:TRACE] Using API profile credential: ' + activeProfile.name);
-          return activeProfile.apiKey;
+        if (apiProfile?.apiKey) {
+          this.debugLog('[UsageMonitor:TRACE] Using API profile credential: ' + apiProfile.name);
+          return apiProfile.apiKey;
         }
       }
     } catch (error) {
@@ -1095,32 +1313,32 @@ export class UsageMonitor extends EventEmitter {
 
     // Fall back to OAuth profile - use ensureValidToken for proactive refresh
     const profileManager = getClaudeProfileManager();
-    const activeProfile = profileManager.getActiveProfile();
-    if (activeProfile) {
+    const activeOAuthProfile = profileManager.getActiveProfile();
+    if (activeOAuthProfile) {
       // Use ensureValidToken to proactively refresh tokens before they expire
       // This prevents 401 errors during overnight autonomous operation
       try {
-        const tokenResult = await ensureValidToken(activeProfile.configDir);
+        const tokenResult = await ensureValidToken(activeOAuthProfile.configDir);
 
         if (tokenResult.wasRefreshed) {
-          this.debugLog('[UsageMonitor] Proactively refreshed token for profile: ' + activeProfile.name, {
+          this.debugLog('[UsageMonitor] Proactively refreshed token for profile: ' + activeOAuthProfile.name, {
             tokenFingerprint: getCredentialFingerprint(tokenResult.token)
           });
 
           // Check if token refresh succeeded but persistence failed
           // The token works for this session but will be lost on restart
           if (tokenResult.persistenceFailed) {
-            console.warn('[UsageMonitor] Token refreshed but persistence failed for profile: ' + activeProfile.name +
+            console.warn('[UsageMonitor] Token refreshed but persistence failed for profile: ' + activeOAuthProfile.name +
               ' - user should re-authenticate to avoid auth errors on next restart');
-            this.needsReauthProfiles.add(activeProfile.id);
+            this.needsReauthProfiles.add(activeOAuthProfile.id);
           } else {
             // Token was refreshed and persisted successfully - clear from needsReauth if present
-            this.needsReauthProfiles.delete(activeProfile.id);
+            this.needsReauthProfiles.delete(activeOAuthProfile.id);
           }
         }
 
         if (tokenResult.token) {
-          this.debugLog('[UsageMonitor:TRACE] Using OAuth token for profile: ' + activeProfile.name, {
+          this.debugLog('[UsageMonitor:TRACE] Using OAuth token for profile: ' + activeOAuthProfile.name, {
             tokenFingerprint: getCredentialFingerprint(tokenResult.token),
             wasRefreshed: tokenResult.wasRefreshed
           });
@@ -1134,15 +1352,15 @@ export class UsageMonitor extends EventEmitter {
           // Check for invalid_grant error - indicates refresh token is permanently invalid
           // and user needs to manually re-authenticate
           if (tokenResult.errorCode === 'invalid_grant') {
-            this.debugLog('[UsageMonitor] Profile needs re-authentication (invalid refresh token): ' + activeProfile.name);
-            this.needsReauthProfiles.add(activeProfile.id);
+            this.debugLog('[UsageMonitor] Profile needs re-authentication (invalid refresh token): ' + activeOAuthProfile.name);
+            this.needsReauthProfiles.add(activeOAuthProfile.id);
           }
 
           // Check for missing_credentials error - indicates no token in credential store
           // User needs to authenticate via /login
           if (tokenResult.errorCode === 'missing_credentials') {
-            this.debugLog('[UsageMonitor] Profile needs authentication (no credentials found): ' + activeProfile.name);
-            this.needsReauthProfiles.add(activeProfile.id);
+            this.debugLog('[UsageMonitor] Profile needs authentication (no credentials found): ' + activeOAuthProfile.name);
+            this.needsReauthProfiles.add(activeOAuthProfile.id);
           }
         }
       } catch (error) {
@@ -1150,9 +1368,9 @@ export class UsageMonitor extends EventEmitter {
       }
 
       // Fallback: Try direct keychain read (e.g., if refresh token unavailable)
-      const keychainCreds = getCredentialsFromKeychain(activeProfile.configDir);
+      const keychainCreds = getCredentialsFromKeychain(activeOAuthProfile.configDir);
       if (keychainCreds.token) {
-        this.debugLog('[UsageMonitor:TRACE] Using fallback OAuth token from Keychain for profile: ' + activeProfile.name, {
+        this.debugLog('[UsageMonitor:TRACE] Using fallback OAuth token from Keychain for profile: ' + activeOAuthProfile.name, {
           tokenFingerprint: getCredentialFingerprint(keychainCreds.token)
         });
         return keychainCreds.token;
@@ -1162,12 +1380,12 @@ export class UsageMonitor extends EventEmitter {
       if (keychainCreds.error) {
         this.debugLog('[UsageMonitor] Keychain access failed:', keychainCreds.error);
       } else {
-        this.debugLog('[UsageMonitor:TRACE] No token in Keychain for profile: ' + activeProfile.name +
+        this.debugLog('[UsageMonitor:TRACE] No token in Keychain for profile: ' + activeOAuthProfile.name +
           ' - user may need to re-authenticate with claude /login');
       }
 
       // Mark profile as needing re-authentication since credentials are missing
-      this.needsReauthProfiles.add(activeProfile.id);
+      this.needsReauthProfiles.add(activeOAuthProfile.id);
     }
 
     // No credential available
@@ -1191,23 +1409,27 @@ export class UsageMonitor extends EventEmitter {
     this.isChecking = true;
     let profileId: string | undefined;
     let isAPIProfile = false;
+    let activeProfileResult: ActiveProfileResult | null = null;
 
     try {
       // Step 1: Determine active profile (API vs OAuth)
       const activeProfile = await this.determineActiveProfile();
       if (!activeProfile) {
+        this.activeTargetProfileId = null;
         return; // No active profile
       }
+      activeProfileResult = activeProfile;
+      this.activeTargetProfileId = activeProfile.profileId;
 
       profileId = activeProfile.profileId;
       isAPIProfile = activeProfile.isAPIProfile;
 
       // Step 2: Fetch current usage (pass activeProfile for consistency)
-      const credential = await this.getCredential();
+      const credential = await this.getCredential(activeProfile);
       console.log(`[DIAG] fetchUsage start — credential: ${credential ? 'yes' : 'NO'}, profile: ${profileId}`);
       const usage = await this.fetchUsage(profileId, credential, activeProfile);
       if (!usage) {
-        const bestAvailable = this.currentUsage ?? this.lastGoodUsage;
+        const bestAvailable = this.getCurrentUsage();
         console.log(`[DIAG] fetchUsage FAILED — re-emitting cached: S:${bestAvailable?.sessionPercent ?? 'null'}% W:${bestAvailable?.weeklyPercent ?? 'null'}%`);
         // Re-emit best-available data so meter doesn't go gray/stale (throttled).
         // Expire stale percentages first — if session has reset, show ~0% not old 100%.
@@ -1239,14 +1461,16 @@ export class UsageMonitor extends EventEmitter {
 
       // Step 2.5: Persist usage to profile for caching (so other profiles can display cached usage)
       const profileManager = getClaudeProfileManager();
-      profileManager.updateProfileUsageFromAPI(profileId, usage.sessionPercent, usage.weeklyPercent);
+      if (activeProfile.provider === 'anthropic') {
+        profileManager.updateProfileUsageFromAPI(profileId, usage.sessionPercent, usage.weeklyPercent);
+      }
 
       // Step 3: Emit usage update for UI (throttled to prevent renderer floods)
       this.throttledEmitUsage(usage);
 
       // Step 3.1: Proactively check usage thresholds and notify RDR system.
       // Pauses RDR at 100%, resumes below 100%.
-      this.checkRdrThresholds(usage);
+      this.checkRdrThresholds(usage, activeProfile.provider);
 
       // Step 3.5: Emit all profiles usage for multi-profile display
       const allProfilesUsage = await this.getAllProfilesUsage();
@@ -1255,7 +1479,7 @@ export class UsageMonitor extends EventEmitter {
       }
 
       // Step 4: Check thresholds and perform proactive swap (OAuth profiles only)
-      if (!isAPIProfile) {
+      if (!isAPIProfile && activeProfile.provider !== 'openai') {
         const profileManager = getClaudeProfileManager();
         const settings = profileManager.getAutoSwitchSettings();
 
@@ -1293,12 +1517,19 @@ export class UsageMonitor extends EventEmitter {
           });
         }
       } else {
-        this.debugLog('[UsageMonitor:TRACE] Skipping proactive swap for API profile (only supported for OAuth profiles)');
+        this.debugLog('[UsageMonitor:TRACE] Skipping proactive swap for non-Claude active provider', {
+          provider: activeProfile.provider,
+          isAPIProfile,
+        });
       }
     } catch (error) {
       // Step 5: Handle auth failures
       if (isHttpError(error) && (error.statusCode === 401 || error.statusCode === 403)) {
         if (profileId) {
+          if (activeProfileResult?.provider === 'openai') {
+            this.needsReauthProfiles.add(profileId);
+            return;
+          }
           await this.handleAuthFailure(profileId, isAPIProfile);
           return; // handleAuthFailure manages its own logging
         }
@@ -1333,15 +1564,40 @@ export class UsageMonitor extends EventEmitter {
    * @returns Active profile info or null if no profile is active
    */
   private async determineActiveProfile(): Promise<ActiveProfileResult | null> {
-    // First, check if an API profile is active
-    try {
-      const profilesFile = await loadProfilesFile();
-      if (profilesFile.activeProfileId) {
-        const activeAPIProfile = profilesFile.profiles.find(
-          (p) => p.id === profilesFile.activeProfileId
-        );
+    const profileManager = getClaudeProfileManager();
+    const providerState = await getProviderAccountState();
+    const profilesFile = await loadProfilesFile().catch(() => null);
+    const defaultProviderId = profileManager.getAutoSwitchSettings().defaultProviderId;
+    const activeProviderAccountId = resolveActiveProviderAccountId(
+      providerState.accounts,
+      defaultProviderId,
+      profilesFile?.activeProfileId ?? null,
+      profileManager.getActiveProfile()?.id ?? null
+    );
+
+    if (activeProviderAccountId) {
+      const providerAccount = providerState.accounts.find((account) => account.id === activeProviderAccountId);
+      if (providerAccount?.provider === 'openai') {
+        this.debugLog('[UsageMonitor:TRACE] Active auth type: OpenAI Codex', {
+          accountId: providerAccount.id,
+          accountName: providerAccount.name,
+          email: providerAccount.email
+        });
+        return {
+          profileId: providerAccount.id,
+          profileName: providerAccount.name,
+          profileEmail: providerAccount.email,
+          isAPIProfile: false,
+          baseUrl: 'https://chatgpt.com',
+          provider: 'openai',
+          providerAccountId: providerAccount.id,
+          providerAccount,
+        };
+      }
+
+      if (providerAccount?.provider === 'openai-compatible' && providerAccount.apiProfileId && profilesFile) {
+        const activeAPIProfile = profilesFile.profiles.find((profile) => profile.id === providerAccount.apiProfileId);
         if (activeAPIProfile?.apiKey) {
-          // API profile is active and has an apiKey
           this.debugLog('[UsageMonitor:TRACE] Active auth type: API Profile', {
             profileId: activeAPIProfile.id,
             profileName: activeAPIProfile.name,
@@ -1351,26 +1607,39 @@ export class UsageMonitor extends EventEmitter {
             profileId: activeAPIProfile.id,
             profileName: activeAPIProfile.name,
             isAPIProfile: true,
-            baseUrl: activeAPIProfile.baseUrl
+            baseUrl: activeAPIProfile.baseUrl,
+            provider: detectProvider(activeAPIProfile.baseUrl),
+            providerAccountId: providerAccount.id,
+            providerAccount,
+            credential: activeAPIProfile.apiKey,
           };
-        } else if (activeAPIProfile) {
-          // API profile exists but missing apiKey - fall back to OAuth
-          this.debugLog('[UsageMonitor:TRACE] Active API profile missing apiKey, falling back to OAuth', {
-            profileId: activeAPIProfile.id,
-            profileName: activeAPIProfile.name
-          });
-        } else {
-          // activeProfileId is set but profile not found - fall through to OAuth
-          this.debugLog('[UsageMonitor:TRACE] Active API profile ID set but profile not found, falling back to OAuth');
         }
       }
-    } catch (error) {
-      // Failed to load API profiles - fall through to OAuth
-      this.debugLog('[UsageMonitor:TRACE] Failed to load API profiles, falling back to OAuth:', error);
+    }
+
+    // First, check if an API profile is active
+    if (profilesFile?.activeProfileId) {
+      const activeAPIProfile = profilesFile.profiles.find(
+        (profile) => profile.id === profilesFile.activeProfileId
+      );
+      if (activeAPIProfile?.apiKey) {
+        this.debugLog('[UsageMonitor:TRACE] Active auth type: API Profile', {
+          profileId: activeAPIProfile.id,
+          profileName: activeAPIProfile.name,
+          baseUrl: activeAPIProfile.baseUrl
+        });
+        return {
+          profileId: activeAPIProfile.id,
+          profileName: activeAPIProfile.name,
+          isAPIProfile: true,
+          baseUrl: activeAPIProfile.baseUrl,
+          provider: detectProvider(activeAPIProfile.baseUrl),
+          credential: activeAPIProfile.apiKey,
+        };
+      }
     }
 
     // If no API profile is active, check OAuth profiles
-    const profileManager = getClaudeProfileManager();
     const activeOAuthProfile = profileManager.getActiveProfile();
 
     if (!activeOAuthProfile) {
@@ -1398,7 +1667,11 @@ export class UsageMonitor extends EventEmitter {
       profileName: activeOAuthProfile.name,
       profileEmail,
       isAPIProfile: false,
-      baseUrl: 'https://api.anthropic.com'
+      baseUrl: 'https://api.anthropic.com',
+      provider: 'anthropic' as const,
+      providerAccountId: providerState.accounts.find(
+        (account) => account.provider === 'anthropic' && account.claudeProfileId === activeOAuthProfile.id
+      )?.id,
     };
 
     return result;
@@ -1621,6 +1894,11 @@ export class UsageMonitor extends EventEmitter {
       this.debugLog('[UsageMonitor:FETCH] No credential available, skipping API method');
     }
 
+    if (activeProfile?.provider === 'openai') {
+      this.debugLog('[UsageMonitor:FETCH] Skipping Claude CLI fallback for OpenAI Codex account');
+      return null;
+    }
+
     // Attempt 2: CLI /usage command (fallback)
     // NEVER skip CLI fallback based on API failure state — CLI reads ~/.claude/.credentials.json
     // which may have a different token. Blocking CLI during 429 cooldown killed the meter 3 times.
@@ -1686,9 +1964,12 @@ export class UsageMonitor extends EventEmitter {
       // Use passed activeProfile if available, otherwise detect to maintain backward compatibility
       let apiProfile: APIProfile | undefined;
       let baseUrl: string;
-      let provider: ApiProvider;
+      let provider: ApiProvider | 'openai';
 
-      if (activeProfile?.isAPIProfile) {
+      if (activeProfile?.provider === 'openai') {
+        provider = 'openai';
+        baseUrl = activeProfile.baseUrl;
+      } else if (activeProfile?.isAPIProfile) {
         // Use the pre-determined profile to avoid race conditions
         // Trust the activeProfile data and use baseUrl directly
         baseUrl = activeProfile.baseUrl;
@@ -1720,6 +2001,16 @@ export class UsageMonitor extends EventEmitter {
         isAPIProfile,
         profileId
       });
+
+      if (provider === 'openai') {
+        const rawData = await fetchCodexUsage(credential, getCodexAccountId(credential));
+        if (!rawData) {
+          this.apiFailureTimestamps.set(profileId, Date.now());
+          return null;
+        }
+
+        return normalizeCodexResponse(rawData, profileId, profileName, profileEmail);
+      }
 
       // Step 3: Get provider-specific usage endpoint
       const usageEndpoint = getUsageEndpoint(provider, baseUrl);

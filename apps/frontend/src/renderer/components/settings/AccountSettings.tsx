@@ -229,25 +229,31 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
     }
   }, [loadCodexAuthStatuses, onSettingsChange, settings, t, toast]);
 
+  const activeProviderAccountId = useMemo(() => {
+    if (autoSwitchSettings?.defaultProviderId && providerAccounts.some((account) => account.id === autoSwitchSettings.defaultProviderId)) {
+      return autoSwitchSettings.defaultProviderId;
+    }
+
+    const activeApiAccount = providerAccounts.find(
+      (account) => account.provider === 'openai-compatible' && account.apiProfileId === activeApiProfileId
+    );
+    if (activeApiAccount) {
+      return activeApiAccount.id;
+    }
+
+    const activeClaudeAccount = providerAccounts.find(
+      (account) => account.provider === 'anthropic' && account.claudeProfileId === activeClaudeProfileId
+    );
+    return activeClaudeAccount?.id ?? null;
+  }, [activeApiProfileId, activeClaudeProfileId, autoSwitchSettings?.defaultProviderId, providerAccounts]);
+
+  const hasActiveCustomEndpoint = useMemo(
+    () => providerAccounts.some((account) => account.provider === 'openai-compatible' && account.id === activeProviderAccountId),
+    [activeProviderAccountId, providerAccounts]
+  );
+
   const unifiedAccountMap = useMemo(() => {
     const accounts = new Map<string, UnifiedAccount>();
-    const activeProviderAccountId = (() => {
-      if (autoSwitchSettings?.defaultProviderId && providerAccounts.some((account) => account.id === autoSwitchSettings.defaultProviderId)) {
-        return autoSwitchSettings.defaultProviderId;
-      }
-
-      const activeApiAccount = providerAccounts.find(
-        (account) => account.provider === 'openai-compatible' && account.apiProfileId === activeApiProfileId
-      );
-      if (activeApiAccount) {
-        return activeApiAccount.id;
-      }
-
-      const activeClaudeAccount = providerAccounts.find(
-        (account) => account.provider === 'anthropic' && account.claudeProfileId === activeClaudeProfileId
-      );
-      return activeClaudeAccount?.id ?? null;
-    })();
 
     for (const account of providerAccounts) {
       if (account.provider === 'anthropic' && account.claudeProfileId) {
@@ -302,6 +308,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
 
       if (account.provider === 'openai') {
         const authState = codexAuthStates[account.id];
+        const usageData = profileUsageData.get(account.id);
         accounts.set(account.id, {
           id: account.id,
           name: account.name,
@@ -312,13 +319,18 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
           isNext: false,
           isAvailable: authState?.isAuthenticated ?? false,
           hasUnlimitedUsage: false,
+          sessionPercent: usageData?.sessionPercent,
+          weeklyPercent: usageData?.weeklyPercent,
+          isRateLimited: usageData?.isRateLimited,
+          rateLimitType: usageData?.rateLimitType,
           isAuthenticated: authState?.isAuthenticated ?? false,
+          needsReauthentication: usageData?.needsReauthentication ?? !authState?.isAuthenticated,
         });
       }
     }
 
     return accounts;
-  }, [activeApiProfileId, activeClaudeProfileId, apiProfiles, autoSwitchSettings?.defaultProviderId, claudeProfiles, codexAuthStates, profileUsageData, providerAccounts, t]);
+  }, [activeProviderAccountId, apiProfiles, claudeProfiles, codexAuthStates, profileUsageData, providerAccounts, t]);
 
   const unifiedPriorityAccounts = useMemo(
     () => priorityOrder
@@ -691,6 +703,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
     setDisabledAutoSwitchAccountIds(result.data.disabledAutoSwitchAccountIds);
     await handleUpdateAutoSwitch({ defaultProviderId: accountId });
     await reloadSettingsStore();
+    await loadProfileUsageData(true);
     return true;
   }
 
@@ -778,6 +791,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
         }));
         await loadProviderAccounts();
         await reloadSettingsStore();
+        await loadProfileUsageData(true);
       } else {
         toast({
           variant: 'destructive',
@@ -823,6 +837,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
     } finally {
       setCodexLoadingIds((current) => ({ ...current, [accountId]: false }));
       await loadProviderAccounts();
+      await loadProfileUsageData(true);
     }
   };
 
@@ -894,6 +909,21 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
           title: t('apiProfiles.toast.switch.oauthTitle'),
           description: t('apiProfiles.toast.switch.oauthDescription'),
         });
+
+        const activeClaudeAccount = providerAccounts.find(
+          (account) => account.provider === 'anthropic' && account.claudeProfileId === activeClaudeProfileId
+        );
+        const fallbackClaudeAccount = activeClaudeAccount
+          ?? priorityOrder
+            .map((accountId) => providerAccounts.find((account) => account.id === accountId))
+            .find((account): account is ProviderAccount => !!account && account.provider === 'anthropic')
+          ?? providerAccounts.find((account) => account.provider === 'anthropic');
+
+        if (fallbackClaudeAccount) {
+          await moveProviderAccountToFront(fallbackClaudeAccount.id);
+        } else {
+          await handleUpdateAutoSwitch({ defaultProviderId: undefined });
+        }
       } else {
         const activeProfile = apiProfiles.find(p => p.id === profileId);
         if (activeProfile) {
@@ -958,6 +988,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
   };
 
   const handleUpdateAutoSwitch = async (updates: Partial<ClaudeAutoSwitchSettings>) => {
+    setAutoSwitchSettings((current) => current ? { ...current, ...updates } : current);
     setIsLoadingAutoSwitch(true);
     try {
       const result = await window.electronAPI.updateAutoSwitchSettings(updates);
@@ -1022,6 +1053,10 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                     // Get usage data to check needsReauthentication flag
                     const usageData = profileUsageData.get(profile.id);
                     const needsReauth = usageData?.needsReauthentication ?? false;
+                    const providerAccount = providerAccounts.find(
+                      (account) => account.provider === 'anthropic' && account.claudeProfileId === profile.id
+                    );
+                    const isActiveProvider = providerAccount?.id === activeProviderAccountId;
 
                     return (
                     <div
@@ -1030,7 +1065,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                         "rounded-lg border transition-colors",
                         needsReauth
                           ? "border-destructive/50 bg-destructive/5"
-                          : profile.id === activeClaudeProfileId && !activeApiProfileId
+                          : isActiveProvider
                             ? "border-primary bg-primary/5"
                             : "border-border bg-background"
                       )}
@@ -1042,7 +1077,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                         <div className="flex items-center gap-3">
                           <div className={cn(
                             "h-7 w-7 rounded-full flex items-center justify-center text-xs font-medium shrink-0",
-                            profile.id === activeClaudeProfileId && !activeApiProfileId
+                            isActiveProvider
                               ? "bg-primary text-primary-foreground"
                               : "bg-muted text-muted-foreground"
                           )}>
@@ -1085,7 +1120,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                                   {profile.isDefault && (
                                     <span className="text-xs bg-muted px-1.5 py-0.5 rounded">{t('accounts.claudeCode.default')}</span>
                                   )}
-                                  {profile.id === activeClaudeProfileId && !activeApiProfileId && (
+                                  {isActiveProvider && (
                                     <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded flex items-center gap-1">
                                       <Star className="h-3 w-3" />
                                       {t('accounts.claudeCode.active')}
@@ -1207,7 +1242,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                                 <TooltipContent>{tCommon('accessibility.reAuthenticateProfileAriaLabel')}</TooltipContent>
                               </Tooltip>
                             )}
-                            {(profile.id !== activeClaudeProfileId || activeApiProfileId) && (
+                            {!isActiveProvider && (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -1423,8 +1458,9 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                 <div className="space-y-2">
                   {openAIAccounts.map((account) => {
                     const authState = codexAuthStates[account.id];
+                    const usageData = profileUsageData.get(account.id);
                     const isBusy = codexLoadingIds[account.id] || false;
-                    const isDefault = autoSwitchSettings?.defaultProviderId === account.id;
+                    const isActiveProvider = activeProviderAccountId === account.id;
                     const isEditing = editingOpenAIAccountId === account.id;
 
                     return (
@@ -1432,14 +1468,14 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                         key={account.id}
                         className={cn(
                           'rounded-lg border transition-colors',
-                          isDefault ? 'border-primary bg-primary/5' : 'border-border bg-background'
+                          isActiveProvider ? 'border-primary bg-primary/5' : 'border-border bg-background'
                         )}
                       >
                         <div className="flex items-center justify-between p-3">
                           <div className="flex items-center gap-3">
                             <div className={cn(
                               'h-7 w-7 rounded-full flex items-center justify-center text-xs font-medium shrink-0',
-                              isDefault ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                              isActiveProvider ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                             )}>
                               {(isEditing ? editingOpenAIAccountName : account.name).charAt(0).toUpperCase()}
                             </div>
@@ -1477,7 +1513,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                                 <>
                                   <div className="flex items-center gap-2 flex-wrap">
                                     <span className="text-sm font-medium text-foreground">{account.name}</span>
-                                    {isDefault && (
+                                    {isActiveProvider && (
                                       <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded flex items-center gap-1">
                                         <Star className="h-3 w-3" />
                                         {t('accounts.claudeCode.active')}
@@ -1502,6 +1538,54 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                                       {t('accounts.openaiCodex.expiresAt', { date: formatTimestamp(authState.expiresAt) })}
                                     </p>
                                   )}
+                                  {usageData && authState?.isAuthenticated && !usageData.needsReauthentication && (
+                                    <div className="flex items-center gap-3 mt-1.5">
+                                      <div className="flex items-center gap-1.5">
+                                        <Clock className="h-3 w-3 text-muted-foreground" />
+                                        <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
+                                          <div
+                                            className={`h-full rounded-full ${
+                                              (usageData.sessionPercent ?? 0) >= 95 ? 'bg-red-500' :
+                                              (usageData.sessionPercent ?? 0) >= 91 ? 'bg-orange-500' :
+                                              (usageData.sessionPercent ?? 0) >= 71 ? 'bg-yellow-500' :
+                                              'bg-green-500'
+                                            }`}
+                                            style={{ width: `${Math.min(usageData.sessionPercent ?? 0, 100)}%` }}
+                                          />
+                                        </div>
+                                        <span className={`text-[10px] tabular-nums w-7 ${
+                                          (usageData.sessionPercent ?? 0) >= 95 ? 'text-red-500' :
+                                          (usageData.sessionPercent ?? 0) >= 91 ? 'text-orange-500' :
+                                          (usageData.sessionPercent ?? 0) >= 71 ? 'text-yellow-500' :
+                                          'text-muted-foreground'
+                                        }`}>
+                                          {Math.round(usageData.sessionPercent ?? 0)}%
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-1.5">
+                                        <TrendingUp className="h-3 w-3 text-muted-foreground" />
+                                        <div className="w-12 h-1.5 bg-muted rounded-full overflow-hidden">
+                                          <div
+                                            className={`h-full rounded-full ${
+                                              (usageData.weeklyPercent ?? 0) >= 95 ? 'bg-red-500' :
+                                              (usageData.weeklyPercent ?? 0) >= 91 ? 'bg-orange-500' :
+                                              (usageData.weeklyPercent ?? 0) >= 71 ? 'bg-yellow-500' :
+                                              'bg-green-500'
+                                            }`}
+                                            style={{ width: `${Math.min(usageData.weeklyPercent ?? 0, 100)}%` }}
+                                          />
+                                        </div>
+                                        <span className={`text-[10px] tabular-nums w-7 ${
+                                          (usageData.weeklyPercent ?? 0) >= 95 ? 'text-red-500' :
+                                          (usageData.weeklyPercent ?? 0) >= 91 ? 'text-orange-500' :
+                                          (usageData.weeklyPercent ?? 0) >= 71 ? 'text-yellow-500' :
+                                          'text-muted-foreground'
+                                        }`}>
+                                          {Math.round(usageData.weeklyPercent ?? 0)}%
+                                        </span>
+                                      </div>
+                                    </div>
+                                  )}
                                 </>
                               )}
                             </div>
@@ -1509,7 +1593,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
 
                           {!isEditing && (
                             <div className="flex items-center gap-1">
-                              {!isDefault && (
+                              {!isActiveProvider && (
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -1643,7 +1727,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
               {/* Profile list */}
               {apiProfiles.length > 0 && (
                 <div className="space-y-2">
-                  {activeApiProfileId && (
+                  {hasActiveCustomEndpoint && (
                     <div className="flex items-center justify-end pb-2">
                       <Button
                         variant="outline"
@@ -1658,7 +1742,10 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                     </div>
                   )}
                   {apiProfiles.map((profile) => {
-                    const isActive = activeApiProfileId === profile.id;
+                    const providerAccount = providerAccounts.find(
+                      (account) => account.provider === 'openai-compatible' && account.apiProfileId === profile.id
+                    );
+                    const isActive = providerAccount?.id === activeProviderAccountId;
                     return (
                       <div
                         key={profile.id}

@@ -461,6 +461,8 @@
     "subscription": "Subscription",
     "provider": "Provider",
     "providerAnthropic": "Anthropic",
+    "providerOpenAI": "OpenAI Codex",
+    "providerCustomEndpoint": "Custom Endpoint",
     "providerZai": "z.ai",
     "providerZhipu": "ZHIPU AI",
     "providerUnknown": "Unknown",

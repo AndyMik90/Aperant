@@ -197,8 +197,41 @@ export function UsageIndicator() {
     setOtherProfiles(newOtherProfiles);
 
     try {
-      // Actually switch the profile on the backend
-      const result = await window.electronAPI.setActiveClaudeProfile(profileId);
+      const providerResult = await window.electronAPI.getProviderAccounts?.();
+      const providerAccount = providerResult?.success && providerResult.data
+        ? providerResult.data.accounts.find((account) =>
+            account.id === profileId
+            || account.claudeProfileId === profileId
+            || account.apiProfileId === profileId
+          )
+        : undefined;
+
+      let result: { success: boolean; error?: string } = { success: true };
+
+      if (providerAccount && providerResult?.success && providerResult.data) {
+        const nextOrder = [
+          providerAccount.id,
+          ...providerResult.data.globalPriorityOrder.filter((id) => id !== providerAccount.id),
+        ];
+        const nextDisabledIds = providerResult.data.disabledAutoSwitchAccountIds.filter((id) => id !== providerAccount.id);
+
+        const orderUpdateResult = await window.electronAPI.setProviderAccountOrder?.(nextOrder, nextDisabledIds);
+        if (!orderUpdateResult?.success) {
+          throw new Error(orderUpdateResult?.error || 'Failed to update provider account order');
+        }
+
+        await window.electronAPI.updateAutoSwitchSettings?.({ defaultProviderId: providerAccount.id });
+
+        if (providerAccount.provider === 'anthropic' && providerAccount.claudeProfileId) {
+          result = await window.electronAPI.setActiveClaudeProfile(providerAccount.claudeProfileId);
+        } else if (providerAccount.provider === 'openai-compatible') {
+          result = await window.electronAPI.setActiveAPIProfile(providerAccount.apiProfileId ?? null);
+        }
+      } else {
+        // Legacy fallback for older usage summaries.
+        result = await window.electronAPI.setActiveClaudeProfile(profileId);
+      }
+
       if (result.success) {
         // Fetch fresh data in the background (will update via event listeners)
         window.electronAPI.requestUsageUpdate();
