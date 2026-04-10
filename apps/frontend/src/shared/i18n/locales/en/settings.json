@@ -596,9 +596,10 @@
   },
   "accounts": {
     "title": "Accounts",
-    "description": "Manage Claude accounts and API endpoints",
+    "description": "Manage Claude accounts, OpenAI Codex, and API endpoints",
     "tabs": {
       "claudeCode": "Claude Code",
+      "openaiCodex": "OpenAI Codex",
       "customEndpoints": "Custom Endpoints"
     },
     "claudeCode": {
@@ -617,6 +618,20 @@
       "emailPlaceholder": "Email (optional, for display)",
       "saveToken": "Save Token",
       "accountNamePlaceholder": "Account name (e.g., Work, Personal)"
+    },
+    "openaiCodex": {
+      "description": "Authenticate natively with your OpenAI account for Codex.",
+      "runtimeNote": "This adds native Codex sign-in for the fork. The autonomous task runner still uses the older Claude and Custom Endpoint path today, so OpenRouter remains the working OpenAI-family option until the provider migration lands.",
+      "accountLabel": "OpenAI Account",
+      "connected": "Connected",
+      "notConnected": "Not Connected",
+      "noAccount": "No OpenAI account connected yet",
+      "authenticate": "Authenticate",
+      "authenticating": "Authenticating...",
+      "reauthenticate": "Re-authenticate",
+      "disconnect": "Disconnect",
+      "disconnecting": "Disconnecting...",
+      "expiresAt": "Expires: {{date}}"
     },
     "customEndpoints": {
       "description": "Configure custom Anthropic-compatible API endpoints",
@@ -705,6 +720,9 @@
       "deleteProfileFailed": "Failed to Delete Profile",
       "renameProfileFailed": "Failed to Rename Profile",
       "setActiveProfileFailed": "Failed to Set Active Profile",
+      "codexStatusFailed": "Failed to Load OpenAI Status",
+      "codexLoginFailed": "Failed to Authenticate OpenAI",
+      "codexLogoutFailed": "Failed to Disconnect OpenAI",
       "tokenSaved": "Token Saved",
       "tokenSavedDescription": "Your token has been saved successfully.",
       "tokenSaveFailed": "Failed to Save Token",

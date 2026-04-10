@@ -93,7 +93,11 @@ export const DEFAULT_APP_SETTINGS = {
     heartbeatStaleThresholdMs: 45000    // Stale after 45s = freeze detected
   },
   // Auto-shutdown when all tasks across ALL projects reach Human Review (disabled by default)
-  autoShutdownEnabled: false
+  autoShutdownEnabled: false,
+  providerAccounts: [],
+  globalPriorityOrder: [],
+  disabledAutoSwitchAccountIds: [],
+  _migratedProviderAccounts: false
 };
 
 // ============================================

@@ -75,6 +75,7 @@ import type {
   TerminalProfileChangedEvent
 } from './agent';
 import type { AppSettings, SourceEnvConfig, SourceEnvCheckResult } from './settings';
+import type { ProviderAccount } from './provider-account';
 import type { AppUpdateInfo, AppUpdateProgress, AppUpdateAvailableEvent, AppUpdateDownloadedEvent, AppUpdateErrorEvent } from './app-update';
 import type {
   ChangelogTask,
@@ -175,6 +176,18 @@ export interface TabState {
   openProjectIds: string[];
   activeProjectId: string | null;
   tabOrder: string[];
+}
+
+export interface CodexAuthState {
+  isAuthenticated: boolean;
+  expiresAt?: number;
+  email?: string;
+}
+
+export interface ProviderAccountsPayload {
+  accounts: ProviderAccount[];
+  globalPriorityOrder: string[];
+  disabledAutoSwitchAccountIds: string[];
 }
 
 export interface ElectronAPI {
@@ -369,6 +382,22 @@ export interface ElectronAPI {
   authenticateClaudeProfile: (profileId: string) => Promise<IPCResult<{ terminalId: string; configDir: string }>>;
   /** Check if a profile has been authenticated (by checking .claude.json) */
   verifyClaudeProfileAuth: (profileId: string) => Promise<IPCResult<{ authenticated: boolean; email?: string }>>;
+  /** Read the unified provider-account registry and queue state */
+  getProviderAccounts: () => Promise<IPCResult<ProviderAccountsPayload>>;
+  /** Create a provider account (used for native OpenAI/Codex accounts) */
+  saveProviderAccount: (account: Omit<ProviderAccount, 'id' | 'createdAt' | 'updatedAt'>) => Promise<IPCResult<ProviderAccount>>;
+  /** Update provider-account metadata such as display name or email */
+  updateProviderAccount: (id: string, updates: Partial<ProviderAccount>) => Promise<IPCResult<ProviderAccount>>;
+  /** Delete a provider account (used for native OpenAI/Codex accounts) */
+  deleteProviderAccount: (id: string) => Promise<IPCResult>;
+  /** Persist the eligible/disabled priority buckets for automatic switching */
+  setProviderAccountOrder: (order: string[], disabledIds: string[]) => Promise<IPCResult<ProviderAccountsPayload>>;
+  /** Authenticate OpenAI Codex with OAuth and persist the token bundle locally */
+  codexAuthLogin: (accountId: string) => Promise<IPCResult<CodexAuthState>>;
+  /** Get the current OpenAI Codex authentication state */
+  codexAuthStatus: (accountId: string) => Promise<IPCResult<CodexAuthState>>;
+  /** Clear stored OpenAI Codex authentication */
+  codexAuthLogout: (accountId: string) => Promise<IPCResult>;
   /** Get auto-switch settings */
   getAutoSwitchSettings: () => Promise<IPCResult<ClaudeAutoSwitchSettings>>;
   /** Update auto-switch settings */

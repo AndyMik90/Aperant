@@ -5,6 +5,7 @@
 import type { NotificationSettings, GraphitiEmbeddingProvider } from './project';
 import type { ChangelogFormat, ChangelogAudience, ChangelogEmojiLevel } from './changelog';
 import type { SupportedLanguage } from '../constants/i18n';
+import type { ProviderAccount } from './provider-account';
 
 // Color theme types for multi-theme support
 export type ColorTheme = 'default' | 'dusk' | 'lime' | 'ocean' | 'retro' | 'neo' | 'forest';
@@ -354,6 +355,15 @@ export interface AppSettings {
     heartbeatIntervalMs?: number;           // How often main process writes heartbeat (default: 10000)
     heartbeatStaleThresholdMs?: number;     // How long before heartbeat is considered stale (default: 45000)
   };
+  // Unified provider-account registry used by Accounts settings, task provider selection,
+  // and cross-provider priority management.
+  providerAccounts?: ProviderAccount[];
+  // Ordered list of auto-switch eligible provider account IDs.
+  globalPriorityOrder?: string[];
+  // Accounts excluded from automatic switching but still available for manual task selection.
+  disabledAutoSwitchAccountIds?: string[];
+  // Internal migration flag for the shared provider-account registry.
+  _migratedProviderAccounts?: boolean;
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)

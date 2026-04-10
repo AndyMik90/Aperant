@@ -32,6 +32,7 @@ import { setUpdateChannel, setUpdateChannelWithDowngradeCheck } from '../app-upd
 import { getSettingsPath, readSettingsFile } from '../settings-utils';
 import { configureTools, getToolPath, getToolInfo, isPathFromWrongPlatform, preWarmToolCache } from '../cli-tool-manager';
 import { parseEnvFile } from './utils';
+import { getProviderAccountState } from '../services/provider-account-service';
 
 const settingsPath = getSettingsPath();
 
@@ -212,6 +213,13 @@ export function registerSettingsHandlers(
         }
       }
 
+      // Reconcile provider accounts against Claude profiles and custom endpoints.
+      const providerState = await getProviderAccountState();
+      settings.providerAccounts = providerState.accounts;
+      settings.globalPriorityOrder = providerState.globalPriorityOrder;
+      settings.disabledAutoSwitchAccountIds = providerState.disabledAutoSwitchAccountIds;
+      settings._migratedProviderAccounts = true;
+
       // Configure CLI tools with current settings
       configureTools({
         pythonPath: settings.pythonPath,
@@ -237,7 +245,14 @@ export function registerSettingsHandlers(
         // Load current settings using shared helper
         const savedSettings = readSettingsFile();
         const currentSettings = { ...DEFAULT_APP_SETTINGS, ...savedSettings };
-        const newSettings = { ...currentSettings, ...settings };
+        const {
+          providerAccounts: _providerAccounts,
+          globalPriorityOrder: _globalPriorityOrder,
+          disabledAutoSwitchAccountIds: _disabledAutoSwitchAccountIds,
+          _migratedProviderAccounts: _migratedProviderAccounts,
+          ...safeSettings
+        } = settings;
+        const newSettings = { ...currentSettings, ...safeSettings };
 
         // Sync defaultModel when agent profile changes (#414)
         if (settings.selectedAgentProfile) {

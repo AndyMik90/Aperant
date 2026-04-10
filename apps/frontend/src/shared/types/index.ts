@@ -13,6 +13,7 @@ export * from './terminal';
 export * from './agent';
 export * from './profile';
 export * from './unified-account';
+export * from './provider-account';
 export * from './settings';
 export * from './changelog';
 export * from './insights';

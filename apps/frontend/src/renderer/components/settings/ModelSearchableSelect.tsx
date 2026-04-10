@@ -37,6 +37,7 @@ const ADDITIONAL_MODELS: Record<string, ModelInfo[]> = {
     { id: 'MiniMax-M2.1-highspeed', display_name: 'MiniMax M2.1 Highspeed' },
     { id: 'MiniMax-M2.5', display_name: 'MiniMax M2.5' },
     { id: 'MiniMax-M2.5-highspeed', display_name: 'MiniMax M2.5 Highspeed' },
+    { id: 'MiniMax-M2.7-highspeed', display_name: 'MiniMax M2.7 Highspeed' },
   ],
 };
 

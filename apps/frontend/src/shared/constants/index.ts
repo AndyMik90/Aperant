@@ -33,6 +33,9 @@ export * from './github';
 // API profile presets
 export * from './api-profiles';
 
+// Provider registry
+export * from './providers';
+
 // Configuration and paths
 export * from './config';
 

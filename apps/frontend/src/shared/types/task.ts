@@ -145,6 +145,7 @@ export interface TaskDraft {
   priority: TaskPriority | '';
   complexity: TaskComplexity | '';
   impact: TaskImpact | '';
+  providerId?: string;
   profileId?: string;  // Agent profile ID ('auto', 'complex', 'balanced', 'quick', 'custom')
   model: ModelType | '';
   thinkingLevel: ThinkingLevel | '';
@@ -227,7 +228,7 @@ export interface TaskMetadata {
   requireReviewBeforeCoding?: boolean;  // Require human review of spec/plan before coding starts
 
   // Provider selection (per-task provider override)
-  providerId?: string;  // Unified account ID (e.g., 'oauth-{id}' or 'api-{id}') — overrides global active profile
+  providerId?: string;  // Provider-account ID (e.g., 'pa_...') — overrides the global active account
 
   // Agent configuration (from agent profile or manual selection)
   model?: ModelType;  // Claude model to use (haiku, sonnet, opus) - used when not auto profile

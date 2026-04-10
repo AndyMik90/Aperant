@@ -158,6 +158,14 @@ export const IPC_CHANNELS = {
   SETTINGS_SAVE: 'settings:save',
   SETTINGS_GET_CLI_TOOLS_INFO: 'settings:getCliToolsInfo',
   SETTINGS_CLAUDE_CODE_GET_ONBOARDING_STATUS: 'settings:claudeCode:getOnboardingStatus',  // Check hasCompletedOnboarding from ~/.claude.json
+  PROVIDER_ACCOUNTS_GET: 'providerAccounts:get',
+  PROVIDER_ACCOUNTS_SAVE: 'providerAccounts:save',
+  PROVIDER_ACCOUNTS_UPDATE: 'providerAccounts:update',
+  PROVIDER_ACCOUNTS_DELETE: 'providerAccounts:delete',
+  PROVIDER_ACCOUNTS_SET_ORDER: 'providerAccounts:setOrder',
+  CODEX_AUTH_LOGIN: 'codex:auth:login',
+  CODEX_AUTH_STATUS: 'codex:auth:status',
+  CODEX_AUTH_LOGOUT: 'codex:auth:logout',
 
   // API Profile management (custom Anthropic-compatible endpoints)
   PROFILES_GET: 'profiles:get',

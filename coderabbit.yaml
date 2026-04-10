@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+# CodeRabbit Configuration
+# Documentation: https://docs.coderabbit.ai/reference/configuration
+
+language: "en-US"
+
+reviews:
+  # Review profile: "chill" for fewer comments, "assertive" for more thorough feedback
+  profile: "assertive"
+
+  # Generate high-level summary in PR description
+  high_level_summary: true
+
+  # Automatic review settings
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    # Target branches for review (in addition to default branch)
+    base_branches:
+      - develop
+      - "release/*"
+      - "hotfix/*"
+    # Skip review for PRs with these title keywords (case-insensitive)
+    ignore_title_keywords:
+      - "[WIP]"
+      - "WIP:"
+      - "DO NOT MERGE"
+    # Don't review draft PRs
+    drafts: false
+
+  # Path filters - exclude generated/vendor files
+  path_filters:
+    - "!**/node_modules/**"
+    - "!**/.venv/**"
+    - "!**/dist/**"
+    - "!**/build/**"
+    - "!**/*.lock"
+    - "!**/package-lock.json"
+    - "!**/*.min.js"
+    - "!**/*.min.css"
+
+  # Path-specific review instructions
+  path_instructions:
+    - path: "apps/backend/**/*.py"
+      instructions: |
+        Focus on Python best practices, type hints, and async patterns.
+        Check for proper error handling and security considerations.
+        Verify compatibility with Python 3.12+.
+    - path: "apps/frontend/**/*.{ts,tsx}"
+      instructions: |
+        Review React patterns and TypeScript type safety.
+        Check for proper state management and component composition.
+    - path: "tests/**"
+      instructions: |
+        Ensure tests are comprehensive and follow pytest conventions.
+        Check for proper mocking and test isolation.
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  opt_out: false
+  learnings:
+    scope: "auto"

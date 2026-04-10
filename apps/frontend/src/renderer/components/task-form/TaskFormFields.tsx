@@ -36,6 +36,7 @@ import type {
   ThinkingLevel
 } from '../../../shared/types';
 import type { PhaseModelConfig, PhaseThinkingConfig } from '../../../shared/types/settings';
+import type { TaskProviderOption } from '../../lib/provider-accounts';
 
 interface TaskFormFieldsProps {
   // Project context (for loading image thumbnails from disk)
@@ -58,7 +59,7 @@ interface TaskFormFieldsProps {
   // Provider selection (only shown when profile combinations enabled)
   providerId?: string;
   onProviderChange?: (providerId: string) => void;
-  providerOptions?: Array<{ id: string; name: string; type: 'oauth' | 'api'; usagePercent?: number }>;
+  providerOptions?: TaskProviderOption[];
   showProviderSelector?: boolean;
   /** Override model labels per provider (e.g., MiniMax model names) */
   providerModelLabels?: Record<string, string>;
@@ -493,7 +494,13 @@ export function TaskFormFields({
               <option value="">{t('tasks:form.providerAuto', 'Auto (use active account)')}</option>
               {providerOptions.map((provider) => (
                 <option key={provider.id} value={provider.id}>
-                  {provider.name} ({provider.type === 'oauth' ? 'Claude Code' : 'API'})
+                  {provider.name} ({provider.provider === 'openai'
+                    ? 'OpenAI Codex'
+                    : provider.provider === 'openai-compatible'
+                      ? 'Custom Endpoint'
+                      : provider.type === 'oauth'
+                        ? 'Claude Code'
+                        : 'API'})
                   {provider.usagePercent !== undefined ? ` — ${provider.usagePercent}%` : ''}
                 </option>
               ))}

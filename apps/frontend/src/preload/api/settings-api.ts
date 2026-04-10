@@ -2,7 +2,10 @@ import { ipcRenderer } from 'electron';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type {
   AppSettings,
+  CodexAuthState,
   IPCResult,
+  ProviderAccount,
+  ProviderAccountsPayload,
   SourceEnvConfig,
   SourceEnvCheckResult,
   ToolDetectionResult
@@ -23,6 +26,18 @@ export interface SettingsAPI {
 
   // Claude Code onboarding status
   getClaudeCodeOnboardingStatus: () => Promise<IPCResult<{ hasCompletedOnboarding: boolean }>>;
+
+  // Unified provider accounts
+  getProviderAccounts: () => Promise<IPCResult<ProviderAccountsPayload>>;
+  saveProviderAccount: (account: Omit<ProviderAccount, 'id' | 'createdAt' | 'updatedAt'>) => Promise<IPCResult<ProviderAccount>>;
+  updateProviderAccount: (id: string, updates: Partial<ProviderAccount>) => Promise<IPCResult<ProviderAccount>>;
+  deleteProviderAccount: (id: string) => Promise<IPCResult>;
+  setProviderAccountOrder: (order: string[], disabledIds: string[]) => Promise<IPCResult<ProviderAccountsPayload>>;
+
+  // OpenAI Codex OAuth
+  codexAuthLogin: (accountId: string) => Promise<IPCResult<CodexAuthState>>;
+  codexAuthStatus: (accountId: string) => Promise<IPCResult<CodexAuthState>>;
+  codexAuthLogout: (accountId: string) => Promise<IPCResult>;
 
   // App Info
   getAppVersion: () => Promise<string>;
@@ -61,6 +76,40 @@ export const createSettingsAPI = (): SettingsAPI => ({
   // Claude Code onboarding status
   getClaudeCodeOnboardingStatus: (): Promise<IPCResult<{ hasCompletedOnboarding: boolean }>> =>
     ipcRenderer.invoke(IPC_CHANNELS.SETTINGS_CLAUDE_CODE_GET_ONBOARDING_STATUS),
+
+  // Unified provider accounts
+  getProviderAccounts: (): Promise<IPCResult<ProviderAccountsPayload>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROVIDER_ACCOUNTS_GET),
+
+  saveProviderAccount: (
+    account: Omit<ProviderAccount, 'id' | 'createdAt' | 'updatedAt'>
+  ): Promise<IPCResult<ProviderAccount>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROVIDER_ACCOUNTS_SAVE, account),
+
+  updateProviderAccount: (
+    id: string,
+    updates: Partial<ProviderAccount>
+  ): Promise<IPCResult<ProviderAccount>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROVIDER_ACCOUNTS_UPDATE, id, updates),
+
+  deleteProviderAccount: (id: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROVIDER_ACCOUNTS_DELETE, id),
+
+  setProviderAccountOrder: (
+    order: string[],
+    disabledIds: string[]
+  ): Promise<IPCResult<ProviderAccountsPayload>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROVIDER_ACCOUNTS_SET_ORDER, order, disabledIds),
+
+  // OpenAI Codex OAuth
+  codexAuthLogin: (accountId: string): Promise<IPCResult<CodexAuthState>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CODEX_AUTH_LOGIN, accountId),
+
+  codexAuthStatus: (accountId: string): Promise<IPCResult<CodexAuthState>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CODEX_AUTH_STATUS, accountId),
+
+  codexAuthLogout: (accountId: string): Promise<IPCResult> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CODEX_AUTH_LOGOUT, accountId),
 
   // App Info
   getAppVersion: (): Promise<string> =>

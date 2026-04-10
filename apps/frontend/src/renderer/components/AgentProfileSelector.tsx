@@ -298,7 +298,7 @@ export function AgentProfileSelector({
                         <SelectContent>
                           {AVAILABLE_MODELS.map((m) => (
                             <SelectItem key={m.value} value={m.value}>
-                              {m.label}
+                              {resolveModelLabel(m.value)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -364,7 +364,7 @@ export function AgentProfileSelector({
               <SelectContent>
                 {AVAILABLE_MODELS.map((m) => (
                   <SelectItem key={m.value} value={m.value}>
-                    {m.label}
+                    {resolveModelLabel(m.value)}
                   </SelectItem>
                 ))}
               </SelectContent>

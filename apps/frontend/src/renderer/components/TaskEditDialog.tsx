@@ -45,6 +45,8 @@ import {
 } from '../../shared/constants';
 import type { PhaseModelConfig, PhaseThinkingConfig } from '../../shared/types/settings';
 import { useSettingsStore } from '../stores/settings-store';
+import type { ProviderAccount } from '../../shared/types';
+import { getProviderModelLabels, toTaskProviderOption, type TaskProviderOption } from '../lib/provider-accounts';
 
 /**
  * Props for the TaskEditDialog component
@@ -64,6 +66,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
   const { t } = useTranslation(['tasks', 'common']);
   // Get selected agent profile from settings for defaults
   const { settings } = useSettingsStore();
+  const apiProfiles = useSettingsStore((state) => state.profiles);
   const selectedProfile = DEFAULT_AGENT_PROFILES.find(
     p => p.id === settings.selectedAgentProfile
   ) || DEFAULT_AGENT_PROFILES.find(p => p.id === 'auto')!;
@@ -81,6 +84,10 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showClassification, setShowClassification] = useState(false);
+  const [providerId, setProviderId] = useState<string>(task.metadata?.providerId || '');
+  const [providerOptions, setProviderOptions] = useState<TaskProviderOption[]>([]);
+  const [providerAccounts, setProviderAccounts] = useState<ProviderAccount[]>([]);
+  const [profileCombinationsEnabled, setProfileCombinationsEnabled] = useState(false);
 
   // Classification fields
   const [category, setCategory] = useState<TaskCategory | ''>(task.metadata?.category || '');
@@ -124,6 +131,10 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
 
   // Fast mode
   const [fastMode, setFastMode] = useState(task.metadata?.fastMode ?? false);
+  const providerModelLabels = useMemo(() => {
+    const selectedProvider = providerAccounts.find((account) => account.id === providerId);
+    return getProviderModelLabels(selectedProvider, apiProfiles);
+  }, [apiProfiles, providerAccounts, providerId]);
 
   // Show Fast Mode toggle when any phase uses an Opus model
   const showFastModeToggle = useMemo(() => {
@@ -143,6 +154,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       setPriority(task.metadata?.priority || '');
       setComplexity(task.metadata?.complexity || '');
       setImpact(task.metadata?.impact || '');
+      setProviderId(task.metadata?.providerId || '');
 
       // Reset model configuration
       const taskModel = task.metadata?.model;
@@ -186,6 +198,58 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
     }
   }, [open, task, settings.selectedAgentProfile, selectedProfile.model, selectedProfile.thinkingLevel, selectedProfile.phaseModels, selectedProfile.phaseThinking]);
 
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const loadProviders = async () => {
+      try {
+        const [switchResult, providerResult, usageResult] = await Promise.all([
+          window.electronAPI.getAutoSwitchSettings?.(),
+          window.electronAPI.getProviderAccounts?.(),
+          window.electronAPI.requestAllProfilesUsage?.(),
+        ]);
+
+        if (switchResult?.success && switchResult.data) {
+          setProfileCombinationsEnabled(switchResult.data.profileCombinations ?? false);
+        }
+
+        if (providerResult?.success && providerResult.data) {
+          const usageMap = new Map<string, number>();
+          if (usageResult?.success && usageResult.data) {
+            usageResult.data.allProfiles.forEach((profile) => {
+              usageMap.set(profile.profileId, profile.sessionPercent);
+            });
+          }
+
+          const accountMap = new Map(providerResult.data.accounts.map((account) => [account.id, account]));
+          const orderedAccounts: ProviderAccount[] = [
+            ...providerResult.data.globalPriorityOrder
+              .map((accountId) => accountMap.get(accountId))
+              .filter((account): account is ProviderAccount => !!account),
+            ...providerResult.data.disabledAutoSwitchAccountIds
+              .map((accountId) => accountMap.get(accountId))
+              .filter((account): account is ProviderAccount => !!account),
+          ];
+
+          setProviderAccounts(orderedAccounts);
+          setProviderOptions(
+            orderedAccounts.map((account) => {
+              const usageKey = account.claudeProfileId ?? account.apiProfileId;
+              return toTaskProviderOption(account, usageKey ? usageMap.get(usageKey) : undefined);
+            })
+          );
+        }
+      } catch {
+        setProviderAccounts([]);
+        setProviderOptions([]);
+      }
+    };
+
+    loadProviders();
+  }, [open]);
+
   /**
    * Handle file reference drop from FileTreeItem drag
    * Appends @filename to the end of the description (no textarea ref in edit dialog)
@@ -216,6 +280,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       priority !== (task.metadata?.priority || '') ||
       complexity !== (task.metadata?.complexity || '') ||
       impact !== (task.metadata?.impact || '') ||
+      providerId !== (task.metadata?.providerId || '') ||
       model !== (task.metadata?.model || '') ||
       thinkingLevel !== (task.metadata?.thinkingLevel || '') ||
       requireReviewBeforeCoding !== (task.metadata?.requireReviewBeforeCoding ?? false) ||
@@ -245,6 +310,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
       metadataUpdates.phaseModels = phaseModels;
       metadataUpdates.phaseThinking = phaseThinking;
     }
+    metadataUpdates.providerId = providerId || undefined;
     // Always set attachedImages to persist removal when all images are deleted
     metadataUpdates.attachedImages = images.length > 0 ? images : [];
     metadataUpdates.requireReviewBeforeCoding = requireReviewBeforeCoding;
@@ -300,6 +366,11 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
         onDescriptionChange={setDescription}
         title={title}
         onTitleChange={setTitle}
+        providerId={providerId}
+        onProviderChange={setProviderId}
+        providerOptions={providerOptions}
+        showProviderSelector={profileCombinationsEnabled}
+        providerModelLabels={providerModelLabels}
         profileId={profileId}
         model={model}
         thinkingLevel={thinkingLevel}

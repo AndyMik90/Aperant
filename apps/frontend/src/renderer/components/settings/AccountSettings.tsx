@@ -1,14 +1,9 @@
 /**
- * AccountSettings - Unified account management for Claude Code and Custom Endpoints
+ * AccountSettings - Unified account management for Claude Code, OpenAI Codex, and Custom Endpoints.
  *
- * Consolidates the former "Integrations" and "API Profiles" settings into a single
- * tabbed interface with shared automatic account switching controls.
- *
- * Structure:
- * - Tabs: "Claude Code" (OAuth accounts) | "Custom Endpoints" (API profiles)
- * - Persistent: Automatic Account Switching section (below tabs)
+ * Provider sections share a single provider-account registry and automatic switching order.
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   Eye,
@@ -36,19 +31,19 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '../ui/tabs';
 import { cn } from '../../lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import { SettingsSection } from './SettingsSection';
 import { AuthTerminal } from './AuthTerminal';
 import { ProfileEditDialog } from './ProfileEditDialog';
-import { AccountPriorityList, type UnifiedAccount } from './AccountPriorityList';
+import { AccountPriorityList } from './AccountPriorityList';
 import { maskApiKey } from '../../lib/profile-utils';
 import { hasUsageMonitoring } from '../../../shared/utils/provider-detection';
 import { loadClaudeProfiles as loadGlobalClaudeProfiles } from '../../stores/claude-profile-store';
-import { useSettingsStore } from '../../stores/settings-store';
+import { useSettingsStore, loadSettings as reloadSettingsStore } from '../../stores/settings-store';
 import { useToast } from '../../hooks/use-toast';
-import type { AppSettings, ClaudeProfile, ClaudeAutoSwitchSettings, ProfileUsageSummary } from '../../../shared/types';
+import type { AppSettings, ClaudeProfile, ClaudeAutoSwitchSettings, CodexAuthState, ProfileUsageSummary, ProviderAccount } from '../../../shared/types';
+import type { UnifiedAccount } from '../../../shared/types/unified-account';
 import type { APIProfile } from '@shared/types/profile';
 import {
   AlertDialog,
@@ -68,15 +63,12 @@ interface AccountSettingsProps {
 }
 
 /**
- * Unified account settings with tabs for Claude Code and Custom Endpoints
+ * Unified account settings with provider sections for Claude Code, OpenAI Codex, and Custom Endpoints.
  */
 export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountSettingsProps) {
   const { t } = useTranslation('settings');
   const { t: tCommon } = useTranslation('common');
   const { toast } = useToast();
-
-  // Tab state
-  const [activeTab, setActiveTab] = useState<'claude-code' | 'custom-endpoints'>('claude-code');
 
   // ============================================
   // Claude Code (OAuth) state
@@ -103,6 +95,24 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
     profileId: string;
     profileName: string;
   } | null>(null);
+
+  // ============================================
+  // Shared provider-account state
+  // ============================================
+  const [providerAccounts, setProviderAccounts] = useState<ProviderAccount[]>([]);
+  const [disabledAutoSwitchAccountIds, setDisabledAutoSwitchAccountIds] = useState<string[]>([]);
+  const [isLoadingProviderAccounts, setIsLoadingProviderAccounts] = useState(false);
+
+  // ============================================
+  // OpenAI Codex (OAuth) state
+  // ============================================
+  const [codexAuthStates, setCodexAuthStates] = useState<Record<string, CodexAuthState>>({});
+  const [codexLoadingIds, setCodexLoadingIds] = useState<Record<string, boolean>>({});
+  const [newOpenAIAccountName, setNewOpenAIAccountName] = useState('');
+  const [isAddingOpenAIAccount, setIsAddingOpenAIAccount] = useState(false);
+  const [editingOpenAIAccountId, setEditingOpenAIAccountId] = useState<string | null>(null);
+  const [editingOpenAIAccountName, setEditingOpenAIAccountName] = useState('');
+  const [deletingOpenAIAccountId, setDeletingOpenAIAccountId] = useState<string | null>(null);
 
   // ============================================
   // Custom Endpoints (API Profiles) state
@@ -155,88 +165,197 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
     }
   }, []);
 
-  // Build unified accounts list from both OAuth and API profiles
-  const buildUnifiedAccounts = useCallback((): UnifiedAccount[] => {
-    const unifiedList: UnifiedAccount[] = [];
+  const openAIAccounts = useMemo(
+    () => providerAccounts.filter((account) => account.provider === 'openai'),
+    [providerAccounts]
+  );
 
-    // Add OAuth profiles with usage data
-    claudeProfiles.forEach((profile) => {
-      const usageData = profileUsageData.get(profile.id);
-      unifiedList.push({
-        id: `oauth-${profile.id}`,
-        name: profile.name,
-        type: 'oauth',
-        displayName: profile.name,
-        identifier: profile.email || t('accounts.priority.noEmail'),
-        isActive: profile.id === activeClaudeProfileId && !activeApiProfileId,
-        isNext: false, // Will be computed by AccountPriorityList
-        isAvailable: profile.isAuthenticated ?? false,
-        hasUnlimitedUsage: false,
-        // Use real usage data from the usage monitor
-        sessionPercent: usageData?.sessionPercent,
-        weeklyPercent: usageData?.weeklyPercent,
-        isRateLimited: usageData?.isRateLimited,
-        rateLimitType: usageData?.rateLimitType,
-        isAuthenticated: profile.isAuthenticated,
-        needsReauthentication: usageData?.needsReauthentication,
-      });
-    });
-
-    // Add API profiles
-    apiProfiles.forEach((profile) => {
-      const monitored = hasUsageMonitoring(profile.baseUrl);
-      // For monitored providers (MiniMax, z.ai, Zhipu), pull usage from profileUsageData if available
-      const apiUsage = monitored ? profileUsageData.get(profile.id) : undefined;
-      unifiedList.push({
-        id: `api-${profile.id}`,
-        name: profile.name,
-        type: 'api',
-        displayName: profile.name,
-        identifier: profile.baseUrl,
-        isActive: profile.id === activeApiProfileId,
-        isNext: false, // Will be computed by AccountPriorityList
-        isAvailable: true, // API profiles are always considered available
-        hasUnlimitedUsage: !monitored, // Only unknown providers are truly unlimited
-        sessionPercent: apiUsage?.sessionPercent,
-        weeklyPercent: apiUsage?.weeklyPercent,
-      });
-    });
-
-    // Sort by priority order if available
-    if (priorityOrder.length > 0) {
-      unifiedList.sort((a, b) => {
-        const aIndex = priorityOrder.indexOf(a.id);
-        const bIndex = priorityOrder.indexOf(b.id);
-        // Items not in priority order go to the end
-        const aPos = aIndex === -1 ? Infinity : aIndex;
-        const bPos = bIndex === -1 ? Infinity : bIndex;
-        return aPos - bPos;
-      });
+  const loadCodexAuthStatuses = useCallback(async (accounts: ProviderAccount[]) => {
+    const openAIProviderAccounts = accounts.filter((account) => account.provider === 'openai');
+    if (openAIProviderAccounts.length === 0) {
+      setCodexAuthStates({});
+      return;
     }
 
-    return unifiedList;
-  }, [claudeProfiles, apiProfiles, activeClaudeProfileId, activeApiProfileId, priorityOrder, profileUsageData, t]);
+    const results = await Promise.all(
+      openAIProviderAccounts.map(async (account) => {
+        try {
+          const result = await window.electronAPI.codexAuthStatus(account.id);
+          return [account.id, result.success && result.data ? result.data : { isAuthenticated: false }] as const;
+        } catch {
+          return [account.id, { isAuthenticated: false }] as const;
+        }
+      })
+    );
 
-  const unifiedAccounts = buildUnifiedAccounts();
+    setCodexAuthStates(
+      Object.fromEntries(results)
+    );
+  }, []);
 
-  // Load priority order from settings
-  const loadPriorityOrder = async () => {
+  const loadProviderAccounts = useCallback(async () => {
+    setIsLoadingProviderAccounts(true);
     try {
-      const result = await window.electronAPI.getAccountPriorityOrder();
+      const result = await window.electronAPI.getProviderAccounts();
       if (result.success && result.data) {
-        setPriorityOrder(result.data);
+        setProviderAccounts(result.data.accounts);
+        setPriorityOrder(result.data.globalPriorityOrder);
+        setDisabledAutoSwitchAccountIds(result.data.disabledAutoSwitchAccountIds);
+        onSettingsChange({
+          ...settings,
+          providerAccounts: result.data.accounts,
+          globalPriorityOrder: result.data.globalPriorityOrder,
+          disabledAutoSwitchAccountIds: result.data.disabledAutoSwitchAccountIds,
+          _migratedProviderAccounts: true,
+        });
+        await loadCodexAuthStatuses(result.data.accounts);
+        await reloadSettingsStore();
+      } else {
+        toast({
+          variant: 'destructive',
+          title: t('accounts.toast.loadProfilesFailed'),
+          description: result.error || t('accounts.toast.tryAgain'),
+        });
       }
     } catch (err) {
-      console.warn('[AccountSettings] Failed to load priority order:', err);
+      console.warn('[AccountSettings] Failed to load provider accounts:', err);
+      toast({
+        variant: 'destructive',
+        title: t('accounts.toast.loadProfilesFailed'),
+        description: t('accounts.toast.tryAgain'),
+      });
+    } finally {
+      setIsLoadingProviderAccounts(false);
     }
-  };
+  }, [loadCodexAuthStatuses, onSettingsChange, settings, t, toast]);
 
-  // Save priority order
-  const handlePriorityReorder = async (newOrder: string[]) => {
+  const unifiedAccountMap = useMemo(() => {
+    const accounts = new Map<string, UnifiedAccount>();
+    const activeProviderAccountId = (() => {
+      if (autoSwitchSettings?.defaultProviderId && providerAccounts.some((account) => account.id === autoSwitchSettings.defaultProviderId)) {
+        return autoSwitchSettings.defaultProviderId;
+      }
+
+      const activeApiAccount = providerAccounts.find(
+        (account) => account.provider === 'openai-compatible' && account.apiProfileId === activeApiProfileId
+      );
+      if (activeApiAccount) {
+        return activeApiAccount.id;
+      }
+
+      const activeClaudeAccount = providerAccounts.find(
+        (account) => account.provider === 'anthropic' && account.claudeProfileId === activeClaudeProfileId
+      );
+      return activeClaudeAccount?.id ?? null;
+    })();
+
+    for (const account of providerAccounts) {
+      if (account.provider === 'anthropic' && account.claudeProfileId) {
+        const profile = claudeProfiles.find((candidate) => candidate.id === account.claudeProfileId);
+        if (!profile) {
+          continue;
+        }
+        const usageData = profileUsageData.get(profile.id);
+        accounts.set(account.id, {
+          id: account.id,
+          name: account.name,
+          type: 'oauth',
+          displayName: account.name,
+          identifier: profile.email || t('accounts.priority.noEmail'),
+          isActive: account.id === activeProviderAccountId,
+          isNext: false,
+          isAvailable: profile.isAuthenticated ?? false,
+          hasUnlimitedUsage: false,
+          sessionPercent: usageData?.sessionPercent,
+          weeklyPercent: usageData?.weeklyPercent,
+          isRateLimited: usageData?.isRateLimited,
+          rateLimitType: usageData?.rateLimitType,
+          isAuthenticated: profile.isAuthenticated,
+          needsReauthentication: usageData?.needsReauthentication,
+        });
+        continue;
+      }
+
+      if (account.provider === 'openai-compatible' && account.apiProfileId) {
+        const profile = apiProfiles.find((candidate) => candidate.id === account.apiProfileId);
+        if (!profile) {
+          continue;
+        }
+        const monitored = hasUsageMonitoring(profile.baseUrl);
+        const usageData = monitored ? profileUsageData.get(profile.id) : undefined;
+        accounts.set(account.id, {
+          id: account.id,
+          name: account.name,
+          type: 'api',
+          displayName: account.name,
+          identifier: profile.baseUrl,
+          isActive: account.id === activeProviderAccountId,
+          isNext: false,
+          isAvailable: true,
+          hasUnlimitedUsage: !monitored,
+          sessionPercent: usageData?.sessionPercent,
+          weeklyPercent: usageData?.weeklyPercent,
+          isAuthenticated: true,
+        });
+        continue;
+      }
+
+      if (account.provider === 'openai') {
+        const authState = codexAuthStates[account.id];
+        accounts.set(account.id, {
+          id: account.id,
+          name: account.name,
+          type: 'oauth',
+          displayName: account.name,
+          identifier: authState?.email || account.email || t('accounts.priority.noEmail'),
+          isActive: account.id === activeProviderAccountId,
+          isNext: false,
+          isAvailable: authState?.isAuthenticated ?? false,
+          hasUnlimitedUsage: false,
+          isAuthenticated: authState?.isAuthenticated ?? false,
+        });
+      }
+    }
+
+    return accounts;
+  }, [activeApiProfileId, activeClaudeProfileId, apiProfiles, autoSwitchSettings?.defaultProviderId, claudeProfiles, codexAuthStates, profileUsageData, providerAccounts, t]);
+
+  const unifiedPriorityAccounts = useMemo(
+    () => priorityOrder
+      .map((accountId) => unifiedAccountMap.get(accountId))
+      .filter((account): account is UnifiedAccount => !!account),
+    [priorityOrder, unifiedAccountMap]
+  );
+
+  const unifiedDisabledAccounts = useMemo(
+    () => disabledAutoSwitchAccountIds
+      .map((accountId) => unifiedAccountMap.get(accountId))
+      .filter((account): account is UnifiedAccount => !!account),
+    [disabledAutoSwitchAccountIds, unifiedAccountMap]
+  );
+
+  const unifiedAccounts = useMemo(
+    () => [...unifiedPriorityAccounts, ...unifiedDisabledAccounts],
+    [unifiedDisabledAccounts, unifiedPriorityAccounts]
+  );
+
+  const handlePriorityReorder = async (newOrder: string[], disabledIds: string[]) => {
     setPriorityOrder(newOrder);
+    setDisabledAutoSwitchAccountIds(disabledIds);
     setIsSavingPriority(true);
     try {
-      await window.electronAPI.setAccountPriorityOrder(newOrder);
+      const result = await window.electronAPI.setProviderAccountOrder(newOrder, disabledIds);
+      if (result.success && result.data) {
+        setPriorityOrder(result.data.globalPriorityOrder);
+        setDisabledAutoSwitchAccountIds(result.data.disabledAutoSwitchAccountIds);
+        await reloadSettingsStore();
+      } else {
+        toast({
+          variant: 'destructive',
+          title: t('accounts.toast.settingsUpdateFailed'),
+          description: result.error || t('accounts.toast.tryAgain'),
+        });
+      }
     } catch (err) {
       console.warn('[AccountSettings] Failed to save priority order:', err);
       toast({
@@ -254,7 +373,6 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
     if (isOpen) {
       loadClaudeProfiles();
       loadAutoSwitchSettings();
-      loadPriorityOrder();
       // Force refresh usage data when Settings opens to get fresh data
       // This bypasses the 1-minute cache to ensure accurate duplicate detection
       loadProfileUsageData(true);
@@ -288,6 +406,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
         setClaudeProfiles(result.data.profiles);
         setActiveClaudeProfileId(result.data.activeProfileId);
         await loadGlobalClaudeProfiles();
+        await loadProviderAccounts();
       } else if (!result.success) {
         toast({
           variant: 'destructive',
@@ -361,12 +480,6 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
       const result = await window.electronAPI.deleteClaudeProfile(profileId);
       if (result.success) {
         await loadClaudeProfiles();
-        // Remove from priority order
-        const unifiedId = `oauth-${profileId}`;
-        if (priorityOrder.includes(unifiedId)) {
-          const newOrder = priorityOrder.filter(id => id !== unifiedId);
-          await handlePriorityReorder(newOrder);
-        }
       } else {
         toast({
           variant: 'destructive',
@@ -433,6 +546,12 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
       if (result.success) {
         setActiveClaudeProfileId(profileId);
         await loadGlobalClaudeProfiles();
+        const providerAccount = providerAccounts.find(
+          (account) => account.provider === 'anthropic' && account.claudeProfileId === profileId
+        );
+        if (providerAccount) {
+          await moveProviderAccountToFront(providerAccount.id);
+        }
       } else {
         toast({
           variant: 'destructive',
@@ -550,6 +669,192 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
     }
   };
 
+  async function moveProviderAccountToFront(accountId: string): Promise<boolean> {
+    const nextOrder = [accountId, ...priorityOrder.filter((id) => id !== accountId)];
+    const nextDisabledIds = disabledAutoSwitchAccountIds.filter((id) => id !== accountId);
+
+    setPriorityOrder(nextOrder);
+    setDisabledAutoSwitchAccountIds(nextDisabledIds);
+
+    const result = await window.electronAPI.setProviderAccountOrder(nextOrder, nextDisabledIds);
+    if (!result.success || !result.data) {
+      toast({
+        variant: 'destructive',
+        title: t('accounts.toast.settingsUpdateFailed'),
+        description: result.error || t('accounts.toast.tryAgain'),
+      });
+      await loadProviderAccounts();
+      return false;
+    }
+
+    setPriorityOrder(result.data.globalPriorityOrder);
+    setDisabledAutoSwitchAccountIds(result.data.disabledAutoSwitchAccountIds);
+    await handleUpdateAutoSwitch({ defaultProviderId: accountId });
+    await reloadSettingsStore();
+    return true;
+  }
+
+  // ============================================
+  // OpenAI Codex (OAuth) handlers
+  // ============================================
+  const startEditingOpenAIAccount = (account: ProviderAccount) => {
+    setEditingOpenAIAccountId(account.id);
+    setEditingOpenAIAccountName(account.name);
+  };
+
+  const cancelEditingOpenAIAccount = () => {
+    setEditingOpenAIAccountId(null);
+    setEditingOpenAIAccountName('');
+  };
+
+  const handleSaveOpenAIAccountName = async () => {
+    if (!editingOpenAIAccountId || !editingOpenAIAccountName.trim()) {
+      return;
+    }
+
+    try {
+      const result = await window.electronAPI.updateProviderAccount(editingOpenAIAccountId, {
+        name: editingOpenAIAccountName.trim(),
+      });
+      if (!result.success) {
+        toast({
+          variant: 'destructive',
+          title: t('accounts.toast.renameProfileFailed'),
+          description: result.error || t('accounts.toast.tryAgain'),
+        });
+      }
+      await loadProviderAccounts();
+      await reloadSettingsStore();
+    } finally {
+      cancelEditingOpenAIAccount();
+    }
+  };
+
+  const handleAddOpenAIAccount = async () => {
+    if (!newOpenAIAccountName.trim()) {
+      return;
+    }
+
+    setIsAddingOpenAIAccount(true);
+    try {
+      const result = await window.electronAPI.saveProviderAccount({
+        provider: 'openai',
+        name: newOpenAIAccountName.trim(),
+        authType: 'oauth',
+        billingModel: 'subscription',
+      });
+      if (result.success && result.data) {
+        setNewOpenAIAccountName('');
+        await loadProviderAccounts();
+        await reloadSettingsStore();
+        await handleCodexLogin(result.data.id);
+      } else {
+        toast({
+          variant: 'destructive',
+          title: t('accounts.toast.addProfileFailed'),
+          description: result.error || t('accounts.toast.tryAgain'),
+        });
+      }
+    } catch (err) {
+      console.warn('[AccountSettings] Failed to add OpenAI account:', err);
+      toast({
+        variant: 'destructive',
+        title: t('accounts.toast.addProfileFailed'),
+        description: t('accounts.toast.tryAgain'),
+      });
+    } finally {
+      setIsAddingOpenAIAccount(false);
+    }
+  };
+
+  const handleCodexLogin = async (accountId: string) => {
+    setCodexLoadingIds((current) => ({ ...current, [accountId]: true }));
+    try {
+      const result = await window.electronAPI.codexAuthLogin(accountId);
+      if (result.success) {
+        setCodexAuthStates((current) => ({
+          ...current,
+          [accountId]: result.data ?? { isAuthenticated: false },
+        }));
+        await loadProviderAccounts();
+        await reloadSettingsStore();
+      } else {
+        toast({
+          variant: 'destructive',
+          title: t('accounts.toast.codexLoginFailed'),
+          description: result.error || t('accounts.toast.tryAgain'),
+        });
+      }
+    } catch (err) {
+      console.warn('[AccountSettings] Failed to authenticate Codex:', err);
+      toast({
+        variant: 'destructive',
+        title: t('accounts.toast.codexLoginFailed'),
+        description: t('accounts.toast.tryAgain'),
+      });
+    } finally {
+      setCodexLoadingIds((current) => ({ ...current, [accountId]: false }));
+    }
+  };
+
+  const handleCodexLogout = async (accountId: string) => {
+    setCodexLoadingIds((current) => ({ ...current, [accountId]: true }));
+    try {
+      const result = await window.electronAPI.codexAuthLogout(accountId);
+      if (result.success) {
+        setCodexAuthStates((current) => ({
+          ...current,
+          [accountId]: { isAuthenticated: false },
+        }));
+      } else {
+        toast({
+          variant: 'destructive',
+          title: t('accounts.toast.codexLogoutFailed'),
+          description: result.error || t('accounts.toast.tryAgain'),
+        });
+      }
+    } catch (err) {
+      console.warn('[AccountSettings] Failed to clear Codex auth:', err);
+      toast({
+        variant: 'destructive',
+        title: t('accounts.toast.codexLogoutFailed'),
+        description: t('accounts.toast.tryAgain'),
+      });
+    } finally {
+      setCodexLoadingIds((current) => ({ ...current, [accountId]: false }));
+      await loadProviderAccounts();
+    }
+  };
+
+  const handleDeleteOpenAIAccount = async (accountId: string) => {
+    setDeletingOpenAIAccountId(accountId);
+    try {
+      await window.electronAPI.codexAuthLogout(accountId).catch(() => undefined);
+      const result = await window.electronAPI.deleteProviderAccount(accountId);
+      if (!result.success) {
+        toast({
+          variant: 'destructive',
+          title: t('accounts.toast.deleteProfileFailed'),
+          description: result.error || t('accounts.toast.tryAgain'),
+        });
+        return;
+      }
+
+      const nextDefaultProviderId = autoSwitchSettings?.defaultProviderId === accountId
+        ? priorityOrder.find((id) => id !== accountId)
+        : autoSwitchSettings?.defaultProviderId;
+
+      if (autoSwitchSettings?.defaultProviderId === accountId) {
+        await handleUpdateAutoSwitch({ defaultProviderId: nextDefaultProviderId });
+      }
+
+      await loadProviderAccounts();
+      await reloadSettingsStore();
+    } finally {
+      setDeletingOpenAIAccountId(null);
+    }
+  };
+
   // ============================================
   // Custom Endpoints (API Profiles) handlers
   // ============================================
@@ -565,12 +870,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
         title: t('apiProfiles.toast.delete.title'),
         description: t('apiProfiles.toast.delete.description', { name: deleteConfirmProfile.name }),
       });
-      // Remove from priority order
-      const unifiedId = `api-${deleteConfirmProfile.id}`;
-      if (priorityOrder.includes(unifiedId)) {
-        const newOrder = priorityOrder.filter(id => id !== unifiedId);
-        await handlePriorityReorder(newOrder);
-      }
+      await loadProviderAccounts();
       setDeleteConfirmProfile(null);
     } else {
       toast({
@@ -603,6 +903,15 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
           });
         }
       }
+      if (profileId !== null) {
+        const providerAccount = providerAccounts.find(
+          (account) => account.provider === 'openai-compatible' && account.apiProfileId === profileId
+        );
+        if (providerAccount) {
+          await moveProviderAccountToFront(providerAccount.id);
+        }
+      }
+      await loadProviderAccounts();
     } else {
       toast({
         variant: 'destructive',
@@ -617,6 +926,17 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
       return new URL(url).host;
     } catch {
       return url;
+    }
+  };
+
+  const formatTimestamp = (timestamp: number): string => {
+    try {
+      return new Intl.DateTimeFormat(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      }).format(timestamp);
+    } catch {
+      return new Date(timestamp).toLocaleString();
     }
   };
 
@@ -662,7 +982,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
   };
 
   // Calculate total accounts for auto-switch visibility
-  const totalAccounts = claudeProfiles.length + apiProfiles.length;
+  const totalAccounts = providerAccounts.length;
 
   return (
     <SettingsSection
@@ -670,21 +990,18 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
       description={t('accounts.description')}
     >
       <div className="space-y-6">
-        {/* Tabs for Claude Code vs Custom Endpoints */}
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'claude-code' | 'custom-endpoints')}>
-          <TabsList className="w-full justify-start">
-            <TabsTrigger value="claude-code" className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              {t('accounts.tabs.claudeCode')}
-            </TabsTrigger>
-            <TabsTrigger value="custom-endpoints" className="flex items-center gap-2">
-              <Server className="h-4 w-4" />
-              {t('accounts.tabs.customEndpoints')}
-            </TabsTrigger>
-          </TabsList>
+        {isLoadingProviderAccounts && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {t('accounts.priority.loading', 'Loading account providers...')}
+          </div>
+        )}
 
-          {/* Claude Code Tab Content */}
-          <TabsContent value="claude-code">
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <h4 className="text-sm font-semibold text-foreground">{t('accounts.tabs.claudeCode')}</h4>
+          </div>
             <div className="rounded-lg bg-muted/30 border border-border p-4">
               <p className="text-sm text-muted-foreground mb-4">
                 {t('accounts.claudeCode.description')}
@@ -1076,10 +1393,226 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                 </Button>
               </div>
             </div>
-          </TabsContent>
+        </div>
 
-          {/* Custom Endpoints Tab Content */}
-          <TabsContent value="custom-endpoints">
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Globe className="h-4 w-4 text-muted-foreground" />
+            <h4 className="text-sm font-semibold text-foreground">{t('accounts.tabs.openaiCodex')}</h4>
+          </div>
+            <div className="rounded-lg bg-muted/30 border border-border p-4 space-y-4">
+              <div className="space-y-2">
+                <p className="text-sm text-muted-foreground">
+                  {t('accounts.openaiCodex.description')}
+                </p>
+                <div className="rounded-lg border border-border/70 bg-background p-3">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
+                    <p className="text-xs text-muted-foreground">
+                      {t('accounts.openaiCodex.runtimeNote')}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {openAIAccounts.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border p-4 text-center">
+                  <p className="text-sm text-muted-foreground">{t('accounts.openaiCodex.noAccount')}</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {openAIAccounts.map((account) => {
+                    const authState = codexAuthStates[account.id];
+                    const isBusy = codexLoadingIds[account.id] || false;
+                    const isDefault = autoSwitchSettings?.defaultProviderId === account.id;
+                    const isEditing = editingOpenAIAccountId === account.id;
+
+                    return (
+                      <div
+                        key={account.id}
+                        className={cn(
+                          'rounded-lg border transition-colors',
+                          isDefault ? 'border-primary bg-primary/5' : 'border-border bg-background'
+                        )}
+                      >
+                        <div className="flex items-center justify-between p-3">
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              'h-7 w-7 rounded-full flex items-center justify-center text-xs font-medium shrink-0',
+                              isDefault ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                            )}>
+                              {(isEditing ? editingOpenAIAccountName : account.name).charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              {isEditing ? (
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    value={editingOpenAIAccountName}
+                                    onChange={(e) => setEditingOpenAIAccountName(e.target.value)}
+                                    className="h-7 text-sm w-40"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') handleSaveOpenAIAccountName();
+                                      if (e.key === 'Escape') cancelEditingOpenAIAccount();
+                                    }}
+                                  />
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={handleSaveOpenAIAccountName}
+                                    className="h-7 w-7 text-success hover:text-success hover:bg-success/10"
+                                  >
+                                    <Check className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={cancelEditingOpenAIAccount}
+                                    className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-sm font-medium text-foreground">{account.name}</span>
+                                    {isDefault && (
+                                      <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded flex items-center gap-1">
+                                        <Star className="h-3 w-3" />
+                                        {t('accounts.claudeCode.active')}
+                                      </span>
+                                    )}
+                                    {authState?.isAuthenticated ? (
+                                      <span className="text-xs bg-success/20 text-success px-1.5 py-0.5 rounded flex items-center gap-1">
+                                        <Check className="h-3 w-3" />
+                                        {t('accounts.openaiCodex.connected')}
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs bg-warning/20 text-warning px-1.5 py-0.5 rounded">
+                                        {t('accounts.openaiCodex.notConnected')}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-xs text-muted-foreground">
+                                    {authState?.email || account.email || t('accounts.openaiCodex.noAccount')}
+                                  </span>
+                                  {authState?.expiresAt && (
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      {t('accounts.openaiCodex.expiresAt', { date: formatTimestamp(authState.expiresAt) })}
+                                    </p>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          {!isEditing && (
+                            <div className="flex items-center gap-1">
+                              {!isDefault && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => moveProviderAccountToFront(account.id)}
+                                  className="gap-1 h-7 text-xs"
+                                >
+                                  <Check className="h-3 w-3" />
+                                  {t('accounts.claudeCode.setActive')}
+                                </Button>
+                              )}
+                              <Button
+                                variant={authState?.isAuthenticated ? 'ghost' : 'outline'}
+                                size={authState?.isAuthenticated ? 'icon' : 'sm'}
+                                onClick={() => handleCodexLogin(account.id)}
+                                disabled={isBusy}
+                                className={cn(authState?.isAuthenticated ? 'h-7 w-7 text-muted-foreground hover:text-foreground' : 'gap-1 h-7 text-xs')}
+                              >
+                                {isBusy ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : authState?.isAuthenticated ? (
+                                  <RefreshCw className="h-3 w-3" />
+                                ) : (
+                                  <>
+                                    <LogIn className="h-3 w-3" />
+                                    {!authState?.isAuthenticated && t('accounts.openaiCodex.authenticate')}
+                                  </>
+                                )}
+                              </Button>
+                              {authState?.isAuthenticated && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => handleCodexLogout(account.id)}
+                                  disabled={isBusy}
+                                  className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                >
+                                  {isBusy ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => startEditingOpenAIAccount(account)}
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteOpenAIAccount(account.id)}
+                                disabled={deletingOpenAIAccountId === account.id}
+                                className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                              >
+                                {deletingOpenAIAccountId === account.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-3 w-3" />
+                                )}
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                <Input
+                  placeholder={t('accounts.claudeCode.accountNamePlaceholder')}
+                  value={newOpenAIAccountName}
+                  onChange={(e) => setNewOpenAIAccountName(e.target.value)}
+                  className="flex-1 h-8 text-sm"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newOpenAIAccountName.trim()) {
+                      handleAddOpenAIAccount();
+                    }
+                  }}
+                />
+                <Button
+                  onClick={handleAddOpenAIAccount}
+                  disabled={!newOpenAIAccountName.trim() || isAddingOpenAIAccount}
+                  size="sm"
+                  className="gap-1 shrink-0"
+                >
+                  {isAddingOpenAIAccount ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Plus className="h-3 w-3" />
+                  )}
+                  {tCommon('buttons.add')}
+                </Button>
+              </div>
+            </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center gap-2">
+            <Server className="h-4 w-4 text-muted-foreground" />
+            <h4 className="text-sm font-semibold text-foreground">{t('accounts.tabs.customEndpoints')}</h4>
+          </div>
             <div className="space-y-4">
               {/* Header with Add button */}
               <div className="flex items-center justify-between">
@@ -1235,6 +1768,8 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                 onSaved={() => {
                   setIsAddDialogOpen(false);
                   setEditApiProfile(null);
+                  void loadProviderAccounts();
+                  void reloadSettingsStore();
                 }}
                 profile={editApiProfile ?? undefined}
               />
@@ -1270,10 +1805,9 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                 </AlertDialogContent>
               </AlertDialog>
             </div>
-          </TabsContent>
-        </Tabs>
+        </div>
 
-        {/* Auto-Switch Settings Section - Persistent below tabs */}
+        {/* Auto-Switch Settings Section */}
         {totalAccounts > 1 && (
           <div className="space-y-4 pt-6 border-t border-border">
             <div className="flex items-center gap-2">
@@ -1413,7 +1947,8 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                   {/* Account Priority Order */}
                   <div className="pt-4 border-t border-border/50">
                     <AccountPriorityList
-                      accounts={unifiedAccounts}
+                      activeAccounts={unifiedPriorityAccounts}
+                      disabledAccounts={unifiedDisabledAccounts}
                       onReorder={handlePriorityReorder}
                       isLoading={isSavingPriority}
                     />
@@ -1455,7 +1990,9 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                     {t('accounts.providerCombinations.configuredProviders', 'Configured Providers')}
                   </p>
 
-                  {unifiedAccounts.map((account) => (
+                  {unifiedAccounts.map((account) => {
+                    const providerAccount = providerAccounts.find((candidate) => candidate.id === account.id);
+                    return (
                     <div
                       key={account.id}
                       className={`rounded-md border p-3 space-y-1.5 ${
@@ -1472,7 +2009,13 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                               ? 'bg-blue-500/10 text-blue-500'
                               : 'bg-amber-500/10 text-amber-500'
                           }`}>
-                            {account.type === 'oauth' ? 'Claude Code' : 'API'}
+                            {providerAccount?.provider === 'openai'
+                              ? 'OpenAI Codex'
+                              : providerAccount?.provider === 'openai-compatible'
+                                ? 'Custom Endpoint'
+                                : account.type === 'oauth'
+                                  ? 'Claude Code'
+                                  : 'API'}
                           </span>
                         </div>
                         <span className={`text-[10px] font-medium ${
@@ -1484,9 +2027,11 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
 
                       {/* Model names */}
                       <div className="text-xs text-muted-foreground">
-                        {account.type === 'api' ? (
+                        {providerAccount?.provider === 'openai' ? (
+                          'Models: default: GPT-5.3-Codex, sonnet: GPT-5.3-Codex, haiku: GPT-5.4-Mini, opus: GPT-5.4'
+                        ) : account.type === 'api' ? (
                           (() => {
-                            const apiProfile = apiProfiles.find(p => `api-${p.id}` === account.id);
+                            const apiProfile = apiProfiles.find(p => p.id === providerAccount?.apiProfileId);
                             const models = apiProfile?.models;
                             const modelList = [
                               models?.opus && `opus: ${models.opus}`,
@@ -1538,7 +2083,8 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                         <div className="text-xs text-muted-foreground/70">Pay-per-use</div>
                       )}
                     </div>
-                  ))}
+                  );
+                  })}
 
                   <p className="text-[11px] text-muted-foreground/70 pt-1">
                     {t('accounts.providerCombinations.hint', 'Select a provider per task in the Create Task dialog or via MCP tools.')}

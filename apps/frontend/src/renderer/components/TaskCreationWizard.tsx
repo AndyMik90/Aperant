@@ -35,6 +35,8 @@ import {
   PHASE_KEYS
 } from '../../shared/constants';
 import { useSettingsStore } from '../stores/settings-store';
+import type { ProviderAccount } from '../../shared/types';
+import { getProviderModelLabels, toTaskProviderOption, type TaskProviderOption } from '../lib/provider-accounts';
 
 interface TaskCreationWizardProps {
   projectId: string;
@@ -52,6 +54,7 @@ export function TaskCreationWizard({
 }: TaskCreationWizardProps) {
   const { t } = useTranslation(['tasks', 'common']);
   const { settings } = useSettingsStore();
+  const apiProfiles = useSettingsStore((state) => state.profiles);
   const selectedProfile = DEFAULT_AGENT_PROFILES.find(
     p => p.id === settings.selectedAgentProfile
   ) || DEFAULT_AGENT_PROFILES.find(p => p.id === 'auto')!;
@@ -109,40 +112,16 @@ export function TaskCreationWizard({
 
   // Provider selection
   const [providerId, setProviderId] = useState<string>('');
-  const [providerOptions, setProviderOptions] = useState<Array<{ id: string; name: string; type: 'oauth' | 'api'; usagePercent?: number }>>([]);
+  const [providerOptions, setProviderOptions] = useState<TaskProviderOption[]>([]);
+  const [providerAccounts, setProviderAccounts] = useState<ProviderAccount[]>([]);
   const [profileCombinationsEnabled, setProfileCombinationsEnabled] = useState(false);
   const [providerModelLabels, setProviderModelLabels] = useState<Record<string, string> | undefined>(undefined);
 
   // When provider changes, resolve model labels for that provider
   useEffect(() => {
-    if (!providerId || !providerId.startsWith('api-')) {
-      setProviderModelLabels(undefined); // Claude Code = use defaults
-      return;
-    }
-    // Fetch API profile's custom model names
-    const loadModelLabels = async () => {
-      try {
-        const profilesResult = await window.electronAPI.getAPIProfiles?.();
-        if (profilesResult?.success && profilesResult.data) {
-          const apiProfileId = providerId.replace('api-', '');
-          const profile = profilesResult.data.profiles.find((p: { id: string }) => p.id === apiProfileId);
-          if (profile?.models) {
-            const labels: Record<string, string> = {};
-            if (profile.models.opus) labels['opus'] = profile.models.opus;
-            if (profile.models.sonnet) labels['sonnet'] = profile.models.sonnet;
-            if (profile.models.haiku) labels['haiku'] = profile.models.haiku;
-            if (profile.models.default) labels['default'] = profile.models.default;
-            setProviderModelLabels(Object.keys(labels).length > 0 ? labels : undefined);
-          } else {
-            setProviderModelLabels(undefined);
-          }
-        }
-      } catch {
-        setProviderModelLabels(undefined);
-      }
-    };
-    loadModelLabels();
-  }, [providerId]);
+    const selectedProvider = providerAccounts.find((account) => account.id === providerId);
+    setProviderModelLabels(getProviderModelLabels(selectedProvider, apiProfiles));
+  }, [apiProfiles, providerAccounts, providerId]);
 
   // Load provider options and profile combinations setting
   useEffect(() => {
@@ -152,21 +131,46 @@ export function TaskCreationWizard({
         const switchResult = await window.electronAPI.getAutoSwitchSettings?.();
         if (switchResult?.success && switchResult.data) {
           setProfileCombinationsEnabled(switchResult.data.profileCombinations ?? false);
-          if (switchResult.data.defaultProviderId) {
-            setProviderId(switchResult.data.defaultProviderId);
-          }
         }
 
-        // Load all accounts for the provider dropdown
-        const usageResult = await window.electronAPI.requestAllProfilesUsage?.();
-        if (usageResult?.success && usageResult.data) {
-          const options = usageResult.data.allProfiles.map(profile => ({
-            id: profile.profileId,
-            name: profile.profileName || profile.profileId,
-            type: (profile.profileId.startsWith('api-') ? 'api' : 'oauth') as 'oauth' | 'api',
-            usagePercent: profile.sessionPercent,
-          }));
-          setProviderOptions(options);
+        const [providerResult, usageResult] = await Promise.all([
+          window.electronAPI.getProviderAccounts?.(),
+          window.electronAPI.requestAllProfilesUsage?.(),
+        ]);
+
+        if (providerResult?.success && providerResult.data) {
+          const usageMap = new Map<string, number>();
+          if (usageResult?.success && usageResult.data) {
+            usageResult.data.allProfiles.forEach((profile) => {
+              usageMap.set(profile.profileId, profile.sessionPercent);
+            });
+          }
+
+          const accountMap = new Map(providerResult.data.accounts.map((account) => [account.id, account]));
+          const orderedAccounts: ProviderAccount[] = [
+            ...providerResult.data.globalPriorityOrder.map((accountId) => accountMap.get(accountId)).filter((account): account is ProviderAccount => !!account),
+            ...providerResult.data.disabledAutoSwitchAccountIds.map((accountId) => accountMap.get(accountId)).filter((account): account is ProviderAccount => !!account),
+          ];
+
+          setProviderAccounts(orderedAccounts);
+          setProviderOptions(
+            orderedAccounts.map((account) => {
+              const usageKey = account.claudeProfileId ?? account.apiProfileId;
+              return toTaskProviderOption(
+                account,
+                usageKey ? usageMap.get(usageKey) : undefined
+              );
+            })
+          );
+
+          const defaultProviderId = switchResult?.data?.defaultProviderId;
+          const hasValidDefaultProvider = !!defaultProviderId && orderedAccounts.some((account) => account.id === defaultProviderId);
+
+          if (hasValidDefaultProvider) {
+            setProviderId(defaultProviderId);
+          } else if (orderedAccounts.length > 0) {
+            setProviderId(orderedAccounts[0].id);
+          }
         }
       } catch (_err) {
         // Silently fail — provider selector just won't show
@@ -234,6 +238,7 @@ export function TaskCreationWizard({
         setPriority(draft.priority);
         setComplexity(draft.complexity);
         setImpact(draft.impact);
+        setProviderId(draft.providerId || '');
         setProfileId(draft.profileId || settings.selectedAgentProfile || 'auto');
         setModel(draft.model || selectedProfile.model);
         setThinkingLevel(draft.thinkingLevel || selectedProfile.thinkingLevel);
@@ -334,6 +339,7 @@ export function TaskCreationWizard({
     priority,
     complexity,
     impact,
+    providerId,
     profileId,
     model,
     thinkingLevel,
@@ -344,7 +350,7 @@ export function TaskCreationWizard({
     requireReviewBeforeCoding,
     fastMode,
     savedAt: new Date()
-  }), [projectId, title, description, category, priority, complexity, impact, profileId, model, thinkingLevel, phaseModels, phaseThinking, images, referencedFiles, requireReviewBeforeCoding, fastMode]);
+  }), [projectId, title, description, category, priority, complexity, impact, providerId, profileId, model, thinkingLevel, phaseModels, phaseThinking, images, referencedFiles, requireReviewBeforeCoding, fastMode]);
 
   /**
    * Detect @ mention being typed and show autocomplete

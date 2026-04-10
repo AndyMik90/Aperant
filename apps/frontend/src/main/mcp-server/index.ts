@@ -2356,12 +2356,50 @@ function stopCrashNotificationPolling(): void {
 // Start Server
 // ─────────────────────────────────────────────────────────────────────────────
 
+interface MCPBootstrapDiagnostics {
+  phase?: string;
+}
+
+function getBootstrapDiagnostics(): MCPBootstrapDiagnostics | undefined {
+  return (globalThis as typeof globalThis & {
+    __AUTO_CLAUDE_MCP_BOOT?: MCPBootstrapDiagnostics;
+  }).__AUTO_CLAUDE_MCP_BOOT;
+}
+
+function writeBootstrapLog(message: string): void {
+  try {
+    process.stderr.write(`[MCP bootstrap] ${message}\n`);
+  } catch {
+    // Ignore stderr failures during bootstrap diagnostics
+  }
+}
+
 async function main() {
+  const bootstrapDiagnostics = getBootstrapDiagnostics();
+  if (bootstrapDiagnostics) {
+    bootstrapDiagnostics.phase = 'main-start';
+  }
+
+  writeBootstrapLog(`main start pid=${process.pid}`);
   console.warn('[MCP] Auto-Claude MCP Server starting...');
 
   const transport = new StdioServerTransport();
 
+  if (bootstrapDiagnostics) {
+    bootstrapDiagnostics.phase = 'transport-created';
+  }
+  writeBootstrapLog('stdio transport created');
+
+  if (bootstrapDiagnostics) {
+    bootstrapDiagnostics.phase = 'connecting';
+  }
+  writeBootstrapLog('about to call server.connect');
   await server.connect(transport);
+
+  if (bootstrapDiagnostics) {
+    bootstrapDiagnostics.phase = 'connected';
+  }
+  writeBootstrapLog('server.connect completed');
 
   console.warn('[MCP] Auto-Claude MCP Server connected via stdio');
 
@@ -2385,6 +2423,11 @@ async function main() {
 }
 
 main().catch((error) => {
+  const bootstrapDiagnostics = getBootstrapDiagnostics();
+  if (bootstrapDiagnostics) {
+    bootstrapDiagnostics.phase = 'fatal-error';
+  }
+  writeBootstrapLog(`fatal error: ${error instanceof Error ? (error.stack || error.message) : String(error)}`);
   console.error('[MCP] Fatal error:', error);
   process.exit(1);
 });

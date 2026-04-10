@@ -44,7 +44,8 @@ export const claudeProfileMock = {
       weeklyThreshold: 99,
       autoSwitchOnRateLimit: false,
       autoSwitchOnAuthFailure: false,
-      usageCheckInterval: 30000
+      usageCheckInterval: 30000,
+      profileCombinations: false
     }
   }),
 

@@ -595,9 +595,10 @@
   },
   "accounts": {
     "title": "Comptes",
-    "description": "Gérer les comptes Claude et les endpoints API",
+    "description": "Gérer les comptes Claude, OpenAI Codex et les endpoints API",
     "tabs": {
       "claudeCode": "Claude Code",
+      "openaiCodex": "OpenAI Codex",
       "customEndpoints": "Endpoints personnalisés"
     },
     "claudeCode": {
@@ -616,6 +617,20 @@
       "emailPlaceholder": "Email (optionnel, pour l'affichage)",
       "saveToken": "Enregistrer le token",
       "accountNamePlaceholder": "Nom du compte (ex: Travail, Personnel)"
+    },
+    "openaiCodex": {
+      "description": "Authentifiez-vous nativement avec votre compte OpenAI pour Codex.",
+      "runtimeNote": "Cela ajoute la connexion native Codex dans ce fork. Le moteur autonome utilise encore aujourd'hui l'ancien chemin Claude et Custom Endpoint, donc OpenRouter reste l'option OpenAI opérationnelle jusqu'à la migration des providers.",
+      "accountLabel": "Compte OpenAI",
+      "connected": "Connecté",
+      "notConnected": "Non connecté",
+      "noAccount": "Aucun compte OpenAI connecté pour le moment",
+      "authenticate": "S'authentifier",
+      "authenticating": "Authentification...",
+      "reauthenticate": "Se reconnecter",
+      "disconnect": "Déconnecter",
+      "disconnecting": "Déconnexion...",
+      "expiresAt": "Expiration : {{date}}"
     },
     "customEndpoints": {
       "description": "Configurez des endpoints API compatibles Anthropic personnalisés",
@@ -704,6 +719,9 @@
       "deleteProfileFailed": "Échec de la suppression du profil",
       "renameProfileFailed": "Échec du renommage du profil",
       "setActiveProfileFailed": "Échec de la définition du profil actif",
+      "codexStatusFailed": "Impossible de charger l'état OpenAI",
+      "codexLoginFailed": "Impossible d'authentifier OpenAI",
+      "codexLogoutFailed": "Impossible de déconnecter OpenAI",
       "tokenSaved": "Token enregistré",
       "tokenSavedDescription": "Votre token a été enregistré avec succès.",
       "tokenSaveFailed": "Échec de l'enregistrement du token",

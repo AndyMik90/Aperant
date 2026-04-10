@@ -17,6 +17,7 @@ import { detectRateLimit, createSDKRateLimitInfo, getBestAvailableProfileEnv, de
 import { getAPIProfileEnv, getAPIProfileEnvById } from '../services/profile';
 import { projectStore } from '../project-store';
 import { getClaudeProfileManager } from '../claude-profile-manager';
+import { getProviderAccountById } from '../services/provider-account-service';
 import { parsePythonCommand, validatePythonPath } from '../python-detector';
 import { pythonEnvManager, getConfiguredPythonPath } from '../python-env-manager';
 import { buildMemoryEnvVars } from '../memory-env-builder';
@@ -703,9 +704,22 @@ export class AgentProcessManager {
       }
 
       if (taskProviderId) {
-        // Per-task provider override — use the specific API profile
+        // Per-task provider override — resolve provider-account IDs first,
+        // then fall back to the legacy API-profile lookup for backward compatibility.
         debugLog('[AgentProcess] Using per-task provider:', taskProviderId);
-        apiProfileEnv = await getAPIProfileEnvById(taskProviderId);
+        const providerAccount = await getProviderAccountById(taskProviderId);
+
+        if (providerAccount?.provider === 'anthropic' && providerAccount.claudeProfileId) {
+          apiProfileEnv = getClaudeProfileManager().getProfileEnv(providerAccount.claudeProfileId);
+        } else if (providerAccount?.provider === 'openai-compatible' && providerAccount.apiProfileId) {
+          apiProfileEnv = await getAPIProfileEnvById(providerAccount.apiProfileId);
+        } else if (providerAccount?.provider === 'openai') {
+          throw new Error(
+            'OpenAI Codex accounts can be authenticated and selected in Settings, but this fork still runs tasks through the Claude-based autonomous runtime. Use Claude Code or Custom Endpoints for execution until the runtime provider migration lands.'
+          );
+        } else {
+          apiProfileEnv = await getAPIProfileEnvById(taskProviderId);
+        }
       } else {
         // Default: use global active API profile
         apiProfileEnv = await getAPIProfileEnv();

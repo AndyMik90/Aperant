@@ -16,10 +16,12 @@ import { registerTaskHandlers } from './task-handlers';
 import { registerTerminalHandlers } from './terminal-handlers';
 import { registerAgenteventsHandlers } from './agent-events-handlers';
 import { registerSettingsHandlers } from './settings-handlers';
+import { registerProviderAccountHandlers } from './provider-account-handlers';
 import { registerFileHandlers } from './file-handlers';
 import { registerRoadmapHandlers } from './roadmap-handlers';
 import { registerContextHandlers } from './context-handlers';
 import { registerEnvHandlers } from './env-handlers';
+import { registerCodexAuthHandlers } from './codex-auth-handlers';
 import { registerLinearHandlers } from './linear-handlers';
 import { registerGithubHandlers } from './github-handlers';
 import { registerGitlabHandlers } from './gitlab-handlers';
@@ -85,6 +87,8 @@ export function setupIpcHandlers(
 
   // Settings and dialog handlers
   registerSettingsHandlers(agentManager, getMainWindow);
+  registerProviderAccountHandlers();
+  registerCodexAuthHandlers();
 
   // File explorer handlers
   registerFileHandlers();
@@ -172,6 +176,8 @@ export {
   registerTerminalWorktreeIpcHandlers,
   registerAgenteventsHandlers,
   registerSettingsHandlers,
+  registerProviderAccountHandlers,
+  registerCodexAuthHandlers,
   registerFileHandlers,
   registerRoadmapHandlers,
   registerContextHandlers,

@@ -12,8 +12,9 @@ import { spawn } from 'child_process';
 import { projectStore } from '../project-store';
 import { titleGenerator } from '../title-generator';
 import { AUTO_BUILD_PATHS, getSpecsDir } from '../../shared/constants';
-import type { Task, TaskMetadata, TaskStatus } from '../../shared/types';
-import type { Project } from '../../shared/types';
+import { PROVIDER_REGISTRY } from '../../shared/constants/providers';
+import type { Project, ProviderAccount, Task, TaskMetadata, TaskStatus } from '../../shared/types';
+import { getProviderAccountState } from '../services/provider-account-service';
 import type {
   TaskOptions,
   CreatedTask,
@@ -23,6 +24,61 @@ import type {
   PhaseModels,
   PhaseThinking
 } from './types';
+
+function normalizeProviderLookup(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function getOrderedProviderAccounts(
+  accounts: ProviderAccount[],
+  priorityOrder: string[],
+  disabledIds: string[]
+): ProviderAccount[] {
+  const accountMap = new Map(accounts.map((account) => [account.id, account]));
+  return [
+    ...priorityOrder.map((accountId) => accountMap.get(accountId)).filter((account): account is ProviderAccount => !!account),
+    ...disabledIds.map((accountId) => accountMap.get(accountId)).filter((account): account is ProviderAccount => !!account),
+  ];
+}
+
+async function resolveTaskProviderId(provider?: string): Promise<string | undefined> {
+  if (!provider?.trim()) {
+    return undefined;
+  }
+
+  const rawProvider = provider.trim();
+  const normalizedProvider = normalizeProviderLookup(rawProvider);
+  const state = await getProviderAccountState();
+
+  if (state.accounts.some((account) => account.id === rawProvider)) {
+    return rawProvider;
+  }
+
+  const exactNameMatch = state.accounts.find(
+    (account) => normalizeProviderLookup(account.name) === normalizedProvider
+  );
+  if (exactNameMatch) {
+    return exactNameMatch.id;
+  }
+
+  const providerLookupIds = new Set<string>([normalizedProvider]);
+  for (const providerInfo of PROVIDER_REGISTRY) {
+    if (normalizeProviderLookup(providerInfo.name) === normalizedProvider) {
+      providerLookupIds.add(providerInfo.id);
+    }
+  }
+
+  const orderedAccounts = getOrderedProviderAccounts(
+    state.accounts,
+    state.globalPriorityOrder,
+    state.disabledAutoSwitchAccountIds
+  );
+
+  const providerMatch = orderedAccounts.find((account) => providerLookupIds.has(account.provider))
+    ?? state.accounts.find((account) => providerLookupIds.has(account.provider));
+
+  return providerMatch?.id ?? rawProvider;
+}
 
 /**
  * Resolve a project from either UUID or filesystem path.
@@ -185,6 +241,7 @@ export async function createTask(
     // when recreating tasks in existing spec directories
     const taskMetadata = {
       ...toTaskMetadata(options),
+      providerId: await resolveTaskProviderId(options?.provider),
       archivedAt: undefined
     };
 
