@@ -209,6 +209,56 @@ Write a professional PR description. Output ONLY the Markdown body — no preamb
 }
 
 // =============================================================================
+// Auto-Commit Uncommitted Changes
+// =============================================================================
+
+/**
+ * Stage and commit any uncommitted changes in the worktree.
+ * Called before pushing to ensure the branch has commits to push.
+ * Returns an error string on failure, or undefined on success (or no changes).
+ */
+function autoCommitWorktreeChanges(
+  worktreePath: string,
+  gitPath: string,
+  specId: string,
+): string | undefined {
+  try {
+    // Check for uncommitted changes (staged or unstaged, tracked or untracked)
+    const status = execFileSync(
+      gitPath,
+      ['status', '--porcelain'],
+      { cwd: worktreePath, encoding: 'utf-8', stdio: 'pipe' },
+    ).trim();
+
+    if (!status) {
+      // No uncommitted changes — nothing to do
+      return undefined;
+    }
+
+    // Stage all changes
+    execFileSync(
+      gitPath,
+      ['add', '.'],
+      { cwd: worktreePath, encoding: 'utf-8', stdio: 'pipe' },
+    );
+
+    // Commit with a descriptive message
+    execFileSync(
+      gitPath,
+      ['commit', '-m', `auto-claude: implement ${specId}`],
+      { cwd: worktreePath, encoding: 'utf-8', stdio: 'pipe' },
+    );
+
+    return undefined;
+  } catch (err: unknown) {
+    const stderr = err instanceof Error && 'stderr' in err
+      ? String((err as NodeJS.ErrnoException & { stderr?: string }).stderr)
+      : String(err);
+    return stderr || 'Auto-commit failed';
+  }
+}
+
+// =============================================================================
 // Push Branch
 // =============================================================================
 
@@ -296,7 +346,17 @@ export async function createPR(config: CreatePRConfig): Promise<CreatePRResult> 
     thinkingLevel = 'low',
   } = config;
 
-  // Step 1: Push the branch to origin
+  // Strip remote prefix from base branch once — used in all steps below
+  const effectiveBase = baseBranch.startsWith('origin/')
+    ? baseBranch.slice('origin/'.length)
+    : baseBranch;
+
+  // Step 1a: Auto-commit any uncommitted changes in the worktree before pushing.
+  // This handles the case where the agent wrote files but didn't run `git commit`.
+  // A failure here is non-fatal — we still attempt the push in case prior commits exist.
+  autoCommitWorktreeChanges(worktreePath, gitPath, specId);
+
+  // Step 1b: Push the branch to origin
   const pushError = pushBranch(worktreePath, gitPath, branchName);
   if (pushError) {
     // If it looks like the branch is already up-to-date, don't bail
@@ -305,6 +365,26 @@ export async function createPR(config: CreatePRConfig): Promise<CreatePRResult> 
     if (!isUpToDate) {
       return { success: false, error: `Failed to push branch: ${pushError}` };
     }
+  }
+
+  // Step 1c: Verify there is at least one commit ahead of the base branch.
+  // Without this check, `gh pr create` fails with a confusing GraphQL error.
+  try {
+    const commitCount = execFileSync(
+      gitPath,
+      ['rev-list', '--count', `origin/${effectiveBase}..HEAD`],
+      { cwd: worktreePath, encoding: 'utf-8', stdio: 'pipe' },
+    ).trim();
+    if (commitCount === '0') {
+      return {
+        success: false,
+        error: `No commits found between '${effectiveBase}' and '${branchName}'. ` +
+          'The agent may not have committed any changes. ' +
+          'Please verify the implementation completed successfully before creating a PR.',
+      };
+    }
+  } catch {
+    // Unable to count commits — proceed and let `gh pr create` surface the error
   }
 
   // Step 2: Gather context for AI description
@@ -324,12 +404,7 @@ export async function createPR(config: CreatePRConfig): Promise<CreatePRResult> 
 
   const prBody = aiBody || extractSpecSummary(projectDir, specId);
 
-  // Step 4: Strip remote prefix from base branch if present
-  const effectiveBase = baseBranch.startsWith('origin/')
-    ? baseBranch.slice('origin/'.length)
-    : baseBranch;
-
-  // Step 5: Build gh pr create command
+  // Step 4: Build gh pr create command
   const ghArgs = [
     'pr', 'create',
     '--base', effectiveBase,
@@ -342,7 +417,7 @@ export async function createPR(config: CreatePRConfig): Promise<CreatePRResult> 
     ghArgs.push('--draft');
   }
 
-  // Step 6: Execute gh pr create with retry on network errors
+  // Step 5: Execute gh pr create with retry on network errors
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const output = execFileSync(ghPath, ghArgs, {
