@@ -60,6 +60,7 @@ import { useTaskStore, loadTasks } from './stores/task-store';
 import { useSettingsStore, loadSettings, loadProfiles, saveSettings } from './stores/settings-store';
 import { useClaudeProfileStore, loadClaudeProfiles } from './stores/claude-profile-store';
 import { useTerminalStore, restoreTerminalSessions } from './stores/terminal-store';
+import { useDesktopStore, loadDesktopState as loadDesktopStateStore } from './stores/desktop-store';
 import { initializeGitHubListeners, cleanupGitHubListeners } from './stores/github';
 import { initDownloadProgressListener } from './stores/download-store';
 import { GlobalDownloadIndicator } from './components/GlobalDownloadIndicator';
@@ -128,6 +129,7 @@ export function App() {
   const tasks = useTaskStore((state) => state.tasks);
   const settings = useSettingsStore((state) => state.settings);
   const settingsLoading = useSettingsStore((state) => state.isLoading);
+  const setDesktopSnapshot = useDesktopStore((state) => state.setSnapshot);
 
   // API Profile state
   const profiles = useSettingsStore((state) => state.profiles);
@@ -186,6 +188,7 @@ export function App() {
     loadSettings();
     loadProfiles();
     loadClaudeProfiles();
+    loadDesktopStateStore();
     // Initialize global GitHub listeners (PR reviews, etc.) so they persist across navigation
     initializeGitHubListeners();
     // Initialize global download progress listener for Ollama model downloads
@@ -196,6 +199,59 @@ export function App() {
       cleanupGitHubListeners();
     };
   }, []);
+
+  useEffect(() => {
+    const cleanupStateChanged = window.electronAPI.onDesktopStateChanged((snapshot) => {
+      setDesktopSnapshot(snapshot);
+    });
+
+    const cleanupProjectActivated = window.electronAPI.onDesktopProjectActivated((activation) => {
+      openProjectTab(activation.projectId);
+      setActiveProject(activation.projectId);
+    });
+
+    return () => {
+      cleanupStateChanged();
+      cleanupProjectActivated();
+    };
+  }, [openProjectTab, setActiveProject, setDesktopSnapshot]);
+
+  useEffect(() => {
+    if (!window.platform?.isWindows) {
+      return undefined;
+    }
+
+    const handleDesktopAssociationShortcut = (event: KeyboardEvent) => {
+      if (
+        event.target instanceof HTMLInputElement ||
+        event.target instanceof HTMLTextAreaElement ||
+        event.target instanceof HTMLSelectElement ||
+        (event.target as HTMLElement | null)?.isContentEditable
+      ) {
+        return;
+      }
+
+      if (!activeProjectId || event.repeat) {
+        return;
+      }
+
+      const key = event.key;
+      const altGraphPressed = event.getModifierState?.('AltGraph') ?? false;
+      const isAssociationShortcutKey = key === 'AltGraph' || key === 'Alt';
+
+      if (!isAssociationShortcutKey) {
+        return;
+      }
+
+      if (event.ctrlKey && event.shiftKey && (altGraphPressed || event.altKey)) {
+        event.preventDefault();
+        void useDesktopStore.getState().toggleProjectDesktopAssociation(activeProjectId);
+      }
+    };
+
+    window.addEventListener('keydown', handleDesktopAssociationShortcut);
+    return () => window.removeEventListener('keydown', handleDesktopAssociationShortcut);
+  }, [activeProjectId]);
 
   // Restore tab state and open tabs for loaded projects
   useEffect(() => {

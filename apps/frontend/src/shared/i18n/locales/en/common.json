@@ -7,7 +7,16 @@
     "hideArchivedTasks": "Hide archived tasks",
     "closeTab": "Close tab",
     "closeTabAriaLabel": "Close tab (removes project from app)",
-    "addProjectAriaLabel": "Add project"
+    "addProjectAriaLabel": "Add project",
+    "desktopAssociation": {
+      "ariaLabel": "Associate project with current desktop",
+      "associate": "Associate this project with the current desktop.",
+      "clear": "This project is associated with the current desktop. Click to clear it.",
+      "moveHere": "This project is associated with desktop {{desktop}}. Click to move it here.",
+      "anotherDesktop": "another desktop",
+      "unavailable": "Virtual desktop association is unavailable on this machine.",
+      "unavailableWithReason": "Virtual desktop association is unavailable: {{reason}}"
+    }
   },
   "accessibility": {
     "deleteFeatureAriaLabel": "Delete feature",

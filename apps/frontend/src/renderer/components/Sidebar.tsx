@@ -21,6 +21,7 @@ import {
   HelpCircle,
   Heart,
   Wrench,
+  Pin,
   PanelLeft,
   PanelLeftClose
 } from 'lucide-react';
@@ -48,6 +49,7 @@ import {
   initializeProject
 } from '../stores/project-store';
 import { useSettingsStore, saveSettings } from '../stores/settings-store';
+import { useDesktopStore } from '../stores/desktop-store';
 import {
   useProjectEnvStore,
   loadProjectEnvConfig,
@@ -114,6 +116,8 @@ export function Sidebar({
   const activeProjectId = useProjectStore((state) => state.activeProjectId);
   const currentProjectId = activeProjectId || selectedProjectId;
   const settings = useSettingsStore((state) => state.settings);
+  const desktopSnapshot = useDesktopStore((state) => state.snapshot);
+  const setDesktopPinEnabled = useDesktopStore((state) => state.setDesktopPinEnabled);
 
   const [showAddProjectModal, setShowAddProjectModal] = useState(false);
   const [showInitDialog, setShowInitDialog] = useState(false);
@@ -129,6 +133,10 @@ export function Sidebar({
 
   const toggleSidebar = () => {
     saveSettings({ sidebarCollapsed: !isCollapsed });
+  };
+
+  const handleDesktopPinToggle = (): void => {
+    void setDesktopPinEnabled(!desktopSnapshot.pinEnabled);
   };
 
   // Subscribe to project-env-store for reactive GitHub/GitLab tab visibility
@@ -357,7 +365,46 @@ export function Sidebar({
           isCollapsed ? "justify-center px-2" : "px-4"
         )}>
           {!isCollapsed && (
-            <span className="electron-no-drag text-lg font-bold text-primary">Aperant-MCP</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="electron-no-drag text-lg font-bold text-primary truncate">Aperant-MCP</span>
+              {window.platform?.isWindows && (
+                <Tooltip delayDuration={200}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className={cn(
+                        'electron-no-drag h-7 w-7 rounded-md border border-transparent',
+                        'flex items-center justify-center transition-colors',
+                        'text-muted-foreground hover:text-foreground hover:bg-muted/60',
+                        desktopSnapshot.pinEnabled && 'bg-primary/15 text-primary border-primary/30',
+                        !desktopSnapshot.available && 'opacity-50 cursor-not-allowed'
+                      )}
+                      onClick={() => {
+                        if (!desktopSnapshot.available) {
+                          return;
+                        }
+                        handleDesktopPinToggle();
+                      }}
+                      aria-label={t('desktopPin.ariaLabel')}
+                      disabled={!desktopSnapshot.available}
+                    >
+                      <Pin className="h-3.5 w-3.5" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">
+                    <span>
+                      {desktopSnapshot.available
+                        ? desktopSnapshot.pinEnabled
+                          ? t('desktopPin.disable')
+                          : t('desktopPin.enable')
+                        : desktopSnapshot.error
+                          ? t('desktopPin.unavailableWithReason', { reason: desktopSnapshot.error })
+                          : t('desktopPin.unavailable')}
+                    </span>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
           )}
         </div>
 

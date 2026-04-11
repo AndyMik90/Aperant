@@ -17,6 +17,7 @@ import { registerTerminalHandlers } from './terminal-handlers';
 import { registerAgenteventsHandlers } from './agent-events-handlers';
 import { registerSettingsHandlers } from './settings-handlers';
 import { registerProviderAccountHandlers } from './provider-account-handlers';
+import { registerDesktopHandlers } from './desktop-handlers';
 import { registerFileHandlers } from './file-handlers';
 import { registerRoadmapHandlers } from './roadmap-handlers';
 import { registerContextHandlers } from './context-handlers';
@@ -89,6 +90,7 @@ export function setupIpcHandlers(
   registerSettingsHandlers(agentManager, getMainWindow);
   registerProviderAccountHandlers();
   registerCodexAuthHandlers();
+  registerDesktopHandlers();
 
   // File explorer handlers
   registerFileHandlers();
@@ -177,6 +179,7 @@ export {
   registerAgenteventsHandlers,
   registerSettingsHandlers,
   registerProviderAccountHandlers,
+  registerDesktopHandlers,
   registerCodexAuthHandlers,
   registerFileHandlers,
   registerRoadmapHandlers,

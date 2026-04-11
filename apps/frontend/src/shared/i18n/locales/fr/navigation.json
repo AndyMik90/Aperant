@@ -26,6 +26,13 @@
     "expandSidebar": "Développer la barre latérale",
     "sponsor": "Nous sponsoriser"
   },
+  "desktopPin": {
+    "ariaLabel": "Basculer l'epinglage multi-bureaux",
+    "enable": "Epingler Aperant sur tous les bureaux (Ctrl+Shift+.)",
+    "disable": "Aperant est epingle sur tous les bureaux. Cliquez pour le garder sur un seul bureau.",
+    "unavailable": "L'epinglage sur les bureaux virtuels n'est pas disponible sur cette machine.",
+    "unavailableWithReason": "L'epinglage sur les bureaux virtuels n'est pas disponible : {{reason}}"
+  },
   "tooltips": {
     "settings": "Paramètres de l'application",
     "help": "Aide & Feedback"

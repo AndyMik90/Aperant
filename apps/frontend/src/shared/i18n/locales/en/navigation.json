@@ -26,6 +26,13 @@
     "expandSidebar": "Expand Sidebar",
     "sponsor": "Sponsor Us"
   },
+  "desktopPin": {
+    "ariaLabel": "Toggle desktop-agnostic pin",
+    "enable": "Pin Aperant across all desktops (Ctrl+Shift+.)",
+    "disable": "Pinned across all desktops. Click to keep Aperant on just one desktop.",
+    "unavailable": "Virtual desktop pinning is unavailable on this machine.",
+    "unavailableWithReason": "Virtual desktop pinning is unavailable: {{reason}}"
+  },
   "tooltips": {
     "settings": "Application Settings",
     "help": "Help & Feedback"

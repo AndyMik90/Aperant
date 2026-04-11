@@ -76,6 +76,7 @@ import type {
 } from './agent';
 import type { AppSettings, SourceEnvConfig, SourceEnvCheckResult } from './settings';
 import type { ProviderAccount } from './provider-account';
+import type { DesktopProjectActivation, DesktopStateSnapshot } from './desktop';
 import type { AppUpdateInfo, AppUpdateProgress, AppUpdateAvailableEvent, AppUpdateDownloadedEvent, AppUpdateErrorEvent } from './app-update';
 import type {
   ChangelogTask,
@@ -398,6 +399,18 @@ export interface ElectronAPI {
   codexAuthStatus: (accountId: string) => Promise<IPCResult<CodexAuthState>>;
   /** Clear stored OpenAI Codex authentication */
   codexAuthLogout: (accountId: string) => Promise<IPCResult>;
+  /** Read desktop pin state and project associations */
+  getDesktopState: () => Promise<IPCResult<DesktopStateSnapshot>>;
+  /** Enable or disable global virtual-desktop pinning */
+  setDesktopPinEnabled: (enabled: boolean) => Promise<IPCResult<DesktopStateSnapshot>>;
+  /** Associate a project with the current Windows virtual desktop */
+  associateProjectToCurrentDesktop: (projectId: string) => Promise<IPCResult<DesktopStateSnapshot>>;
+  /** Clear a project's desktop association */
+  clearProjectDesktopAssociation: (projectId: string) => Promise<IPCResult<DesktopStateSnapshot>>;
+  /** Listen for desktop state changes from the main process */
+  onDesktopStateChanged: (callback: (state: DesktopStateSnapshot) => void) => () => void;
+  /** Listen for project activation requests triggered by summon or desktop changes */
+  onDesktopProjectActivated: (callback: (activation: DesktopProjectActivation) => void) => () => void;
   /** Get auto-switch settings */
   getAutoSwitchSettings: () => Promise<IPCResult<ClaudeAutoSwitchSettings>>;
   /** Update auto-switch settings */

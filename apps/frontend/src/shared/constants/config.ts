@@ -97,7 +97,9 @@ export const DEFAULT_APP_SETTINGS = {
   providerAccounts: [],
   globalPriorityOrder: [],
   disabledAutoSwitchAccountIds: [],
-  _migratedProviderAccounts: false
+  _migratedProviderAccounts: false,
+  desktopAgnosticPinEnabled: false,
+  desktopProjectAssociations: []
 };
 
 // ============================================

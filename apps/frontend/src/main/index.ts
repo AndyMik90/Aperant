@@ -94,6 +94,11 @@ import { isProfileAuthenticated } from './claude-profile/profile-utils';
 import { isMacOS, isWindows } from './platform';
 import { ptyDaemonClient } from './terminal/pty-daemon-client';
 import { checkAndNotifyCrash } from './crash-recovery-handler';
+import { desktopCoordinator } from './services/desktop-coordinator';
+import {
+  getWindowVirtualDesktopInfo,
+  moveWindowToVirtualDesktop,
+} from './platform/windows/virtual-desktop';
 import type { AppSettings, AuthFailureInfo } from '../shared/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -354,13 +359,72 @@ function createWindow(): void {
     }
   });
 
+  desktopCoordinator.attachToWindow(mainWindow);
+
   // Show window when ready to avoid visual flash
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show();
 
     // Windows 11 Virtual Desktop persistence
     if (isWindows() && mainWindow) {
-      import('./platform/windows/virtual-desktop').then(({ getWindowVirtualDesktopId }) => {
+      let skipSaveUntilRestored = true;
+      try {
+        const crashFlagPath = join(app.getPath('appData'), 'auto-claude-ui', 'crash-flag.json');
+        const isCrashRestart = existsSync(crashFlagPath);
+        const vdStatePath = join(app.getPath('appData'), 'auto-claude-ui', 'virtual-desktop-state.json');
+        if (
+          isCrashRestart &&
+          desktopCoordinator.shouldPersistVirtualDesktopState() &&
+          existsSync(vdStatePath)
+        ) {
+          const vdState = JSON.parse(readFileSync(vdStatePath, 'utf-8'));
+          if (vdState.desktopId) {
+            setTimeout(() => {
+              try {
+                if (!mainWindow || mainWindow.isDestroyed()) return;
+                moveWindowToVirtualDesktop(mainWindow.getNativeWindowHandle(), vdState.desktopId);
+              } catch (err) {
+                console.warn('[VirtualDesktop] Restore failed:', err);
+              }
+              skipSaveUntilRestored = false;
+            }, 5000);
+          } else {
+            skipSaveUntilRestored = false;
+          }
+        } else {
+          skipSaveUntilRestored = false;
+        }
+      } catch {
+        skipSaveUntilRestored = false;
+      }
+      setTimeout(() => { skipSaveUntilRestored = false; }, 15_000);
+
+      const saveDesktopState = (): void => {
+        try {
+          if (skipSaveUntilRestored || !desktopCoordinator.shouldPersistVirtualDesktopState()) return;
+          if (!mainWindow || mainWindow.isDestroyed()) return;
+          const desktopInfo = getWindowVirtualDesktopInfo(mainWindow.getNativeWindowHandle());
+          if (desktopInfo?.id) {
+            const vdPath = join(app.getPath('appData'), 'auto-claude-ui', 'virtual-desktop-state.json');
+            writeFileSync(
+              vdPath,
+              JSON.stringify({
+                desktopId: desktopInfo.id,
+                desktopNumber: desktopInfo.number ?? null,
+                desktopName: desktopInfo.name ?? null,
+                savedAt: new Date().toISOString(),
+              }),
+              'utf-8'
+            );
+          }
+        } catch { /* silent */ }
+      };
+
+      setTimeout(saveDesktopState, 10_000);
+      setInterval(saveDesktopState, 120_000);
+
+      if (false) {
+        import('./platform/windows/virtual-desktop').then(({ getWindowVirtualDesktopId }) => {
         // Restore: try Move-Window via VirtualDesktop PowerShell module from Electron itself
         // (Electron is on the same desktop as its own window — no cross-desktop context issue)
         let skipSaveUntilRestored = true;
@@ -435,7 +499,8 @@ function createWindow(): void {
         setInterval(saveDesktopState, 120_000);
       }).catch(err => {
         console.warn('[VirtualDesktop] Module import failed:', err);
-      });
+        });
+      }
     }
 
     // Check for crash flag and notify Claude Code if app was restarted after crash
@@ -755,6 +820,8 @@ app.whenReady().then(() => {
   // Initialize terminal manager
   terminalManager = new TerminalManager(() => mainWindow);
 
+  desktopCoordinator.setMainWindowGetter(() => mainWindow);
+
   // Setup IPC handlers (pass pythonEnvManager for Python path management)
   setupIpcHandlers(agentManager, terminalManager, () => mainWindow, pythonEnvManager);
 
@@ -783,35 +850,23 @@ app.whenReady().then(() => {
     tray = new Tray(trayIcon);
     tray.setToolTip('Aperant-MCP');
 
-    const moveToCurrentDesktop = (): void => {
-      if (!mainWindow || mainWindow.isDestroyed()) return;
-      // Move window to current desktop using VirtualDesktop module, then show
-      if (isWindows()) {
-        try {
-          const { execSync: exec } = require('child_process');
-          const hwnd = mainWindow.getNativeWindowHandle();
-          const hwndInt = hwnd.length === 8 ? Number(hwnd.readBigUInt64LE()) : hwnd.readUInt32LE();
-          // Get current desktop number, then move window there
-          const psScript = `Import-Module VirtualDesktop -EA Stop; $cur = Get-DesktopList | Where-Object { $_.Visible -eq $true }; if ($cur) { Move-Window ([IntPtr]${hwndInt}) (Get-Desktop $cur.Number) }; Write-Output OK`;
-          const psEncoded = Buffer.from(psScript, 'utf16le').toString('base64');
-          exec(`powershell.exe -NoProfile -NonInteractive -EncodedCommand ${psEncoded}`, { windowsHide: true, timeout: 10000, encoding: 'utf8' });
-        } catch { /* silent */ }
-      }
-      mainWindow.show();
-      mainWindow.focus();
+    const summonAperant = (): void => {
+      desktopCoordinator.summonWindow('summon');
     };
 
-    tray.on('click', moveToCurrentDesktop);
+    tray.on('click', summonAperant);
 
     const contextMenu = Menu.buildFromTemplate([
-      { label: 'Show Aperant-MCP', click: moveToCurrentDesktop },
+      { label: 'Show Aperant-MCP', click: summonAperant },
       { type: 'separator' },
       { label: 'Quit', click: () => { app.quit(); } }
     ]);
     tray.setContextMenu(contextMenu);
 
-    // Global hotkey: Ctrl+Shift+< to summon window
-    globalShortcut.register('Ctrl+Shift+,', moveToCurrentDesktop);
+    globalShortcut.register('Ctrl+Shift+,', summonAperant);
+    globalShortcut.register('Ctrl+Shift+.', () => {
+      desktopCoordinator.togglePinEnabled();
+    });
   } catch (err) {
     console.warn('[main] Failed to create system tray:', err);
   }
@@ -821,36 +876,46 @@ app.whenReady().then(() => {
 
   // Poll for MCP open_project signals (MCP server can't send IPC directly)
   const signalPath = join(app.getPath('appData'), 'auto-claude-ui', 'open-project-signal.json');
+  const desktopAssociationSignalPath = join(app.getPath('appData'), 'auto-claude-ui', 'desktop-project-association-signal.json');
   setInterval(() => {
     try {
-      if (!existsSync(signalPath)) return;
-      const signal = JSON.parse(readFileSync(signalPath, 'utf-8'));
-      rmSync(signalPath, { force: true });
-      // Signal is fresh (within last 30 seconds)
-      if (signal.timestamp && Date.now() - signal.timestamp < 30_000 && signal.projectPath && mainWindow && !mainWindow.isDestroyed()) {
-        console.log('[main] MCP open_project signal received for path:', signal.projectPath);
-        // Add the project to Electron's own project store (MCP server has a separate store)
-        const project = projectStore.addProject(signal.projectPath);
-        const tabState = projectStore.getTabState();
-        const openIds = tabState.openProjectIds.includes(project.id)
-          ? tabState.openProjectIds
-          : [...tabState.openProjectIds, project.id];
-        projectStore.saveTabState({
-          openProjectIds: openIds,
-          activeProjectId: project.id,
-          tabOrder: openIds,
-        });
-        console.log('[main] Project added to Electron store:', project.id, project.name);
-        // Tell renderer to reload projects and switch tab
-        mainWindow.webContents.executeJavaScript(`
-          try {
-            window.electronAPI?.getTabState?.().then(result => {
-              if (result?.success && result.data) {
-                window.dispatchEvent(new CustomEvent('mcp-project-switch', { detail: result.data }));
-              }
-            });
-          } catch {}
-        `).catch(() => {});
+      if (existsSync(signalPath)) {
+        const signal = JSON.parse(readFileSync(signalPath, 'utf-8'));
+        rmSync(signalPath, { force: true });
+        // Signal is fresh (within last 30 seconds)
+        if (signal.timestamp && Date.now() - signal.timestamp < 30_000 && signal.projectPath && mainWindow && !mainWindow.isDestroyed()) {
+          console.log('[main] MCP open_project signal received for path:', signal.projectPath);
+          // Add the project to Electron's own project store (MCP server has a separate store)
+          const project = projectStore.addProject(signal.projectPath);
+          const tabState = projectStore.getTabState();
+          const openIds = tabState.openProjectIds.includes(project.id)
+            ? tabState.openProjectIds
+            : [...tabState.openProjectIds, project.id];
+          projectStore.saveTabState({
+            openProjectIds: openIds,
+            activeProjectId: project.id,
+            tabOrder: openIds,
+          });
+          console.log('[main] Project added to Electron store:', project.id, project.name);
+          // Tell renderer to reload projects and switch tab
+          mainWindow.webContents.executeJavaScript(`
+            try {
+              window.electronAPI?.getTabState?.().then(result => {
+                if (result?.success && result.data) {
+                  window.dispatchEvent(new CustomEvent('mcp-project-switch', { detail: result.data }));
+                }
+              });
+            } catch {}
+          `).catch(() => {});
+        }
+      }
+
+      if (existsSync(desktopAssociationSignalPath)) {
+        const signal = JSON.parse(readFileSync(desktopAssociationSignalPath, 'utf-8'));
+        rmSync(desktopAssociationSignalPath, { force: true });
+        if (signal.timestamp && Date.now() - signal.timestamp < 30_000) {
+          desktopCoordinator.handleExternalAssociationSignal(signal);
+        }
       }
     } catch { /* ignore */ }
   }, 2_000);

@@ -6,6 +6,7 @@ import type { NotificationSettings, GraphitiEmbeddingProvider } from './project'
 import type { ChangelogFormat, ChangelogAudience, ChangelogEmojiLevel } from './changelog';
 import type { SupportedLanguage } from '../constants/i18n';
 import type { ProviderAccount } from './provider-account';
+import type { DesktopProjectAssociation } from './desktop';
 
 // Color theme types for multi-theme support
 export type ColorTheme = 'default' | 'dusk' | 'lime' | 'ocean' | 'retro' | 'neo' | 'forest';
@@ -364,6 +365,10 @@ export interface AppSettings {
   disabledAutoSwitchAccountIds?: string[];
   // Internal migration flag for the shared provider-account registry.
   _migratedProviderAccounts?: boolean;
+  // Keep Aperant visible across all Windows virtual desktops.
+  desktopAgnosticPinEnabled?: boolean;
+  // Machine-local mapping between Windows virtual desktops and Aperant projects.
+  desktopProjectAssociations?: DesktopProjectAssociation[];
 }
 
 // Auto-Claude Source Environment Configuration (for auto-claude repo .env)

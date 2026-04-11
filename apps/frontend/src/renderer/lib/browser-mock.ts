@@ -47,6 +47,54 @@ const browserMockAPI: ElectronAPI = {
   // Settings
   ...settingsMock,
 
+  // Desktop coordination
+  getDesktopState: async () => ({
+    success: true,
+    data: {
+      supported: false,
+      available: false,
+      pinEnabled: false,
+      associationHotkey: null,
+      currentDesktop: null,
+      projectAssociations: []
+    }
+  }),
+  setDesktopPinEnabled: async () => ({
+    success: true,
+    data: {
+      supported: false,
+      available: false,
+      pinEnabled: false,
+      associationHotkey: null,
+      currentDesktop: null,
+      projectAssociations: []
+    }
+  }),
+  associateProjectToCurrentDesktop: async () => ({
+    success: true,
+    data: {
+      supported: false,
+      available: false,
+      pinEnabled: false,
+      associationHotkey: null,
+      currentDesktop: null,
+      projectAssociations: []
+    }
+  }),
+  clearProjectDesktopAssociation: async () => ({
+    success: true,
+    data: {
+      supported: false,
+      available: false,
+      pinEnabled: false,
+      associationHotkey: null,
+      currentDesktop: null,
+      projectAssociations: []
+    }
+  }),
+  onDesktopStateChanged: () => () => {},
+  onDesktopProjectActivated: () => () => {},
+
   // Roadmap Operations
   getRoadmap: async () => ({
     success: true,

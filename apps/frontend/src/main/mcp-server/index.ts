@@ -37,6 +37,8 @@ import {
 } from './utils.js';
 import { projectStore } from '../project-store.js';
 import { readAndClearSignalFile, categorizeTasks, enrichTaskWithWorktreeData } from '../ipc-handlers/rdr-handlers.js';
+import { DEFAULT_APP_SETTINGS } from '../../shared/constants/index.js';
+import { getWindowVirtualDesktopInfo } from '../platform/windows/virtual-desktop.js';
 
 /**
  * Notify the renderer to refresh task list immediately after board routing.
@@ -196,6 +198,179 @@ function withMonitoring<T extends (...args: any[]) => Promise<any>>(
 // MCP Server Setup
 // ─────────────────────────────────────────────────────────────────────────────
 
+type CodeWindow = {
+  handle: number;
+  title: string;
+  processId: number;
+};
+
+type WindowAssignment = {
+  processId: number;
+  title: string;
+  provider: string;
+  assignedAt: string;
+};
+
+function getAppDataDir(): string {
+  return join(process.env.APPDATA || join(homedir(), 'AppData', 'Roaming'), 'auto-claude-ui');
+}
+
+function getWindowAssignmentsPath(): string {
+  return join(getAppDataDir(), 'window-assignments.json');
+}
+
+function getSettingsJsonPath(): string {
+  return join(getAppDataDir(), 'settings.json');
+}
+
+function getOpenProjectSignalPath(): string {
+  return join(getAppDataDir(), 'open-project-signal.json');
+}
+
+function getDesktopAssociationSignalPath(): string {
+  return join(getAppDataDir(), 'desktop-project-association-signal.json');
+}
+
+function listCodeWindows(): CodeWindow[] {
+  const psScript = `$ProgressPreference='SilentlyContinue'; Get-Process -Name Code -EA SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | ForEach-Object { @{ handle=$_.MainWindowHandle.ToInt64(); title=$_.MainWindowTitle; processId=$_.Id } } | ConvertTo-Json`;
+  const psEncoded = Buffer.from(psScript, 'utf16le').toString('base64');
+  try {
+    const raw = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', psEncoded], {
+      windowsHide: true,
+      timeout: 8000,
+      encoding: 'utf8'
+    }).stdout.trim();
+    if (!raw) {
+      return [];
+    }
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [parsed];
+  } catch {
+    return [];
+  }
+}
+
+function matchCodeWindow(
+  windows: CodeWindow[],
+  projectPath?: string,
+  windowTitle?: string
+): CodeWindow | null {
+  if (windowTitle) {
+    const titleMatch = windows.find((window) =>
+      window.title.toLowerCase().includes(windowTitle.toLowerCase())
+    );
+    if (titleMatch) {
+      return titleMatch;
+    }
+  }
+
+  if (projectPath) {
+    const folderName = projectPath.replace(/\\/g, '/').split('/').pop() || '';
+    const pathMatch = windows.find((window) =>
+      window.title.toLowerCase().includes(folderName.toLowerCase())
+    );
+    if (pathMatch) {
+      return pathMatch;
+    }
+  }
+
+  return windows.length === 1 ? windows[0] : null;
+}
+
+function inferProviderFromWindowTitle(title: string): string {
+  return title.toLowerCase().includes('kilo') ? 'minimax' : 'anthropic';
+}
+
+function writeWindowAssignment(projectId: string, assignment: WindowAssignment): void {
+  const assignmentPath = getWindowAssignmentsPath();
+  let assignments: Record<string, WindowAssignment> = {};
+  try {
+    if (existsSync(assignmentPath)) {
+      assignments = JSON.parse(readFileSync(assignmentPath, 'utf-8')).assignments || {};
+    }
+  } catch { /* fresh file */ }
+
+  assignments[projectId] = assignment;
+  writeFileSync(
+    assignmentPath,
+    JSON.stringify({ assignments, updatedAt: new Date().toISOString() }, null, 2),
+    'utf-8'
+  );
+}
+
+function writeOpenProjectSignal(projectId: string, projectPath: string): void {
+  writeFileSync(
+    getOpenProjectSignalPath(),
+    JSON.stringify({
+      projectId,
+      projectPath,
+      timestamp: Date.now(),
+    }),
+    'utf-8'
+  );
+}
+
+function writeDesktopAssociationSignal(projectId: string, desktopId: string, activate: boolean): void {
+  writeFileSync(
+    getDesktopAssociationSignalPath(),
+    JSON.stringify({
+      projectId,
+      desktopId,
+      activate,
+      timestamp: Date.now(),
+    }),
+    'utf-8'
+  );
+}
+
+function upsertDesktopAssociation(projectId: string, desktopInfo: { id: string; number?: number | null; name?: string | null }): void {
+  const settingsPath = getSettingsJsonPath();
+  let settings = { ...DEFAULT_APP_SETTINGS } as Record<string, unknown>;
+
+  try {
+    if (existsSync(settingsPath)) {
+      settings = {
+        ...settings,
+        ...JSON.parse(readFileSync(settingsPath, 'utf-8')),
+      };
+    }
+  } catch { /* use defaults */ }
+
+  const currentAssociations = Array.isArray(settings.desktopProjectAssociations)
+    ? settings.desktopProjectAssociations as Array<Record<string, unknown>>
+    : [];
+
+  const nextAssociations = currentAssociations.filter(
+    (association) =>
+      association.projectId !== projectId && association.desktopId !== desktopInfo.id
+  );
+
+  nextAssociations.push({
+    desktopId: desktopInfo.id,
+    desktopNumber: desktopInfo.number ?? null,
+    desktopName: desktopInfo.name ?? null,
+    projectId,
+    updatedAt: new Date().toISOString(),
+    source: 'mcp',
+  });
+
+  settings.desktopProjectAssociations = nextAssociations;
+  writeFileSync(settingsPath, JSON.stringify(settings, null, 2), 'utf-8');
+}
+
+function resolveProjectForAssociation(projectId: string, projectPath?: string) {
+  const existingProject = projectStore.getProject(projectId);
+  if (existingProject) {
+    return existingProject;
+  }
+
+  if (projectPath) {
+    return projectStore.getProjectByPath(projectPath) ?? projectStore.addProject(projectPath);
+  }
+
+  return null;
+}
+
 const server = new McpServer({
   name: 'auto-claude',
   version: '1.0.0'
@@ -305,6 +480,95 @@ server.tool(
 // ─────────────────────────────────────────────────────────────────────────────
 // Tool: open_project
 // ─────────────────────────────────────────────────────────────────────────────
+
+server.tool(
+  'associate_project_desktop',
+  'Associate a project with the current virtual desktop of the calling VS Code window, optionally activate it in Aperant, and keep RDR window targeting aligned.',
+  {
+    projectId: z.string().describe('Project ID (UUID) to associate to the caller desktop'),
+    projectPath: z.string().optional().describe('Fallback filesystem path if the project ID is not already known to Aperant'),
+    windowTitle: z.string().optional().describe('Explicit VS Code window title pattern to match when auto-detection needs help'),
+    activate: z.boolean().optional().default(true).describe('Open/select the project in Aperant after associating it'),
+  },
+  withMonitoring('associate_project_desktop', async ({ projectId, projectPath, windowTitle, activate }) => {
+    try {
+      if (projectPath && !existsSync(projectPath)) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: `Directory does not exist: ${projectPath}` }) }] };
+      }
+
+      const project = resolveProjectForAssociation(projectId, projectPath);
+      if (!project) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Project not found and no valid projectPath was provided.' }) }] };
+      }
+
+      const windows = listCodeWindows();
+      if (windows.length === 0) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'No VS Code windows found' }) }] };
+      }
+
+      const matchedWindow = matchCodeWindow(windows, project.path, windowTitle);
+      if (!matchedWindow) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({
+          error: 'Could not find matching VS Code window',
+          availableWindows: windows.map(w => ({ title: w.title, processId: w.processId })),
+          hint: 'Pass windowTitle with a substring of the target window title'
+        }, null, 2) }] };
+      }
+
+      const desktopInfo = getWindowVirtualDesktopInfo(matchedWindow.handle);
+      if (!desktopInfo?.id) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'Could not resolve the virtual desktop for the selected VS Code window.' }) }] };
+      }
+
+      const provider = inferProviderFromWindowTitle(matchedWindow.title);
+      writeWindowAssignment(project.id, {
+        processId: matchedWindow.processId,
+        title: matchedWindow.title,
+        provider,
+        assignedAt: new Date().toISOString(),
+      });
+
+      upsertDesktopAssociation(project.id, desktopInfo);
+      writeDesktopAssociationSignal(project.id, desktopInfo.id, activate);
+
+      if (activate) {
+        const tabState = projectStore.getTabState();
+        const openIds = tabState.openProjectIds.includes(project.id)
+          ? tabState.openProjectIds
+          : [...tabState.openProjectIds, project.id];
+
+        projectStore.saveTabState({
+          openProjectIds: openIds,
+          activeProjectId: project.id,
+          tabOrder: openIds,
+        });
+
+        notifyRendererTaskRefresh(project.id);
+        writeOpenProjectSignal(project.id, project.path);
+      }
+
+      return { content: [{ type: 'text' as const, text: JSON.stringify({
+        success: true,
+        projectId: project.id,
+        projectPath: project.path,
+        desktop: {
+          id: desktopInfo.id,
+          number: desktopInfo.number ?? null,
+          name: desktopInfo.name ?? null,
+        },
+        assignedWindow: {
+          processId: matchedWindow.processId,
+          title: matchedWindow.title,
+          provider,
+        },
+        activate,
+        message: `Project ${project.name} is now associated with desktop ${desktopInfo.number ?? desktopInfo.name ?? desktopInfo.id}.`
+      }, null, 2) }] };
+    } catch (err) {
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ error: String(err) }) }] };
+    }
+  })
+);
 
 server.tool(
   'open_project',

@@ -166,6 +166,12 @@ export const IPC_CHANNELS = {
   CODEX_AUTH_LOGIN: 'codex:auth:login',
   CODEX_AUTH_STATUS: 'codex:auth:status',
   CODEX_AUTH_LOGOUT: 'codex:auth:logout',
+  DESKTOP_STATE_GET: 'desktop:state:get',
+  DESKTOP_PIN_SET: 'desktop:pin:set',
+  DESKTOP_PROJECT_ASSOCIATE: 'desktop:project:associate',
+  DESKTOP_PROJECT_CLEAR: 'desktop:project:clear',
+  DESKTOP_STATE_CHANGED: 'desktop:state:changed',
+  DESKTOP_PROJECT_ACTIVATE: 'desktop:project:activate',
 
   // API Profile management (custom Anthropic-compatible endpoints)
   PROFILES_GET: 'profiles:get',

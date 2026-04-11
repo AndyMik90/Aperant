@@ -1,9 +1,10 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useTranslation } from 'react-i18next';
-import { Settings2 } from 'lucide-react';
+import { Pin, Settings2 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Tooltip, TooltipContent, TooltipTrigger } from './ui/tooltip';
+import { useDesktopStore } from '../stores/desktop-store';
 import type { Project } from '../../shared/types';
 
 interface SortableProjectTabProps {
@@ -31,9 +32,28 @@ export function SortableProjectTab({
   onSettingsClick
 }: SortableProjectTabProps) {
   const { t } = useTranslation('common');
+  const desktopSnapshot = useDesktopStore((state) => state.snapshot);
+  const toggleProjectDesktopAssociation = useDesktopStore((state) => state.toggleProjectDesktopAssociation);
   // Build tooltip with keyboard shortcut hint (only for tabs 1-9)
   const shortcutHint = tabIndex < 9 ? `${modKey}${tabIndex + 1}` : '';
   const closeShortcut = `${modKey}W`;
+  const currentDesktopId = desktopSnapshot.currentDesktop?.id;
+  const projectDesktopAssociation = desktopSnapshot.projectAssociations.find(
+    (association) => association.projectId === project.id
+  );
+  const isAssociatedToCurrentDesktop = projectDesktopAssociation?.desktopId === currentDesktopId;
+  const associatedDesktopLabel = projectDesktopAssociation?.desktopName
+    || projectDesktopAssociation?.desktopNumber?.toString()
+    || t('projectTab.desktopAssociation.anotherDesktop');
+  const associationTooltip = !desktopSnapshot.available
+    ? desktopSnapshot.error
+      ? t('projectTab.desktopAssociation.unavailableWithReason', { reason: desktopSnapshot.error })
+      : t('projectTab.desktopAssociation.unavailable')
+    : isAssociatedToCurrentDesktop
+      ? t('projectTab.desktopAssociation.clear')
+      : projectDesktopAssociation
+        ? t('projectTab.desktopAssociation.moveHere', { desktop: associatedDesktopLabel })
+        : t('projectTab.desktopAssociation.associate');
   const {
     attributes,
     listeners,
@@ -115,6 +135,38 @@ export function SortableProjectTab({
       {/* Active tab controls - settings and archive, always accessible */}
       {isActive && (
         <div className="flex items-center gap-0.5 mr-0.5 sm:mr-1 flex-shrink-0">
+          {window.platform?.isWindows && (
+            <Tooltip delayDuration={200}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    'h-5 w-5 sm:h-6 sm:w-6 p-0 rounded',
+                    'flex items-center justify-center transition-colors',
+                    'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+                    isAssociatedToCurrentDesktop && 'text-primary bg-primary/10',
+                    !desktopSnapshot.available && 'opacity-50 cursor-not-allowed',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1'
+                  )}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (!desktopSnapshot.available) {
+                      return;
+                    }
+                    void toggleProjectDesktopAssociation(project.id);
+                  }}
+                  aria-label={t('projectTab.desktopAssociation.ariaLabel')}
+                  disabled={!desktopSnapshot.available}
+                >
+                  <Pin className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                <span>{associationTooltip}</span>
+              </TooltipContent>
+            </Tooltip>
+          )}
+
           {/* Settings icon - responsive sizing */}
           {onSettingsClick && (
             <Tooltip delayDuration={200}>

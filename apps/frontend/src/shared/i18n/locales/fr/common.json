@@ -7,7 +7,16 @@
     "hideArchivedTasks": "Masquer les tâches archivées",
     "closeTab": "Fermer l'onglet",
     "closeTabAriaLabel": "Fermer l'onglet (retire le projet de l'application)",
-    "addProjectAriaLabel": "Ajouter un projet"
+    "addProjectAriaLabel": "Ajouter un projet",
+    "desktopAssociation": {
+      "ariaLabel": "Associer le projet au bureau actuel",
+      "associate": "Associer ce projet au bureau actuel.",
+      "clear": "Ce projet est associe au bureau actuel. Cliquez pour retirer l'association.",
+      "moveHere": "Ce projet est associe au bureau {{desktop}}. Cliquez pour le deplacer ici.",
+      "anotherDesktop": "un autre bureau",
+      "unavailable": "L'association aux bureaux virtuels n'est pas disponible sur cette machine.",
+      "unavailableWithReason": "L'association aux bureaux virtuels n'est pas disponible : {{reason}}"
+    }
   },
   "accessibility": {
     "deleteFeatureAriaLabel": "Supprimer la fonctionnalité",
