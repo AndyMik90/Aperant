@@ -2,17 +2,16 @@
  * Windows Window Manager
  *
  * Provides VS Code window enumeration and message sending functionality.
- * Uses inline PowerShell that mirrors ClaudeAutoResponse logic.
+ * Uses shared PowerShell execution helpers with safe temp handling.
  *
  * Only works on Windows - functions return empty results on other platforms.
  */
 
-import { execSync, exec } from 'child_process';
 import { isWindows } from '../index';
 import { stripControlChars } from '../../ipc-handlers/shared/sanitize';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as os from 'os';
+import { getWindowsSafeTempDir, runWindowsPowerShell, runWindowsPowerShellSync } from './powershell-runner';
 
 /**
  * Represents a VS Code window
@@ -29,16 +28,6 @@ export interface VSCodeWindow {
 export interface SendMessageResult {
   success: boolean;
   error?: string;
-}
-
-/**
- * Encode a PowerShell script to Base64 for use with -EncodedCommand
- * This avoids all escaping issues with quotes, special characters, etc.
- */
-function encodePS(script: string): string {
-  // PowerShell -EncodedCommand expects UTF-16LE Base64
-  const buffer = Buffer.from(script, 'utf16le');
-  return buffer.toString('base64');
 }
 
 /**
@@ -106,18 +95,17 @@ if ($windows.Count -eq 0) { Write-Output "[]" }
 else { $windows | ConvertTo-Json -Compress }
 `;
 
-    const encoded = encodePS(script);
-    const result = execSync(
-      `powershell -ExecutionPolicy Bypass -NoProfile -NonInteractive -EncodedCommand ${encoded}`,
-      {
-        encoding: 'utf-8',
-        timeout: 5000,
-        windowsHide: true
-      }
-    );
+    const result = runWindowsPowerShellSync({
+      script,
+      timeoutMs: 5000,
+      mode: 'file',
+    });
+    if (!result.ok) {
+      throw new Error(result.stderr || 'Failed to enumerate VS Code windows');
+    }
 
     // Extract only the JSON part (filter out CLIXML and other noise)
-    const lines = result.split('\n').map(l => l.trim()).filter(l => l);
+    const lines = result.stdout.split('\n').map(l => l.trim()).filter(l => l);
     const jsonLine = lines.find(l => l.startsWith('[') || l.startsWith('{'));
 
     if (!jsonLine || jsonLine === '[]') {
@@ -200,8 +188,8 @@ export function sendMessageToWindow(
     console.log(`[WindowManager] Found window: "${targetWindow.title}" (handle: ${handle})`)
 
     // Use temp files to avoid command line length limit
-    const tempFile = path.join(os.tmpdir(), `rdr-message-${Date.now()}.txt`);
-    let scriptFile: string | null = null;
+    const tempDir = getWindowsSafeTempDir();
+    const tempFile = path.join(tempDir, `rdr-message-${Date.now()}.txt`);
 
     try {
       // Write message to temp file with UTF-8 encoding
@@ -278,46 +266,37 @@ if ($original -ne [IntPtr]::Zero -and $original -ne [IntPtr]$Handle) {
 Write-Output "Message sent successfully"
 `;
 
-      // Write script to temp file
-      scriptFile = path.join(os.tmpdir(), `rdr-script-${Date.now()}.ps1`);
-      fs.writeFileSync(scriptFile, script, { encoding: 'utf-8' });
-
-      // Execute PowerShell script from file (no command line length limit)
-      const command = `powershell -ExecutionPolicy Bypass -NoProfile -NonInteractive -File "${scriptFile}"`;
-
-      exec(
-        command,
+      runWindowsPowerShell(
         {
-          timeout: 10000,
-          windowsHide: true
-        },
-        (error, stdout, stderr) => {
-          // Clean up script file
-          if (scriptFile) {
-            try {
-              fs.unlinkSync(scriptFile);
-            } catch (e) {
-              // Ignore cleanup errors
-            }
-          }
-
-          if (error) {
-            console.error('[WindowManager] Failed to send message:', error.message);
-            resolve({
-              success: false,
-              error: stderr || error.message
-            });
-          } else {
-            console.log('[WindowManager] Message sent successfully');
-            resolve({ success: true });
-          }
+          script,
+          timeoutMs: 10000,
+          mode: 'file',
         }
-      );
+      ).then((result) => {
+        try {
+          if (fs.existsSync(tempFile)) {
+            fs.unlinkSync(tempFile);
+          }
+        } catch {
+          // Ignore cleanup errors.
+        }
+
+        if (!result.ok) {
+          console.error('[WindowManager] Failed to send message:', result.stderr);
+          resolve({
+            success: false,
+            error: result.stderr || 'Failed to send message to window'
+          });
+          return;
+        }
+
+        console.log('[WindowManager] Message sent successfully');
+        resolve({ success: true });
+      });
     } catch (error) {
       // Clean up temp files on error
       try {
         if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
-        if (scriptFile && fs.existsSync(scriptFile)) fs.unlinkSync(scriptFile);
       } catch (e) {
         // Ignore cleanup errors
       }

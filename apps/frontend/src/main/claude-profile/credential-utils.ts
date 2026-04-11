@@ -21,6 +21,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileS
 import { homedir, userInfo } from 'os';
 import { dirname, join } from 'path';
 import { isMacOS, isWindows, isLinux } from '../platform';
+import { findWindowsPowerShellPath, runWindowsPowerShellSync } from '../platform/windows/powershell-runner';
 
 /**
  * Create a safe fingerprint of a token for debug logging.
@@ -916,7 +917,7 @@ function getCredentialsFromWindowsCredentialManager(configDir?: string, forceRef
   }
 
   // Find PowerShell executable
-  const psPath = findPowerShellPath();
+  const psPath = findWindowsPowerShellPath();
   if (!psPath) {
     const notFoundResult = { token: null, email: null, error: 'PowerShell not found' };
     credentialCache.set(cacheKey, { credentials: notFoundResult, timestamp: now });
@@ -996,17 +997,17 @@ public static extern bool CredFree(IntPtr cred);
       }
     `;
 
-    const result = execFileSync(
-      psPath,
-      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', psScript],
-      {
-        encoding: 'utf-8',
-        timeout: WINDOWS_CREDMAN_TIMEOUT_MS,
-        windowsHide: true,
-      }
-    );
+    const result = runWindowsPowerShellSync({
+      script: psScript,
+      timeoutMs: WINDOWS_CREDMAN_TIMEOUT_MS,
+      mode: 'file',
+      powerShellPath: psPath,
+    });
+    if (!result.ok) {
+      throw new Error(result.stderr || 'Credential Manager access failed');
+    }
 
-    const credentialsJson = result.trim() || null;
+    const credentialsJson = result.stdout.trim() || null;
 
     // Parse and validate using shared helper
     const { token, email } = parseCredentialJson(
@@ -1042,26 +1043,6 @@ public static extern bool CredFree(IntPtr cred);
     credentialCache.set(cacheKey, { credentials: errorResult, timestamp: now });
     return errorResult;
   }
-}
-
-/**
- * Find PowerShell executable path on Windows
- */
-function findPowerShellPath(): string | null {
-  // Prefer PowerShell 7+ (pwsh) over Windows PowerShell
-  const candidatePaths = [
-    join(process.env.ProgramFiles || 'C:\\Program Files', 'PowerShell', '7', 'pwsh.exe'),
-    join(homedir(), 'AppData', 'Local', 'Microsoft', 'WindowsApps', 'pwsh.exe'),
-    join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe'),
-  ];
-
-  for (const candidate of candidatePaths) {
-    if (existsSync(candidate)) {
-      return candidate;
-    }
-  }
-
-  return null;
 }
 
 // =============================================================================
@@ -1115,7 +1096,7 @@ function getCredentialsFromWindows(configDir?: string, forceRefresh = false): Pl
 
   // If neither has a token, return file result (which has the appropriate error)
   if (!fileResult.token && !credManagerResult.token) {
-    return fileResult;
+    return fileResult.error ? fileResult : (credManagerResult.error ? credManagerResult : fileResult);
   }
 
   // Both have tokens - prefer file since Claude CLI writes there after login
@@ -1372,7 +1353,7 @@ function getFullCredentialsFromWindowsCredentialManager(configDir?: string): Ful
   }
 
   // Find PowerShell executable
-  const psPath = findPowerShellPath();
+  const psPath = findWindowsPowerShellPath();
   if (!psPath) {
     return { token: null, email: null, refreshToken: null, expiresAt: null, scopes: null, subscriptionType: null, rateLimitTier: null, error: 'PowerShell not found' };
   }
@@ -1440,17 +1421,17 @@ public static extern bool CredFree(IntPtr cred);
       }
     `;
 
-    const result = execFileSync(
-      psPath,
-      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', psScript],
-      {
-        encoding: 'utf-8',
-        timeout: WINDOWS_CREDMAN_TIMEOUT_MS,
-        windowsHide: true,
-      }
-    );
+    const result = runWindowsPowerShellSync({
+      script: psScript,
+      timeoutMs: WINDOWS_CREDMAN_TIMEOUT_MS,
+      mode: 'file',
+      powerShellPath: psPath,
+    });
+    if (!result.ok) {
+      throw new Error(result.stderr || 'Credential Manager access failed');
+    }
 
-    const credentialsJson = result.trim() || null;
+    const credentialsJson = result.stdout.trim() || null;
 
     // Parse and validate using shared helper
     const { token, email, refreshToken, expiresAt, scopes, subscriptionType, rateLimitTier } = parseCredentialJson(
@@ -1521,7 +1502,7 @@ function getFullCredentialsFromWindows(configDir?: string): FullOAuthCredentials
 
   // If neither has a token, return file result (which has the appropriate error)
   if (!fileResult.token && !credManagerResult.token) {
-    return fileResult;
+    return fileResult.error ? fileResult : (credManagerResult.error ? credManagerResult : fileResult);
   }
 
   // Both have tokens - prefer file since Claude CLI writes there after login
@@ -1864,7 +1845,7 @@ function updateWindowsCredentialManagerCredentials(
   }
 
   // Find PowerShell executable
-  const psPath = findPowerShellPath();
+  const psPath = findWindowsPowerShellPath();
   if (!psPath) {
     return { success: false, error: 'PowerShell not found' };
   }
@@ -1953,17 +1934,17 @@ function updateWindowsCredentialManagerCredentials(
       }
     `;
 
-    const result = execFileSync(
-      psPath,
-      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', psScript],
-      {
-        encoding: 'utf-8',
-        timeout: WINDOWS_CREDMAN_TIMEOUT_MS,
-        windowsHide: true,
-      }
-    );
+    const result = runWindowsPowerShellSync({
+      script: psScript,
+      timeoutMs: WINDOWS_CREDMAN_TIMEOUT_MS,
+      mode: 'file',
+      powerShellPath: psPath,
+    });
+    if (!result.ok) {
+      throw new Error(result.stderr || 'Credential Manager update failed');
+    }
 
-    if (result.trim() !== 'SUCCESS') {
+    if (result.stdout.trim() !== 'SUCCESS') {
       return { success: false, error: 'Credential Manager update failed' };
     }
 
@@ -2158,15 +2139,12 @@ function updateWindowsCredentials(
   }
 
   // File write succeeded - now update Credential Manager for forward compatibility
-  const psPath = findPowerShellPath();
-  if (psPath) {
-    const credManagerResult = updateWindowsCredentialManagerCredentials(configDir, credentials);
-    if (!credManagerResult.success) {
-      // Credential Manager failed but file succeeded - this is acceptable
-      // Claude CLI will use the file, which has the latest tokens
-      if (isDebug) {
-        console.warn('[CredentialUtils:Windows:Update] Credential Manager update failed (file update succeeded):', credManagerResult.error);
-      }
+  const credManagerResult = updateWindowsCredentialManagerCredentials(configDir, credentials);
+  if (!credManagerResult.success) {
+    // Credential Manager failed but file succeeded - this is acceptable
+    // Claude CLI will use the file, which has the latest tokens
+    if (isDebug) {
+      console.warn('[CredentialUtils:Windows:Update] Credential Manager update failed (file update succeeded):', credManagerResult.error);
     }
   }
 

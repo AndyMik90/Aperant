@@ -1,6 +1,6 @@
-import { execFileSync } from 'child_process';
 import type { VirtualDesktopInfo } from '../../../shared/types';
 import { isWindows } from '../index';
+import { runWindowsPowerShellSync } from './powershell-runner';
 
 type HwndLike = Buffer | number;
 
@@ -319,10 +319,6 @@ namespace AperantDesktopInterop
 }
 `;
 
-function encodePowerShell(script: string): string {
-  return Buffer.from(script, 'utf16le').toString('base64');
-}
-
 function hwndToInt(hwnd: HwndLike): number {
   if (typeof hwnd === 'number') {
     return hwnd;
@@ -336,15 +332,12 @@ function hwndToInt(hwnd: HwndLike): number {
 }
 
 function runPowerShell(script: string, timeoutMs: number = 8000): string {
-  return execFileSync(
-    'powershell.exe',
-    ['-NoProfile', '-NonInteractive', '-EncodedCommand', encodePowerShell(script)],
-    {
-      windowsHide: true,
-      timeout: timeoutMs,
-      encoding: 'utf8',
-    }
-  ).trim();
+  const result = runWindowsPowerShellSync({ script, timeoutMs, mode: 'encoded' });
+  if (!result.ok) {
+    throw new Error(result.stderr || 'PowerShell command failed');
+  }
+
+  return result.stdout.trim();
 }
 
 function runPowerShellJson<T>(script: string, timeoutMs: number = 8000): T | null {
@@ -375,7 +368,13 @@ $result = [AperantDesktopInterop.DesktopInterop]::${action}(${literalArgs})
 if ($null -ne $result) { Write-Output $result }
 `;
 
-    const output = runPowerShell(script, 10000);
+    const output = (() => {
+      const result = runWindowsPowerShellSync({ script, timeoutMs: 10000, mode: 'file' });
+      if (!result.ok) {
+        throw new Error(result.stderr || `Interop action "${action}" failed`);
+      }
+      return result.stdout.trim();
+    })();
     return output.length > 0 ? output : null;
   } catch (error) {
     console.warn(`[VirtualDesktop] Interop action "${action}" failed:`, error);

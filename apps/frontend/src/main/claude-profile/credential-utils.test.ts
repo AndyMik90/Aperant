@@ -28,6 +28,18 @@ vi.mock('os', () => ({
   homedir: vi.fn(() => '/home/testuser'),
 }));
 
+vi.mock('../platform/windows/powershell-runner', () => ({
+  findWindowsPowerShellPath: vi.fn(() => null),
+  runWindowsPowerShellSync: vi.fn(() => ({
+    ok: true,
+    stdout: '',
+    stderr: '',
+    status: 0,
+    signal: null,
+    powerShellPath: 'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
+  })),
+}));
+
 // Import after mocks are set up
 import {
   calculateConfigDirHash,
@@ -43,6 +55,7 @@ import { isMacOS, isWindows, isLinux } from '../platform';
 import { existsSync, readFileSync } from 'fs';
 import { execFileSync } from 'child_process';
 import { homedir } from 'os';
+import { findWindowsPowerShellPath, runWindowsPowerShellSync } from '../platform/windows/powershell-runner';
 
 describe('credential-utils', () => {
   beforeEach(() => {
@@ -362,6 +375,7 @@ describe('credential-utils', () => {
     it('should return null when PowerShell not found and no credentials file exists', () => {
       // Neither PowerShell nor credentials file exists
       vi.mocked(existsSync).mockReturnValue(false);
+      vi.mocked(findWindowsPowerShellPath).mockReturnValue(null);
 
       const result = getCredentialsFromKeychain();
 
@@ -372,17 +386,21 @@ describe('credential-utils', () => {
 
     it('should return credentials from Windows Credential Manager when file is empty', () => {
       // Mock PowerShell path found, but credentials file doesn't exist
-      vi.mocked(existsSync).mockImplementation((path: unknown) => {
-        const pathStr = String(path);
-        // PowerShell exists, but credentials file doesn't
-        return pathStr.includes('PowerShell') || pathStr.includes('powershell');
+      vi.mocked(existsSync).mockReturnValue(false);
+      vi.mocked(findWindowsPowerShellPath).mockReturnValue('C:\\Program Files\\PowerShell\\7\\pwsh.exe');
+      vi.mocked(runWindowsPowerShellSync).mockReturnValue({
+        ok: true,
+        stdout: JSON.stringify({
+          claudeAiOauth: {
+            accessToken: 'sk-ant-windows-token-789',
+            email: 'windows@example.com',
+          },
+        }),
+        stderr: '',
+        status: 0,
+        signal: null,
+        powerShellPath: 'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
       });
-      vi.mocked(execFileSync).mockReturnValue(JSON.stringify({
-        claudeAiOauth: {
-          accessToken: 'sk-ant-windows-token-789',
-          email: 'windows@example.com',
-        },
-      }));
 
       const result = getCredentialsFromKeychain();
 
@@ -394,7 +412,15 @@ describe('credential-utils', () => {
       // Mock PowerShell exists but returns empty (no credential in Credential Manager)
       // Mock file exists with valid credentials
       vi.mocked(existsSync).mockReturnValue(true);
-      vi.mocked(execFileSync).mockReturnValue(''); // Credential Manager empty
+      vi.mocked(findWindowsPowerShellPath).mockReturnValue('C:\\Program Files\\PowerShell\\7\\pwsh.exe');
+      vi.mocked(runWindowsPowerShellSync).mockReturnValue({
+        ok: true,
+        stdout: '',
+        stderr: '',
+        status: 0,
+        signal: null,
+        powerShellPath: 'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
+      });
       vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
         claudeAiOauth: {
           accessToken: 'sk-ant-file-fallback-token',
@@ -411,12 +437,16 @@ describe('credential-utils', () => {
     it('should return null when both Credential Manager and file have no credentials', () => {
       // Mock PowerShell exists but returns empty
       // Mock credentials file doesn't exist
-      vi.mocked(existsSync).mockImplementation((path: unknown) => {
-        const pathStr = String(path);
-        // PowerShell exists, but credentials file doesn't
-        return pathStr.includes('PowerShell') || pathStr.includes('powershell');
+      vi.mocked(existsSync).mockReturnValue(false);
+      vi.mocked(findWindowsPowerShellPath).mockReturnValue('C:\\Program Files\\PowerShell\\7\\pwsh.exe');
+      vi.mocked(runWindowsPowerShellSync).mockReturnValue({
+        ok: true,
+        stdout: '',
+        stderr: '',
+        status: 0,
+        signal: null,
+        powerShellPath: 'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
       });
-      vi.mocked(execFileSync).mockReturnValue(''); // Credential Manager empty
 
       const result = getCredentialsFromKeychain();
 
@@ -424,9 +454,35 @@ describe('credential-utils', () => {
       expect(result.email).toBeNull();
     });
 
+    it('should surface Credential Manager runtime failures when the file is also empty', () => {
+      vi.mocked(existsSync).mockReturnValue(false);
+      vi.mocked(findWindowsPowerShellPath).mockReturnValue('C:\\Program Files\\PowerShell\\7\\pwsh.exe');
+      vi.mocked(runWindowsPowerShellSync).mockReturnValue({
+        ok: false,
+        stdout: '',
+        stderr: 'Add-Type failed in safe runner',
+        status: 1,
+        signal: null,
+        powerShellPath: 'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
+      });
+
+      const result = getCredentialsFromKeychain();
+
+      expect(result.token).toBeNull();
+      expect(result.error).toContain('Credential Manager access failed');
+    });
+
     it('should handle invalid JSON from Credential Manager by falling back to file', () => {
       vi.mocked(existsSync).mockReturnValue(true);
-      vi.mocked(execFileSync).mockReturnValue('invalid json'); // Invalid JSON from Credential Manager
+      vi.mocked(findWindowsPowerShellPath).mockReturnValue('C:\\Program Files\\PowerShell\\7\\pwsh.exe');
+      vi.mocked(runWindowsPowerShellSync).mockReturnValue({
+        ok: true,
+        stdout: 'invalid json',
+        stderr: '',
+        status: 0,
+        signal: null,
+        powerShellPath: 'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
+      });
       vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
         claudeAiOauth: {
           accessToken: 'sk-ant-file-token-after-cm-failure',
@@ -443,18 +499,26 @@ describe('credential-utils', () => {
 
     it('should prefer file credentials when both sources have tokens', () => {
       vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(findWindowsPowerShellPath).mockReturnValue('C:\\Program Files\\PowerShell\\7\\pwsh.exe');
       vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
         claudeAiOauth: {
           accessToken: 'sk-ant-windows-file-token',
           email: 'windowsfile@example.com',
         },
       }));
-      vi.mocked(execFileSync).mockReturnValue(JSON.stringify({
-        claudeAiOauth: {
-          accessToken: 'sk-ant-credman-token',
-          email: 'credman@example.com',
-        },
-      }));
+      vi.mocked(runWindowsPowerShellSync).mockReturnValue({
+        ok: true,
+        stdout: JSON.stringify({
+          claudeAiOauth: {
+            accessToken: 'sk-ant-credman-token',
+            email: 'credman@example.com',
+          },
+        }),
+        stderr: '',
+        status: 0,
+        signal: null,
+        powerShellPath: 'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
+      });
 
       const result = getCredentialsFromKeychain();
 
@@ -475,6 +539,7 @@ describe('credential-utils', () => {
 
     it('should return full credentials from file when available', () => {
       vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(findWindowsPowerShellPath).mockReturnValue('C:\\Program Files\\PowerShell\\7\\pwsh.exe');
       vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
         claudeAiOauth: {
           accessToken: 'sk-ant-full-creds-token',
@@ -484,7 +549,14 @@ describe('credential-utils', () => {
           scopes: ['user:read', 'user:write'],
         },
       }));
-      vi.mocked(execFileSync).mockReturnValue(''); // Credential Manager empty
+      vi.mocked(runWindowsPowerShellSync).mockReturnValue({
+        ok: true,
+        stdout: '',
+        stderr: '',
+        status: 0,
+        signal: null,
+        powerShellPath: 'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
+      });
 
       const result = getFullCredentialsFromKeychain();
 
@@ -496,18 +568,23 @@ describe('credential-utils', () => {
     });
 
     it('should return credentials from Credential Manager when file is empty', () => {
-      vi.mocked(existsSync).mockImplementation((path: unknown) => {
-        const pathStr = String(path);
-        return pathStr.includes('PowerShell') || pathStr.includes('powershell');
+      vi.mocked(existsSync).mockReturnValue(false);
+      vi.mocked(findWindowsPowerShellPath).mockReturnValue('C:\\Program Files\\PowerShell\\7\\pwsh.exe');
+      vi.mocked(runWindowsPowerShellSync).mockReturnValue({
+        ok: true,
+        stdout: JSON.stringify({
+          claudeAiOauth: {
+            accessToken: 'sk-ant-credman-full-token',
+            refreshToken: 'credman-refresh',
+            expiresAt: 1700000000000,
+            email: 'credman@example.com',
+          },
+        }),
+        stderr: '',
+        status: 0,
+        signal: null,
+        powerShellPath: 'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
       });
-      vi.mocked(execFileSync).mockReturnValue(JSON.stringify({
-        claudeAiOauth: {
-          accessToken: 'sk-ant-credman-full-token',
-          refreshToken: 'credman-refresh',
-          expiresAt: 1700000000000,
-          email: 'credman@example.com',
-        },
-      }));
 
       const result = getFullCredentialsFromKeychain();
 
@@ -518,6 +595,7 @@ describe('credential-utils', () => {
 
     it('should prefer file credentials when both sources have tokens (consistent with basic API)', () => {
       vi.mocked(existsSync).mockReturnValue(true);
+      vi.mocked(findWindowsPowerShellPath).mockReturnValue('C:\\Program Files\\PowerShell\\7\\pwsh.exe');
       vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
         claudeAiOauth: {
           accessToken: 'sk-ant-file-full-token',
@@ -526,14 +604,21 @@ describe('credential-utils', () => {
           email: 'file@example.com',
         },
       }));
-      vi.mocked(execFileSync).mockReturnValue(JSON.stringify({
-        claudeAiOauth: {
-          accessToken: 'sk-ant-credman-full-token',
-          refreshToken: 'credman-refresh',
-          expiresAt: 1800000000000, // Later expiry
-          email: 'credman@example.com',
-        },
-      }));
+      vi.mocked(runWindowsPowerShellSync).mockReturnValue({
+        ok: true,
+        stdout: JSON.stringify({
+          claudeAiOauth: {
+            accessToken: 'sk-ant-credman-full-token',
+            refreshToken: 'credman-refresh',
+            expiresAt: 1800000000000,
+            email: 'credman@example.com',
+          },
+        }),
+        stderr: '',
+        status: 0,
+        signal: null,
+        powerShellPath: 'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
+      });
 
       const result = getFullCredentialsFromKeychain();
 
@@ -545,16 +630,39 @@ describe('credential-utils', () => {
     });
 
     it('should return null when both sources have no credentials', () => {
-      vi.mocked(existsSync).mockImplementation((path: unknown) => {
-        const pathStr = String(path);
-        return pathStr.includes('PowerShell') || pathStr.includes('powershell');
+      vi.mocked(existsSync).mockReturnValue(false);
+      vi.mocked(findWindowsPowerShellPath).mockReturnValue('C:\\Program Files\\PowerShell\\7\\pwsh.exe');
+      vi.mocked(runWindowsPowerShellSync).mockReturnValue({
+        ok: true,
+        stdout: '',
+        stderr: '',
+        status: 0,
+        signal: null,
+        powerShellPath: 'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
       });
-      vi.mocked(execFileSync).mockReturnValue('');
 
       const result = getFullCredentialsFromKeychain();
 
       expect(result.token).toBeNull();
       expect(result.refreshToken).toBeNull();
+    });
+
+    it('should surface full Credential Manager runtime failures when the file is also empty', () => {
+      vi.mocked(existsSync).mockReturnValue(false);
+      vi.mocked(findWindowsPowerShellPath).mockReturnValue('C:\\Program Files\\PowerShell\\7\\pwsh.exe');
+      vi.mocked(runWindowsPowerShellSync).mockReturnValue({
+        ok: false,
+        stdout: '',
+        stderr: 'Safe runner failed to compile Add-Type',
+        status: 1,
+        signal: null,
+        powerShellPath: 'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
+      });
+
+      const result = getFullCredentialsFromKeychain();
+
+      expect(result.token).toBeNull();
+      expect(result.error).toContain('Credential Manager access failed');
     });
   });
 

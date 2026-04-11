@@ -1,4 +1,4 @@
-// Polyfill CommonJS require for ESM compatibility
+﻿// Polyfill CommonJS require for ESM compatibility
 // This MUST be at the very top, before any imports that might trigger Sentry's
 // require-in-the-middle hooks. Sentry's hooks expect require.cache to exist,
 // which is only available in CommonJS. Without this, node-pty native module
@@ -101,9 +101,9 @@ import {
 } from './platform/windows/virtual-desktop';
 import type { AppSettings, AuthFailureInfo } from '../shared/types';
 
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Window sizing constants
-// ─────────────────────────────────────────────────────────────────────────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 /** Preferred window width on startup */
 const WINDOW_PREFERRED_WIDTH: number = 1400;
 /** Preferred window height on startup */
@@ -241,7 +241,7 @@ let rendererResponding = true; // Tracked via BrowserWindow unresponsive/respons
 
 function startHeartbeat(): void {
   // Use deterministic path matching watchdog's APP_DATA_DIR_NAME constant.
-  // app.getPath('userData') returns %APPDATA%/Electron/ in dev mode — wrong directory.
+  // app.getPath('userData') returns %APPDATA%/Electron/ in dev mode â€” wrong directory.
   const userData = join(app.getPath('appData'), 'auto-claude-ui');
   const heartbeatPath = join(userData, 'heartbeat.json');
 
@@ -273,7 +273,7 @@ function startHeartbeat(): void {
 
   writeHeartbeat(); // Write immediately
 
-  // Verify first write succeeded — if not, watchdog freeze detection is disabled
+  // Verify first write succeeded â€” if not, watchdog freeze detection is disabled
   if (!existsSync(heartbeatPath)) {
     console.error('[main] CRITICAL: heartbeat.json NOT created at', heartbeatPath);
   } else {
@@ -423,84 +423,6 @@ function createWindow(): void {
       setTimeout(saveDesktopState, 10_000);
       setInterval(saveDesktopState, 120_000);
 
-      if (false) {
-        import('./platform/windows/virtual-desktop').then(({ getWindowVirtualDesktopId }) => {
-        // Restore: try Move-Window via VirtualDesktop PowerShell module from Electron itself
-        // (Electron is on the same desktop as its own window — no cross-desktop context issue)
-        let skipSaveUntilRestored = true;
-        try {
-          // Only restore virtual desktop on CRASH restart (watchdog), not fresh bat launch
-          const crashFlagPath = join(app.getPath('appData'), 'auto-claude-ui', 'crash-flag.json');
-          const isCrashRestart = existsSync(crashFlagPath);
-          const vdStatePath = join(app.getPath('appData'), 'auto-claude-ui', 'virtual-desktop-state.json');
-          if (isCrashRestart && existsSync(vdStatePath)) {
-            const vdState = JSON.parse(readFileSync(vdStatePath, 'utf-8'));
-            if (vdState.desktopNumber != null) {
-              setTimeout(() => {
-                try {
-                  if (!mainWindow || mainWindow.isDestroyed()) return;
-                  const { execSync: exec } = require('child_process');
-                  const hwnd = mainWindow.getNativeWindowHandle();
-                  const hwndInt = hwnd.length === 8 ? Number(hwnd.readBigUInt64LE()) : hwnd.readUInt32LE();
-                  const psScript = `Import-Module VirtualDesktop -EA Stop; Move-Window ([IntPtr]${hwndInt}) (Get-Desktop ${vdState.desktopNumber}); Write-Output MOVED`;
-                  const psEncoded = Buffer.from(psScript, 'utf16le').toString('base64');
-                  const result = exec(`powershell.exe -NoProfile -NonInteractive -EncodedCommand ${psEncoded}`, { windowsHide: true, timeout: 10000, encoding: 'utf8' }).trim();
-                  const lastLine = result.split('\n').pop()?.trim() || '';
-                  console.log('[VirtualDesktop] Restore from Electron:', lastLine);
-                  if (lastLine === 'MOVED') {
-                    skipSaveUntilRestored = false; // Restore done, allow saving
-                  }
-                } catch (err) {
-                  console.warn('[VirtualDesktop] Restore failed:', err);
-                }
-                skipSaveUntilRestored = false;
-              }, 5000);
-            } else {
-              skipSaveUntilRestored = false;
-            }
-          } else {
-            skipSaveUntilRestored = false;
-          }
-        } catch {
-          skipSaveUntilRestored = false;
-        }
-        setTimeout(() => { skipSaveUntilRestored = false; }, 15_000); // Safety: always allow saving after 15s
-
-        // Non-blocking virtual desktop save — uses async exec to avoid blocking the event loop
-        const saveDesktopState = (): void => {
-          try {
-            if (skipSaveUntilRestored) return;
-            if (!mainWindow || mainWindow.isDestroyed()) return;
-            const hwnd = mainWindow.getNativeWindowHandle();
-            const desktopId = getWindowVirtualDesktopId(hwnd);
-            if (desktopId) {
-              // Get desktop number asynchronously (non-blocking)
-              const { exec: execAsync } = require('child_process');
-              const numScript = `Import-Module VirtualDesktop -EA Stop; $d = Get-DesktopList | Where-Object { $_.Visible -eq $true }; if ($d) { Write-Output $d.Number }`;
-              const numEncoded = Buffer.from(numScript, 'utf16le').toString('base64');
-              execAsync(
-                `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${numEncoded}`,
-                { windowsHide: true, timeout: 8000, encoding: 'utf8' },
-                (err: Error | null, stdout: string) => {
-                  let desktopNumber: number | null = null;
-                  if (!err && stdout?.trim()) desktopNumber = parseInt(stdout.trim(), 10);
-                  try {
-                    const vdPath = join(app.getPath('appData'), 'auto-claude-ui', 'virtual-desktop-state.json');
-                    writeFileSync(vdPath, JSON.stringify({ desktopId, desktopNumber, savedAt: new Date().toISOString() }), 'utf-8');
-                  } catch { /* silent */ }
-                }
-              );
-            }
-          } catch { /* silent */ }
-        };
-
-        // Save on startup (10s delay), then every 120s (non-blocking, no rush)
-        setTimeout(saveDesktopState, 10_000);
-        setInterval(saveDesktopState, 120_000);
-      }).catch(err => {
-        console.warn('[VirtualDesktop] Module import failed:', err);
-        });
-      }
     }
 
     // Check for crash flag and notify Claude Code if app was restarted after crash
@@ -641,7 +563,7 @@ function createWindow(): void {
     rendererResponding = false;
     if (!rendererFreezeTimer) {
       rendererFreezeTimer = setTimeout(() => {
-        console.error('[main] Renderer still unresponsive after grace period — forcing restart');
+        console.error('[main] Renderer still unresponsive after grace period â€” forcing restart');
         writeFreezeNotification('renderer_freeze', 'Renderer process unresponsive for 15+ seconds');
         app.exit(1); // Non-zero exit triggers watchdog restart
       }, RENDERER_FREEZE_GRACE_MS);
@@ -833,7 +755,7 @@ app.whenReady().then(() => {
   resumeTasksAfterRestart();
 
   // Reset RDR attempts on normal startup (not P6B programmatic restart)
-  // P6B restarts leave a .restart-requested marker — preserve attempt history for those
+  // P6B restarts leave a .restart-requested marker â€” preserve attempt history for those
   const restartMarkerPath = join(app.getPath('userData'), '.restart-requested');
   if (!existsSync(restartMarkerPath)) {
     resetAllRdrAttempts();
@@ -842,7 +764,7 @@ app.whenReady().then(() => {
   // Create window
   createWindow();
 
-  // System tray icon — click to move window to current desktop, right-click for menu
+  // System tray icon â€” click to move window to current desktop, right-click for menu
   let tray: Tray | null = null;
   try {
     const iconPath = join(__dirname, '../../resources/icon-256.png');
@@ -1088,7 +1010,7 @@ app.on('window-all-closed', () => {
   }
 });
 
-// Cleanup before quit — uses event.preventDefault() to allow async PTY cleanup
+// Cleanup before quit â€” uses event.preventDefault() to allow async PTY cleanup
 // before the JS environment tears down. Without this, pty.node's native
 // ThreadSafeFunction callbacks fire after teardown, causing SIGABRT (GitHub #1469).
 app.on('before-quit', (event) => {
@@ -1118,7 +1040,7 @@ app.on('before-quit', (event) => {
         await agentManager.killAll();
       }
 
-      // Kill all terminal processes — waits for PTY exit with bounded timeout
+      // Kill all terminal processes â€” waits for PTY exit with bounded timeout
       if (terminalManager) {
         await terminalManager.killAll();
       }
@@ -1138,3 +1060,4 @@ app.on('before-quit', (event) => {
 
 // Note: Uncaught exceptions and unhandled rejections are now
 // logged by setupErrorLogging() in app-logger.ts
+

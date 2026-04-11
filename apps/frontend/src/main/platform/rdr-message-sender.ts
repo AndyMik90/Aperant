@@ -10,6 +10,7 @@ import * as path from 'path';
 import * as os from 'os';
 import { exec } from 'child_process';
 import { isWindows } from './index';
+import { getWindowsSafeTempDir, runWindowsPowerShell } from './windows/powershell-runner';
 
 export interface SendMessageResult {
   success: boolean;
@@ -34,7 +35,8 @@ export async function sendRdrMessage(
   }
 
   // Write message to temp file (always, for security and compatibility)
-  const messagePath = path.join(os.tmpdir(), `rdr-message-${Date.now()}.txt`);
+  const tempDir = isWindows() ? getWindowsSafeTempDir() : os.tmpdir();
+  const messagePath = path.join(tempDir, `rdr-message-${Date.now()}.txt`);
   let scriptPath: string | null = null;
 
   try {
@@ -51,7 +53,7 @@ export async function sendRdrMessage(
 
       if (isPowerShellScript) {
         // PowerShell script (.ps1) - Windows
-        scriptPath = path.join(os.tmpdir(), `rdr-script-${Date.now()}.ps1`);
+        scriptPath = path.join(tempDir, `rdr-script-${Date.now()}.ps1`);
 
         // Substitute variables in the script
         const scriptContent = substituteVariables(customTemplate, {
@@ -64,19 +66,25 @@ export async function sendRdrMessage(
         // Write script to file
         await fs.promises.writeFile(scriptPath, scriptContent, 'utf8');
 
-        // Execute script
-        const command = `powershell.exe -ExecutionPolicy Bypass -NoProfile -NonInteractive -File "${scriptPath}"`;
+        // Execute script through the shared safe Windows PowerShell runner
         console.log('[RDR Sender] Using PowerShell script template');
-        const result = await executeCommand(command);
+        const runnerResult = await runWindowsPowerShell({
+          script: scriptContent,
+          timeoutMs: 10000,
+          mode: 'file',
+          scriptPath,
+        });
 
         // Clean up temp files
         await fs.promises.unlink(messagePath).catch(() => {});
         await fs.promises.unlink(scriptPath).catch(() => {});
 
-        return result;
+        return runnerResult.ok
+          ? { success: true }
+          : { success: false, error: runnerResult.stderr || 'PowerShell script failed' };
       } else if (isShellScript) {
         // Shell script (.sh) - macOS/Linux
-        scriptPath = path.join(os.tmpdir(), `rdr-script-${Date.now()}.sh`);
+        scriptPath = path.join(tempDir, `rdr-script-${Date.now()}.sh`);
 
         // Substitute variables in the script
         const scriptContent = substituteVariables(customTemplate, {
@@ -104,7 +112,7 @@ export async function sendRdrMessage(
         return result;
       } else if (isBatchScript) {
         // Batch script (.bat) - Windows
-        scriptPath = path.join(os.tmpdir(), `rdr-script-${Date.now()}.bat`);
+        scriptPath = path.join(tempDir, `rdr-script-${Date.now()}.bat`);
 
         // Substitute variables in the script
         const scriptContent = substituteVariables(customTemplate, {
