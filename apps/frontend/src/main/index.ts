@@ -95,6 +95,7 @@ import { isMacOS, isWindows } from './platform';
 import { ptyDaemonClient } from './terminal/pty-daemon-client';
 import { checkAndNotifyCrash } from './crash-recovery-handler';
 import { desktopCoordinator } from './services/desktop-coordinator';
+import { desktopNotificationBridge } from './services/desktop-notification-bridge';
 import {
   getWindowVirtualDesktopInfo,
   moveWindowToVirtualDesktop,
@@ -1027,6 +1028,7 @@ app.on('before-quit', (event) => {
   stopHeartbeat();
   activityMonitor.stop();
   stopPeriodicUpdates();
+  desktopNotificationBridge.stop();
 
   const usageMonitor = getUsageMonitor();
   usageMonitor.stop();

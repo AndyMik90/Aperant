@@ -17,6 +17,11 @@ import {
   pinWindowToAllDesktops,
   unpinWindowFromAllDesktops,
 } from '../platform/windows/virtual-desktop';
+import {
+  desktopNotificationBridge,
+  type DesktopNotificationBridgeState,
+  type DesktopNotificationEvent,
+} from './desktop-notification-bridge';
 import { isWindows } from '../platform';
 
 type PresentationMode = 'normal' | 'maximized' | 'fullscreen';
@@ -69,11 +74,25 @@ function sanitizeAssociations(
   return nextAssociations;
 }
 
-class DesktopCoordinator {
+export class DesktopCoordinator {
   private getMainWindow: () => BrowserWindow | null = () => null;
   private desktopPollInterval: NodeJS.Timeout | null = null;
   private lastKnownDesktopId: string | null = null;
   private lastPresentationMode: PresentationMode = 'normal';
+  private currentDesktopCache: VirtualDesktopInfo | null = null;
+  private desktopTrackingMode: 'idle' | 'polling' | 'notifications' = 'idle';
+  private desktopNotificationBridgeState: DesktopNotificationBridgeState =
+    desktopNotificationBridge.getState();
+  private desktopNotificationsStarted = false;
+
+  constructor() {
+    desktopNotificationBridge.onStateChange((state) => {
+      this.handleDesktopNotificationBridgeStateChange(state);
+    });
+    desktopNotificationBridge.onEvent((event) => {
+      this.handleDesktopNotificationEvent(event);
+    });
+  }
 
   setMainWindowGetter(getter: () => BrowserWindow | null): void {
     this.getMainWindow = getter;
@@ -100,7 +119,9 @@ class DesktopCoordinator {
       this.lastPresentationMode = window.isMaximized() ? 'maximized' : 'normal';
     });
 
-    this.lastKnownDesktopId = getCurrentVirtualDesktop()?.id ?? null;
+    this.currentDesktopCache = getCurrentVirtualDesktop();
+    this.lastKnownDesktopId = this.currentDesktopCache?.id ?? null;
+    this.ensureDesktopNotificationsStarted();
     this.applyPersistedPinState();
     this.emitStateChanged();
   }
@@ -120,9 +141,10 @@ class DesktopCoordinator {
 
     const settings = loadDesktopSettings();
     const availability = getVirtualDesktopAvailability();
-    const currentDesktop = availability.available ? getCurrentVirtualDesktop() : null;
+    const currentDesktop = availability.available ? this.resolveCurrentDesktop() : null;
 
     if (currentDesktop?.id) {
+      this.currentDesktopCache = currentDesktop;
       this.lastKnownDesktopId = currentDesktop.id;
     }
 
@@ -192,6 +214,8 @@ class DesktopCoordinator {
       return this.getStateSnapshot(availability.error);
     }
 
+    this.ensureDesktopNotificationsStarted();
+
     const window = this.getMainWindow();
     if (window && !window.isDestroyed()) {
       const applied = enabled
@@ -209,11 +233,11 @@ class DesktopCoordinator {
 
     saveDesktopSettings({ desktopAgnosticPinEnabled: enabled });
     if (enabled) {
-      this.startDesktopPolling();
+      this.syncDesktopTrackingMode();
       return this.summonWindow('pin-enable');
     }
 
-    this.stopDesktopPolling();
+    this.syncDesktopTrackingMode();
     this.emitStateChanged();
     return this.getStateSnapshot();
   }
@@ -228,7 +252,7 @@ class DesktopCoordinator {
     source: AssociationSource = 'ui',
     activate: boolean = false
   ): DesktopStateSnapshot {
-    const currentDesktop = getCurrentVirtualDesktop();
+    const currentDesktop = this.resolveCurrentDesktop();
     if (!currentDesktop?.id) {
       return this.getStateSnapshot('No current Windows desktop could be resolved.');
     }
@@ -327,7 +351,7 @@ class DesktopCoordinator {
 
     const settings = loadDesktopSettings();
     if (!settings.desktopAgnosticPinEnabled) {
-      this.stopDesktopPolling();
+      this.syncDesktopTrackingMode();
       return;
     }
 
@@ -337,7 +361,7 @@ class DesktopCoordinator {
     }
 
     pinWindowToAllDesktops(window.getNativeWindowHandle());
-    this.startDesktopPolling();
+    this.syncDesktopTrackingMode();
   }
 
   private startDesktopPolling(): void {
@@ -358,6 +382,7 @@ class DesktopCoordinator {
       }
 
       if (this.lastKnownDesktopId !== currentDesktop.id) {
+        this.currentDesktopCache = currentDesktop;
         this.lastKnownDesktopId = currentDesktop.id;
         this.emitStateChanged();
         this.activateAssociatedProject(currentDesktop.id, 'desktop-change');
@@ -372,6 +397,106 @@ class DesktopCoordinator {
       clearInterval(this.desktopPollInterval);
       this.desktopPollInterval = null;
     }
+  }
+
+  private ensureDesktopNotificationsStarted(): void {
+    if (this.desktopNotificationsStarted || !isWindows()) {
+      return;
+    }
+
+    this.desktopNotificationBridgeState = desktopNotificationBridge.start();
+    this.desktopNotificationsStarted = true;
+    this.syncDesktopTrackingMode();
+  }
+
+  private handleDesktopNotificationBridgeStateChange(
+    state: DesktopNotificationBridgeState
+  ): void {
+    this.desktopNotificationBridgeState = state;
+    this.syncDesktopTrackingMode();
+
+    if (state.running || state.error) {
+      this.emitStateChanged();
+    }
+  }
+
+  private handleDesktopNotificationEvent(event: DesktopNotificationEvent): void {
+    if (event.currentDesktop?.id) {
+      this.currentDesktopCache = event.currentDesktop;
+      this.lastKnownDesktopId = event.currentDesktop.id;
+    } else if (event.currentDesktopId) {
+      this.currentDesktopCache = {
+        id: event.currentDesktopId,
+        number: event.currentDesktop?.number ?? null,
+        name: event.currentDesktop?.name ?? null,
+        visible: true,
+      };
+      this.lastKnownDesktopId = event.currentDesktopId;
+    }
+
+    if (event.type === 'current-desktop-changed') {
+      this.emitStateChanged();
+      if (loadDesktopSettings().desktopAgnosticPinEnabled && event.newDesktopId) {
+        this.activateAssociatedProject(event.newDesktopId, 'desktop-change');
+      }
+      return;
+    }
+
+    if (event.type === 'ready' || event.type === 'desktop-created' || event.type === 'desktop-destroyed' || event.type === 'desktop-renamed') {
+      this.emitStateChanged();
+    }
+  }
+
+  private resolveCurrentDesktop(): VirtualDesktopInfo | null {
+    if (this.currentDesktopCache?.id && this.isDesktopNotificationsHealthy()) {
+      return this.currentDesktopCache;
+    }
+
+    const currentDesktop = getCurrentVirtualDesktop();
+    if (currentDesktop?.id) {
+      this.currentDesktopCache = currentDesktop;
+      this.lastKnownDesktopId = currentDesktop.id;
+    }
+
+    return currentDesktop;
+  }
+
+  private isDesktopNotificationsHealthy(): boolean {
+    return this.desktopNotificationBridgeState.supported
+      && this.desktopNotificationBridgeState.healthy;
+  }
+
+  private syncDesktopTrackingMode(): void {
+    if (!isWindows()) {
+      this.setDesktopTrackingMode('idle');
+      this.stopDesktopPolling();
+      return;
+    }
+
+    const settings = loadDesktopSettings();
+    if (!settings.desktopAgnosticPinEnabled) {
+      this.setDesktopTrackingMode('idle');
+      this.stopDesktopPolling();
+      return;
+    }
+
+    if (this.isDesktopNotificationsHealthy()) {
+      this.setDesktopTrackingMode('notifications');
+      this.stopDesktopPolling();
+      return;
+    }
+
+    this.setDesktopTrackingMode('polling');
+    this.startDesktopPolling();
+  }
+
+  private setDesktopTrackingMode(mode: 'idle' | 'polling' | 'notifications'): void {
+    if (this.desktopTrackingMode === mode) {
+      return;
+    }
+
+    this.desktopTrackingMode = mode;
+    console.log('[DesktopCoordinator] Tracking mode:', mode);
   }
 
   private activateAssociatedProject(desktopId: string, reason: ActivationReason): void {

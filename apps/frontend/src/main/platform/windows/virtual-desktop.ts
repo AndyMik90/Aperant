@@ -1,3 +1,4 @@
+import { release as osRelease } from 'os';
 import type { VirtualDesktopInfo } from '../../../shared/types';
 import { isWindows } from '../index';
 import { runWindowsPowerShellSync } from './powershell-runner';
@@ -14,10 +15,52 @@ interface VirtualDesktopAvailability {
   error?: string;
 }
 
+export type VirtualDesktopNotificationBuildFamily = 'build10240' | 'build22000' | 'build22621';
+
+export interface VirtualDesktopNotificationInteropInfo {
+  buildNumber: number;
+  family: VirtualDesktopNotificationBuildFamily;
+  virtualDesktopGuid: string;
+  notificationGuid: string;
+  notificationServiceGuid: string;
+}
+
+interface NotificationInteropPowerShellResult {
+  buildNumber: number;
+}
+
+interface NotificationInteropGuidSet {
+  family: VirtualDesktopNotificationBuildFamily;
+  virtualDesktopGuid: string;
+  notificationGuid: string;
+  notificationServiceGuid: string;
+}
+
 const ALL_DESKTOP_IDS = new Set<string>([
   'bb64d5b7-4de3-4ab2-a87c-db7601aea7dc',
   'c2ddea68-66f2-4cf9-8264-1bfd00fbbbac',
 ]);
+
+const WINDOWS_10_NOTIFICATION_GUIDS: NotificationInteropGuidSet = {
+  family: 'build10240',
+  virtualDesktopGuid: 'ff72ffdd-be7e-43fc-9c03-ad81681e88e4',
+  notificationGuid: 'c179334c-4295-40d3-bea1-c654d965605a',
+  notificationServiceGuid: '0cd45e71-d927-4f15-8b0a-8fef525337bf',
+};
+
+const WINDOWS_11_21H2_NOTIFICATION_GUIDS: NotificationInteropGuidSet = {
+  family: 'build22000',
+  virtualDesktopGuid: '536d3495-b208-4cc9-ae26-de8111275bf8',
+  notificationGuid: 'cd403e52-deed-4c13-b437-b98380f2b1e8',
+  notificationServiceGuid: '0cd45e71-d927-4f15-8b0a-8fef525337bf',
+};
+
+const WINDOWS_11_22H2_NOTIFICATION_GUIDS: NotificationInteropGuidSet = {
+  family: 'build22621',
+  virtualDesktopGuid: '3f07f4be-b107-441a-af0f-39d82529072c',
+  notificationGuid: 'b9e5e94d-233e-49ab-af5c-2b4541c3aade',
+  notificationServiceGuid: '0cd45e71-d927-4f15-8b0a-8fef525337bf',
+};
 
 const PINNING_INTEROP = `
 using System;
@@ -354,6 +397,53 @@ function runPowerShellJson<T>(script: string, timeoutMs: number = 8000): T | nul
   }
 }
 
+function parseWindowsBuildNumber(releaseValue: string): number | null {
+  const normalized = releaseValue.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const match = normalized.match(/^(?<major>\d+)\.(?<minor>\d+)\.(?<build>\d+)/);
+  const build = match?.groups?.build ? Number(match.groups.build) : null;
+  if (!build || Number.isNaN(build)) {
+    return null;
+  }
+
+  return build;
+}
+
+function readWindowsBuildNumber(): number | null {
+  const buildFromRelease = parseWindowsBuildNumber(osRelease());
+  if (buildFromRelease) {
+    return buildFromRelease;
+  }
+
+  const result = runPowerShellJson<NotificationInteropPowerShellResult>(`
+$ErrorActionPreference = 'Stop'
+[PSCustomObject]@{
+  buildNumber = [int](Get-ItemProperty -Path 'HKLM:\\SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion' -ErrorAction Stop).CurrentBuildNumber
+} | ConvertTo-Json -Compress
+`, 4000);
+
+  return result?.buildNumber ?? null;
+}
+
+function resolveNotificationGuidSetForBuild(buildNumber: number): NotificationInteropGuidSet | null {
+  if (buildNumber >= 22621) {
+    return WINDOWS_11_22H2_NOTIFICATION_GUIDS;
+  }
+
+  if (buildNumber >= 22000) {
+    return WINDOWS_11_21H2_NOTIFICATION_GUIDS;
+  }
+
+  if (buildNumber >= 10240) {
+    return WINDOWS_10_NOTIFICATION_GUIDS;
+  }
+
+  return null;
+}
+
 function runInteropAction(action: string, args: string[] = []): string | null {
   try {
     const literalArgs = args
@@ -422,6 +512,30 @@ if ($root.PSObject.Properties.Name -contains 'VirtualDesktopIDs' -and $root.Virt
   desktops = $desktops
 } | ConvertTo-Json -Compress -Depth 4
 `);
+}
+
+export function resolveVirtualDesktopNotificationInteropInfo(): VirtualDesktopNotificationInteropInfo | null {
+  if (!isWindows()) {
+    return null;
+  }
+
+  const buildNumber = readWindowsBuildNumber();
+  if (!buildNumber) {
+    return null;
+  }
+
+  const guidSet = resolveNotificationGuidSetForBuild(buildNumber);
+  if (!guidSet) {
+    return null;
+  }
+
+  return {
+    buildNumber,
+    family: guidSet.family,
+    virtualDesktopGuid: guidSet.virtualDesktopGuid,
+    notificationGuid: guidSet.notificationGuid,
+    notificationServiceGuid: guidSet.notificationServiceGuid,
+  };
 }
 
 export function getVirtualDesktopAvailability(): VirtualDesktopAvailability {

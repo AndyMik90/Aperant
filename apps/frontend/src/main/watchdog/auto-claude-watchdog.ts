@@ -13,14 +13,40 @@
  * - Monitors stdout/stderr for crash indicators
  */
 
-import { spawn, execSync, ChildProcess } from 'child_process';
+import { spawn, execFileSync, ChildProcess } from 'child_process';
 import { EventEmitter } from 'events';
+import { homedir } from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 
 // Must match the "name" field in package.json so watchdog writes to the same
 // directory that Electron's app.getPath('userData') resolves to.
 const APP_DATA_DIR_NAME = 'auto-claude-ui';
+
+function resolveWindowsWatchdogSafeTempDir(): string {
+  const localAppData = process.env.LOCALAPPDATA;
+  if (localAppData) {
+    return path.join(localAppData, 'Temp');
+  }
+
+  const userProfile = process.env.USERPROFILE;
+  if (userProfile) {
+    return path.join(userProfile, 'AppData', 'Local', 'Temp');
+  }
+
+  return path.join(homedir(), 'AppData', 'Local', 'Temp');
+}
+
+function buildWatchdogPowerShellEnv(): NodeJS.ProcessEnv {
+  const safeTempDir = resolveWindowsWatchdogSafeTempDir();
+  fs.mkdirSync(safeTempDir, { recursive: true });
+  return {
+    ...process.env,
+    TEMP: safeTempDir,
+    TMP: safeTempDir,
+    TMPDIR: safeTempDir,
+  };
+}
 
 interface CrashInfo {
   timestamp: number;
@@ -389,11 +415,24 @@ export class AutoClaudeWatchdog extends EventEmitter {
 
       const attemptMove = (attempt: number): void => {
         try {
-          const script = `Import-Module VirtualDesktop -EA Stop; $p = Get-Process electron -EA SilentlyContinue | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero } | Select-Object -First 1; if ($p) { Move-Window $p.MainWindowHandle (Get-Desktop ${target}); Write-Output OK } else { Write-Output NO_WINDOW }`;
+          const script = `$ProgressPreference = 'SilentlyContinue'; Import-Module VirtualDesktop -EA Stop; $p = Get-Process electron -EA SilentlyContinue | Where-Object { $_.MainWindowHandle -ne [IntPtr]::Zero } | Select-Object -First 1; if ($p) { Move-Window $p.MainWindowHandle (Get-Desktop ${target}); Write-Output OK } else { Write-Output NO_WINDOW }`;
           const encoded = Buffer.from(script, 'utf16le').toString('base64');
-          const result = execSync(
-            `powershell.exe -NoProfile -NonInteractive -EncodedCommand ${encoded}`,
-            { windowsHide: true, timeout: 10000, encoding: 'utf8' }
+          const powerShellPath = path.join(
+            process.env.SystemRoot || 'C:\\Windows',
+            'System32',
+            'WindowsPowerShell',
+            'v1.0',
+            'powershell.exe'
+          );
+          const result = execFileSync(
+            powerShellPath,
+            ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded],
+            {
+              windowsHide: true,
+              timeout: 10000,
+              encoding: 'utf8',
+              env: buildWatchdogPowerShellEnv(),
+            }
           ).trim();
 
           // Check last line of output (module may print warnings)
