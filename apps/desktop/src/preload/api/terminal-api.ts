@@ -65,6 +65,8 @@ export interface TerminalAPI {
     projectPath: string,
     orders: Array<{ terminalId: string; displayOrder: number }>
   ) => Promise<IPCResult>;
+  /** Read clipboard text via main process (avoids renderer permission issues on Windows) */
+  readClipboardText: () => Promise<string>;
 
   // Terminal Worktree Operations (isolated development)
   createTerminalWorktree: (request: CreateTerminalWorktreeRequest) => Promise<TerminalWorktreeResult>;
@@ -196,6 +198,9 @@ export const createTerminalAPI = (): TerminalAPI => ({
     orders: Array<{ terminalId: string; displayOrder: number }>
   ): Promise<IPCResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_UPDATE_DISPLAY_ORDERS, projectPath, orders),
+
+  readClipboardText: (): Promise<string> =>
+    ipcRenderer.invoke(IPC_CHANNELS.TERMINAL_READ_CLIPBOARD),
 
   // Terminal Worktree Operations (isolated development)
   createTerminalWorktree: (request: CreateTerminalWorktreeRequest): Promise<TerminalWorktreeResult> =>

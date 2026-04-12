@@ -88,6 +88,7 @@ export const IPC_CHANNELS = {
   TERMINAL_RESTORE_FROM_DATE: 'terminal:restoreFromDate',
   TERMINAL_CHECK_PTY_ALIVE: 'terminal:checkPtyAlive',
   TERMINAL_UPDATE_DISPLAY_ORDERS: 'terminal:updateDisplayOrders',  // Persist terminal display order after drag-drop reorder
+  TERMINAL_READ_CLIPBOARD: 'terminal:readClipboard',  // Read clipboard text via main process (avoids renderer permission issues on Windows)
 
   // Terminal worktree operations (isolated development in worktrees)
   TERMINAL_WORKTREE_CREATE: 'terminal:worktreeCreate',

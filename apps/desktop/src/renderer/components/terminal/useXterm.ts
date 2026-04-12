@@ -169,7 +169,10 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
     // Cap paste size to prevent GPU/memory pressure from extremely large clipboard contents.
     const MAX_PASTE_BYTES = 1_048_576; // 1 MB
     const handlePasteFromClipboard = (): void => {
-      navigator.clipboard.readText()
+      // Use Electron's main-process clipboard API via IPC, which is reliable on all
+      // platforms including Windows (where navigator.clipboard.readText() may silently
+      // fail due to renderer permission restrictions, causing paste to appear and vanish).
+      window.electronAPI.readClipboardText()
         .then((text) => {
           if (text) {
             if (text.length > MAX_PASTE_BYTES) {
@@ -180,8 +183,17 @@ export function useXterm({ terminalId, onCommandEnter, onResize, onDimensionsRea
             }
           }
         })
-        .catch((err) => {
-          console.error('[useXterm] Failed to read clipboard:', err);
+        .catch(() => {
+          // Fall back to navigator.clipboard if IPC unavailable
+          navigator.clipboard.readText()
+            .then((text) => {
+              if (text) {
+                xterm.paste(text.length > MAX_PASTE_BYTES ? text.slice(0, MAX_PASTE_BYTES) : text);
+              }
+            })
+            .catch((err) => {
+              console.error('[useXterm] Failed to read clipboard:', err);
+            });
         });
     };
 

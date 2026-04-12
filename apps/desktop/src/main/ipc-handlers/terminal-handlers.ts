@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron';
+import { ipcMain, clipboard } from 'electron';
 import type { BrowserWindow, IpcMainInvokeEvent } from 'electron';
 import { IPC_CHANNELS } from '../../shared/constants';
 import type { IPCResult, TerminalCreateOptions, ClaudeProfile, ClaudeProfileSettings, ClaudeUsageSnapshot, AllProfilesUsage } from '../../shared/types';
@@ -730,6 +730,14 @@ export function registerTerminalHandlers(
       }
     }
   );
+
+  // Read clipboard text via main process
+  // navigator.clipboard.readText() in the renderer requires the "clipboard-read" permission
+  // which can be silently denied on Windows, causing paste to fail. Using Electron's
+  // clipboard module from the main process bypasses this permission requirement.
+  ipcMain.handle(IPC_CHANNELS.TERMINAL_READ_CLIPBOARD, (): string => {
+    return clipboard.readText();
+  });
 }
 
 /**
