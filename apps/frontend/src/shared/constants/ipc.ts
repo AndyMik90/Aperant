@@ -9,8 +9,11 @@ export const IPC_CHANNELS = {
   PROJECT_REMOVE: 'project:remove',
   PROJECT_LIST: 'project:list',
   PROJECT_UPDATE_SETTINGS: 'project:updateSettings',
+  PROJECT_SET_AUTO_RESUME_AFTER_RATE_LIMIT: 'project:setAutoResumeAfterRateLimit',
+  PROJECT_SET_RDR_ENABLED: 'project:setRdrEnabled',
   PROJECT_INITIALIZE: 'project:initialize',
   PROJECT_CHECK_VERSION: 'project:checkVersion',
+  PROJECT_AUTOMATION_SETTINGS_CHANGED: 'project:automationSettingsChanged',
 
   // Tab state operations (persisted in main process)
   TAB_STATE_GET: 'tabState:get',

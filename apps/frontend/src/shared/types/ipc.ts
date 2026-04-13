@@ -8,6 +8,7 @@ import type { SupportedIDE, SupportedTerminal } from './settings';
 import type {
   Project,
   ProjectSettings,
+  ProjectAutomationSettingsChangedEvent,
   AutoBuildVersionInfo,
   InitializationResult,
   CreateProjectFolderResult,
@@ -197,8 +198,19 @@ export interface ElectronAPI {
   removeProject: (projectId: string) => Promise<IPCResult>;
   getProjects: () => Promise<IPCResult<Project[]>>;
   updateProjectSettings: (projectId: string, settings: Partial<ProjectSettings>) => Promise<IPCResult>;
+  setAutoResumeAfterRateLimit: (
+    projectId: string,
+    enabled: boolean
+  ) => Promise<IPCResult<ProjectAutomationSettingsChangedEvent>>;
+  setRdrEnabled: (
+    projectId: string,
+    enabled: boolean
+  ) => Promise<IPCResult<ProjectAutomationSettingsChangedEvent>>;
   initializeProject: (projectId: string) => Promise<IPCResult<InitializationResult>>;
   checkProjectVersion: (projectId: string) => Promise<IPCResult<AutoBuildVersionInfo>>;
+  onProjectAutomationSettingsChanged: (
+    callback: (event: ProjectAutomationSettingsChangedEvent) => void
+  ) => () => void;
 
   // Tab State (persisted in main process for reliability)
   getTabState: () => Promise<IPCResult<TabState>>;

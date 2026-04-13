@@ -97,6 +97,11 @@ import { checkAndNotifyCrash } from './crash-recovery-handler';
 import { desktopCoordinator } from './services/desktop-coordinator';
 import { desktopNotificationBridge } from './services/desktop-notification-bridge';
 import {
+  applyProjectAutomationToggle,
+  getProjectAutomationSignalPath,
+  parseProjectAutomationSignals,
+} from './services/project-automation-toggle-service';
+import {
   getWindowVirtualDesktopInfo,
   moveWindowToVirtualDesktop,
 } from './platform/windows/virtual-desktop';
@@ -800,6 +805,7 @@ app.whenReady().then(() => {
   // Poll for MCP open_project signals (MCP server can't send IPC directly)
   const signalPath = join(app.getPath('appData'), 'auto-claude-ui', 'open-project-signal.json');
   const desktopAssociationSignalPath = join(app.getPath('appData'), 'auto-claude-ui', 'desktop-project-association-signal.json');
+  const projectAutomationSignalPath = getProjectAutomationSignalPath(app.getPath('appData'));
   setInterval(() => {
     try {
       if (existsSync(signalPath)) {
@@ -838,6 +844,33 @@ app.whenReady().then(() => {
         rmSync(desktopAssociationSignalPath, { force: true });
         if (signal.timestamp && Date.now() - signal.timestamp < 30_000) {
           desktopCoordinator.handleExternalAssociationSignal(signal);
+        }
+      }
+
+      if (existsSync(projectAutomationSignalPath)) {
+        const rawSignals = readFileSync(projectAutomationSignalPath, 'utf-8');
+        rmSync(projectAutomationSignalPath, { force: true });
+
+        for (const signal of parseProjectAutomationSignals(rawSignals)) {
+          if (!signal.timestamp || Date.now() - signal.timestamp >= 30_000) {
+            continue;
+          }
+
+          const result = applyProjectAutomationToggle({
+            projectId: signal.projectId,
+            projectPath: signal.projectPath,
+            settings: signal.settings,
+            source: 'mcp',
+          });
+
+          if (!result.success) {
+            console.warn('[main] Failed to apply MCP project automation signal:', result.error);
+            continue;
+          }
+
+          if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send(IPC_CHANNELS.PROJECT_AUTOMATION_SETTINGS_CHANGED, result.event);
+          }
         }
       }
     } catch { /* ignore */ }

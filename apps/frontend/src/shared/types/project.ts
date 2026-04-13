@@ -48,6 +48,18 @@ export interface ProjectSettings {
   llmManagerEnabled?: boolean;
 }
 
+export type ProjectAutomationChangeSource = 'ui' | 'mcp';
+export type ProjectAutomationSettingKey = 'autoResumeAfterRateLimit' | 'rdrEnabled';
+
+export interface ProjectAutomationSettingsChangedEvent {
+  projectId: string;
+  projectPath: string;
+  projectName: string;
+  source: ProjectAutomationChangeSource;
+  settings: Pick<ProjectSettings, 'autoResumeAfterRateLimit' | 'rdrEnabled'>;
+  changedKeys: ProjectAutomationSettingKey[];
+}
+
 export interface NotificationSettings {
   onTaskComplete: boolean;
   onTaskFailed: boolean;

@@ -27,6 +27,35 @@ export const projectMock = {
   }),
 
   updateProjectSettings: async () => ({ success: true }),
+  setAutoResumeAfterRateLimit: async (projectId: string, enabled: boolean) => ({
+    success: true,
+    data: {
+      projectId,
+      projectPath: mockProjects[0]?.path || '',
+      projectName: mockProjects[0]?.name || 'Mock Project',
+      source: 'ui' as const,
+      settings: {
+        autoResumeAfterRateLimit: enabled,
+        rdrEnabled: false
+      },
+      changedKeys: ['autoResumeAfterRateLimit'] as const
+    }
+  }),
+  setRdrEnabled: async (projectId: string, enabled: boolean) => ({
+    success: true,
+    data: {
+      projectId,
+      projectPath: mockProjects[0]?.path || '',
+      projectName: mockProjects[0]?.name || 'Mock Project',
+      source: 'ui' as const,
+      settings: {
+        autoResumeAfterRateLimit: false,
+        rdrEnabled: enabled
+      },
+      changedKeys: ['rdrEnabled'] as const
+    }
+  }),
+  onProjectAutomationSettingsChanged: () => () => {},
 
   initializeProject: async () => ({
     success: true,

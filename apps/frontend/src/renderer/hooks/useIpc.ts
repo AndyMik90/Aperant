@@ -4,8 +4,18 @@ import { useTaskStore, loadTasks } from '../stores/task-store';
 import { useRoadmapStore } from '../stores/roadmap-store';
 import { useRateLimitStore } from '../stores/rate-limit-store';
 import { useAuthFailureStore } from '../stores/auth-failure-store';
-import { useProjectStore } from '../stores/project-store';
-import type { ImplementationPlan, TaskStatus, RoadmapGenerationStatus, Roadmap, ExecutionProgress, RateLimitInfo, SDKRateLimitInfo, AuthFailureInfo } from '../../shared/types';
+import { loadProjects, useProjectStore } from '../stores/project-store';
+import type {
+  AuthFailureInfo,
+  ExecutionProgress,
+  ImplementationPlan,
+  ProjectAutomationSettingsChangedEvent,
+  RateLimitInfo,
+  Roadmap,
+  RoadmapGenerationStatus,
+  SDKRateLimitInfo,
+  TaskStatus,
+} from '../../shared/types';
 
 /** Maximum log entries to buffer in the batch queue between flushes (OOM prevention) */
 const MAX_BATCH_QUEUE_LOGS = 100;
@@ -173,6 +183,7 @@ export function useIpcListeners(): void {
   const appendLog = useTaskStore((state) => state.appendLog);
   const batchAppendLogs = useTaskStore((state) => state.batchAppendLogs);
   const setError = useTaskStore((state) => state.setError);
+  const updateProject = useProjectStore((state) => state.updateProject);
 
   // Update module-level store actions reference for batch flushing
   // This ensures flushBatch() always has access to current action implementations
@@ -442,6 +453,27 @@ export function useIpcListeners(): void {
       }
     );
 
+    const cleanupProjectAutomationSettingsChanged = window.electronAPI.onProjectAutomationSettingsChanged(
+      (event: ProjectAutomationSettingsChangedEvent) => {
+        const store = useProjectStore.getState();
+        const project = store.projects.find((candidate) => candidate.id === event.projectId);
+
+        if (!project) {
+          loadProjects().catch((error) => {
+            console.error('[useIpc] Failed to reload projects after automation settings update:', error);
+          });
+          return;
+        }
+
+        updateProject(event.projectId, {
+          settings: {
+            ...project.settings,
+            ...event.settings,
+          },
+        });
+      }
+    );
+
     // Debug event listener (force-recovery, agent kills, etc.)
     const cleanupDebugEvent = window.electronAPI.onDebugEvent?.(
       (data: { type: string; taskId?: string; agentKilled?: boolean; timestamp: string }) => {
@@ -474,9 +506,10 @@ export function useIpcListeners(): void {
       cleanupTaskAutoStart();
       cleanupTaskStatusChanged();
       cleanupRateLimitAutoResume();
+      cleanupProjectAutomationSettingsChanged();
       cleanupDebugEvent?.();
     };
-  }, [appendLog, setError]);
+  }, [appendLog, setError, updateProject]);
 }
 
 /**

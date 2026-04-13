@@ -3,6 +3,7 @@ import { IPC_CHANNELS } from '../../shared/constants';
 import type {
   Project,
   ProjectSettings,
+  ProjectAutomationSettingsChangedEvent,
   IPCResult,
   InitializationResult,
   AutoBuildVersionInfo,
@@ -32,8 +33,19 @@ export interface ProjectAPI {
     projectId: string,
     settings: Partial<ProjectSettings>
   ) => Promise<IPCResult>;
+  setAutoResumeAfterRateLimit: (
+    projectId: string,
+    enabled: boolean
+  ) => Promise<IPCResult<ProjectAutomationSettingsChangedEvent>>;
+  setRdrEnabled: (
+    projectId: string,
+    enabled: boolean
+  ) => Promise<IPCResult<ProjectAutomationSettingsChangedEvent>>;
   initializeProject: (projectId: string) => Promise<IPCResult<InitializationResult>>;
   checkProjectVersion: (projectId: string) => Promise<IPCResult<AutoBuildVersionInfo>>;
+  onProjectAutomationSettingsChanged: (
+    callback: (event: ProjectAutomationSettingsChangedEvent) => void
+  ) => () => void;
 
   // Tab State (persisted in main process for reliability)
   getTabState: () => Promise<IPCResult<TabState>>;
@@ -166,11 +178,31 @@ export const createProjectAPI = (): ProjectAPI => ({
   ): Promise<IPCResult> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_UPDATE_SETTINGS, projectId, settings),
 
+  setAutoResumeAfterRateLimit: (
+    projectId: string,
+    enabled: boolean
+  ): Promise<IPCResult<ProjectAutomationSettingsChangedEvent>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_SET_AUTO_RESUME_AFTER_RATE_LIMIT, projectId, enabled),
+
+  setRdrEnabled: (
+    projectId: string,
+    enabled: boolean
+  ): Promise<IPCResult<ProjectAutomationSettingsChangedEvent>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.PROJECT_SET_RDR_ENABLED, projectId, enabled),
+
   initializeProject: (projectId: string): Promise<IPCResult<InitializationResult>> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_INITIALIZE, projectId),
 
   checkProjectVersion: (projectId: string): Promise<IPCResult<AutoBuildVersionInfo>> =>
     ipcRenderer.invoke(IPC_CHANNELS.PROJECT_CHECK_VERSION, projectId),
+
+  onProjectAutomationSettingsChanged: (
+    callback: (event: ProjectAutomationSettingsChangedEvent) => void
+  ) => {
+    const listener = (_: Electron.IpcRendererEvent, event: ProjectAutomationSettingsChangedEvent) => callback(event);
+    ipcRenderer.on(IPC_CHANNELS.PROJECT_AUTOMATION_SETTINGS_CHANGED, listener);
+    return () => ipcRenderer.off(IPC_CHANNELS.PROJECT_AUTOMATION_SETTINGS_CHANGED, listener);
+  },
 
   // Tab State (persisted in main process for reliability)
   getTabState: (): Promise<IPCResult<TabState>> =>

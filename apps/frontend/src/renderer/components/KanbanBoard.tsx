@@ -1722,7 +1722,6 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
   // Get project store for auto-resume and RDR toggles (per-project settings)
   const currentProject = useProjectStore((state) => state.getSelectedProject());
-  const updateProject = useProjectStore((state) => state.updateProject);
 
   // Per-project settings for auto-resume and RDR
   const autoResumeEnabled = currentProject?.settings?.autoResumeAfterRateLimit ?? false;
@@ -2389,49 +2388,16 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     return false; // All retries failed
   }, []);
 
-  // Handle auto-resume toggle - when enabled, immediately resume all incomplete tasks
+  const previousAutoResumeEnabledRef = useRef(autoResumeEnabled);
+  const hasObservedAutoResumeStateRef = useRef(false);
+
+  // Handle auto-resume toggle through the dedicated main-process automation path
   const handleAutoResumeToggle = async (checked: boolean) => {
-    // Update per-project setting
-    if (currentProject) {
-      const updatedSettings = {
-        ...currentProject.settings,
-        autoResumeAfterRateLimit: checked
-      };
-      updateProject(currentProject.id, { settings: updatedSettings });
-      // Persist to storage via IPC
-      await window.electronAPI.updateProjectSettings(currentProject.id, updatedSettings);
+    if (!currentProject) {
+      return;
     }
 
-    // When turning ON, detect orphaned tasks (active board, no running agent) and start them
-    if (checked) {
-      const result = await window.electronAPI.queue.getRunningTasksByProfile();
-      if (result.success && result.data) {
-        const runningIds = new Set(Object.values(result.data.byProfile).flat());
-
-        const orphanedTasks = tasks.filter(task =>
-          (task.status === 'in_progress' || task.status === 'ai_review') &&
-          !runningIds.has(task.id) &&
-          task.reviewReason !== 'stopped' &&
-          task.reviewReason !== 'errors'
-        );
-
-        if (orphanedTasks.length > 0) {
-          const capacity = Math.max(0, maxParallelTasks - result.data.totalRunning);
-          const toStart = orphanedTasks.slice(0, capacity);
-
-          console.log(`[AutoResume] Toggle ON - ${orphanedTasks.length} orphaned, capacity ${capacity}, starting ${toStart.length}`);
-
-          const results = await Promise.all(
-            toStart.map(task => startTaskWithRetry(task.id))
-          );
-          const successCount = results.filter(Boolean).length;
-          const failCount = results.length - successCount;
-          console.log(`[AutoResume] Complete: ${successCount} succeeded, ${failCount} failed`);
-        } else {
-          console.log('[AutoResume] Toggle ON - no orphaned tasks to resume');
-        }
-      }
-    }
+    await window.electronAPI.setAutoResumeAfterRateLimit(currentProject.id, checked);
   };
 
   // Handle Pause All / Resume All — stops every running agent, prevents queue and auto-resume
@@ -2468,25 +2434,13 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   }, [allPaused, currentProject, tasks, maxParallelTasks, startTaskWithRetry]);
 
-  // Handle RDR (Recover Debug Resend) toggle - when enabled, process stuck/errored tasks
+  // Handle RDR (Recover Debug Resend) toggle through the dedicated main-process automation path
   const handleRdrToggle = async (checked: boolean) => {
-    // Update per-project setting
-    if (currentProject) {
-      const updatedSettings = {
-        ...currentProject.settings,
-        rdrEnabled: checked
-      };
-      updateProject(currentProject.id, { settings: updatedSettings });
-      // Persist to storage via IPC
-      await window.electronAPI.updateProjectSettings(currentProject.id, updatedSettings);
+    if (!currentProject) {
+      return;
     }
 
-    // RDR toggle only enables/disables monitoring - NO automatic task modification
-    // Task recovery is handled by the RDR message pipeline (polling + idle events)
-    // which reports tasks needing intervention via messages to Claude Code
-    if (checked) {
-      console.log('[KanbanBoard] RDR enabled - monitoring started (no automatic task changes)');
-    }
+    await window.electronAPI.setRdrEnabled(currentProject.id, checked);
   };
 
   // Handle manual RDR ping - sends message directly to selected VS Code window
@@ -2601,8 +2555,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   // Track which tasks we've already attempted to auto-resume (to prevent loops)
   const autoResumedTasksRef = useRef<Set<string>>(new Set());
 
-  // Auto-resume on mount/reconnect if toggle is already ON
-  // Detects orphaned tasks (on active boards but no running agent) and auto-starts them
+  // Auto-resume when the setting is enabled.
+  // Initial mount/reconnect gets a short delay to let agents initialize.
+  // Explicit toggle changes (UI or MCP) resume immediately so both paths behave the same.
   useEffect(() => {
     if (!autoResumeEnabled || allPaused || tasks.length === 0) return;
 
@@ -2640,8 +2595,14 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       console.log(`[AutoResume] Complete: ${successCount} succeeded, ${failCount} failed`);
     };
 
-    // 3s delay to let agents initialize on fresh startup
-    const timer = setTimeout(detectAndResumeOrphans, 3000);
+    const wasPreviouslyEnabled = previousAutoResumeEnabledRef.current;
+    const isInitialObservedEnabled = !hasObservedAutoResumeStateRef.current && autoResumeEnabled;
+    const delayMs = (!wasPreviouslyEnabled && !isInitialObservedEnabled) ? 0 : 3000;
+
+    previousAutoResumeEnabledRef.current = autoResumeEnabled;
+    hasObservedAutoResumeStateRef.current = true;
+
+    const timer = setTimeout(detectAndResumeOrphans, delayMs);
     return () => clearTimeout(timer);
   }, [autoResumeEnabled, allPaused, tasks, startTaskWithRetry, maxParallelTasks]);
 
@@ -2650,6 +2611,8 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     if (!autoResumeEnabled) {
       autoResumedTasksRef.current.clear();
     }
+    previousAutoResumeEnabledRef.current = autoResumeEnabled;
+    hasObservedAutoResumeStateRef.current = true;
   }, [autoResumeEnabled]);
 
   return (

@@ -39,6 +39,10 @@ import { projectStore } from '../project-store.js';
 import { readAndClearSignalFile, categorizeTasks, enrichTaskWithWorktreeData } from '../ipc-handlers/rdr-handlers.js';
 import { DEFAULT_APP_SETTINGS } from '../../shared/constants/index.js';
 import { getWindowVirtualDesktopInfo } from '../platform/windows/virtual-desktop.js';
+import {
+  appendProjectAutomationSignal,
+  applyProjectAutomationToggle,
+} from '../services/project-automation-toggle-service.js';
 
 /**
  * Notify the renderer to refresh task list immediately after board routing.
@@ -633,6 +637,110 @@ server.tool(
 // ─────────────────────────────────────────────────────────────────────────────
 // Tool: create_task
 // ─────────────────────────────────────────────────────────────────────────────
+
+server.tool(
+  'set_auto_resume_after_rate_limit',
+  'Enable or disable project-level auto-resume after rate limit. When enabled, Aperant applies the same orphan-resume behavior as the Kanban toggle.',
+  {
+    projectId: z.string().describe('Project ID (UUID) to update'),
+    projectPath: z.string().optional().describe('Fallback filesystem path if projectId UUID not found'),
+    enabled: z.boolean().describe('Whether auto-resume after rate limit should be enabled'),
+  },
+  withMonitoring('set_auto_resume_after_rate_limit', async ({ projectId, projectPath, enabled }) => {
+    try {
+      if (projectPath && !existsSync(projectPath)) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: `Directory does not exist: ${projectPath}` }) }] };
+      }
+
+      const result = applyProjectAutomationToggle({
+        projectId,
+        projectPath,
+        settings: { autoResumeAfterRateLimit: enabled },
+        source: 'mcp',
+      });
+
+      if (!result.success) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: result.error }) }] };
+      }
+
+      const signalPath = appendProjectAutomationSignal({
+        projectId: result.event.projectId,
+        projectPath: result.event.projectPath,
+        settings: { autoResumeAfterRateLimit: enabled },
+        source: 'mcp',
+        timestamp: Date.now(),
+      });
+
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            success: true,
+            projectId: result.event.projectId,
+            projectPath: result.event.projectPath,
+            enabled,
+            signalPath,
+            message: `Auto Resume After Rate Limit is now ${enabled ? 'enabled' : 'disabled'} for ${result.event.projectName}.`,
+          }, null, 2)
+        }]
+      };
+    } catch (err) {
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ error: String(err) }) }] };
+    }
+  })
+);
+
+server.tool(
+  'set_rdr_enabled',
+  'Enable or disable project-level RDR monitoring. This matches the Kanban toggle and only changes monitoring state.',
+  {
+    projectId: z.string().describe('Project ID (UUID) to update'),
+    projectPath: z.string().optional().describe('Fallback filesystem path if projectId UUID not found'),
+    enabled: z.boolean().describe('Whether project-level RDR monitoring should be enabled'),
+  },
+  withMonitoring('set_rdr_enabled', async ({ projectId, projectPath, enabled }) => {
+    try {
+      if (projectPath && !existsSync(projectPath)) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: `Directory does not exist: ${projectPath}` }) }] };
+      }
+
+      const result = applyProjectAutomationToggle({
+        projectId,
+        projectPath,
+        settings: { rdrEnabled: enabled },
+        source: 'mcp',
+      });
+
+      if (!result.success) {
+        return { content: [{ type: 'text' as const, text: JSON.stringify({ error: result.error }) }] };
+      }
+
+      const signalPath = appendProjectAutomationSignal({
+        projectId: result.event.projectId,
+        projectPath: result.event.projectPath,
+        settings: { rdrEnabled: enabled },
+        source: 'mcp',
+        timestamp: Date.now(),
+      });
+
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            success: true,
+            projectId: result.event.projectId,
+            projectPath: result.event.projectPath,
+            enabled,
+            signalPath,
+            message: `RDR is now ${enabled ? 'enabled' : 'disabled'} for ${result.event.projectName}.`,
+          }, null, 2)
+        }]
+      };
+    } catch (err) {
+      return { content: [{ type: 'text' as const, text: JSON.stringify({ error: String(err) }) }] };
+    }
+  })
+);
 
 server.tool(
   'create_task',

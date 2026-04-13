@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron';
+import { BrowserWindow, ipcMain } from 'electron';
 import { existsSync } from 'fs';
 import { execFileSync } from 'child_process';
 import { IPC_CHANNELS } from '../../shared/constants';
@@ -25,9 +25,19 @@ import { changelogService } from '../changelog-service';
 import { getToolPath } from '../cli-tool-manager';
 import { insightsService } from '../insights-service';
 import { titleGenerator } from '../title-generator';
-import type { BrowserWindow } from 'electron';
 import { getEffectiveSourcePath } from '../updater/path-resolver';
 import { startWatchingProjectSpecs } from './agent-events-handlers';
+import { applyProjectAutomationToggle } from '../services/project-automation-toggle-service';
+
+function broadcastProjectAutomationSettingsChanged(
+  event: import('../../shared/types').ProjectAutomationSettingsChangedEvent
+): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) {
+      window.webContents.send(IPC_CHANNELS.PROJECT_AUTOMATION_SETTINGS_CHANGED, event);
+    }
+  }
+}
 
 // ============================================
 // Git Helper Functions
@@ -355,6 +365,50 @@ export function registerProjectHandlers(
         return { success: true };
       }
       return { success: false, error: 'Project not found' };
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.PROJECT_SET_AUTO_RESUME_AFTER_RATE_LIMIT,
+    async (
+      _,
+      projectId: string,
+      enabled: boolean
+    ): Promise<IPCResult<import('../../shared/types').ProjectAutomationSettingsChangedEvent>> => {
+      const result = applyProjectAutomationToggle({
+        projectId,
+        settings: { autoResumeAfterRateLimit: enabled },
+        source: 'ui',
+      });
+
+      if (!result.success) {
+        return { success: false, error: result.error };
+      }
+
+      broadcastProjectAutomationSettingsChanged(result.event);
+      return { success: true, data: result.event };
+    }
+  );
+
+  ipcMain.handle(
+    IPC_CHANNELS.PROJECT_SET_RDR_ENABLED,
+    async (
+      _,
+      projectId: string,
+      enabled: boolean
+    ): Promise<IPCResult<import('../../shared/types').ProjectAutomationSettingsChangedEvent>> => {
+      const result = applyProjectAutomationToggle({
+        projectId,
+        settings: { rdrEnabled: enabled },
+        source: 'ui',
+      });
+
+      if (!result.success) {
+        return { success: false, error: result.error };
+      }
+
+      broadcastProjectAutomationSettingsChanged(result.event);
+      return { success: true, data: result.event };
     }
   );
 
