@@ -1,164 +1,58 @@
 {
-  "terminal": {
-    "openTerminal": "打开终端",
-    "openInbuilt": "在内置终端中打开",
-    "openExternal": "在外部终端中打开"
+  "expand": {
+    "expand": "展开终端",
+    "collapse": "折叠终端"
   },
-  "merge": {
-    "branchHasNewCommits": "{{branch}} 分支有 {{count}} 个新提交。",
-    "branchHasNewCommits_other": "{{branch}} 分支有 {{count}} 个新提交。",
-    "branchHasNewCommitsSinceWorktree": "此工作树创建以来，{{branch}} 分支有 {{count}} 个新提交。",
-    "branchHasNewCommitsSinceWorktree_other": "此工作树创建以来，{{branch}} 分支有 {{count}} 个新提交。",
-    "filesNeedMerging": "{{count}} 个文件需要合并。",
-    "filesNeedMerging_other": "{{count}} 个文件需要合并。",
-    "filesNeedIntelligentMerging": "{{count}} 个文件需要智能合并：",
-    "filesNeedIntelligentMerging_other": "{{count}} 个文件需要智能合并：",
-    "filesNeedIntelligentMerging_plural": "{{count}} 个文件需要智能合并：",
-    "filesNeedIntelligentMergingPlural_other": "{{count}} 个文件需要智能合并：",
-    "branchHasNewCommitsSinceBuild": "{{branch}} 分支自此构建开始有 {{count}} 个新提交。",
-    "branchHasNewCommitsSinceBuild_other": "{{branch}} 分支自此构建开始有 {{count}} 个新提交。",
-    "filesNeedAIMergeDueToRenames": "{{count}} 个文件由于 {{renameCount}} 个文件重命名需要 AI 合并。",
-    "filesNeedAIMergeDueToRenames_other": "{{count}} 个文件由于 {{renameCount}} 个文件重命名需要 AI 合并。",
-    "filesNeedAIMergeDueToRenamesPlural": "{{count}} 个文件由于 {{renameCount}} 个文件重命名需要 AI 合并。",
-    "filesNeedAIMergeDueToRenamesPlural_other": "{{count}} 个文件由于 {{renameCount}} 个文件重命名需要 AI 合并。",
-    "fileRenamesDetected": "检测到 {{count}} 个文件重命名 - AI 将处理合并。",
-    "fileRenamesDetected_other": "检测到 {{count}} 个文件重命名 - AI 将处理合并。",
-    "filesRenamedOrMoved": "文件可能被重命名或移动 - AI 将处理合并。",
-    "alreadyMergedTitle": "更改已存在于您的分支中",
-    "alreadyMergedDescription": "这些更改似乎已存在于您当前的分支中。您可以安全地将此任务标记为完成。",
-    "alreadyMergedTooltip": "任务的更改已存在于您的分支中。标记为完成将清理工作树而不进行合并。",
-    "matchingFiles": "匹配的文件",
-    "supersededTitle": "更改已被取代",
-    "supersededDescription": "您当前的分支有此更改的更新版本。考虑放弃此任务或查看比较。",
-    "supersededCompareTooltip": "查看详细比较以了解当前分支与此任务的更改有何不同。",
-    "supersededDiscardTooltip": "移除此任务的工作树，因为不再需要这些更改。",
-    "status": {
-      "branchDiverged": "分支已分离",
-      "aiWillResolve": "AI 将解决",
-      "filesRenamed": "文件已重命名",
-      "branchBehind": "分支落后",
-      "readyToMerge": "准备合并",
-      "files": "文件",
-      "file": "文件",
-      "conflict": "冲突",
-      "conflicts": "冲突",
-      "details": "详情",
-      "refresh": "刷新",
-      "stageOnly": "仅暂存（在 IDE 中审核后再提交）",
-      "discardBuild": "放弃构建"
-    },
-    "buttons": {
-      "stageWithAIMerge": "使用 AI 合并暂存",
-      "mergeWithAI": "使用 AI 合并",
-      "stageTo": "暂存到 {{branch}}",
-      "mergeTo": "合并到 {{branch}}",
-      "resolving": "解决中...",
-      "staging": "暂存中...",
-      "merging": "合并中...",
-      "completing": "完成中..."
-    },
-    "actions": {
-      "markAsDone": "标记为完成",
-      "discardTask": "放弃任务",
-      "viewComparison": "查看比较"
-    }
+  "resume": {
+    "pending": "可恢复",
+    "pendingTooltip": "点击以恢复之前的 Claude 会话",
+    "resumeAllSessions": "恢复全部"
   },
-  "pr": {
-    "title": "创建拉取请求",
-    "description": "推送分支并为\u201C{{taskTitle}}\u201D创建拉取请求",
-    "errors": {
-      "unknown": "创建拉取请求时发生未知错误",
-      "invalidBranchName": "分支名称包含无效字符。仅使用字母、数字、连字符（-）、下划线（_）和正斜杠（/）。",
-      "emptyTitle": "拉取请求标题不能为空。"
-    },
-    "success": {
-      "created": "拉取请求创建成功！",
-      "alreadyExists": "此分支已存在拉取请求"
-    },
-    "actions": {
-      "retry": "重试",
-      "creating": "创建 PR 中...",
-      "create": "创建拉取请求"
-    },
-    "labels": {
-      "sourceBranch": "源分支",
-      "targetBranch": "目标分支",
-      "commits": "提交",
-      "changes": "更改",
-      "prTitle": "PR 标题（可选）",
-      "draftPR": "创建为草稿 PR",
-      "unknown": "未知"
-    },
-    "hints": {
-      "targetBranch": "留空以使用默认分支",
-      "prTitle": "留空以使用任务标题"
-    }
+  "auth": {
+    "terminalTitle": "验证：{{profileName}}",
+    "maxTerminalsReached": "无法打开验证终端：已达到最大终端数。请先关闭一个终端。"
   },
-  "mergeProgress": {
-    "stages": {
-      "analyzing": "分析更改",
-      "detectingConflicts": "检测冲突",
-      "resolving": "解决冲突",
-      "validating": "验证合并",
-      "complete": "合并完成",
-      "error": "合并失败",
-      "stalled": "合并停滞"
-    },
-    "conflictCounter": "找到 {{found}}，已解决 {{resolved}}",
-    "currentFile": "当前文件",
-    "viewLogs": "查看日志",
-    "hideLogs": "隐藏日志",
-    "logTypes": {
-      "info": "信息",
-      "warning": "警告",
-      "error": "错误",
-      "conflict": "冲突",
-      "resolution": "解决"
-    },
-    "completionMessage": "所有更改已成功合并。",
-    "errorMessage": "合并过程中发生错误。"
+  "swap": {
+    "inProgress": "正在切换个人资料...",
+    "resumingSession": "正在恢复 Claude 会话...",
+    "sessionResumed": "会话已在新的个人资料下恢复",
+    "resumeFailed": "无法恢复会话。您可以开始一个新的会话。",
+    "noSession": "个人资料已切换。没有要恢复的活跃会话。",
+    "migrationFailed": "个人资料已切换，但会话迁移失败。开始新的终端。"
   },
-  "stagedSuccess": {
-    "title": "更改已成功暂存",
-    "aiCommitMessage": "AI 生成的提交消息",
-    "copied": "已复制！",
-    "copy": "复制",
-    "editHint": "根据需要编辑，然后复制并配合",
-    "nextSteps": "后续步骤：",
-    "reviewChanges": "使用以下命令审核暂存的更改",
-    "commitWhenReady": "准备好后提交：",
-    "pushToRemote": "满意后推送到远程",
-    "cleaningUp": "清理中...",
-    "markingDone": "标记完成中...",
-    "resetting": "重置中...",
-    "deleteWorktreeAndMarkDone": "删除工作树并标记完成",
-    "markDoneOnly": "仅标记完成",
-    "markAsDone": "标记为完成",
-    "reviewAgain": "重新审核",
-    "commitMessagePlaceholder": "提交消息...",
-    "worktreeExplanation": "\u201C删除工作树并标记完成\u201D清理隔离的工作空间。\u201C仅标记完成\u201D保留它以供参考。",
-    "errors": {
-      "failedToDeleteWorktree": "删除工作树失败",
-      "worktreeDeletedButStatusFailed": "工作树已删除但更新任务状态失败：{{error}}",
-      "failedToMarkAsDone": "标记为完成失败",
-      "failedToResetStagedState": "重置暂存状态失败"
-    }
-  },
-  "bulkPR": {
-    "title": "创建拉取请求",
-    "description": "为 {{count}} 个所选任务创建拉取请求",
-    "creating": "正在创建 PR {{current}}/{{total}}...",
-    "creatingPR": "创建 PR {{current}}/{{total}}",
-    "resultsDescription": "{{success}} 成功，{{failed}} 失败",
-    "tasksToProcess": "要处理的任务",
-    "targetBranchHint": "留空以使用每个任务的默认分支。这将应用于所有 PR。",
-    "createAll": "创建 {{count}} 个 PR",
-    "completed": "已完成",
-    "succeeded": "成功",
-    "failed": "失败",
-    "skipped": "跳过",
-    "alreadyExisted": "已存在",
-    "noWorktree": "未找到此任务的工作树",
-    "resultsDescriptionWithSkipped": "{{success}} 成功，{{skipped}} 跳过，{{failed}} 失败"
+  "worktree": {
+    "create": "工作树",
+    "createNew": "新建工作树",
+    "existing": "终端工作树",
+    "taskWorktrees": "任务工作树",
+    "otherWorktrees": "其他",
+    "createTitle": "创建终端工作树",
+    "createDescription": "为此终端创建一个隔离的工作空间。所有工作将在工作树目录中进行。",
+    "name": "工作树名称",
+    "namePlaceholder": "my-feature",
+    "nameRequired": "工作树名称是必填项",
+    "nameInvalid": "名称必须以字母或数字开头和结尾",
+    "nameHelp": "小写字母、数字、连字符和下划线（空格变为连字符）",
+    "associateTask": "关联到任务",
+    "selectTask": "选择任务...",
+    "noTask": "无任务（独立工作树）",
+    "createBranch": "创建 Git 分支",
+    "branchHelp": "创建分支：{{branch}}",
+    "baseBranch": "基础分支",
+    "selectBaseBranch": "选择基础分支...",
+    "searchBranch": "搜索分支...",
+    "noBranchFound": "未找到分支",
+    "useProjectDefault": "使用项目默认值（{{branch}}）",
+    "baseBranchHelp": "创建工作树的分支",
+    "openInIDE": "在 IDE 中打开",
+    "maxReached": "已达到 12 个终端工作树的最大数量",
+    "alreadyExists": "此名称的工作树已存在",
+    "searchPlaceholder": "搜索工作树...",
+    "noResults": "未找到工作树",
+    "deleteTitle": "删除工作树？",
+    "deleteDescription": "这将永久删除工作树及其分支。任何未提交的更改都将丢失。",
+    "detached": "（分离的）",
+    "remotePushFailed": "远程跟踪未设置",
+    "remotePushFailedDescription": "工作树已创建，但无法将分支推送到远程。您可能需要手动运行 git push -u。"
   }
 }
