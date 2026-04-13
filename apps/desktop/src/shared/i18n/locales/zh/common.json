@@ -592,7 +592,7 @@
   "oauth": {
     "enterCode": "手动代码输入（备用）",
     "enterCodeDescription": "仅在浏览器未自动重定向时才需要此对话框。如果验证已在浏览器中完成，您可以关闭此对话框。",
-    "fallbackNote": "仅在浏览器中看到"将此粘贴到 Claude Code"页面时使用。",
+    "fallbackNote": "仅在浏览器中看到\"将此粘贴到 Claude Code\"页面时使用。",
     "step1": "在浏览器中完成授权",
     "step2": "如果看到代码页面，请复制显示的代码",
     "step3": "在下方粘贴代码并点击提交",
@@ -661,7 +661,7 @@
     "addAccountsDesc": "添加并验证您的 Claude 账户以使用 AI 功能。",
     "multiAccountInfo": "您可以添加多个 Claude 账户。活跃账户将用于 AI 功能。您可以随时切换账户。",
     "keychainTitle": "安全存储",
-    "keychainDescription": "您的身份验证令牌使用系统密钥链加密存储。您可能会看到 macOS 的密码提示 - 点击"始终允许"以避免再次看到。",
+    "keychainDescription": "您的身份验证令牌使用系统密钥链加密存储。您可能会看到 macOS 的密码提示 - 点击\"始终允许\"以避免再次看到。",
     "noAccountsYet": "尚未添加账户。在下方添加您的第一个 Claude 账户。"
   },
   "authTerminal": {
@@ -684,7 +684,7 @@
     "instructions": "验证此个人资料：",
     "step1": "转到设置 > 集成",
     "step2": "在 Claude 账户部分找到该个人资料",
-    "step3": "点击"验证"完成登录",
+    "step3": "点击\"验证\"完成登录",
     "footer": "完成验证后该账户将可用。"
   },
   "roadmap": {
@@ -696,7 +696,7 @@
     "showLessFeatures": "显示更少",
     "archiveFeature": "归档",
     "archiveFeatureConfirmTitle": "归档功能？",
-    "archiveFeatureConfirmDescription": "这将从您的路线图中移除"{{title}}"。",
+    "archiveFeatureConfirmDescription": "这将从您的路线图中移除\"{{title}}\"。",
     "goToTask": "转到任务",
     "convertToTask": "转换为自动构建任务",
     "build": "构建",
