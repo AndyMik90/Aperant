@@ -41,6 +41,14 @@ export interface RdrBatchDetails {
   taskDetails: RdrTaskDetail[];
 }
 
+export interface AssignedWindow {
+  handle?: number;
+  processId: number;
+  title: string;
+  provider?: string;
+  assignedAt: string;
+}
+
 export interface TaskAPI {
   // Task Operations
   getTasks: (projectId: string, options?: { forceRefresh?: boolean }) => Promise<IPCResult<Task[]>>;
@@ -518,8 +526,11 @@ export const createTaskAPI = (): TaskAPI => ({
   sendRdrToWindow: (identifier: number | string, message: string): Promise<IPCResult<{ success: boolean; error?: string }>> =>
     ipcRenderer.invoke(IPC_CHANNELS.SEND_RDR_TO_WINDOW, identifier, message),
 
-  getAssignedWindow: (projectId: string): Promise<IPCResult<{ processId: number; title: string; assignedAt: string } | null>> =>
-    ipcRenderer.invoke('rdr:getAssignedWindow', projectId),
+  getAssignedWindow: (projectId: string): Promise<IPCResult<AssignedWindow | null>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.RDR_GET_ASSIGNED_WINDOW, projectId),
+
+  setAssignedWindow: (projectId: string, window: { handle: number; processId: number; title: string }): Promise<IPCResult<AssignedWindow>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.RDR_SET_ASSIGNED_WINDOW, projectId, window),
 
   // Detailed RDR batch info for auto-send
   getRdrBatchDetails: (projectId: string): Promise<IPCResult<RdrBatchDetails>> =>

@@ -669,8 +669,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
   const { showArchived, toggleShowArchived } = useViewState();
 
-  // Project store for queue settings
+  // Project store for queue settings and per-project automation controls
   const projects = useProjectStore((state) => state.projects);
+  const currentProject = useProjectStore((state) => state.getSelectedProject());
 
   // Kanban settings store for column preferences (collapse state, width, lock state)
   const columnPreferences = useKanbanSettingsStore((state) => state.columnPreferences);
@@ -688,9 +689,10 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   // Capture projectId at resize start to avoid stale closure if project changes during resize
   const resizeProjectIdRef = useRef<string | null>(null);
 
-  // Get projectId from first task
-  const projectId = tasks[0]?.projectId;
-  const project = projectId ? projects.find((p) => p.id === projectId) : undefined;
+  // Prefer the active project tab so board controls still work when a project has no tasks.
+  const taskProjectId = tasks[0]?.projectId;
+  const projectId = currentProject?.id ?? taskProjectId;
+  const project = projectId ? projects.find((p) => p.id === projectId) : currentProject;
   const maxParallelTasks = project?.settings?.maxParallelTasks ?? DEFAULT_MAX_PARALLEL_TASKS;
 
   // Queue settings modal state
@@ -1720,20 +1722,25 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   }, [tasks, projectId, showArchived, toggleShowArchived, taskOrder, setTaskOrder, reorderTasksInColumn, moveTaskToColumnTop, saveTaskOrder, handleStatusChange, unblockQueue]);
 
-  // Get project store for auto-resume and RDR toggles (per-project settings)
-  const currentProject = useProjectStore((state) => state.getSelectedProject());
-
   // Per-project settings for auto-resume and RDR
   const autoResumeEnabled = currentProject?.settings?.autoResumeAfterRateLimit ?? false;
   const rdrEnabled = currentProject?.settings?.rdrEnabled ?? false;
 
+  type AssignedWindow = {
+    handle?: number;
+    processId: number;
+    title: string;
+    provider?: string;
+    assignedAt: string;
+  };
+
   // VS Code window state for RDR direct sending
   const [vsCodeWindows, setVsCodeWindows] = useState<Array<{ handle: number; title: string; processId: number }>>([]);
-  // Per-project window selection — each project tab has its own RDR target window
+  // Per-project window selection � each project tab has its own RDR target window
   const perProjectWindowRef = useRef<Map<string, number>>(new Map());
   const selectedWindowPid = projectId ? (perProjectWindowRef.current.get(projectId) ?? null) : null;
   const setSelectedWindowPid = (handle: number | null) => {
-    if (projectId && handle) {
+    if (projectId && handle !== null) {
       perProjectWindowRef.current.set(projectId, handle);
     } else if (projectId) {
       perProjectWindowRef.current.delete(projectId);
@@ -1746,9 +1753,70 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   selectedWindowPidRef.current = selectedWindowPid;
   const [isLoadingWindows, setIsLoadingWindows] = useState(false);
 
+  const resolveAssignedWindowHandle = useCallback((
+    windows: Array<{ handle: number; title: string; processId: number }>,
+    assignedWindow?: AssignedWindow | null,
+  ): number | null => {
+    if (!assignedWindow || windows.length === 0) {
+      return null;
+    }
+
+    if (assignedWindow.handle && windows.some((window) => window.handle === assignedWindow.handle)) {
+      return assignedWindow.handle;
+    }
+
+    const exactTitleMatch = windows.find((window) => window.title === assignedWindow.title);
+    if (exactTitleMatch) {
+      return exactTitleMatch.handle;
+    }
+
+    const normalizedAssignedTitle = assignedWindow.title.toLowerCase();
+    const fuzzyTitleMatch = windows.find((window) => {
+      const normalizedWindowTitle = window.title.toLowerCase();
+      return normalizedWindowTitle.includes(normalizedAssignedTitle) || normalizedAssignedTitle.includes(normalizedWindowTitle);
+    });
+    if (fuzzyTitleMatch) {
+      return fuzzyTitleMatch.handle;
+    }
+
+    const pidMatches = windows.filter((window) => window.processId === assignedWindow.processId);
+    if (pidMatches.length === 1) {
+      return pidMatches[0].handle;
+    }
+
+    return null;
+  }, []);
+
+  const persistSelectedWindow = useCallback(async (handle: number | null) => {
+    if (!projectId || handle === null) {
+      return;
+    }
+
+    const selectedWindow = vsCodeWindows.find((window) => window.handle === handle);
+    if (!selectedWindow) {
+      return;
+    }
+
+    try {
+      await window.electronAPI.setAssignedWindow(projectId, {
+        handle: selectedWindow.handle,
+        processId: selectedWindow.processId,
+        title: selectedWindow.title,
+      });
+    } catch (error) {
+      console.error('[KanbanBoard] Failed to persist selected VS Code window:', error);
+    }
+  }, [projectId, vsCodeWindows]);
+
+  const handleWindowSelectionChange = useCallback((value: string) => {
+    const handle = value ? parseInt(value, 10) : null;
+    setSelectedWindowPid(handle);
+    void persistSelectedWindow(handle);
+  }, [persistSelectedWindow]);
+
   // RDR auto timer state
-  // CRITICAL: useRef for in-flight logic (not useState) — useState causes handleAutoRdr recreation
-  // → useEffect re-runs → new 5s startup timer → unnecessary send attempts (same pattern as queueBlockedRef)
+  // CRITICAL: useRef for in-flight logic (not useState) � useState causes handleAutoRdr recreation
+  // ? useEffect re-runs ? new 5s startup timer ? unnecessary send attempts (same pattern as queueBlockedRef)
   const rdrMessageInFlightRef = useRef(false);
   const rdrIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const RDR_INTERVAL_MS = 30000; // 30 seconds fallback polling
@@ -1759,17 +1827,42 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   const rdrCooldownRef = useRef(rdrCooldown);
   rdrCooldownRef.current = rdrCooldown;
 
-  // Load VS Code windows from system
+  // Load VS Code windows from system and hydrate the persisted per-project assignment when available.
   const loadVsCodeWindows = useCallback(async () => {
     setIsLoadingWindows(true);
     try {
-      const result = await window.electronAPI.getVSCodeWindows();
-      if (result.success && result.data) {
-        setVsCodeWindows(result.data);
-        // Only auto-select on first load (when nothing selected yet)
-        // User's manual selection persists until they press Refresh
-        if (result.data.length > 0 && !selectedWindowPidRef.current) {
-          setSelectedWindowPid(result.data[0].handle);
+      const windowsResult = await window.electronAPI.getVSCodeWindows();
+      const assignedWindowResult = projectId
+        ? await window.electronAPI.getAssignedWindow(projectId)
+        : null;
+
+      if (windowsResult.success && windowsResult.data) {
+        const windows = windowsResult.data;
+        setVsCodeWindows(windows);
+
+        const currentSelectedHandle = selectedWindowPidRef.current;
+        const assignedHandle = resolveAssignedWindowHandle(
+          windows,
+          assignedWindowResult?.success ? assignedWindowResult.data ?? null : null,
+        );
+        if (assignedHandle !== null) {
+          if (currentSelectedHandle !== assignedHandle) {
+            setSelectedWindowPid(assignedHandle);
+          }
+          return;
+        }
+
+        if (currentSelectedHandle && windows.some((window) => window.handle === currentSelectedHandle)) {
+          return;
+        }
+
+        if (windows.length > 0 && !currentSelectedHandle) {
+          setSelectedWindowPid(windows[0].handle);
+          return;
+        }
+
+        if (windows.length === 0 && currentSelectedHandle !== null) {
+          setSelectedWindowPid(null);
         }
       }
     } catch (error) {
@@ -1777,9 +1870,9 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     } finally {
       setIsLoadingWindows(false);
     }
-  }, [projectId]);
+  }, [projectId, resolveAssignedWindowHandle]);
 
-  // Load windows on mount
+  // Load windows on mount and whenever the active project changes.
   useEffect(() => {
     loadVsCodeWindows();
   }, [loadVsCodeWindows]);
@@ -2117,7 +2210,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     try {
       // Check busy state
       try {
-        const busyResult = await window.electronAPI.isClaudeCodeBusy(selectedWindow.processId);
+        const busyResult = await window.electronAPI.isClaudeCodeBusy(handle);
         if (busyResult.success && busyResult.data) {
           console.log('[RDR] Skipping auto-send - Claude Code is busy');
           rdrMessageInFlightRef.current = false;
@@ -2739,7 +2832,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
                   <Select
                     value={selectedWindowPid?.toString() ?? ''}
-                    onValueChange={(value) => setSelectedWindowPid(value ? parseInt(value, 10) : null)}
+                    onValueChange={handleWindowSelectionChange}
                   >
                     <SelectTrigger className="h-7 w-[140px] text-xs">
                       <SelectValue placeholder={t('kanban.rdrSelectWindow')} />

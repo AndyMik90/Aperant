@@ -27,7 +27,7 @@ vi.mock('./powershell-runner', () => ({
 }));
 
 import { runWindowsPowerShell, runWindowsPowerShellSync } from './powershell-runner';
-import { getVSCodeWindows, sendMessageToWindow } from './window-manager';
+import { findWindow, getVSCodeWindows, sendMessageToWindow } from './window-manager';
 
 describe('window-manager', () => {
   const tempRoot = join(process.cwd(), '.tmp-window-manager-tests');
@@ -61,6 +61,22 @@ describe('window-manager', () => {
       { handle: 100, title: 'Repo - Visual Studio Code', processId: 999 },
     ]);
   });
+  it('prefers a matching window handle before falling back to process ID', () => {
+    vi.mocked(runWindowsPowerShellSync).mockReturnValueOnce({
+      ok: true,
+      stdout: '[{"handle":200,"title":"Repo A - Visual Studio Code","processId":1234},{"handle":300,"title":"Repo B - Visual Studio Code","processId":200}]',
+      stderr: '',
+      status: 0,
+      signal: null,
+      powerShellPath: 'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
+    });
+
+    expect(findWindow(200)).toEqual({
+      handle: 200,
+      title: 'Repo A - Visual Studio Code',
+      processId: 1234,
+    });
+  });
 
   it('returns success when the window message PowerShell script succeeds', async () => {
     vi.mocked(runWindowsPowerShellSync)
@@ -81,10 +97,11 @@ describe('window-manager', () => {
         powerShellPath: 'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
       });
 
-    const result = await sendMessageToWindow(1234, 'hello from RDR');
+    const result = await sendMessageToWindow(200, 'hello from RDR');
 
     expect(result).toEqual({ success: true });
     expect(vi.mocked(runWindowsPowerShell)).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(runWindowsPowerShell).mock.calls[0]?.[0]?.script).toContain('$Handle = 200');
   });
 
   it('returns the PowerShell error when window messaging fails', async () => {
@@ -114,7 +131,7 @@ describe('window-manager', () => {
       powerShellPath: 'C:\\Program Files\\PowerShell\\7\\pwsh.exe',
     });
 
-    const result = await sendMessageToWindow(1234, 'hello from RDR');
+    const result = await sendMessageToWindow(200, 'hello from RDR');
 
     expect(result).toEqual({ success: false, error: 'Failed to focus window' });
   });

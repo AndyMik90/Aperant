@@ -39,6 +39,7 @@ import { projectStore } from '../project-store.js';
 import { readAndClearSignalFile, categorizeTasks, enrichTaskWithWorktreeData } from '../ipc-handlers/rdr-handlers.js';
 import { DEFAULT_APP_SETTINGS } from '../../shared/constants/index.js';
 import { getWindowVirtualDesktopInfo } from '../platform/windows/virtual-desktop.js';
+import { getVSCodeWindows } from '../platform/windows/window-manager.js';
 import {
   appendProjectAutomationSignal,
   applyProjectAutomationToggle,
@@ -209,6 +210,7 @@ type CodeWindow = {
 };
 
 type WindowAssignment = {
+  handle?: number;
   processId: number;
   title: string;
   provider: string;
@@ -236,22 +238,7 @@ function getDesktopAssociationSignalPath(): string {
 }
 
 function listCodeWindows(): CodeWindow[] {
-  const psScript = `$ProgressPreference='SilentlyContinue'; Get-Process -Name Code -EA SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | ForEach-Object { @{ handle=$_.MainWindowHandle.ToInt64(); title=$_.MainWindowTitle; processId=$_.Id } } | ConvertTo-Json`;
-  const psEncoded = Buffer.from(psScript, 'utf16le').toString('base64');
-  try {
-    const raw = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', psEncoded], {
-      windowsHide: true,
-      timeout: 8000,
-      encoding: 'utf8'
-    }).stdout.trim();
-    if (!raw) {
-      return [];
-    }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [parsed];
-  } catch {
-    return [];
-  }
+  return getVSCodeWindows();
 }
 
 function matchCodeWindow(
@@ -400,19 +387,7 @@ server.tool(
   },
   withMonitoring('assign_window', async ({ projectId, projectPath, windowTitle }) => {
     try {
-      // Enumerate VS Code windows using PowerShell (same as window-manager.ts)
-      const psScript = `$ProgressPreference='SilentlyContinue'; Get-Process -Name Code -EA SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | ForEach-Object { @{ handle=$_.MainWindowHandle.ToInt64(); title=$_.MainWindowTitle; processId=$_.Id } } | ConvertTo-Json`;
-      const psEncoded = Buffer.from(psScript, 'utf16le').toString('base64');
-      let windows: Array<{ handle: number; title: string; processId: number }> = [];
-      try {
-        const raw = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', psEncoded], {
-          windowsHide: true, timeout: 8000, encoding: 'utf8'
-        }).stdout.trim();
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          windows = Array.isArray(parsed) ? parsed : [parsed];
-        }
-      } catch { /* no windows found */ }
+      const windows = listCodeWindows();
 
       if (windows.length === 0) {
         return { content: [{ type: 'text' as const, text: JSON.stringify({ error: 'No VS Code windows found' }) }] };
@@ -446,29 +421,19 @@ server.tool(
       const titleLower = matchedWindow.title.toLowerCase();
       const provider = titleLower.includes('kilo') ? 'minimax' : 'anthropic';
 
-      // Write assignment to signal file
-      const appData = process.env.APPDATA || join(homedir(), 'AppData', 'Roaming');
-      const assignmentPath = join(appData, 'auto-claude-ui', 'window-assignments.json');
-      let assignments: Record<string, { processId: number; title: string; provider: string; assignedAt: string }> = {};
-      try {
-        if (existsSync(assignmentPath)) {
-          assignments = JSON.parse(readFileSync(assignmentPath, 'utf-8')).assignments || {};
-        }
-      } catch { /* fresh file */ }
-
-      assignments[projectId] = {
+      writeWindowAssignment(projectId, {
+        handle: matchedWindow.handle,
         processId: matchedWindow.processId,
         title: matchedWindow.title,
         provider,
         assignedAt: new Date().toISOString(),
-      };
-
-      writeFileSync(assignmentPath, JSON.stringify({ assignments, updatedAt: new Date().toISOString() }, null, 2), 'utf-8');
+      });
 
       return { content: [{ type: 'text' as const, text: JSON.stringify({
         success: true,
         projectId,
         assignedWindow: {
+          handle: matchedWindow.handle,
           processId: matchedWindow.processId,
           title: matchedWindow.title,
           provider,
@@ -526,6 +491,7 @@ server.tool(
 
       const provider = inferProviderFromWindowTitle(matchedWindow.title);
       writeWindowAssignment(project.id, {
+        handle: matchedWindow.handle,
         processId: matchedWindow.processId,
         title: matchedWindow.title,
         provider,
@@ -561,6 +527,7 @@ server.tool(
           name: desktopInfo.name ?? null,
         },
         assignedWindow: {
+          handle: matchedWindow.handle,
           processId: matchedWindow.processId,
           title: matchedWindow.title,
           provider,

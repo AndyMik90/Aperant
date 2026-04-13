@@ -15,6 +15,10 @@ export const IPC_CHANNELS = {
   PROJECT_CHECK_VERSION: 'project:checkVersion',
   PROJECT_AUTOMATION_SETTINGS_CHANGED: 'project:automationSettingsChanged',
 
+  // RDR / window assignment operations
+  RDR_GET_ASSIGNED_WINDOW: 'rdr:getAssignedWindow',
+  RDR_SET_ASSIGNED_WINDOW: 'rdr:setAssignedWindow',
+
   // Tab state operations (persisted in main process)
   TAB_STATE_GET: 'tabState:get',
   TAB_STATE_SAVE: 'tabState:save',

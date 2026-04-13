@@ -1,4 +1,4 @@
-﻿// Polyfill CommonJS require for ESM compatibility
+// Polyfill CommonJS require for ESM compatibility
 // This MUST be at the very top, before any imports that might trigger Sentry's
 // require-in-the-middle hooks. Sentry's hooks expect require.cache to exist,
 // which is only available in CommonJS. Without this, node-pty native module
@@ -107,9 +107,9 @@ import {
 } from './platform/windows/virtual-desktop';
 import type { AppSettings, AuthFailureInfo } from '../shared/types';
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 // Window sizing constants
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────────────────────────────────────
 /** Preferred window width on startup */
 const WINDOW_PREFERRED_WIDTH: number = 1400;
 /** Preferred window height on startup */
@@ -247,7 +247,7 @@ let rendererResponding = true; // Tracked via BrowserWindow unresponsive/respons
 
 function startHeartbeat(): void {
   // Use deterministic path matching watchdog's APP_DATA_DIR_NAME constant.
-  // app.getPath('userData') returns %APPDATA%/Electron/ in dev mode â€” wrong directory.
+  // app.getPath('userData') returns %APPDATA%/Electron/ in dev mode — wrong directory.
   const userData = join(app.getPath('appData'), 'auto-claude-ui');
   const heartbeatPath = join(userData, 'heartbeat.json');
 
@@ -279,7 +279,7 @@ function startHeartbeat(): void {
 
   writeHeartbeat(); // Write immediately
 
-  // Verify first write succeeded â€” if not, watchdog freeze detection is disabled
+  // Verify first write succeeded — if not, watchdog freeze detection is disabled
   if (!existsSync(heartbeatPath)) {
     console.error('[main] CRITICAL: heartbeat.json NOT created at', heartbeatPath);
   } else {
@@ -569,7 +569,7 @@ function createWindow(): void {
     rendererResponding = false;
     if (!rendererFreezeTimer) {
       rendererFreezeTimer = setTimeout(() => {
-        console.error('[main] Renderer still unresponsive after grace period â€” forcing restart');
+        console.error('[main] Renderer still unresponsive after grace period — forcing restart');
         writeFreezeNotification('renderer_freeze', 'Renderer process unresponsive for 15+ seconds');
         app.exit(1); // Non-zero exit triggers watchdog restart
       }, RENDERER_FREEZE_GRACE_MS);
@@ -761,7 +761,7 @@ app.whenReady().then(() => {
   resumeTasksAfterRestart();
 
   // Reset RDR attempts on normal startup (not P6B programmatic restart)
-  // P6B restarts leave a .restart-requested marker â€” preserve attempt history for those
+  // P6B restarts leave a .restart-requested marker — preserve attempt history for those
   const restartMarkerPath = join(app.getPath('userData'), '.restart-requested');
   if (!existsSync(restartMarkerPath)) {
     resetAllRdrAttempts();
@@ -770,7 +770,7 @@ app.whenReady().then(() => {
   // Create window
   createWindow();
 
-  // System tray icon â€” click to move window to current desktop, right-click for menu
+  // System tray icon — click to move window to current desktop, right-click for menu
   let tray: Tray | null = null;
   try {
     const iconPath = join(__dirname, '../../resources/icon-256.png');
@@ -877,9 +877,16 @@ app.whenReady().then(() => {
   }, 2_000);
 
   // Window assignments for per-project RDR targeting
-  // MCP assign_window tool writes to this file, Electron reads and exposes via IPC
+  // MCP assign_window tool and the Kanban dropdown both write to this file.
   const windowAssignmentsPath = join(app.getPath('appData'), 'auto-claude-ui', 'window-assignments.json');
-  let windowAssignments: Record<string, { processId: number; title: string; provider?: string; assignedAt: string }> = {};
+  type WindowAssignmentRecord = {
+    handle?: number;
+    processId: number;
+    title: string;
+    provider?: string;
+    assignedAt: string;
+  };
+  let windowAssignments: Record<string, WindowAssignmentRecord> = {};
 
   // Load assignments on startup and poll for updates
   const loadWindowAssignments = (): void => {
@@ -890,18 +897,50 @@ app.whenReady().then(() => {
       }
     } catch { /* ignore */ }
   };
+
+  const saveWindowAssignments = (): void => {
+    writeFileSync(
+      windowAssignmentsPath,
+      JSON.stringify({ assignments: windowAssignments, updatedAt: new Date().toISOString() }, null, 2),
+      'utf-8'
+    );
+  };
+
   loadWindowAssignments();
   setInterval(loadWindowAssignments, 5_000);
 
-  // IPC handler for renderer to get assigned window for a project
+  // IPC handlers for renderer window assignment state
   const { ipcMain } = require('electron');
-  ipcMain.handle('rdr:getAssignedWindow', (_event: unknown, projectId: string) => {
+  ipcMain.handle(IPC_CHANNELS.RDR_GET_ASSIGNED_WINDOW, (_event: unknown, projectId: string) => {
     const assignment = windowAssignments[projectId];
     if (assignment) {
       return { success: true, data: assignment };
     }
     return { success: false, data: null };
   });
+
+  ipcMain.handle(
+    IPC_CHANNELS.RDR_SET_ASSIGNED_WINDOW,
+    (_event: unknown, projectId: string, window: { handle: number; processId: number; title: string }) => {
+      if (!projectId || !window?.handle || !window?.processId || !window?.title) {
+        return { success: false, error: 'Project ID and window details are required' };
+      }
+
+      const provider = window.title.toLowerCase().includes('kilo') ? 'minimax' : 'anthropic';
+      const assignment: WindowAssignmentRecord = {
+        handle: window.handle,
+        processId: window.processId,
+        title: window.title,
+        provider,
+        assignedAt: new Date().toISOString(),
+      };
+
+      windowAssignments[projectId] = assignment;
+      saveWindowAssignments();
+
+      return { success: true, data: assignment };
+    }
+  );
 
   // Start activity monitor for functional freeze detection (Layer 3)
   activityMonitor.configure(agentManager, () => mainWindow);
@@ -1044,7 +1083,7 @@ app.on('window-all-closed', () => {
   }
 });
 
-// Cleanup before quit â€” uses event.preventDefault() to allow async PTY cleanup
+// Cleanup before quit — uses event.preventDefault() to allow async PTY cleanup
 // before the JS environment tears down. Without this, pty.node's native
 // ThreadSafeFunction callbacks fire after teardown, causing SIGABRT (GitHub #1469).
 app.on('before-quit', (event) => {
@@ -1075,7 +1114,7 @@ app.on('before-quit', (event) => {
         await agentManager.killAll();
       }
 
-      // Kill all terminal processes â€” waits for PTY exit with bounded timeout
+      // Kill all terminal processes — waits for PTY exit with bounded timeout
       if (terminalManager) {
         await terminalManager.killAll();
       }

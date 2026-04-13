@@ -138,7 +138,7 @@ else { $windows | ConvertTo-Json -Compress }
  *
  * Same logic as ClaudeAutoResponse PermissionMonitorService.SendMessageToClaudeCode.
  *
- * @param identifier - Process ID (number) for stable matching, or title pattern (string) for fuzzy matching
+ * @param identifier - Window handle, process ID, or title pattern used to resolve the target VS Code window
  * @param message - Message to send
  * @returns Promise resolving to success/error result
  */
@@ -163,7 +163,7 @@ export function sendMessageToWindow(
     }
 
     // Re-enumerate windows to get fresh handle (prevents stale handle errors)
-    const matchType = typeof identifier === 'number' ? 'PID' : 'title';
+    const matchType = typeof identifier === 'number' ? 'numeric identifier' : 'title';
     console.log(`[WindowManager] Looking for window by ${matchType}: "${identifier}"`);
     const windows = getVSCodeWindows();
 
@@ -172,7 +172,7 @@ export function sendMessageToWindow(
       return;
     }
 
-    // Find window by process ID (stable) or title pattern (fuzzy)
+    // Find window by handle first, then fall back to process ID or title pattern
     const targetWindow = findWindow(identifier);
 
     if (!targetWindow) {
@@ -313,7 +313,7 @@ Write-Output "Message sent successfully"
  *
  * Detection strategy: Monitor VS Code window title for busy indicators
  *
- * @param identifier - Process ID (number) for stable matching, or title pattern (string) for fuzzy matching
+ * @param identifier - Window handle, process ID, or title pattern used to resolve the target VS Code window
  * @returns Promise resolving to true if Claude Code is busy, false if idle
  */
 export async function isClaudeCodeBusy(identifier: number | string): Promise<boolean> {
@@ -406,10 +406,24 @@ export function findWindowByTitle(pattern: string): VSCodeWindow | undefined {
 }
 
 /**
- * Find a VS Code window by process ID
+ * Find a VS Code window by window handle.
  *
- * More stable than title matching since process ID doesn't change
- * when the user switches editor tabs.
+ * Handles are the canonical identity for dropdown selection because multiple
+ * VS Code windows can share one process ID.
+ *
+ * @param handle - Native window handle returned by getVSCodeWindows()
+ * @returns Matching window or undefined
+ */
+export function findWindowByHandle(handle: number): VSCodeWindow | undefined {
+  const windows = getVSCodeWindows();
+  return windows.find((w) => w.handle === handle);
+}
+
+/**
+ * Find a VS Code window by process ID.
+ *
+ * This remains as a backward-compatible fallback for older persisted window
+ * assignments that only stored process IDs.
  *
  * @param pid - Process ID of the VS Code instance
  * @returns Matching window or undefined
@@ -420,14 +434,17 @@ export function findWindowByProcessId(pid: number): VSCodeWindow | undefined {
 }
 
 /**
- * Find a VS Code window by identifier (process ID or title pattern)
+ * Find a VS Code window by identifier.
  *
- * @param identifier - Process ID (number) for stable matching, or title pattern (string) for fuzzy matching
+ * Numeric identifiers are resolved as window handles first, then process IDs,
+ * so manual dropdown selection and legacy MCP assignments both continue to work.
+ *
+ * @param identifier - Window handle, process ID, or title pattern
  * @returns Matching window or undefined
  */
 export function findWindow(identifier: number | string): VSCodeWindow | undefined {
   if (typeof identifier === 'number') {
-    return findWindowByProcessId(identifier);
+    return findWindowByHandle(identifier) ?? findWindowByProcessId(identifier);
   }
   return findWindowByTitle(identifier);
 }
