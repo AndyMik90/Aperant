@@ -65,7 +65,7 @@
   },
   "pr": {
     "title": "创建拉取请求",
-    "description": "推送分支并为"{{taskTitle}}"创建拉取请求",
+    "description": "推送分支并为\u201C{{taskTitle}}\u201D创建拉取请求",
     "errors": {
       "unknown": "创建拉取请求时发生未知错误",
       "invalidBranchName": "分支名称包含无效字符。仅使用字母、数字、连字符（-）、下划线（_）和正斜杠（/）。",
@@ -136,7 +136,7 @@
     "markAsDone": "标记为完成",
     "reviewAgain": "重新审核",
     "commitMessagePlaceholder": "提交消息...",
-    "worktreeExplanation": ""删除工作树并标记完成"清理隔离的工作空间。"仅标记完成"保留它以供参考。",
+    "worktreeExplanation": "\u201C删除工作树并标记完成\u201D清理隔离的工作空间。\u201C仅标记完成\u201D保留它以供参考。",
     "errors": {
       "failedToDeleteWorktree": "删除工作树失败",
       "worktreeDeletedButStatusFailed": "工作树已删除但更新任务状态失败：{{error}}",

@@ -127,11 +127,11 @@
     "queueAllSuccess": "已将 {{count}} 个任务移至队列。",
     "settings": {
       "title": "队列设置",
-      "description": "配置"进行中"看板上可并行运行的最大任务数",
+      "description": "配置\u201C进行中\u201D看板上可并行运行的最大任务数",
       "maxParallelLabel": "最大并行任务数",
       "minValueError": "必须至少为 1",
       "maxValueError": "不能超过 10",
-      "hint": "当达到此限制时，新任务将在移至"进行中"之前在队列中等待",
+      "hint": "当达到此限制时，新任务将在移至\u201C进行中\u201D之前在队列中等待",
       "saved": "队列设置已保存",
       "saveFailed": "保存队列设置失败",
       "retry": "请重试"
@@ -259,7 +259,7 @@
     "requireReviewDescription": "启用后，系统将提示您审核规格和实施计划，然后再开始编码阶段。这允许您批准、请求更改或提供反馈。",
     "fastModeLabel": "快速模式",
     "fastModeDescription": "相同的 Opus 4.6 模型，输出更快。每令牌成本更高。",
-    "fastModeNotice": "需要您的 Claude 订阅启用"额外使用"。",
+    "fastModeNotice": "需要您的 Claude 订阅启用\u201C额外使用\u201D。",
     "errors": {
       "descriptionRequired": "请提供描述",
       "maxImagesReached": "最多允许 5 张图片",

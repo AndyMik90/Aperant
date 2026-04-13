@@ -103,7 +103,7 @@
     "autoSyncDescription": "项目加载时自动获取问题",
     "cli": {
       "required": "需要 GitLab CLI",
-      "notInstalled": "GitLab CLI（glab）需要用于 OAuth 身份验证。安装它以使用"使用 OAuth"选项。",
+      "notInstalled": "GitLab CLI（glab）需要用于 OAuth 身份验证。安装它以使用\u201C使用 OAuth\u201D选项。",
       "installButton": "安装 glab",
       "installing": "安装中...",
       "installSuccess": "安装已在您的终端中启动。完成它并点击刷新。",
