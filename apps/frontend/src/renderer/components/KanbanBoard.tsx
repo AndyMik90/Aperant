@@ -1736,7 +1736,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
 
   // VS Code window state for RDR direct sending
   const [vsCodeWindows, setVsCodeWindows] = useState<Array<{ handle: number; title: string; processId: number }>>([]);
-  // Per-project window selection — each project tab has its own RDR target window
+  // Per-project window selection ï¿½ each project tab has its own RDR target window
   const perProjectWindowRef = useRef<Map<string, number>>(new Map());
   const selectedWindowPid = projectId ? (perProjectWindowRef.current.get(projectId) ?? null) : null;
   const setSelectedWindowPid = (handle: number | null) => {
@@ -1815,7 +1815,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
   }, [persistSelectedWindow]);
 
   // RDR auto timer state
-  // CRITICAL: useRef for in-flight logic (not useState) — useState causes handleAutoRdr recreation
+  // CRITICAL: useRef for in-flight logic (not useState) ï¿½ useState causes handleAutoRdr recreation
   // ? useEffect re-runs ? new 5s startup timer ? unnecessary send attempts (same pattern as queueBlockedRef)
   const rdrMessageInFlightRef = useRef(false);
   const rdrIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -2559,7 +2559,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       if (!selectedWindow) {
         toast({
           title: t('kanban.rdrSendFailed'),
-          description: 'Selected window not found',
+          description: t('kanban.rdrSelectedWindowNotFound'),
           variant: 'destructive'
         });
         return;
@@ -2645,6 +2645,53 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
     }
   };
 
+
+  const handleTestRdrPrompt = async () => {
+    if (!projectId || !selectedWindowPid) {
+      return;
+    }
+
+    const selectedWindow = vsCodeWindows.find((window) => window.handle === selectedWindowPid);
+    if (!selectedWindow) {
+      toast({
+        title: t('kanban.rdrTestFailed'),
+        description: t('kanban.rdrSelectedWindowNotFound'),
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    toast({
+      title: t('kanban.rdrTesting'),
+      description: t('kanban.rdrTestingDesc'),
+    });
+
+    try {
+      const result = await window.electronAPI.sendTestRdrToWindow(selectedWindow.handle);
+
+      if (result.success) {
+        toast({
+          title: t('kanban.rdrTestSuccess'),
+          description: t('kanban.rdrTestSuccessDesc'),
+          variant: 'default'
+        });
+        console.log(`[KanbanBoard] Manual RDR test prompt sent to window handle ${selectedWindow.handle}`);
+      } else {
+        toast({
+          title: t('kanban.rdrTestFailed'),
+          description: result.data?.error || t('kanban.rdrTestFailedDesc'),
+          variant: 'destructive'
+        });
+      }
+    } catch (error) {
+      console.error('[KanbanBoard] Manual RDR test prompt error:', error);
+      toast({
+        title: t('kanban.rdrTestFailed'),
+        description: error instanceof Error ? error.message : t('kanban.rdrTestFailedDesc'),
+        variant: 'destructive'
+      });
+    }
+  };
   // Track which tasks we've already attempted to auto-resume (to prevent loops)
   const autoResumedTasksRef = useRef<Set<string>>(new Set());
 
@@ -2862,6 +2909,24 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* Manual Test RDR Button */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleTestRdrPrompt}
+                      disabled={!projectId || !selectedWindowPid}
+                      className="h-7 px-2 text-xs"
+                    >
+                      {t('kanban.rdrTestButton')}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-xs">
+                    <p>{selectedWindowPid ? t('kanban.rdrTestTooltip') : t('kanban.rdrSelectWindowFirst')}</p>
+                  </TooltipContent>
+                </Tooltip>
 
                 {/* Manual Ping RDR Button */}
                 <Tooltip>

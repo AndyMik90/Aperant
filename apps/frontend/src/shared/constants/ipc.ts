@@ -659,6 +659,7 @@ export const IPC_CHANNELS = {
   // VS Code Window Management (for RDR message sending)
   GET_VSCODE_WINDOWS: 'rdr:getVSCodeWindows',               // Get list of VS Code windows
   SEND_RDR_TO_WINDOW: 'rdr:sendToWindow',                   // Send RDR message to specific window
+  SEND_TEST_RDR_TO_WINDOW: 'rdr:sendTestToWindow',          // Send manual test RDR prompt to specific window
   GET_RDR_BATCH_DETAILS: 'rdr:getBatchDetails',             // Get detailed task info for RDR message
   IS_CLAUDE_CODE_BUSY: 'rdr:isClaudeCodeBusy',              // Check if Claude Code is in a prompt loop
   AUTO_RECOVER_ALL_TASKS: 'rdr:autoRecoverAllTasks',        // Auto-recover all tasks with start_requested status

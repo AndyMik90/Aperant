@@ -150,6 +150,7 @@ export interface TaskAPI {
   // VS Code Window Management (for RDR message sending)
   getVSCodeWindows: () => Promise<IPCResult<Array<{ handle: number; title: string; processId: number }>>>;
   sendRdrToWindow: (identifier: number | string, message: string) => Promise<IPCResult<{ success: boolean; error?: string }>>;
+  sendTestRdrToWindow: (identifier: number | string) => Promise<IPCResult<{ success: boolean; error?: string }>>;
 
   // Detailed RDR batch info for auto-send
   getRdrBatchDetails: (projectId: string) => Promise<IPCResult<RdrBatchDetails>>;
@@ -525,6 +526,9 @@ export const createTaskAPI = (): TaskAPI => ({
 
   sendRdrToWindow: (identifier: number | string, message: string): Promise<IPCResult<{ success: boolean; error?: string }>> =>
     ipcRenderer.invoke(IPC_CHANNELS.SEND_RDR_TO_WINDOW, identifier, message),
+
+  sendTestRdrToWindow: (identifier: number | string): Promise<IPCResult<{ success: boolean; error?: string }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.SEND_TEST_RDR_TO_WINDOW, identifier),
 
   getAssignedWindow: (projectId: string): Promise<IPCResult<AssignedWindow | null>> =>
     ipcRenderer.invoke(IPC_CHANNELS.RDR_GET_ASSIGNED_WINDOW, projectId),

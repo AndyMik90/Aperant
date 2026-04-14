@@ -117,6 +117,7 @@ export const taskMock = {
   pingRdrImmediate: async () => ({ success: true, data: { taskCount: 0, signalPath: '' } }),
   getVSCodeWindows: async () => ({ success: true, data: [] }),
   sendRdrToWindow: async () => ({ success: true, data: { success: true } }),
+  sendTestRdrToWindow: async () => ({ success: true, data: { success: true } }),
   getRdrBatchDetails: async () => ({
     success: true,
     data: {

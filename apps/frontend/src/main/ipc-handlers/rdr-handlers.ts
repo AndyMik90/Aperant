@@ -24,6 +24,30 @@ import type { AgentManager } from '../agent/agent-manager';
 import { readSettingsFile } from '../settings-utils';
 import { getUsageMonitor } from '../claude-profile/usage-monitor';
 
+const MANUAL_RDR_TEST_PROMPT = 'Aperant test prompt: manual RDR connection check.';
+
+async function sendMessageWithActiveRdrMechanism(
+  identifier: number | string,
+  message: string,
+): Promise<{ success: boolean; error?: string }> {
+  const settings = (readSettingsFile() || {}) as Partial<AppSettings>;
+  const { DEFAULT_RDR_MECHANISMS } = await import('../../shared/constants/config');
+
+  const mechanisms = settings.rdrMechanisms || DEFAULT_RDR_MECHANISMS;
+  const activeMechanismId = settings.activeMechanismId || mechanisms[0]?.id;
+  const activeMechanism = mechanisms.find((mechanism) => mechanism.id === activeMechanismId) || mechanisms[0];
+
+  if (activeMechanism) {
+    console.log(`[RDR] Using mechanism: "${activeMechanism.name}"`);
+    console.log(`[RDR] Template: ${activeMechanism.template}`);
+  } else {
+    console.error('[RDR] No RDR mechanism found, using default');
+  }
+
+  const { sendRdrMessage } = await import('../platform/rdr-message-sender');
+  return sendRdrMessage(identifier, message, activeMechanism?.template);
+}
+
 /**
  * Reset rdrAttempts for all tasks across all projects.
  * Called on app startup (unless it's a P6B programmatic restart).
@@ -2421,33 +2445,16 @@ export function registerRdrHandlers(agentManager?: AgentManager): void {
     IPC_CHANNELS.SEND_RDR_TO_WINDOW,
     async (event, identifier: number | string, message: string): Promise<IPCResult<{ success: boolean; error?: string }>> => {
       const matchType = typeof identifier === 'number' ? 'handle' : 'title';
-      console.log(`[RDR] 📤 Preparing to send message to window by ${matchType}: "${identifier}"`);
-      console.log(`[RDR]    Message length: ${message.length} characters`);
+      console.log(`[RDR] Preparing to send message to window by ${matchType}: "${identifier}"`);
+      console.log(`[RDR] Message length: ${message.length} characters`);
 
       try {
-        // Read active mechanism from settings
-        const settings = (readSettingsFile() || {}) as Partial<AppSettings>;
-        const { DEFAULT_RDR_MECHANISMS } = await import('../../shared/constants/config');
-
-        const mechanisms = settings.rdrMechanisms || DEFAULT_RDR_MECHANISMS;
-        const activeMechanismId = settings.activeMechanismId || mechanisms[0]?.id;
-        const activeMechanism = mechanisms.find(m => m.id === activeMechanismId) || mechanisms[0];
-
-        if (activeMechanism) {
-          console.log(`[RDR] 🔧 Using mechanism: "${activeMechanism.name}"`);
-          console.log(`[RDR]    Template: ${activeMechanism.template}`);
-        } else {
-          console.error('[RDR] ⚠️ No RDR mechanism found, using default');
-        }
-
-        // Use platform-agnostic sender with active mechanism's template
-        const { sendRdrMessage } = await import('../platform/rdr-message-sender');
-        const result = await sendRdrMessage(identifier, message, activeMechanism?.template);
+        const result = await sendMessageWithActiveRdrMechanism(identifier, message);
 
         if (result.success) {
-          console.log('[RDR] ✅ Message sent successfully');
+          console.log('[RDR] Message sent successfully');
         } else {
-          console.error('[RDR] ❌ Failed to send message:', result.error);
+          console.error('[RDR] Failed to send message:', result.error);
         }
 
         return {
@@ -2455,7 +2462,7 @@ export function registerRdrHandlers(agentManager?: AgentManager): void {
           data: result
         };
       } catch (error) {
-        console.error('[RDR] 💥 Exception sending message:', error);
+        console.error('[RDR] Exception sending message:', error);
         return {
           success: false,
           error: error instanceof Error ? error.message : String(error)
@@ -2464,6 +2471,34 @@ export function registerRdrHandlers(agentManager?: AgentManager): void {
     }
   );
 
+  ipcMain.handle(
+    IPC_CHANNELS.SEND_TEST_RDR_TO_WINDOW,
+    async (event, identifier: number | string): Promise<IPCResult<{ success: boolean; error?: string }>> => {
+      const matchType = typeof identifier === 'number' ? 'handle' : 'title';
+      console.log(`[RDR] Preparing to send manual test prompt to window by ${matchType}: "${identifier}"`);
+
+      try {
+        const result = await sendMessageWithActiveRdrMechanism(identifier, MANUAL_RDR_TEST_PROMPT);
+
+        if (result.success) {
+          console.log('[RDR] Manual test prompt sent successfully');
+        } else {
+          console.error('[RDR] Failed to send manual test prompt:', result.error);
+        }
+
+        return {
+          success: result.success,
+          data: result
+        };
+      } catch (error) {
+        console.error('[RDR] Exception sending manual test prompt:', error);
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error)
+        };
+      }
+    }
+  );
   // Get detailed RDR batch information for auto-send messages
   ipcMain.handle(
     IPC_CHANNELS.GET_RDR_BATCH_DETAILS,

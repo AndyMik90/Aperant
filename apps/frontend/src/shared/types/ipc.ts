@@ -263,6 +263,7 @@ export interface ElectronAPI {
   pingRdrImmediate: (projectId: string, tasks: Task[]) => Promise<IPCResult<{ taskCount: number; signalPath: string }>>;
   getVSCodeWindows: () => Promise<IPCResult<Array<{ handle: number; title: string; processId: number }>>>;
   sendRdrToWindow: (identifier: number | string, message: string) => Promise<IPCResult<{ success: boolean; error?: string }>>;
+  sendTestRdrToWindow: (identifier: number | string) => Promise<IPCResult<{ success: boolean; error?: string }>>;
   getRdrBatchDetails: (projectId: string) => Promise<IPCResult<{
     batches: Array<{ type: string; taskIds: string[]; taskCount: number }>;
     taskDetails: Array<{
