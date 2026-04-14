@@ -15,7 +15,6 @@ import os
 import platform
 import re
 import shutil
-import subprocess
 from enum import Enum
 from pathlib import Path
 
@@ -469,6 +468,13 @@ def build_windows_command(cli_path: str, args: list[str]) -> list[str]:
 
     Handles .cmd/.bat files that require shell execution.
 
+    Important: when this helper is used with subprocess argument arrays
+    (for example asyncio.create_subprocess_exec), we must return cmd.exe,
+    the batch path, and the arguments as separate tokens. If we pre-compose a
+    quoted `cmd.exe /c "..."` command string here, Python will quote that
+    string again when building the Windows command line and cmd.exe will try to
+    execute the literal quoted token instead of the batch file.
+
     Args:
         cli_path: Path to the CLI executable
         args: Command arguments
@@ -477,11 +483,10 @@ def build_windows_command(cli_path: str, args: list[str]) -> list[str]:
         Command array suitable for subprocess.run
     """
     if is_windows() and cli_path.lower().endswith((".cmd", ".bat")):
-        # Use cmd.exe to execute .cmd/.bat files
+        # Use cmd.exe to execute .cmd/.bat files. Keep the target command and
+        # its arguments as separate items so Windows/Python handle quoting once.
         cmd_exe = get_comspec_path()
-        # Properly escape arguments for Windows command line
-        escaped_args = subprocess.list2cmdline(args)
-        return [cmd_exe, "/d", "/s", "/c", f'"{cli_path}" {escaped_args}']
+        return [cmd_exe, "/d", "/c", cli_path, *args]
 
     return [cli_path] + args
 
