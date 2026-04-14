@@ -22,14 +22,19 @@ import {
 import {
   DEFAULT_AGENT_PROFILES,
   AVAILABLE_MODELS,
-  THINKING_LEVELS,
   DEFAULT_PHASE_MODELS,
-  DEFAULT_PHASE_THINKING,
-  ADAPTIVE_THINKING_MODELS
+  DEFAULT_PHASE_THINKING
 } from '../../shared/constants';
 import type { ModelType, ThinkingLevel } from '../../shared/types';
 import type { PhaseModelConfig, PhaseThinkingConfig } from '../../shared/types/settings';
+import type { ProviderAccount } from '../../shared/types/provider-account';
+import type { ThinkingOption } from '../../shared/constants/models';
 import { cn } from '../lib/utils';
+import {
+  getProviderThinkingOptions,
+  normalizeThinkingLevelForProvider,
+  supportsAdaptiveThinkingForProvider,
+} from '../lib/provider-accounts';
 
 interface AgentProfileSelectorProps {
   /** Currently selected profile ID ('auto', 'complex', 'balanced', 'quick', or 'custom') */
@@ -56,6 +61,8 @@ interface AgentProfileSelectorProps {
   disabled?: boolean;
   /** Override model display names per provider (e.g., MiniMax model IDs instead of "Claude Opus 4.6") */
   providerModelLabels?: Record<string, string>;
+  /** Selected provider account for provider-aware labels and reasoning options */
+  providerAccount?: ProviderAccount;
 }
 
 const iconMap: Record<string, React.ElementType> = {
@@ -85,14 +92,23 @@ export function AgentProfileSelector({
   onPhaseModelsChange,
   onPhaseThinkingChange,
   disabled,
-  providerModelLabels
+  providerModelLabels,
+  providerAccount
 }: AgentProfileSelectorProps) {
   const { t } = useTranslation('settings');
+  const thinkingOptions = getProviderThinkingOptions(providerAccount);
 
   // Resolve model labels — use provider overrides if available, else default AVAILABLE_MODELS
   const resolveModelLabel = (modelValue: string): string => {
     if (providerModelLabels?.[modelValue]) return providerModelLabels[modelValue];
     return AVAILABLE_MODELS.find(m => m.value === modelValue)?.label || modelValue;
+  };
+  const resolveThinkingLabel = (thinkingValue: string): string => {
+    const normalized = normalizeThinkingLevelForProvider(
+      thinkingValue as ThinkingLevel,
+      providerAccount
+    );
+    return thinkingOptions.find((option) => option.value === normalized)?.label || normalized;
   };
   const [showPhaseDetails, setShowPhaseDetails] = useState(false);
 
@@ -106,7 +122,14 @@ export function AgentProfileSelector({
   const handleProfileSelect = (selectedId: string) => {
     if (selectedId === 'custom') {
       // Keep current model/thinking level, just mark as custom
-      onProfileChange('custom', model as ModelType || 'sonnet', thinkingLevel as ThinkingLevel || 'medium');
+      onProfileChange(
+        'custom',
+        model as ModelType || 'sonnet',
+        normalizeThinkingLevelForProvider(
+          (thinkingLevel as ThinkingLevel) || 'medium',
+          providerAccount
+        )
+      );
     } else {
       // Select preset profile - all profiles now have phase configs
       const profile = DEFAULT_AGENT_PROFILES.find(p => p.id === selectedId);
@@ -199,7 +222,7 @@ export function AgentProfileSelector({
                     <div>
                       <span className="font-medium">{profile.name}</span>
                       <span className="ml-2 text-xs text-muted-foreground">
-                        ({modelLabel} + {profile.thinkingLevel})
+                        ({modelLabel} + {resolveThinkingLabel(profile.thinkingLevel)})
                       </span>
                     </div>
                   </div>
@@ -307,7 +330,7 @@ export function AgentProfileSelector({
                     <div className="space-y-1">
                       <div className="flex items-center gap-1.5">
                         <Label className="text-[10px] text-muted-foreground">{t('agentProfile.thinking')}</Label>
-                        {ADAPTIVE_THINKING_MODELS.includes(currentPhaseModels[phase]) && (
+                        {supportsAdaptiveThinkingForProvider(currentPhaseModels[phase], providerAccount) && (
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary cursor-help">
@@ -321,7 +344,7 @@ export function AgentProfileSelector({
                         )}
                       </div>
                       <Select
-                        value={currentPhaseThinking[phase]}
+                        value={normalizeThinkingLevelForProvider(currentPhaseThinking[phase], providerAccount)}
                         onValueChange={(value) => handlePhaseThinkingChange(phase, value as ThinkingLevel)}
                         disabled={disabled}
                       >
@@ -329,7 +352,7 @@ export function AgentProfileSelector({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {THINKING_LEVELS.map((level) => (
+                          {thinkingOptions.map((level) => (
                             <SelectItem key={level.value} value={level.value}>
                               {level.label}
                             </SelectItem>
@@ -377,7 +400,7 @@ export function AgentProfileSelector({
               {t('agentProfile.thinking')}
             </Label>
             <Select
-              value={thinkingLevel}
+              value={normalizeThinkingLevelForProvider(thinkingLevel || 'medium', providerAccount)}
               onValueChange={(value) => onThinkingLevelChange(value as ThinkingLevel)}
               disabled={disabled}
             >
@@ -385,7 +408,7 @@ export function AgentProfileSelector({
                 <SelectValue placeholder={t('agentProfile.selectThinkingLevel')} />
               </SelectTrigger>
               <SelectContent>
-                {THINKING_LEVELS.map((level) => (
+                {thinkingOptions.map((level: ThinkingOption) => (
                   <SelectItem key={level.value} value={level.value}>
                     <div className="flex items-center gap-2">
                       <span>{level.label}</span>

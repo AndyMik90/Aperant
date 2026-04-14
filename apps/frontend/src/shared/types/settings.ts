@@ -159,8 +159,8 @@ export interface ColorThemeDefinition {
   previewColors: ThemePreviewColors;
 }
 
-// Thinking level for Claude model (budget token allocation)
-export type ThinkingLevel = 'low' | 'medium' | 'high';
+// Shared reasoning/thinking level. OpenAI Codex adds 'xhigh' support.
+export type ThinkingLevel = 'low' | 'medium' | 'high' | 'xhigh';
 
 // Model type shorthand
 export type ModelTypeShort = 'haiku' | 'sonnet' | 'opus' | 'opus-1m' | 'opus-4.5';

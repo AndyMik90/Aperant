@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue
 } from './ui/select';
-import { AVAILABLE_MODELS, THINKING_LEVELS } from '../../shared/constants';
+import { AVAILABLE_MODELS, CLAUDE_THINKING_LEVELS } from '../../shared/constants';
 import type { InsightsModelConfig } from '../../shared/types';
 import type { ModelType, ThinkingLevel } from '../../shared/types';
 
@@ -87,7 +87,7 @@ export function CustomModelModal({ currentConfig, onSave, onClose, open = true }
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {THINKING_LEVELS.map((level) => (
+                {CLAUDE_THINKING_LEVELS.map((level) => (
                   <SelectItem key={level.value} value={level.value}>
                     <div className="flex items-center gap-2">
                       <span className="font-medium">{level.label}</span>

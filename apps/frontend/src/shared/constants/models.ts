@@ -3,7 +3,7 @@
  * Claude models, thinking levels, memory backends, and agent profiles
  */
 
-import type { AgentProfile, PhaseModelConfig, FeatureModelConfig, FeatureThinkingConfig } from '../types/settings';
+import type { AgentProfile, PhaseModelConfig, FeatureModelConfig, FeatureThinkingConfig, ThinkingLevel } from '../types/settings';
 
 // ============================================
 // Available Models
@@ -31,7 +31,8 @@ export const MODEL_ID_MAP: Record<string, string> = {
 export const THINKING_BUDGET_MAP: Record<string, number> = {
   low: 1024,
   medium: 4096,
-  high: 16384
+  high: 16384,
+  xhigh: 32768
 } as const;
 
 // ============================================
@@ -39,11 +40,48 @@ export const THINKING_BUDGET_MAP: Record<string, number> = {
 // ============================================
 
 // Thinking levels for Claude model (budget token allocation)
-export const THINKING_LEVELS = [
+export interface ThinkingOption {
+  value: ThinkingLevel;
+  label: string;
+  description: string;
+}
+
+export const THINKING_LEVELS: readonly ThinkingOption[] = [
   { value: 'low', label: 'Low', description: 'Brief consideration' },
   { value: 'medium', label: 'Medium', description: 'Moderate analysis' },
-  { value: 'high', label: 'High', description: 'Deep thinking' }
+  { value: 'high', label: 'High', description: 'Deep thinking' },
+  { value: 'xhigh', label: 'Extra High', description: 'Maximum reasoning depth' }
 ] as const;
+
+export const CLAUDE_THINKING_LEVELS: readonly ThinkingOption[] = THINKING_LEVELS.filter(
+  (option) => option.value !== 'xhigh'
+) as readonly ThinkingOption[];
+
+export const OPENAI_REASONING_LEVELS: readonly ThinkingOption[] = THINKING_LEVELS;
+
+export function normalizeThinkingLevelForProvider(
+  value: string,
+  provider: 'openai' | 'anthropic' | 'other' = 'anthropic'
+): ThinkingLevel {
+  const sanitized = sanitizeThinkingLevel(value);
+  if (provider !== 'openai' && sanitized === 'xhigh') {
+    return 'high';
+  }
+  return sanitized;
+}
+
+export function getThinkingLevelsForProvider(
+  provider: 'openai' | 'anthropic' | 'other' = 'anthropic'
+): readonly ThinkingOption[] {
+  return provider === 'openai' ? OPENAI_REASONING_LEVELS : CLAUDE_THINKING_LEVELS;
+}
+
+export function supportsAdaptiveThinkingForProviderModel(
+  modelValue: string,
+  provider: 'openai' | 'anthropic' | 'other' = 'anthropic'
+): boolean {
+  return provider !== 'openai' && ADAPTIVE_THINKING_MODELS.includes(modelValue);
+}
 
 // ============================================
 // Agent Profiles - Phase Configurations
@@ -202,7 +240,7 @@ export const FAST_MODE_MODELS: readonly string[] = ['opus', 'opus-1m'] as const;
 export const ADAPTIVE_THINKING_MODELS: readonly string[] = ['opus', 'opus-1m'] as const;
 
 // Valid thinking levels for validation
-export const VALID_THINKING_LEVELS = ['low', 'medium', 'high'] as const;
+export const VALID_THINKING_LEVELS = ['low', 'medium', 'high', 'xhigh'] as const;
 
 // Legacy thinking level mappings (must match backend phase_config.py LEGACY_THINKING_LEVEL_MAP)
 export const LEGACY_THINKING_MAP: Record<string, string> = { ultrathink: 'high', none: 'low' } as const;

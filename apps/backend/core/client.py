@@ -485,6 +485,7 @@ def create_client(
     agents: dict | None = None,
     betas: list[str] | None = None,
     effort_level: str | None = None,
+    reasoning_effort: str | None = None,
     fast_mode: bool = False,
 ) -> ClaudeSDKClient:
     """
@@ -517,6 +518,8 @@ def create_client(
                      "medium", "high"). When set, injected as CLAUDE_CODE_EFFORT_LEVEL
                      env var for the SDK subprocess. Only meaningful for models that
                      support adaptive thinking (e.g., Opus 4.6).
+        reasoning_effort: Optional OpenAI Codex reasoning effort override. Passed
+                         through to the Codex CLI as model_reasoning_effort.
         fast_mode: Enable Fast Mode for faster Opus 4.6 output. When True, enables
                   the "user" setting source so the CLI reads fastMode from
                   ~/.claude/settings.json. Requires extra usage enabled on Claude
@@ -553,6 +556,7 @@ def create_client(
             system_prompt=base_prompt,
             output_format=output_format,
             cwd=project_dir,
+            reasoning_effort=reasoning_effort,
         )
 
     # Collect env vars to pass to SDK (ANTHROPIC_BASE_URL, CLAUDE_CONFIG_DIR, etc.)

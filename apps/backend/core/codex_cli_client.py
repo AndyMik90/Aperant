@@ -19,6 +19,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from core.platform import build_windows_command, requires_shell
+
 logger = logging.getLogger(__name__)
 
 
@@ -104,6 +106,7 @@ class CodexCLIClient:
         system_prompt: str | None = None,
         output_format: dict[str, Any] | None = None,
         cwd: str | Path | None = None,
+        reasoning_effort: str | None = None,
     ) -> None:
         self.project_dir = Path(project_dir).resolve()
         self.spec_dir = Path(spec_dir).resolve() if spec_dir else None
@@ -111,6 +114,7 @@ class CodexCLIClient:
         self.model = resolve_codex_model(model)
         self.system_prompt = (system_prompt or "").strip()
         self.output_format = output_format
+        self.reasoning_effort = (reasoning_effort or "").strip() or None
         self._pending_prompt: str | None = None
 
     async def __aenter__(self) -> "CodexCLIClient":
@@ -147,8 +151,13 @@ class CodexCLIClient:
 
         return "\n\n---\n\n".join(sections)
 
-    def _build_command(self) -> tuple[str, list[str]]:
+    def _build_command(self) -> list[str]:
         cli_path = os.environ.get("APERANT_CODEX_CLI_PATH", "codex").strip().strip('"')
+        if not cli_path:
+            raise RuntimeError(
+                "OpenAI Codex CLI path is not configured. Please sign in to Codex and try again."
+            )
+
         args = [
             "--dangerously-bypass-approvals-and-sandbox",
             "exec",
@@ -161,7 +170,10 @@ class CodexCLIClient:
             self.model,
             "-",
         ]
-        return cli_path or "codex", args
+        if self.reasoning_effort:
+            args.extend(["-c", f"model_reasoning_effort={self.reasoning_effort}"])
+
+        return build_windows_command(cli_path, args)
 
     async def _drain_stderr(
         self, stream: asyncio.StreamReader | None, sink: list[str]
@@ -230,17 +242,34 @@ class CodexCLIClient:
         prompt = self._build_prompt(self._pending_prompt)
         self._pending_prompt = None
 
-        command, args = self._build_command()
-        logger.info("Starting Codex CLI session with model %s in %s", self.model, self.cwd)
-
-        process = await asyncio.create_subprocess_exec(
-            command,
-            *args,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-            env=os.environ.copy(),
+        command_parts = self._build_command()
+        cli_path = os.environ.get("APERANT_CODEX_CLI_PATH", "codex").strip().strip('"')
+        logger.info(
+            "Starting Codex CLI session with model %s in %s (cli=%s, shell_wrap=%s, reasoning_effort=%s, provider_account=%s)",
+            self.model,
+            self.cwd,
+            cli_path,
+            requires_shell(cli_path),
+            self.reasoning_effort or "(default)",
+            os.environ.get("APERANT_PROVIDER_ACCOUNT_ID", "(unknown)"),
         )
+
+        try:
+            process = await asyncio.create_subprocess_exec(
+                *command_parts,
+                stdin=asyncio.subprocess.PIPE,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                env=os.environ.copy(),
+            )
+        except FileNotFoundError as exc:
+            raise RuntimeError(
+                f"OpenAI Codex CLI was not found or is not runnable: {cli_path}"
+            ) from exc
+        except OSError as exc:
+            raise RuntimeError(
+                f"OpenAI Codex CLI could not be started: {exc}"
+            ) from exc
 
         if process.stdin:
             process.stdin.write(prompt.encode("utf-8"))

@@ -20,6 +20,7 @@ import type { IdeationConfig, ProviderAccount } from '../../shared/types';
 import { resetStuckSubtasks } from '../ipc-handlers/task/plan-file-utils';
 import { AUTO_BUILD_PATHS, getSpecsDir, sanitizeThinkingLevel } from '../../shared/constants';
 import { projectStore } from '../project-store';
+import { resolveCodexCli } from '../codex-cli-resolver';
 
 /**
  * Main AgentManager - orchestrates agent process lifecycle
@@ -181,14 +182,24 @@ export class AgentManager extends EventEmitter {
 
     if (providerAccount?.provider === 'openai') {
       const authState = await getCodexAuthState(providerAccount.id);
-      if (authState.isAuthenticated) {
+      if (!authState.isAuthenticated) {
+        this.emit(
+          'error',
+          taskId,
+          'OpenAI Codex authentication required. Please authenticate the selected OpenAI account in Settings > Accounts before starting tasks.'
+        );
+        return false;
+      }
+
+      const codexCliResolution = resolveCodexCli();
+      if (codexCliResolution.cliPath) {
         return true;
       }
 
       this.emit(
         'error',
         taskId,
-        'OpenAI Codex authentication required. Please authenticate the selected OpenAI account in Settings > Accounts before starting tasks.'
+        'OpenAI Codex CLI was not found on this Windows machine. Install or re-authenticate Codex in VS Code/OpenAI, then retry the task.'
       );
       return false;
     }

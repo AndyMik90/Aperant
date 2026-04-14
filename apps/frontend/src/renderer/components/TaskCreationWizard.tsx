@@ -36,7 +36,12 @@ import {
 } from '../../shared/constants';
 import { useSettingsStore } from '../stores/settings-store';
 import type { ProviderAccount } from '../../shared/types';
-import { getProviderModelLabels, toTaskProviderOption, type TaskProviderOption } from '../lib/provider-accounts';
+import {
+  getProviderModelLabels,
+  normalizeThinkingLevelForProvider,
+  toTaskProviderOption,
+  type TaskProviderOption
+} from '../lib/provider-accounts';
 
 interface TaskCreationWizardProps {
   projectId: string;
@@ -115,13 +120,6 @@ export function TaskCreationWizard({
   const [providerOptions, setProviderOptions] = useState<TaskProviderOption[]>([]);
   const [providerAccounts, setProviderAccounts] = useState<ProviderAccount[]>([]);
   const [profileCombinationsEnabled, setProfileCombinationsEnabled] = useState(false);
-  const [providerModelLabels, setProviderModelLabels] = useState<Record<string, string> | undefined>(undefined);
-
-  // When provider changes, resolve model labels for that provider
-  useEffect(() => {
-    const selectedProvider = providerAccounts.find((account) => account.id === providerId);
-    setProviderModelLabels(getProviderModelLabels(selectedProvider, apiProfiles));
-  }, [apiProfiles, providerAccounts, providerId]);
 
   // Load provider options and profile combinations setting
   useEffect(() => {
@@ -150,6 +148,10 @@ export function TaskCreationWizard({
           const orderedAccounts: ProviderAccount[] = [
             ...providerResult.data.globalPriorityOrder.map((accountId) => accountMap.get(accountId)).filter((account): account is ProviderAccount => !!account),
             ...providerResult.data.disabledAutoSwitchAccountIds.map((accountId) => accountMap.get(accountId)).filter((account): account is ProviderAccount => !!account),
+            ...providerResult.data.accounts.filter(
+              (account) => !providerResult.data.globalPriorityOrder.includes(account.id)
+                && !providerResult.data.disabledAutoSwitchAccountIds.includes(account.id)
+            ),
           ];
 
           setProviderAccounts(orderedAccounts);
@@ -201,12 +203,21 @@ export function TaskCreationWizard({
 
   // Fast mode
   const [fastMode, setFastMode] = useState(false);
+  const selectedProvider = useMemo(
+    () => providerAccounts.find((account) => account.id === providerId) ?? providerAccounts[0],
+    [providerAccounts, providerId]
+  );
+  const providerModelLabels = useMemo(
+    () => getProviderModelLabels(selectedProvider, apiProfiles),
+    [apiProfiles, selectedProvider]
+  );
 
   // Show Fast Mode toggle when any phase uses an Opus model
   const showFastModeToggle = useMemo(() => {
     if (!phaseModels) return false;
+    if (selectedProvider?.provider === 'openai') return false;
     return PHASE_KEYS.some(phase => FAST_MODE_MODELS.includes(phaseModels[phase]));
-  }, [phaseModels]);
+  }, [phaseModels, selectedProvider?.provider]);
 
   // Draft state
   const [isDraftRestored, setIsDraftRestored] = useState(false);
@@ -226,6 +237,26 @@ export function TaskCreationWizard({
   useEffect(() => {
     descriptionValueRef.current = description;
   }, [description]);
+
+  useEffect(() => {
+    if (!selectedProvider || selectedProvider.provider === 'openai') {
+      return;
+    }
+
+    setThinkingLevel((currentLevel) => normalizeThinkingLevelForProvider(currentLevel, selectedProvider));
+    setPhaseThinking((currentThinking) => {
+      if (!currentThinking) {
+        return currentThinking;
+      }
+
+      return {
+        spec: normalizeThinkingLevelForProvider(currentThinking.spec, selectedProvider),
+        planning: normalizeThinkingLevelForProvider(currentThinking.planning, selectedProvider),
+        coding: normalizeThinkingLevelForProvider(currentThinking.coding, selectedProvider),
+        qa: normalizeThinkingLevelForProvider(currentThinking.qa, selectedProvider),
+      };
+    });
+  }, [selectedProvider]);
 
   // Load draft when dialog opens
   useEffect(() => {
@@ -725,6 +756,7 @@ export function TaskCreationWizard({
           providerOptions={providerOptions}
           showProviderSelector={profileCombinationsEnabled}
           providerModelLabels={providerModelLabels}
+          providerAccount={selectedProvider}
           profileId={profileId}
           model={model}
           thinkingLevel={thinkingLevel}

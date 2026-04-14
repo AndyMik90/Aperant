@@ -5,13 +5,18 @@ import { cn } from '../../lib/utils';
 import {
   DEFAULT_AGENT_PROFILES,
   AVAILABLE_MODELS,
-  THINKING_LEVELS,
   DEFAULT_PHASE_MODELS,
   DEFAULT_PHASE_THINKING,
-  ADAPTIVE_THINKING_MODELS,
   PHASE_KEYS
 } from '../../../shared/constants';
 import { useSettingsStore, saveSettings } from '../../stores/settings-store';
+import { useEffectiveExecutionProvider } from '../../hooks/useEffectiveExecutionProvider';
+import {
+  getProviderModelLabels,
+  getProviderThinkingOptions,
+  normalizeThinkingLevelForProvider,
+  supportsAdaptiveThinkingForProvider,
+} from '../../lib/provider-accounts';
 import { SettingsSection } from './SettingsSection';
 import { Label } from '../ui/label';
 import { Button } from '../ui/button';
@@ -44,8 +49,18 @@ const iconMap: Record<string, React.ElementType> = {
 export function AgentProfileSettings() {
   const { t } = useTranslation('settings');
   const settings = useSettingsStore((state) => state.settings);
+  const apiProfiles = useSettingsStore((state) => state.profiles);
+  const { effectiveProviderAccount } = useEffectiveExecutionProvider();
   const selectedProfileId = settings.selectedAgentProfile || 'auto';
   const [showPhaseConfig, setShowPhaseConfig] = useState(true);
+  const providerModelLabels = useMemo(
+    () => getProviderModelLabels(effectiveProviderAccount, apiProfiles),
+    [apiProfiles, effectiveProviderAccount]
+  );
+  const thinkingOptions = useMemo(
+    () => getProviderThinkingOptions(effectiveProviderAccount),
+    [effectiveProviderAccount]
+  );
 
   // Find the selected profile
   const selectedProfile = useMemo(() =>
@@ -116,6 +131,9 @@ export function AgentProfileSettings() {
    * Get human-readable model label
    */
   const getModelLabel = (modelValue: string): string => {
+    if (providerModelLabels?.[modelValue]) {
+      return providerModelLabels[modelValue];
+    }
     const model = AVAILABLE_MODELS.find((m) => m.value === modelValue);
     return model?.label || modelValue;
   };
@@ -124,8 +142,9 @@ export function AgentProfileSettings() {
    * Get human-readable thinking level label
    */
   const getThinkingLabel = (thinkingValue: string): string => {
-    const level = THINKING_LEVELS.find((l) => l.value === thinkingValue);
-    return level?.label || thinkingValue;
+    const normalized = normalizeThinkingLevelForProvider(thinkingValue as ThinkingLevel, effectiveProviderAccount);
+    const level = thinkingOptions.find((option) => option.value === normalized);
+    return level?.label || normalized;
   };
 
   /**
@@ -282,7 +301,7 @@ export function AgentProfileSettings() {
                           <SelectContent>
                             {AVAILABLE_MODELS.map((m) => (
                               <SelectItem key={m.value} value={m.value}>
-                                {m.label}
+                                {getModelLabel(m.value)}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -292,7 +311,7 @@ export function AgentProfileSettings() {
                       <div className="space-y-1">
                         <div className="flex items-center gap-1.5">
                           <Label className="text-xs text-muted-foreground">{t('agentProfile.thinkingLevel')}</Label>
-                          {ADAPTIVE_THINKING_MODELS.includes(currentPhaseModels[phase]) && (
+                          {supportsAdaptiveThinkingForProvider(currentPhaseModels[phase], effectiveProviderAccount) && (
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <span className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium text-primary cursor-help">
@@ -306,14 +325,14 @@ export function AgentProfileSettings() {
                           )}
                         </div>
                         <Select
-                          value={currentPhaseThinking[phase]}
+                          value={normalizeThinkingLevelForProvider(currentPhaseThinking[phase], effectiveProviderAccount)}
                           onValueChange={(value) => handlePhaseThinkingChange(phase, value as ThinkingLevel)}
                         >
                           <SelectTrigger className="h-9">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {THINKING_LEVELS.map((level) => (
+                            {thinkingOptions.map((level) => (
                               <SelectItem key={level.value} value={level.value}>
                                 {level.label}
                               </SelectItem>

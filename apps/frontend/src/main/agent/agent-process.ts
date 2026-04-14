@@ -24,12 +24,13 @@ import { buildMemoryEnvVars } from '../memory-env-builder';
 import { readSettingsFile } from '../settings-utils';
 import type { AppSettings } from '../../shared/types/settings';
 import { getOAuthModeClearVars } from './env-utils';
-import { findExecutable, getAugmentedEnv } from '../env-utils';
+import { getAugmentedEnv } from '../env-utils';
 import { getToolInfo, getClaudeCliPathForSdk } from '../cli-tool-manager';
 import { killProcessGracefully, isWindows } from '../platform';
 import { tmpdir } from 'os';
 import { debugLog } from '../../shared/utils/debug-logger';
 import { prepareCodexCliHome } from '../codex-auth/codex-oauth';
+import { resolveCodexCli } from '../codex-cli-resolver';
 
 // ─── PID file helpers (for cross-process kill from MCP server) ─────────────
 const PID_DIR = path.join(tmpdir(), 'auto-claude-pids');
@@ -742,15 +743,12 @@ export class AgentProcessManager {
           apiProfileEnv = await getAPIProfileEnvById(providerAccount.apiProfileId);
           resolvedProviderType = 'openai-compatible';
         } else if (providerAccount?.provider === 'openai') {
-          const detectedCodexPath = findExecutable('codex');
-          const codexCliPath = detectedCodexPath && !/\.(cmd|bat|ps1)$/i.test(detectedCodexPath)
-            ? detectedCodexPath
-            : 'codex';
+          const codexCliResolution = resolveCodexCli();
           const codexHome = await prepareCodexCliHome(providerAccount.id);
           providerExecutionEnv = {
             APERANT_AI_PROVIDER: 'openai',
             APERANT_PROVIDER_ACCOUNT_ID: providerAccount.id,
-            APERANT_CODEX_CLI_PATH: codexCliPath,
+            APERANT_CODEX_CLI_PATH: codexCliResolution.cliPath || '',
             CODEX_HOME: codexHome,
             CLAUDE_CODE_OAUTH_TOKEN: '',
             CLAUDE_CONFIG_DIR: '',
@@ -796,6 +794,7 @@ export class AgentProcessManager {
       baseUrl: apiProfileEnv.ANTHROPIC_BASE_URL || '(not set — using Anthropic default)',
       clearsOAuth: apiProfileEnv.CLAUDE_CODE_OAUTH_TOKEN === '',
       hasCodexHome: !!providerExecutionEnv.CODEX_HOME,
+      codexCliPath: providerExecutionEnv.APERANT_CODEX_CLI_PATH || '(not set)',
     });
 
     // Get OAuth mode clearing vars (clears stale ANTHROPIC_* vars when in OAuth mode)

@@ -46,7 +46,12 @@ import {
 import type { PhaseModelConfig, PhaseThinkingConfig } from '../../shared/types/settings';
 import { useSettingsStore } from '../stores/settings-store';
 import type { ProviderAccount } from '../../shared/types';
-import { getProviderModelLabels, toTaskProviderOption, type TaskProviderOption } from '../lib/provider-accounts';
+import {
+  getProviderModelLabels,
+  normalizeThinkingLevelForProvider,
+  toTaskProviderOption,
+  type TaskProviderOption
+} from '../lib/provider-accounts';
 
 /**
  * Props for the TaskEditDialog component
@@ -131,16 +136,20 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
 
   // Fast mode
   const [fastMode, setFastMode] = useState(task.metadata?.fastMode ?? false);
+  const selectedProvider = useMemo(
+    () => providerAccounts.find((account) => account.id === providerId) ?? providerAccounts[0],
+    [providerAccounts, providerId]
+  );
   const providerModelLabels = useMemo(() => {
-    const selectedProvider = providerAccounts.find((account) => account.id === providerId);
     return getProviderModelLabels(selectedProvider, apiProfiles);
-  }, [apiProfiles, providerAccounts, providerId]);
+  }, [apiProfiles, selectedProvider]);
 
   // Show Fast Mode toggle when any phase uses an Opus model
   const showFastModeToggle = useMemo(() => {
     if (!phaseModels) return false;
+    if (selectedProvider?.provider === 'openai') return false;
     return PHASE_KEYS.some(phase => FAST_MODE_MODELS.includes(phaseModels[phase]));
-  }, [phaseModels]);
+  }, [phaseModels, selectedProvider?.provider]);
 
   // Disable fast mode toggle for tasks that have moved past backlog
   const isFastModeEditable = task.status === 'backlog';
@@ -231,6 +240,10 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
             ...providerResult.data.disabledAutoSwitchAccountIds
               .map((accountId) => accountMap.get(accountId))
               .filter((account): account is ProviderAccount => !!account),
+            ...providerResult.data.accounts.filter(
+              (account) => !providerResult.data.globalPriorityOrder.includes(account.id)
+                && !providerResult.data.disabledAutoSwitchAccountIds.includes(account.id)
+            ),
           ];
 
           setProviderAccounts(orderedAccounts);
@@ -249,6 +262,26 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
 
     loadProviders();
   }, [open]);
+
+  useEffect(() => {
+    if (!selectedProvider || selectedProvider.provider === 'openai') {
+      return;
+    }
+
+    setThinkingLevel((currentLevel) => normalizeThinkingLevelForProvider(currentLevel, selectedProvider));
+    setPhaseThinking((currentThinking) => {
+      if (!currentThinking) {
+        return currentThinking;
+      }
+
+      return {
+        spec: normalizeThinkingLevelForProvider(currentThinking.spec, selectedProvider),
+        planning: normalizeThinkingLevelForProvider(currentThinking.planning, selectedProvider),
+        coding: normalizeThinkingLevelForProvider(currentThinking.coding, selectedProvider),
+        qa: normalizeThinkingLevelForProvider(currentThinking.qa, selectedProvider),
+      };
+    });
+  }, [selectedProvider]);
 
   /**
    * Handle file reference drop from FileTreeItem drag
@@ -371,6 +404,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
         providerOptions={providerOptions}
         showProviderSelector={profileCombinationsEnabled}
         providerModelLabels={providerModelLabels}
+        providerAccount={selectedProvider}
         profileId={profileId}
         model={model}
         thinkingLevel={thinkingLevel}

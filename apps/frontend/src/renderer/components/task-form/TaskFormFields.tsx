@@ -36,6 +36,7 @@ import type {
   ThinkingLevel
 } from '../../../shared/types';
 import type { PhaseModelConfig, PhaseThinkingConfig } from '../../../shared/types/settings';
+import type { ProviderAccount } from '../../../shared/types/provider-account';
 import type { TaskProviderOption } from '../../lib/provider-accounts';
 
 interface TaskFormFieldsProps {
@@ -63,6 +64,7 @@ interface TaskFormFieldsProps {
   showProviderSelector?: boolean;
   /** Override model labels per provider (e.g., MiniMax model names) */
   providerModelLabels?: Record<string, string>;
+  providerAccount?: ProviderAccount;
 
   // Agent profile
   profileId: string;
@@ -131,6 +133,7 @@ export function TaskFormFields({
   providerOptions,
   showProviderSelector = false,
   providerModelLabels,
+  providerAccount,
   profileId,
   model,
   thinkingLevel,
@@ -525,6 +528,7 @@ export function TaskFormFields({
           onPhaseThinkingChange={onPhaseThinkingChange}
           disabled={disabled}
           providerModelLabels={providerModelLabels}
+          providerAccount={providerAccount}
         />
 
         {/* Classification Toggle */}

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -8,11 +8,17 @@ import { SettingsSection } from './SettingsSection';
 import { AgentProfileSettings } from './AgentProfileSettings';
 import {
   AVAILABLE_MODELS,
-  THINKING_LEVELS,
   DEFAULT_FEATURE_MODELS,
   DEFAULT_FEATURE_THINKING,
   FEATURE_LABELS
 } from '../../../shared/constants';
+import { useSettingsStore } from '../../stores/settings-store';
+import { useEffectiveExecutionProvider } from '../../hooks/useEffectiveExecutionProvider';
+import {
+  getProviderModelLabels,
+  getProviderThinkingOptions,
+  normalizeThinkingLevelForProvider,
+} from '../../lib/provider-accounts';
 import type {
   AppSettings,
   FeatureModelConfig,
@@ -91,6 +97,8 @@ function ToolDetectionDisplay({ info, isLoading, t }: ToolDetectionDisplayProps)
  */
 export function GeneralSettings({ settings, onSettingsChange, section }: GeneralSettingsProps) {
   const { t } = useTranslation('settings');
+  const apiProfiles = useSettingsStore((state) => state.profiles);
+  const { effectiveProviderAccount } = useEffectiveExecutionProvider();
   const [toolsInfo, setToolsInfo] = useState<{
     python: ToolDetectionResult;
     git: ToolDetectionResult;
@@ -99,6 +107,21 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
     claude: ToolDetectionResult;
   } | null>(null);
   const [isLoadingTools, setIsLoadingTools] = useState(false);
+  const providerModelLabels = useMemo(
+    () => getProviderModelLabels(effectiveProviderAccount, apiProfiles),
+    [apiProfiles, effectiveProviderAccount]
+  );
+  const thinkingOptions = useMemo(
+    () => getProviderThinkingOptions(effectiveProviderAccount),
+    [effectiveProviderAccount]
+  );
+
+  const resolveModelLabel = (modelValue: string): string => {
+    if (providerModelLabels?.[modelValue]) {
+      return providerModelLabels[modelValue];
+    }
+    return AVAILABLE_MODELS.find((model) => model.value === modelValue)?.label || modelValue;
+  };
 
   // Fetch CLI tools detection info when component mounts (paths section only)
   useEffect(() => {
@@ -224,7 +247,7 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
                           <SelectContent>
                             {AVAILABLE_MODELS.map((m) => (
                               <SelectItem key={m.value} value={m.value}>
-                                {m.label}
+                                {resolveModelLabel(m.value)}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -234,7 +257,7 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
                       <div className="space-y-1">
                         <Label className="text-xs text-muted-foreground">{t('general.thinkingLevel')}</Label>
                         <Select
-                          value={featureThinking[feature]}
+                          value={normalizeThinkingLevelForProvider(featureThinking[feature], effectiveProviderAccount)}
                           onValueChange={(value) => {
                             const newFeatureThinking = { ...featureThinking, [feature]: value as ThinkingLevel };
                             onSettingsChange({ ...settings, featureThinking: newFeatureThinking });
@@ -244,7 +267,7 @@ export function GeneralSettings({ settings, onSettingsChange, section }: General
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {THINKING_LEVELS.map((level) => (
+                            {thinkingOptions.map((level) => (
                               <SelectItem key={level.value} value={level.value}>
                                 {level.label}
                               </SelectItem>

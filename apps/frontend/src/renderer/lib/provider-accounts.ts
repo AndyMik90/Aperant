@@ -1,6 +1,14 @@
 import type { ProviderAccount } from '../../shared/types';
 import type { APIProfile } from '../../shared/types/profile';
-import { OPENAI_EQUIVALENT_MODEL_LABELS } from '../../shared/constants/providers';
+import {
+  OPENAI_EQUIVALENT_MODEL_LABELS,
+} from '../../shared/constants/providers';
+import {
+  getThinkingLevelsForProvider,
+  normalizeThinkingLevelForProvider as normalizeSharedThinkingLevelForProvider,
+  type ThinkingOption,
+} from '../../shared/constants/models';
+import type { ThinkingLevel } from '../../shared/types/settings';
 
 export interface TaskProviderOption {
   id: string;
@@ -11,6 +19,10 @@ export interface TaskProviderOption {
 }
 
 export const OPENAI_PROVIDER_MODEL_LABELS = OPENAI_EQUIVALENT_MODEL_LABELS;
+
+export function isOpenAIProviderAccount(account: ProviderAccount | undefined): boolean {
+  return account?.provider === 'openai';
+}
 
 export function getProviderAccountType(account: ProviderAccount): 'oauth' | 'api' {
   return account.authType === 'oauth' ? 'oauth' : 'api';
@@ -82,4 +94,31 @@ export function getProviderModelLabels(
   }
 
   return Object.keys(labels).length > 0 ? labels : undefined;
+}
+
+export function getProviderThinkingOptions(
+  account: ProviderAccount | undefined
+): readonly ThinkingOption[] {
+  return getThinkingLevelsForProvider(isOpenAIProviderAccount(account) ? 'openai' : 'anthropic');
+}
+
+export function normalizeThinkingLevelForProvider(
+  level: ThinkingLevel | '',
+  account: ProviderAccount | undefined
+): ThinkingLevel | '' {
+  if (!level) {
+    return level;
+  }
+
+  return normalizeSharedThinkingLevelForProvider(
+    level,
+    isOpenAIProviderAccount(account) ? 'openai' : 'anthropic'
+  );
+}
+
+export function supportsAdaptiveThinkingForProvider(
+  modelValue: string,
+  account: ProviderAccount | undefined
+): boolean {
+  return !isOpenAIProviderAccount(account) && ['opus', 'opus-1m'].includes(modelValue);
 }

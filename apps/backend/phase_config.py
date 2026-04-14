@@ -36,11 +36,16 @@ THINKING_BUDGET_MAP: dict[str, int] = {
     "low": 1024,
     "medium": 4096,  # Moderate analysis
     "high": 16384,  # Deep thinking for QA review
+    "xhigh": 32768,  # Extra-deep reasoning for Codex
 }
 
 # Effort level mapping for adaptive thinking models (e.g., Opus 4.6)
 # These models support CLAUDE_CODE_EFFORT_LEVEL env var for effort-based routing
-EFFORT_LEVEL_MAP: dict[str, str] = {"low": "low", "medium": "medium", "high": "high"}
+EFFORT_LEVEL_MAP: dict[str, str] = {
+    "low": "low",
+    "medium": "medium",
+    "high": "high",
+}
 
 # Models that support adaptive thinking via effort level (env var)
 # These models get both max_thinking_tokens AND effort_level
@@ -164,7 +169,7 @@ def get_model_betas(model_short: str) -> list[str]:
     return MODEL_BETAS_MAP.get(model_short, [])
 
 
-VALID_THINKING_LEVELS = {"low", "medium", "high"}
+VALID_THINKING_LEVELS = {"low", "medium", "high", "xhigh"}
 
 # Mapping from legacy/removed thinking levels to valid ones
 LEGACY_THINKING_LEVEL_MAP: dict[str, str] = {
@@ -185,7 +190,7 @@ def sanitize_thinking_level(thinking_level: str) -> str:
         thinking_level: Raw thinking level string from CLI or task_metadata.json
 
     Returns:
-        A valid thinking level string (low, medium, high)
+        A valid thinking level string (low, medium, high, xhigh)
     """
     if thinking_level in VALID_THINKING_LEVELS:
         return thinking_level
@@ -200,7 +205,7 @@ def get_thinking_budget(thinking_level: str) -> int:
     Get the thinking budget for a thinking level.
 
     Args:
-        thinking_level: Thinking level (low, medium, high)
+        thinking_level: Thinking level (low, medium, high, xhigh)
 
     Returns:
         Token budget for extended thinking
@@ -423,23 +428,38 @@ def is_adaptive_model(model_id: str) -> bool:
     return model_id in ADAPTIVE_THINKING_MODELS
 
 
+def is_openai_codex_model(model_id: str) -> bool:
+    """Check if a resolved model ID targets the OpenAI Codex runtime."""
+
+    normalized = (model_id or "").strip().lower()
+    return normalized.startswith("gpt-") or "codex" in normalized
+
+
 def get_thinking_kwargs_for_model(model_id: str, thinking_level: str) -> dict:
     """
     Get thinking-related kwargs for create_client() based on model type.
 
-    For adaptive models (Opus 4.6): returns both max_thinking_tokens and effort_level.
-    For other models (Sonnet, Haiku): returns only max_thinking_tokens.
+    For OpenAI Codex models: returns a reasoning_effort override only.
+    For adaptive Claude models (Opus 4.6): returns both max_thinking_tokens and
+    effort_level.
+    For other Claude models (Sonnet, Haiku): returns only max_thinking_tokens.
 
     Args:
         model_id: Full model ID (e.g., 'claude-opus-4-6')
         thinking_level: Thinking level string (low, medium, high)
 
     Returns:
-        Dict with 'max_thinking_tokens' and optionally 'effort_level'
+        Dict with provider-appropriate thinking kwargs for create_client()
     """
-    kwargs: dict = {"max_thinking_tokens": get_thinking_budget(thinking_level)}
+    normalized_level = sanitize_thinking_level(thinking_level)
+
+    if is_openai_codex_model(model_id):
+        return {"reasoning_effort": normalized_level}
+
+    anthropic_level = "high" if normalized_level == "xhigh" else normalized_level
+    kwargs: dict = {"max_thinking_tokens": get_thinking_budget(anthropic_level)}
     if is_adaptive_model(model_id):
-        kwargs["effort_level"] = EFFORT_LEVEL_MAP.get(thinking_level, "medium")
+        kwargs["effort_level"] = EFFORT_LEVEL_MAP.get(anthropic_level, "medium")
     return kwargs
 
 
