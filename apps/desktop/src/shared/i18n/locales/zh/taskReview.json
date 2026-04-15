@@ -1,0 +1,162 @@
+{
+  "terminal": {
+    "openTerminal": "打开终端",
+    "openInbuilt": "在内置终端中打开",
+    "openExternal": "在外部终端中打开"
+  },
+  "merge": {
+    "branchHasNewCommits": "{{branch}} 分支有 {{count}} 个新提交。",
+    "branchHasNewCommits_other": "{{branch}} 分支有 {{count}} 个新提交。",
+    "branchHasNewCommitsSinceWorktree": "此工作树创建以来，{{branch}} 分支已有 {{count}} 个新提交。",
+    "branchHasNewCommitsSinceWorktree_other": "此工作树创建以来，{{branch}} 分支已有 {{count}} 个新提交。",
+    "filesNeedMerging": "{{count}} 个文件需要合并。",
+    "filesNeedMerging_other": "{{count}} 个文件需要合并。",
+    "filesNeedIntelligentMerging": "{{count}} 个文件需要智能合并：",
+    "filesNeedIntelligentMerging_other": "{{count}} 个文件需要智能合并：",
+    "branchHasNewCommitsSinceBuild": "此构建开始以来，{{branch}} 分支已有 {{count}} 个新提交。",
+    "branchHasNewCommitsSinceBuild_other": "此构建开始以来，{{branch}} 分支已有 {{count}} 个新提交。",
+    "filesNeedAIMergeDueToRenames": "{{count}} 个文件因 {{renameCount}} 个文件重命名需要 AI 合并。",
+    "filesNeedAIMergeDueToRenames_other": "{{count}} 个文件因 {{renameCount}} 个文件重命名需要 AI 合并。",
+    "filesNeedAIMergeDueToRenamesPlural": "{{count}} 个文件因 {{renameCount}} 个文件重命名需要 AI 合并。",
+    "filesNeedAIMergeDueToRenamesPlural_other": "{{count}} 个文件因 {{renameCount}} 个文件重命名需要 AI 合并。",
+    "fileRenamesDetected": "检测到 {{count}} 个文件重命名 - AI 将处理合并。",
+    "fileRenamesDetected_other": "检测到 {{count}} 个文件重命名 - AI 将处理合并。",
+    "filesRenamedOrMoved": "文件可能被重命名或移动 - AI 将处理合并。",
+    "alreadyMergedTitle": "您的分支中已有这些更改",
+    "alreadyMergedDescription": "这些更改似乎已存在于您当前的分支中。您可以安全地将此任务标记为完成。",
+    "alreadyMergedTooltip": "任务的更改已存在于您的分支中。标记为完成将清理工作树而不合并。",
+    "matchingFiles": "匹配的文件",
+    "supersededTitle": "更改已被取代",
+    "supersededDescription": "您当前的分支有此更改的新版本。考虑放弃此任务或查看比较。",
+    "supersededCompareTooltip": "查看详细比较以了解当前分支与此任务更改的差异。",
+    "supersededDiscardTooltip": "移除此任务的工作树，因为更改不再需要。",
+    "status": {
+      "branchDiverged": "分支已分离",
+      "aiWillResolve": "AI 将解决",
+      "filesRenamed": "文件已重命名",
+      "branchBehind": "分支落后",
+      "readyToMerge": "可以合并",
+      "files": "个文件",
+      "file": "个文件",
+      "conflict": "个冲突",
+      "conflicts": "个冲突",
+      "details": "详情",
+      "refresh": "刷新",
+      "stageOnly": "仅暂存（在 IDE 中审核后再提交）",
+      "discardBuild": "放弃构建"
+    },
+    "buttons": {
+      "stageWithAIMerge": "使用 AI 合并暂存",
+      "mergeWithAI": "使用 AI 合并",
+      "stageTo": "暂存到 {{branch}}",
+      "mergeTo": "合并到 {{branch}}",
+      "resolving": "解决中...",
+      "staging": "暂存中...",
+      "merging": "合并中...",
+      "completing": "完成中..."
+    },
+    "actions": {
+      "markAsDone": "标记为完成",
+      "discardTask": "放弃任务",
+      "viewComparison": "查看比较"
+    }
+  },
+  "pr": {
+    "title": "创建拉取请求",
+    "description": "推送分支并为\"{{taskTitle}}\"创建拉取请求",
+    "errors": {
+      "unknown": "创建拉取请求时发生未知错误",
+      "invalidBranchName": "分支名称包含无效字符。请仅使用字母、数字、短划线 (-)、下划线 (_) 和正斜杠 (/)。",
+      "emptyTitle": "拉取请求标题不能为空。"
+    },
+    "success": {
+      "created": "拉取请求创建成功！",
+      "alreadyExists": "此分支已存在拉取请求"
+    },
+    "actions": {
+      "retry": "重试",
+      "creating": "创建 PR 中...",
+      "create": "创建拉取请求"
+    },
+    "labels": {
+      "sourceBranch": "源分支",
+      "targetBranch": "目标分支",
+      "commits": "提交",
+      "changes": "更改",
+      "prTitle": "PR 标题（可选）",
+      "draftPR": "创建为草稿 PR",
+      "unknown": "未知"
+    },
+    "hints": {
+      "targetBranch": "留空以使用默认分支",
+      "prTitle": "留空以使用任务标题"
+    }
+  },
+  "mergeProgress": {
+    "stages": {
+      "analyzing": "分析更改",
+      "detectingConflicts": "检测冲突",
+      "resolving": "解决冲突",
+      "validating": "验证合并",
+      "complete": "合并完成",
+      "error": "合并失败",
+      "stalled": "合并停滞"
+    },
+    "conflictCounter": "发现 {{found}} 个，已解决 {{resolved}} 个",
+    "currentFile": "当前文件",
+    "viewLogs": "查看日志",
+    "hideLogs": "隐藏日志",
+    "logTypes": {
+      "info": "信息",
+      "warning": "警告",
+      "error": "错误",
+      "conflict": "冲突",
+      "resolution": "解决方案"
+    },
+    "completionMessage": "所有更改已成功合并。",
+    "errorMessage": "合并过程中发生错误。"
+  },
+  "stagedSuccess": {
+    "title": "更改暂存成功",
+    "aiCommitMessage": "AI 生成的提交消息",
+    "copied": "已复制！",
+    "copy": "复制",
+    "editHint": "根据需要编辑，然后复制并使用",
+    "nextSteps": "下一步：",
+    "reviewChanges": "使用以下方式审核暂存的更改",
+    "commitWhenReady": "准备好时提交：",
+    "pushToRemote": "满意时推送到远程",
+    "cleaningUp": "清理中...",
+    "markingDone": "标记完成中...",
+    "resetting": "重置中...",
+    "deleteWorktreeAndMarkDone": "删除工作树并标记完成",
+    "markDoneOnly": "仅标记完成",
+    "markAsDone": "标记为完成",
+    "reviewAgain": "再次审核",
+    "commitMessagePlaceholder": "提交消息...",
+    "worktreeExplanation": "\"删除工作树并标记完成\"会清理隔离的工作空间。\"仅标记完成\"会保留它以供参考。",
+    "errors": {
+      "failedToDeleteWorktree": "删除工作树失败",
+      "worktreeDeletedButStatusFailed": "工作树已删除但更新任务状态失败：{{error}}",
+      "failedToMarkAsDone": "标记完成失败",
+      "failedToResetStagedState": "重置暂存状态失败"
+    }
+  },
+  "bulkPR": {
+    "title": "创建拉取请求",
+    "description": "为 {{count}} 个选定的任务创建拉取请求",
+    "creating": "正在创建 PR {{current}}/{{total}}...",
+    "creatingPR": "正在创建 PR {{current}}/{{total}}",
+    "resultsDescription": "{{success}} 个成功，{{failed}} 个失败",
+    "tasksToProcess": "待处理的任务",
+    "targetBranchHint": "留空以使用每个任务的默认分支。这将应用于所有 PR。",
+    "createAll": "创建 {{count}} 个 PR",
+    "completed": "已完成",
+    "succeeded": "成功",
+    "failed": "失败",
+    "skipped": "跳过",
+    "alreadyExisted": "已存在",
+    "noWorktree": "未找到此任务的工作树",
+    "resultsDescriptionWithSkipped": "{{success}} 个成功，{{skipped}} 个跳过，{{failed}} 个失败"
+  }
+}
