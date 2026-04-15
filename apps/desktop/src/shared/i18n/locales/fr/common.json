@@ -701,7 +701,85 @@
     "convertToTask": "Convertir en tâche Auto-Build",
     "build": "Construire",
     "task": "Tâche",
-    "viewTask": "Voir la tâche"
+    "viewTask": "Voir la tâche",
+    "header": {
+      "competitorAnalysis": "Analyse concurrentielle",
+      "clickToViewAnalysis": "Cliquez pour voir l'analyse détaillée",
+      "analyzedCompetitors": "{{count}} concurrents analysés et {{painPoints}} points douloureux identifiés",
+      "addFeature": "Ajouter une fonctionnalité",
+      "addFeatureTooltip": "Ajouter une nouvelle fonctionnalité à la feuille de route",
+      "regenerateRoadmap": "Régénérer la feuille de route",
+      "target": "Cible :",
+      "secondaryPersonas": "autres personas",
+      "features": "fonctionnalités",
+      "phases": "phases"
+    },
+    "tabs": {
+      "kanban": "Kanban",
+      "phases": "Phases",
+      "allFeatures": "Toutes les fonctionnalités",
+      "byPriority": "Par priorité",
+      "features": "fonctionnalités",
+      "completed": "Terminé",
+      "archive": "Archiver"
+    },
+    "emptyState": {
+      "title": "Pas encore de feuille de route",
+      "description": "Générez une feuille de route alimentée par l'IA qui comprend les objectifs de votre projet, votre audience cible et crée un plan stratégique de fonctionnalités.",
+      "generateRoadmap": "Générer la feuille de route"
+    },
+    "featureCard": {
+      "competitorInsight": "Aperçu concurrentiel",
+      "competitorInsightTooltip": "Cette fonctionnalité répond aux points douloureux des concurrents",
+      "impact": "impact"
+    },
+    "featureDetail": {
+      "description": "Description",
+      "rationale": "Justification",
+      "complexity": "Complexité",
+      "impact": "Impact",
+      "dependencies": "Dépendances",
+      "userStories": "Récits utilisateur",
+      "acceptanceCriteria": "Critères d'acceptation",
+      "competitorInsights": "Répond aux points douloureux des concurrents",
+      "severity": "sévérité",
+      "deleteFeature": "Supprimer la fonctionnalité ?",
+      "deleteWarning": "Cela supprimera définitivement « {{title}} » de votre feuille de route.",
+      "cancel": "Annuler",
+      "delete": "Supprimer",
+      "completed": "Terminé"
+    },
+    "phaseCard": {
+      "progress": "Progression",
+      "milestones": "Jalons",
+      "features": "Fonctionnalités",
+      "featuresCount": "{{count}} fonctionnalités",
+      "phase": "Phase"
+    },
+    "sortable": {
+      "votesTooltip": "{{count}} votes des retours utilisateurs",
+      "importedFrom": "Importé depuis {{provider}}"
+    },
+    "kanban": {
+      "dropHere": "Déposez ici",
+      "noFeatures": "Aucune fonctionnalité",
+      "dragHere": "Glissez les fonctionnalités ici"
+    },
+    "priority": {
+      "must": "doit",
+      "should": "devrait",
+      "could": "pourrait",
+      "wont": "ne le fera pas"
+    },
+    "status": {
+      "under_review": "En révision",
+      "planned": "Planifié",
+      "in_progress": "En cours",
+      "done": "Terminé"
+    },
+    "competitorInsight": {
+      "insight": "Aperçu"
+    }
   },
   "roadmapGeneration": {
     "progress": "Progression",

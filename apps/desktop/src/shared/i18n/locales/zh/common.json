@@ -701,7 +701,83 @@
     "convertToTask": "转换为自动构建任务",
     "build": "构建",
     "task": "任务",
-    "viewTask": "查看任务"
+    "viewTask": "查看任务",
+    "header": {
+      "competitorAnalysis": "竞争对手分析",
+      "clickToViewAnalysis": "点击查看详细分析",
+      "analyzedCompetitors": "分析了 {{count}} 个竞争对手，发现了 {{painPoints}} 个痛点",
+      "addFeature": "添加功能",
+      "addFeatureTooltip": "向路线图添加新功能",
+      "regenerateRoadmap": "重新生成路线图",
+      "target": "目标用户：",
+      "secondaryPersonas": "更多人物画像",
+      "secondaryPersonasTitle": "次要人物画像：",
+      "features": "个功能",
+      "phases": "个阶段"
+    },
+    "tabs": {
+      "kanban": "看板",
+      "phases": "阶段",
+      "allFeatures": "所有功能",
+      "byPriority": "按优先级"
+    },
+    "emptyState": {
+      "title": "暂无路线图",
+      "description": "生成由 AI 驱动的路线图，理解您的项目目标用户并创建战略性功能计划。",
+      "generateRoadmap": "生成路线图"
+    },
+    "featureCard": {
+      "competitorInsight": "竞争对手洞察",
+      "competitorInsightTooltip": "此功能针对竞争对手的痛点",
+      "impact": "影响"
+    },
+    "featureDetail": {
+      "description": "描述",
+      "rationale": "理由",
+      "complexity": "复杂度",
+      "impact": "影响",
+      "dependencies": "依赖项",
+      "userStories": "用户故事",
+      "acceptanceCriteria": "验收标准",
+      "competitorInsights": "解决竞争对手痛点",
+      "severity": "严重性",
+      "deleteFeature": "删除功能？",
+      "deleteWarning": "这将永久从路线图中移除\"{{title}}\"。",
+      "cancel": "取消",
+      "delete": "删除",
+      "completed": "已完成"
+    },
+    "phaseCard": {
+      "progress": "进度",
+      "featuresCount": "{{count}} 个功能",
+      "milestones": "里程碑",
+      "features": "功能",
+      "phase": "阶段"
+    },
+    "sortable": {
+      "votesTooltip": "用户反馈 {{count}} 票",
+      "importedFrom": "从 {{provider}} 导入"
+    },
+    "kanban": {
+      "dropHere": "拖放到此处",
+      "noFeatures": "暂无功能",
+      "dragHere": "拖放功能到此处"
+    },
+    "priority": {
+      "must": "必须有",
+      "should": "应该有",
+      "could": "可以有",
+      "wont": "不会做"
+    },
+    "status": {
+      "under_review": "待审核",
+      "planned": "已计划",
+      "in_progress": "进行中",
+      "done": "已完成"
+    },
+    "competitorInsight": {
+      "insight": "洞察"
+    }
   },
   "roadmapGeneration": {
     "progress": "进度",

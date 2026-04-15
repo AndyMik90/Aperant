@@ -20,10 +20,10 @@ import { Card } from '../ui/card';
 import { ScrollArea } from '../ui/scroll-area';
 import {
   ROADMAP_PRIORITY_COLORS,
-  ROADMAP_PRIORITY_LABELS,
   ROADMAP_COMPLEXITY_COLORS,
   ROADMAP_IMPACT_COLORS,
 } from '../../../shared/constants';
+import { useRoadmapLabels } from './hooks';
 import type { FeatureDetailPanelProps } from './types';
 
 export function FeatureDetailPanel({
@@ -36,6 +36,7 @@ export function FeatureDetailPanel({
   competitorInsights = [],
 }: FeatureDetailPanelProps) {
   const { t } = useTranslation('common');
+  const { priorityLabels } = useRoadmapLabels();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const handleArchive = () => {
@@ -57,7 +58,7 @@ export function FeatureDetailPanel({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <Badge variant="outline" className={ROADMAP_PRIORITY_COLORS[feature.priority]}>
-                {ROADMAP_PRIORITY_LABELS[feature.priority]}
+                {priorityLabels[feature.priority]}
               </Badge>
               <Badge
                 variant="outline"
@@ -94,7 +95,7 @@ export function FeatureDetailPanel({
         <div className="p-4 space-y-6">
           {/* Description */}
           <div>
-            <h3 className="text-sm font-medium mb-2">Description</h3>
+            <h3 className="text-sm font-medium mb-2">{t('roadmap.featureDetail.description')}</h3>
             <p className="text-sm text-muted-foreground">{feature.description}</p>
           </div>
 
@@ -102,7 +103,7 @@ export function FeatureDetailPanel({
         <div>
           <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
             <Lightbulb className="h-4 w-4" />
-            Rationale
+            {t('roadmap.featureDetail.rationale')}
           </h3>
           <p className="text-sm text-muted-foreground">{feature.rationale}</p>
         </div>
@@ -115,17 +116,17 @@ export function FeatureDetailPanel({
             >
               {feature.complexity}
             </div>
-            <div className="text-xs text-muted-foreground">Complexity</div>
+            <div className="text-xs text-muted-foreground">{t('roadmap.featureDetail.complexity')}</div>
           </Card>
           <Card className="p-3 text-center">
             <div className={`text-lg font-semibold ${ROADMAP_IMPACT_COLORS[feature.impact]}`}>
               {feature.impact}
             </div>
-            <div className="text-xs text-muted-foreground">Impact</div>
+            <div className="text-xs text-muted-foreground">{t('roadmap.featureDetail.impact')}</div>
           </Card>
           <Card className="p-3 text-center">
             <div className="text-lg font-semibold">{feature.dependencies.length}</div>
-            <div className="text-xs text-muted-foreground">Dependencies</div>
+            <div className="text-xs text-muted-foreground">{t('roadmap.featureDetail.dependencies')}</div>
           </Card>
         </div>
 
@@ -134,7 +135,7 @@ export function FeatureDetailPanel({
           <div>
             <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
               <Users className="h-4 w-4" />
-              User Stories
+              {t('roadmap.featureDetail.userStories')}
             </h3>
             <div className="space-y-2">
               {feature.userStories.map((story, i) => (
@@ -151,7 +152,7 @@ export function FeatureDetailPanel({
           <div>
             <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
               <CheckCircle2 className="h-4 w-4" />
-              Acceptance Criteria
+              {t('roadmap.featureDetail.acceptanceCriteria')}
             </h3>
             <ul className="space-y-1">
               {feature.acceptanceCriteria.map((criterion, i) => (
@@ -169,7 +170,7 @@ export function FeatureDetailPanel({
           <div>
             <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
               <ArrowRight className="h-4 w-4" />
-              Dependencies
+              {t('roadmap.featureDetail.dependencies')}
             </h3>
             <div className="flex flex-wrap gap-1">
               {feature.dependencies.map((dep) => (
@@ -186,7 +187,7 @@ export function FeatureDetailPanel({
           <div>
             <h3 className="text-sm font-medium mb-2 flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-primary" />
-              Addresses Competitor Pain Points
+              {t('roadmap.featureDetail.competitorInsights')}
             </h3>
             <div className="space-y-2">
               {competitorInsights.map((insight) => (
@@ -209,7 +210,7 @@ export function FeatureDetailPanel({
                           : 'text-green-500 border-green-500/50'
                       }`}
                     >
-                      {insight.severity} severity
+                      {insight.severity} {t('roadmap.featureDetail.severity')}
                     </Badge>
                   </div>
                 </div>
@@ -277,17 +278,17 @@ export function FeatureDetailPanel({
               <Trash2 className="h-6 w-6 text-destructive" />
             </div>
             <div>
-              <h3 className="font-semibold">Delete Feature?</h3>
+              <h3 className="font-semibold">{t('roadmap.featureDetail.deleteFeature')}</h3>
               <p className="text-sm text-muted-foreground mt-1">
-                This will permanently remove "{feature.title}" from your roadmap.
+                {t('roadmap.featureDetail.deleteWarning', { title: feature.title })}
               </p>
             </div>
             <div className="flex gap-2 justify-center">
               <Button variant="outline" onClick={() => setShowDeleteConfirm(false)}>
-                Cancel
+                {t('roadmap.featureDetail.cancel')}
               </Button>
               <Button variant="destructive" onClick={handleDelete}>
-                Delete
+                {t('roadmap.featureDetail.delete')}
               </Button>
             </div>
           </div>

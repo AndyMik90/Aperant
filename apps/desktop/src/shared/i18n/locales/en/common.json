@@ -701,7 +701,85 @@
     "convertToTask": "Convert to Auto-Build Task",
     "build": "Build",
     "task": "Task",
-    "viewTask": "View Task"
+    "viewTask": "View Task",
+    "header": {
+      "competitorAnalysis": "Competitor Analysis",
+      "clickToViewAnalysis": "Click to view detailed analysis",
+      "analyzedCompetitors": "Analyzed {{count}} competitors and found {{painPoints}} pain points",
+      "addFeature": "Add Feature",
+      "addFeatureTooltip": "Add a new feature to the roadmap",
+      "regenerateRoadmap": "Regenerate Roadmap",
+      "target": "Target:",
+      "secondaryPersonas": "more personas",
+      "features": "features",
+      "phases": "phases"
+    },
+    "tabs": {
+      "kanban": "Kanban",
+      "phases": "Phases",
+      "allFeatures": "All Features",
+      "byPriority": "By Priority",
+      "features": "features",
+      "completed": "Completed",
+      "archive": "Archive"
+    },
+    "emptyState": {
+      "title": "No Roadmap Yet",
+      "description": "Generate an AI-powered roadmap that understands your project goals, target audience, and creates a strategic feature plan.",
+      "generateRoadmap": "Generate Roadmap"
+    },
+    "featureCard": {
+      "competitorInsight": "Competitor Insight",
+      "competitorInsightTooltip": "This feature addresses competitor pain points",
+      "impact": "impact"
+    },
+    "featureDetail": {
+      "description": "Description",
+      "rationale": "Rationale",
+      "complexity": "Complexity",
+      "impact": "Impact",
+      "dependencies": "Dependencies",
+      "userStories": "User Stories",
+      "acceptanceCriteria": "Acceptance Criteria",
+      "competitorInsights": "Addresses Competitor Pain Points",
+      "severity": "severity",
+      "deleteFeature": "Delete Feature?",
+      "deleteWarning": "This will permanently remove \"{{title}}\" from your roadmap.",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "completed": "Completed"
+    },
+    "phaseCard": {
+      "progress": "Progress",
+      "milestones": "Milestones",
+      "features": "Features",
+      "featuresCount": "{{count}} features",
+      "phase": "Phase"
+    },
+    "sortable": {
+      "votesTooltip": "{{count}} votes from user feedback",
+      "importedFrom": "Imported from {{provider}}"
+    },
+    "kanban": {
+      "dropHere": "Drop here",
+      "noFeatures": "No features",
+      "dragHere": "Drag features here"
+    },
+    "priority": {
+      "must": "must",
+      "should": "should",
+      "could": "could",
+      "wont": "won't"
+    },
+    "status": {
+      "under_review": "Under Review",
+      "planned": "Planned",
+      "in_progress": "In Progress",
+      "done": "Done"
+    },
+    "competitorInsight": {
+      "insight": "Insight"
+    }
   },
   "roadmapGeneration": {
     "progress": "Progress",

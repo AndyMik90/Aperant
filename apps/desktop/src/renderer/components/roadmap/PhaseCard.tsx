@@ -7,6 +7,7 @@ import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { Progress } from '../ui/progress';
 import { ROADMAP_PRIORITY_COLORS } from '../../../shared/constants';
+import { useRoadmapLabels } from './hooks';
 import type { PhaseCardProps } from './types';
 
 const INITIAL_VISIBLE_COUNT = 5;
@@ -21,6 +22,7 @@ export function PhaseCard({
   onArchive,
 }: PhaseCardProps) {
   const { t } = useTranslation('common');
+  const { priorityLabels } = useRoadmapLabels();
   const [isExpanded, setIsExpanded] = useState(false);
   const completedCount = features.filter((f) => f.status === 'done').length;
   const progress = features.length > 0 ? (completedCount / features.length) * 100 : 0;
@@ -60,9 +62,9 @@ export function PhaseCard({
       {/* Progress */}
       <div className="mb-4">
         <div className="flex items-center justify-between text-sm mb-1">
-          <span className="text-muted-foreground">Progress</span>
+          <span className="text-muted-foreground">{t('roadmap.phaseCard.progress')}</span>
           <span>
-            {completedCount}/{features.length} features
+            {completedCount}/{features.length} {t('roadmap.phaseCard.features')}
           </span>
         </div>
         <Progress value={progress} className="h-2" />
@@ -71,7 +73,7 @@ export function PhaseCard({
       {/* Milestones */}
       {phase.milestones.length > 0 && (
         <div className="mb-4">
-          <h4 className="text-sm font-medium mb-2">Milestones</h4>
+          <h4 className="text-sm font-medium mb-2">{t('roadmap.phaseCard.milestones')}</h4>
           <div className="space-y-2">
             {phase.milestones.map((milestone) => (
               <div key={milestone.id} className="flex items-center gap-2 text-sm">
@@ -95,7 +97,7 @@ export function PhaseCard({
 
       {/* Features */}
       <div>
-        <h4 className="text-sm font-medium mb-2">Features ({features.length})</h4>
+        <h4 className="text-sm font-medium mb-2">{t('roadmap.phaseCard.features')} ({features.length})</h4>
         <div className="grid gap-2">
           {visibleFeatures.map((feature) => {
             const isDone = feature.status === 'done';
@@ -128,7 +130,7 @@ export function PhaseCard({
                   variant="outline"
                   className={`text-xs ${ROADMAP_PRIORITY_COLORS[feature.priority]}`}
                 >
-                  {feature.priority}
+                  {priorityLabels[feature.priority]}
                 </Badge>
                 <span className="text-sm truncate">{feature.title}</span>
                 {feature.competitorInsightIds && feature.competitorInsightIds.length > 0 && (

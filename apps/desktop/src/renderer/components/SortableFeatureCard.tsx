@@ -14,10 +14,10 @@ import { useTranslation } from 'react-i18next';
 import { TaskOutcomeBadge, getTaskOutcomeColorClass } from './roadmap/TaskOutcomeBadge';
 import {
   ROADMAP_PRIORITY_COLORS,
-  ROADMAP_PRIORITY_LABELS,
   ROADMAP_COMPLEXITY_COLORS,
   ROADMAP_IMPACT_COLORS
 } from '../../shared/constants';
+import { useRoadmapLabels } from './roadmap/hooks';
 import type { RoadmapFeature, Roadmap } from '../../shared/types';
 
 interface SortableFeatureCardProps {
@@ -38,6 +38,7 @@ export function SortableFeatureCard({
   onArchive
 }: SortableFeatureCardProps) {
   const { t } = useTranslation('common');
+  const { priorityLabels } = useRoadmapLabels();
   const {
     attributes,
     listeners,
@@ -88,7 +89,7 @@ export function SortableFeatureCard({
                 variant="outline"
                 className={cn('text-[10px] px-1.5 py-0', ROADMAP_PRIORITY_COLORS[feature.priority])}
               >
-                {ROADMAP_PRIORITY_LABELS[feature.priority]}
+                {priorityLabels[feature.priority]}
               </Badge>
               {phaseName && (
                 <Tooltip>
@@ -102,7 +103,7 @@ export function SortableFeatureCard({
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent>
-                    Phase: {phaseName}
+                    {t('roadmap.phaseCard.phase')}: {phaseName}
                   </TooltipContent>
                 </Tooltip>
               )}
@@ -117,7 +118,7 @@ export function SortableFeatureCard({
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent>
-                    This feature addresses competitor pain points
+                    {t('roadmap.featureCard.competitorInsightTooltip')}
                   </TooltipContent>
                 </Tooltip>
               )}
@@ -212,7 +213,7 @@ export function SortableFeatureCard({
                 </Badge>
               </TooltipTrigger>
               <TooltipContent>
-                {feature.votes} votes from user feedback
+                {t('roadmap.sortable.votesTooltip', { count: feature.votes })}
               </TooltipContent>
             </Tooltip>
           )}
@@ -228,7 +229,7 @@ export function SortableFeatureCard({
                 </Badge>
               </TooltipTrigger>
               <TooltipContent>
-                Imported from {feature.source?.provider}
+                {t('roadmap.sortable.importedFrom', { provider: feature.source?.provider })}
               </TooltipContent>
             </Tooltip>
           )}

@@ -1,7 +1,39 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useRoadmapStore, loadRoadmap, generateRoadmap, refreshRoadmap, stopRoadmap } from '../../stores/roadmap-store';
 import { useTaskStore } from '../../stores/task-store';
 import type { RoadmapFeature } from '../../../shared/types';
+
+/**
+ * Hook providing translated labels for roadmap constants
+ * Replaces hardcoded English strings from ROADMAP_PRIORITY_LABELS, ROADMAP_STATUS_COLUMNS, etc.
+ */
+export function useRoadmapLabels() {
+  const { t } = useTranslation('common');
+
+  const priorityLabels = {
+    must: t('roadmap.priority.must'),
+    should: t('roadmap.priority.should'),
+    could: t('roadmap.priority.could'),
+    wont: t('roadmap.priority.wont'),
+  };
+
+  const statusColumns = [
+    { id: 'under_review', label: t('roadmap.status.under_review'), color: 'border-t-muted-foreground/50', icon: 'Eye' },
+    { id: 'planned', label: t('roadmap.status.planned'), color: 'border-t-info', icon: 'Calendar' },
+    { id: 'in_progress', label: t('roadmap.status.in_progress'), color: 'border-t-primary', icon: 'Play' },
+    { id: 'done', label: t('roadmap.status.done'), color: 'border-t-success', icon: 'Check' },
+  ];
+
+  const statusLabels = {
+    under_review: t('roadmap.status.under_review'),
+    planned: t('roadmap.status.planned'),
+    in_progress: t('roadmap.status.in_progress'),
+    done: t('roadmap.status.done'),
+  };
+
+  return { priorityLabels, statusColumns, statusLabels };
+}
 
 /**
  * Hook to manage roadmap data and loading

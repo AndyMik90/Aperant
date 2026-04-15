@@ -7,10 +7,10 @@ import { Card } from '../ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip';
 import {
   ROADMAP_PRIORITY_COLORS,
-  ROADMAP_PRIORITY_LABELS,
   ROADMAP_COMPLEXITY_COLORS,
   ROADMAP_IMPACT_COLORS,
 } from '../../../shared/constants';
+import { useRoadmapLabels } from './hooks';
 import type { FeatureCardProps } from './types';
 
 export function FeatureCard({
@@ -22,6 +22,7 @@ export function FeatureCard({
   hasCompetitorInsight = false,
 }: FeatureCardProps) {
   const { t } = useTranslation('common');
+  const { priorityLabels } = useRoadmapLabels();
 
   return (
     <Card className="p-4 hover:bg-muted/50 cursor-pointer transition-colors" onClick={onClick}>
@@ -29,7 +30,7 @@ export function FeatureCard({
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <Badge variant="outline" className={ROADMAP_PRIORITY_COLORS[feature.priority]}>
-              {ROADMAP_PRIORITY_LABELS[feature.priority]}
+              {priorityLabels[feature.priority]}
             </Badge>
             <Badge
               variant="outline"
@@ -41,17 +42,17 @@ export function FeatureCard({
               variant="outline"
               className={`text-xs ${ROADMAP_IMPACT_COLORS[feature.impact]}`}
             >
-              {feature.impact} impact
+              {feature.impact} {t('roadmap.featureCard.impact')}
             </Badge>
             {hasCompetitorInsight && (
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Badge variant="outline" className="text-xs text-primary border-primary/50">
                     <TrendingUp className="h-3 w-3 mr-1" />
-                    Competitor Insight
+                    {t('roadmap.featureCard.competitorInsight')}
                   </Badge>
                 </TooltipTrigger>
-                <TooltipContent>This feature addresses competitor pain points</TooltipContent>
+                <TooltipContent>{t('roadmap.featureCard.competitorInsightTooltip')}</TooltipContent>
               </Tooltip>
             )}
           </div>
