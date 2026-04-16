@@ -10,7 +10,9 @@
 
 - These launch and restart commands are for explicit start/restart situations only
 - If Aperant is already open, do not launch it again
+- Before calling `open_project`, first confirm which Aperant project tabs are already open in the current session
 - If the relevant project tab is already open, reuse that tab and do not create a duplicate project tab
+- Do not call `open_project` until that tab check is complete
 - When the user asks to "fully arm" a project inside an already-open Aperant session, roll with the current app and current tab first
 - Only start or restart Aperant when the user explicitly asks for it or there is clear evidence the app is not open
 
