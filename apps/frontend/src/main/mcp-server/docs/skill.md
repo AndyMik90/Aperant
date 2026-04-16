@@ -6,6 +6,13 @@ Use this skill when the user wants to:
 - Create tasks with specific model/thinking configurations
 - Delegate implementation work to autonomous agents
 
+## Existing Aperant Session Policy
+
+- If Aperant is already open, do not launch it again
+- If the relevant project tab is already open, reuse that tab and do not create a duplicate project tab
+- When the user asks to fully arm a project inside an existing Aperant session, roll with the current app and current tab first
+- Only start or restart Aperant when the user explicitly asks for it or there is clear evidence the app is not open
+
 ## When to Use Auto-Claude vs Direct Coding
 
 | Scenario | Use Auto-Claude | Code Directly |

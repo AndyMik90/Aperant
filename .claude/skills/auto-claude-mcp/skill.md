@@ -6,6 +6,14 @@
 
 **CRITICAL: ALWAYS use the .bat file to launch Auto-Claude. NEVER open a terminal directly.**
 
+### Launch Policy Inside An Existing Aperant Session
+
+- These launch and restart commands are for explicit start/restart situations only
+- If Aperant is already open, do not launch it again
+- If the relevant project tab is already open, reuse that tab and do not create a duplicate project tab
+- When the user asks to "fully arm" a project inside an already-open Aperant session, roll with the current app and current tab first
+- Only start or restart Aperant when the user explicitly asks for it or there is clear evidence the app is not open
+
 ### Killing Auto-Claude (MUST kill watchdog, not just Electron)
 
 **CRITICAL: The external watchdog is a separate node.exe process. If you only kill electron.exe, the watchdog thinks it crashed and RESPAWNS it. You must kill the watchdog process too.**
