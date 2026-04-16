@@ -63,6 +63,7 @@ import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { homedir, tmpdir } from 'os';
 import { spawnSync } from 'child_process';
+import { openProjectForMcp } from './open-project-service.js';
 import type {
   TaskOptions,
   TaskCategory,
@@ -549,55 +550,45 @@ server.tool(
     setActive: z.boolean().optional().default(true).describe('Switch the active tab to this project'),
   },
   withMonitoring('open_project', async ({ path: projectPath, setActive }) => {
-    if (!existsSync(projectPath)) {
-      return { content: [{ type: 'text' as const, text: JSON.stringify({ error: `Directory does not exist: ${projectPath}` }) }] };
-    }
-
-    const existing = projectStore.getProjectByPath(projectPath);
-    const project = projectStore.addProject(projectPath);
-    const isNew = !existing;
-
-    if (setActive) {
-      const tabState = projectStore.getTabState();
-      const openIds = tabState.openProjectIds.includes(project.id)
-        ? tabState.openProjectIds
-        : [...tabState.openProjectIds, project.id];
-      projectStore.saveTabState({
-        openProjectIds: openIds,
-        activeProjectId: project.id,
-        tabOrder: openIds,
+    try {
+      const result = openProjectForMcp({
+        projectPath,
+        setActive,
+        notifyRendererTaskRefresh,
       });
-      notifyRendererTaskRefresh(project.id);
 
-      // Signal Electron main process to switch tab (MCP runs as separate process,
-      // can't send IPC directly — use signal file that main process watches)
-      try {
-        const appData = process.env.APPDATA || join(homedir(), 'AppData', 'Roaming');
-        const signalPath = join(appData, 'auto-claude-ui', 'open-project-signal.json');
-        writeFileSync(signalPath, JSON.stringify({
-          projectId: project.id,
-          projectPath: project.path,
-          timestamp: Date.now(),
-        }), 'utf-8');
-        console.log('[MCP:open_project] Signal file written:', signalPath);
-      } catch (err) {
-        console.error('[MCP:open_project] Failed to write signal file:', err);
+      if (!result.success) {
+        return {
+          content: [{
+            type: 'text' as const,
+            text: JSON.stringify({ error: result.error }),
+          }]
+        };
       }
-    }
 
-    return {
-      content: [{
-        type: 'text' as const,
-        text: JSON.stringify({
-          projectId: project.id,
-          name: project.name,
-          path: project.path,
-          isNew,
-          autoBuildPath: project.autoBuildPath,
-          isInitialized: !!project.autoBuildPath,
-        }, null, 2)
-      }]
-    };
+      const { project, isNew } = result;
+
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            projectId: project.id,
+            name: project.name,
+            path: project.path,
+            isNew,
+            autoBuildPath: project.autoBuildPath,
+            isInitialized: !!project.autoBuildPath,
+          }, null, 2)
+        }]
+      };
+    } catch (err) {
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({ error: String(err) }),
+        }]
+      };
+    }
   })
 );
 

@@ -237,6 +237,55 @@ export interface InitializationResult {
 }
 
 /**
+ * Ensure a project is ready for non-interactive automation flows.
+ *
+ * This is intentionally idempotent:
+ * - creates/repairs git state as needed
+ * - creates `.auto-claude` if missing
+ * - returns success if everything is already ready
+ *
+ * Unlike the manual UI flow, callers should surface failures as headless errors
+ * instead of relying on follow-up setup dialogs.
+ */
+export function ensureProjectReadyForAutomation(projectPath: string): InitializationResult {
+  debug('ensureProjectReadyForAutomation called', { projectPath });
+
+  if (!existsSync(projectPath)) {
+    return {
+      success: false,
+      error: `Project directory not found: ${projectPath}`
+    };
+  }
+
+  const gitResult = initializeGit(projectPath);
+  if (!gitResult.success) {
+    return {
+      success: false,
+      error: gitResult.error
+        ? `Git bootstrap failed: ${gitResult.error}`
+        : 'Git bootstrap failed.'
+    };
+  }
+
+  if (isInitialized(projectPath)) {
+    debug('Project already initialized for automation');
+    return { success: true };
+  }
+
+  const initResult = initializeProject(projectPath);
+  if (!initResult.success) {
+    return {
+      success: false,
+      error: initResult.error
+        ? `Aperant bootstrap failed: ${initResult.error}`
+        : 'Aperant bootstrap failed.'
+    };
+  }
+
+  return { success: true };
+}
+
+/**
  * Check if the project has a local backend source directory
  * This indicates it's the development project itself
  */

@@ -12,14 +12,15 @@ let TEST_DIR: string;
 let USER_DATA_PATH: string;
 let TEST_PROJECT_PATH: string;
 
-// Mock Electron before importing the store
-vi.mock('electron', () => ({
+// Mock the compatibility layer used by ProjectStore before importing it
+vi.mock('../electron-compat', () => ({
   app: {
     getPath: vi.fn((name: string) => {
       if (name === 'userData') return USER_DATA_PATH;
       return TEST_DIR;
     })
-  }
+  },
+  isElectron: false,
 }));
 
 // Setup test directories with unique secure temp dir
@@ -86,6 +87,25 @@ describe('ProjectStore', () => {
       const project2 = store.addProject(TEST_PROJECT_PATH);
 
       expect(project1.id).toBe(project2.id);
+    });
+
+    it('should refresh autoBuildPath for an existing project initialized outside the store', async () => {
+      const { ProjectStore } = await import('../project-store');
+      const store = new ProjectStore();
+
+      const project = store.addProject(TEST_PROJECT_PATH);
+      expect(project.autoBuildPath).toBe('');
+
+      mkdirSync(path.join(TEST_PROJECT_PATH, '.auto-claude', 'specs'), { recursive: true });
+
+      const refreshed = store.addProject(TEST_PROJECT_PATH);
+
+      expect(refreshed.id).toBe(project.id);
+      expect(refreshed.autoBuildPath).toBe('.auto-claude');
+
+      const storePath = path.join(USER_DATA_PATH, 'store', 'projects.json');
+      const content = JSON.parse(readFileSync(storePath, 'utf-8'));
+      expect(content.projects[0].autoBuildPath).toBe('.auto-claude');
     });
 
     it('should detect auto-claude directory if present', async () => {

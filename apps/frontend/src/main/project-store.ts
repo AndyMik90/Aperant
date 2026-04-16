@@ -94,6 +94,18 @@ export class ProjectStore {
     // Check if project already exists (using absolute path for comparison)
     const existing = this.data.projects.find((p) => p.path === absolutePath);
     if (existing) {
+      const detectedAutoBuildPath = getAutoBuildPath(existing.path) || '';
+
+      // If the project was initialized outside this store (for example by MCP in
+      // another process), refresh the persisted autoBuildPath so Electron stops
+      // treating it as uninitialized.
+      if (!existing.autoBuildPath && detectedAutoBuildPath) {
+        console.warn(`[ProjectStore] Detected initialized .auto-claude folder for existing project "${existing.name}" - refreshing autoBuildPath`);
+        existing.autoBuildPath = detectedAutoBuildPath;
+        existing.updatedAt = new Date();
+        this.save();
+      }
+
       // Validate that .auto-claude folder still exists for existing project
       // If manually deleted, reset autoBuildPath so UI prompts for reinitialization
       if (existing.autoBuildPath && !isInitialized(existing.path)) {
