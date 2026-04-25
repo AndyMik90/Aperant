@@ -290,6 +290,8 @@ export interface AppSettings {
   globalPriorityOrder?: string[];
   /** Cross-provider priority order — array of ProviderAccount IDs for cross-provider mode. */
   crossProviderPriorityOrder?: string[];
+  /** Fallback provider for ambiguous model IDs (e.g. "provider/model" slash format). Defaults to 'openrouter'. */
+  fallbackProviderId?: string;
   /** User overrides for model equivalence mapping per provider */
   modelOverrides?: Record<string, Partial<Record<BuiltinProvider, ProviderModelSpec>>>;
   _migratedProviderAccounts?: boolean;

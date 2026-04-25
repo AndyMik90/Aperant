@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildThinkingProviderOptions } from '../types';
+import { buildThinkingProviderOptions, MODEL_PROVIDER_MAP } from '../types';
 import type { ThinkingLevel } from '../types';
 
 describe('buildThinkingProviderOptions', () => {
@@ -61,5 +61,22 @@ describe('buildThinkingProviderOptions', () => {
       const result = buildThinkingProviderOptions('claude-sonnet-4-6', levels[i]);
       expect((result?.anthropic?.thinking as { budgetTokens: number })?.budgetTokens).toBe(budgets[i]);
     }
+  });
+});
+
+describe('MODEL_PROVIDER_MAP — native prefix detection', () => {
+  it('maps claude- prefix to anthropic', () => {
+    const prefix = Object.keys(MODEL_PROVIDER_MAP).find((p) => 'claude-sonnet-4-6'.startsWith(p));
+    if (prefix) expect(MODEL_PROVIDER_MAP[prefix]).toBe('anthropic');
+  });
+
+  it('has no slash-format entries (slash routing is handled by detectProviderFromModel)', () => {
+    const slashKeys = Object.keys(MODEL_PROVIDER_MAP).filter((k) => k.includes('/'));
+    expect(slashKeys).toHaveLength(0);
+  });
+
+  it('returns undefined for unknown model prefixes', () => {
+    const prefix = Object.keys(MODEL_PROVIDER_MAP).find((p) => 'unknown-model-xyz'.startsWith(p));
+    expect(prefix).toBeUndefined();
   });
 });

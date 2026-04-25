@@ -190,8 +190,8 @@ export class AgentManager extends EventEmitter {
     const profileManager = getClaudeProfileManager();
     const activeProfile = profileManager?.getActiveProfile();
     const configDir = activeProfile?.configDir;
-    const auth = await resolveAuth({ provider: 'anthropic', configDir });
     const provider = detectProviderFromModel(requestedModel) ?? 'anthropic';
+    const auth = await resolveAuth({ provider, configDir });
     return { auth, provider, modelId: requestedModel, configDir };
   }
 

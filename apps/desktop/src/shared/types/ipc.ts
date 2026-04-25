@@ -882,6 +882,9 @@ export interface ElectronAPI {
     status: 'completed' | 'failed';
     output: string[];
   }>>;
+  listOpenRouterModels: () => Promise<IPCResult<{
+    models: Array<{ id: string; name: string }>;
+  }>>;
 
   // Ollama download progress listener
   onDownloadProgress: (

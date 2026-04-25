@@ -7,24 +7,18 @@
  *
  * Used in TaskCreationWizard and TaskEditDialog.
  */
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useActiveProvider } from '../hooks/useActiveProvider';
 import { getProviderModelLabel } from '../../shared/utils/model-display';
 import { Brain, Scale, Zap, Sliders, Sparkles, ChevronDown, ChevronUp, Pencil } from 'lucide-react';
 import { Label } from './ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from './ui/select';
+import { ProviderModelCombobox } from './ui/ProviderModelCombobox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { ThinkingLevelSelect } from './settings/ThinkingLevelSelect';
 import {
   DEFAULT_AGENT_PROFILES,
   AVAILABLE_MODELS,
-  ALL_AVAILABLE_MODELS,
   DEFAULT_PHASE_MODELS,
   DEFAULT_PHASE_THINKING,
 } from '../../shared/constants';
@@ -89,56 +83,12 @@ export function AgentProfileSelector({
   const { provider: activeProvider } = useActiveProvider();
   const [showPhaseDetails, setShowPhaseDetails] = useState(false);
 
-  // Ollama models are user-installed — fetch dynamically from the local server
-  const [ollamaModels, setOllamaModels] = useState<Array<{ value: string; label: string }>>([]);
-
-  const fetchOllamaModels = useCallback(async (signal?: AbortSignal) => {
-    try {
-      const result = await window.electronAPI.listOllamaModels();
-      if (signal?.aborted) return;
-      if (result?.success && Array.isArray(result?.data?.models)) {
-        const llmModels = (result.data.models as Array<{ name: string; is_embedding: boolean }>)
-          .filter(m => !m.is_embedding)
-          .map(m => ({ value: m.name, label: m.name }));
-        setOllamaModels(llmModels);
-      }
-    } catch {
-      // Ollama not available — leave empty
-    }
-  }, []);
-
-  useEffect(() => {
-    if (activeProvider !== 'ollama') {
-      setOllamaModels([]);
-      return;
-    }
-    const controller = new AbortController();
-    fetchOllamaModels(controller.signal);
-    return () => { controller.abort(); };
-  }, [activeProvider, fetchOllamaModels]);
-
   const isCustom = profileId === 'custom';
   const _isAuto = profileId === 'auto';
 
   // Use provided phase configs or defaults
   const currentPhaseModels = phaseModels || DEFAULT_PHASE_MODELS;
   const currentPhaseThinking = phaseThinking || DEFAULT_PHASE_THINKING;
-
-  // Build model options filtered to the active provider (falls back to Anthropic models)
-  const phaseModelOptions = useMemo(() => {
-    if (!activeProvider || activeProvider === 'anthropic') {
-      return AVAILABLE_MODELS.map(m => ({ value: m.value, label: m.label }));
-    }
-    // Ollama: use dynamically fetched installed models
-    if (activeProvider === 'ollama' && ollamaModels.length > 0) {
-      return ollamaModels;
-    }
-    const providerModels = ALL_AVAILABLE_MODELS.filter(m => m.provider === activeProvider);
-    if (providerModels.length === 0) {
-      return AVAILABLE_MODELS.map(m => ({ value: m.value, label: m.label }));
-    }
-    return providerModels.map(m => ({ value: m.value, label: m.label }));
-  }, [activeProvider, ollamaModels]);
 
   const handleProfileSelect = (selectedId: string) => {
     if (selectedId === 'custom') {
@@ -328,22 +278,13 @@ export function AgentProfileSelector({
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
                       <Label className="text-[10px] text-muted-foreground">{t('agentProfile.model')}</Label>
-                      <Select
+                      <ProviderModelCombobox
+                        provider={activeProvider ?? undefined}
                         value={currentPhaseModels[phase]}
                         onValueChange={(value) => handlePhaseModelChange(phase, value as ModelType)}
                         disabled={disabled}
-                      >
-                        <SelectTrigger className="h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {phaseModelOptions.map((m) => (
-                            <SelectItem key={m.value} value={m.value}>
-                              {m.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        size="sm"
+                      />
                     </div>
                     <ThinkingLevelSelect
                       value={currentPhaseThinking[phase]}
@@ -368,22 +309,13 @@ export function AgentProfileSelector({
             <Label htmlFor="custom-model" className="text-xs font-medium text-muted-foreground">
               {t('agentProfile.model')}
             </Label>
-            <Select
+            <ProviderModelCombobox
+              id="custom-model"
+              provider={activeProvider ?? undefined}
               value={model}
               onValueChange={(value) => onModelChange(value as ModelType)}
               disabled={disabled}
-            >
-              <SelectTrigger id="custom-model" className="h-9">
-                <SelectValue placeholder={t('agentProfile.selectModel')} />
-              </SelectTrigger>
-              <SelectContent>
-                {phaseModelOptions.map((m) => (
-                  <SelectItem key={m.value} value={m.value}>
-                    {m.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            />
           </div>
 
           {/* Thinking Level Selection */}

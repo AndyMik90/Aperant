@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Loader2 } from 'lucide-react';
-import { useSettingsStore } from '../../stores/settings-store';
+import { useSettingsStore, saveSettings } from '../../stores/settings-store';
 import { useToast } from '../../hooks/use-toast';
 import { PROVIDER_REGISTRY } from '@shared/constants/providers';
 import { ProviderSection } from './ProviderSection';
@@ -16,6 +16,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle
 } from '../ui/alert-dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select';
 import type { BillingModel, BuiltinProvider, ProviderAccount, ProviderCategory } from '@shared/types/provider-account';
 
 export function ProviderAccountsList() {
@@ -27,6 +34,7 @@ export function ProviderAccountsList() {
     checkEnvCredentials,
     loadProviderAccounts,
     envCredentials,
+    settings,
   } = useSettingsStore();
   const { toast } = useToast();
 
@@ -185,8 +193,36 @@ export function ProviderAccountsList() {
     );
   }
 
+  const handleFallbackProviderChange = async (value: string) => {
+    await saveSettings({ fallbackProviderId: value });
+  };
+
+  const fallbackProviderId = settings.fallbackProviderId ?? 'openrouter';
+
   return (
     <div className="space-y-5">
+      {/* Fallback provider for ambiguous slash-format model IDs */}
+      <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3 space-y-2">
+        <div className="flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <p className="text-sm font-medium">{t('providers.fallback.label')}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{t('providers.fallback.description')}</p>
+          </div>
+          <Select value={fallbackProviderId} onValueChange={handleFallbackProviderChange}>
+            <SelectTrigger className="w-44 shrink-0 h-8 text-xs">
+              <SelectValue placeholder={t('providers.fallback.placeholder')} />
+            </SelectTrigger>
+            <SelectContent>
+              {PROVIDER_REGISTRY.filter(p => p.category !== 'local').map(p => (
+                <SelectItem key={p.id} value={p.id} className="text-xs">
+                  {p.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       {categories.map(({ key, label, providers: categoryProviders }) => {
         if (categoryProviders.length === 0) return null;
         return (

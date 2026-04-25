@@ -21,6 +21,7 @@ import { createXai } from '@ai-sdk/xai';
 import type { LanguageModel } from 'ai';
 
 import { MODEL_PROVIDER_MAP } from '../config/types';
+import { readSettingsFile } from '../../settings-utils';
 import { createOAuthProviderFetch } from './oauth-fetch';
 import { type ProviderConfig, SupportedProvider } from './types';
 
@@ -237,11 +238,30 @@ export function createProvider(options: CreateProviderOptions): LanguageModel {
  * @param modelId - Full model ID (e.g., 'claude-sonnet-4-5-20250929', 'gpt-4o')
  * @returns The detected provider, or undefined if no match
  */
-export function detectProviderFromModel(modelId: string): SupportedProvider | undefined {
+function getConfiguredFallbackProvider(): SupportedProvider {
+  try {
+    const settings = readSettingsFile();
+    const id = settings?.fallbackProviderId as string | undefined;
+    if (id && Object.values(SupportedProvider).includes(id as SupportedProvider)) {
+      return id as SupportedProvider;
+    }
+  } catch {
+    // ignore — fall through to default
+  }
+  return SupportedProvider.OpenRouter;
+}
+
+export function detectProviderFromModel(
+  modelId: string,
+  fallbackProvider?: SupportedProvider,
+): SupportedProvider | undefined {
   for (const [prefix, provider] of Object.entries(MODEL_PROVIDER_MAP)) {
     if (modelId.startsWith(prefix)) {
       return provider;
     }
+  }
+  if (modelId.includes('/')) {
+    return fallbackProvider ?? getConfiguredFallbackProvider();
   }
   return undefined;
 }

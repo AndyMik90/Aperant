@@ -469,6 +469,9 @@ export const IPC_CHANNELS = {
   OLLAMA_PULL_MODEL: 'ollama:pullModel',
   OLLAMA_PULL_PROGRESS: 'ollama:pullProgress',
 
+  // OpenRouter model discovery
+  OPENROUTER_LIST_MODELS: 'openrouter:listModels',
+
   // Changelog operations
   CHANGELOG_GET_DONE_TASKS: 'changelog:getDoneTasks',
   CHANGELOG_LOAD_TASK_SPECS: 'changelog:loadTaskSpecs',

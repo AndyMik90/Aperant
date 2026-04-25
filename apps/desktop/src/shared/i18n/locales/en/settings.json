@@ -848,6 +848,11 @@
         "autoConnected": "Auto-connected as local provider",
         "startCommand": "Run 'ollama serve' in your terminal"
       }
+    },
+    "fallback": {
+      "label": "Fallback Provider",
+      "description": "Used when a model ID uses the \"provider/model\" format and no specific provider is detected.",
+      "placeholder": "Select provider..."
     }
   },
   "debug": {

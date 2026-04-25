@@ -166,6 +166,22 @@ describe('detectProviderFromModel', () => {
   it('returns undefined for unknown model', () => {
     expect(detectProviderFromModel('unknown-model')).toBeUndefined();
   });
+
+  it('routes slash-format models to the explicit fallback provider', () => {
+    expect(detectProviderFromModel('anthropic/claude-sonnet-4-5', 'openrouter')).toBe('openrouter');
+    expect(detectProviderFromModel('deepseek/deepseek-chat', 'openrouter')).toBe('openrouter');
+    expect(detectProviderFromModel('meta-llama/llama-3.3-70b', 'openrouter')).toBe('openrouter');
+  });
+
+  it('routes slash-format models to a custom fallback provider when specified', () => {
+    expect(detectProviderFromModel('any-provider/any-model', 'anthropic')).toBe('anthropic');
+    expect(detectProviderFromModel('some/model', 'openai')).toBe('openai');
+  });
+
+  it('native prefixes take priority over slash fallback', () => {
+    expect(detectProviderFromModel('claude-sonnet-4-6', 'openrouter')).toBe('anthropic');
+    expect(detectProviderFromModel('gpt-4o', 'openrouter')).toBe('openai');
+  });
 });
 
 describe('createProviderFromModelId', () => {
