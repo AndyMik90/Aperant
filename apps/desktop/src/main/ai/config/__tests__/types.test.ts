@@ -67,7 +67,8 @@ describe('buildThinkingProviderOptions', () => {
 describe('MODEL_PROVIDER_MAP — native prefix detection', () => {
   it('maps claude- prefix to anthropic', () => {
     const prefix = Object.keys(MODEL_PROVIDER_MAP).find((p) => 'claude-sonnet-4-6'.startsWith(p));
-    if (prefix) expect(MODEL_PROVIDER_MAP[prefix]).toBe('anthropic');
+    expect(prefix).toBeDefined();
+    expect(MODEL_PROVIDER_MAP[prefix!]).toBe('anthropic');
   });
 
   it('has no slash-format entries (slash routing is handled by detectProviderFromModel)', () => {
