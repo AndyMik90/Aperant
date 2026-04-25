@@ -66,6 +66,10 @@ const PHASE_LABEL_KEYS: Record<keyof PhaseModelConfig, { label: string; descript
   qa: { label: 'agentProfile.phases.qa.label', description: 'agentProfile.phases.qa.description' }
 };
 
+/**
+ * Dropdown for selecting the agent profile used during task execution.
+ * Shows per-phase model pickers when the "Auto" profile is active.
+ */
 export function AgentProfileSelector({
   profileId,
   model,

@@ -7,10 +7,15 @@ let cachedOptions: ComboboxOption[] | null = null;
 let cacheState: FetchState = 'idle';
 const subscribers = new Set<() => void>();
 
+/** Notifies all registered subscribers that the shared fetch state has changed. */
 function notify() {
   subscribers.forEach(fn => fn());
 }
 
+/**
+ * Fetches the OpenRouter model list from the main process and populates the module-level cache.
+ * No-ops if a fetch is already in progress or the cache is already populated.
+ */
 async function fetchModels() {
   if (cacheState === 'loading' || cacheState === 'done') return;
   cacheState = 'loading';
@@ -45,6 +50,12 @@ export function preloadOpenRouterModels() {
   fetchModels();
 }
 
+/**
+ * React hook that subscribes to the module-level OpenRouter model cache.
+ * Re-renders automatically when the fetch state changes (loading → done/error).
+ *
+ * @returns `options` for the combobox, `isLoading`, and `isError` flags.
+ */
 export function useOpenRouterModels() {
   const [, forceUpdate] = useState(0);
   const mountedRef = useRef(true);

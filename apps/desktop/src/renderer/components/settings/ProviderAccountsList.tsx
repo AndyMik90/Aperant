@@ -25,6 +25,10 @@ import {
 } from '../ui/select';
 import type { BillingModel, BuiltinProvider, ProviderAccount, ProviderCategory } from '@shared/types/provider-account';
 
+/**
+ * Settings panel that lists all configured provider accounts and allows editing,
+ * deleting, and toggling them, plus adding the fallback provider preference.
+ */
 export function ProviderAccountsList() {
   const { t } = useTranslation('settings');
   const {

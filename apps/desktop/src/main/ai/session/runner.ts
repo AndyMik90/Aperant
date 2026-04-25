@@ -329,17 +329,23 @@ async function executeStream(
   const streamHandler = createStreamHandler(emitEvent);
 
   // Build messages array for AI SDK (system prompt is separate)
-  const aiMessages = config.initialMessages.map((msg) => ({
-    role: msg.role as 'user' | 'assistant',
-    content: msg.content,
-  }));
-
   // Codex models (via chatgpt.com/backend-api/codex/responses) require
   // `instructions` in the request body instead of system messages in `input`.
   // Pass system prompt via providerOptions and enable store for proper Codex API behavior.
   const modelId = typeof config.model === 'string' ? config.model : config.model.modelId;
   const isCodex = modelId?.includes('codex') ?? false;
   const isAnthropicModel = modelId?.startsWith('claude-') ?? false;
+
+  // Strip reasoning/thinking content parts when the provider doesn't support extended thinking.
+  // Non-Anthropic providers reject messages that include reasoning blocks from prior Claude turns.
+  const baseMessages = isAnthropicModel
+    ? config.initialMessages
+    : sanitizeReasoningFromMessages(config.initialMessages as Array<{ role: string; content: unknown }>) as SessionMessage[];
+
+  const aiMessages = baseMessages.map((msg) => ({
+    role: msg.role as 'user' | 'assistant',
+    content: msg.content,
+  }));
 
   // Compute thinking/reasoning provider options from session config
   const thinkingOptions = config.thinkingLevel
@@ -638,6 +644,32 @@ async function executeStream(
 // =============================================================================
 // Helpers
 // =============================================================================
+
+/**
+ * Strips reasoning content parts from message history for providers that don't support thinking.
+ *
+ * When switching from Claude (extended thinking) to a non-Claude provider mid-task, the
+ * accumulated message history may contain `reasoning` or `redacted-reasoning` parts that
+ * the target provider will reject with a BadRequestError. This function removes those parts
+ * before the messages are sent, preserving only text and tool-related content.
+ *
+ * @param messages - Raw message array from session history (content may be string or ContentPart[])
+ * @returns Sanitized messages safe for any provider
+ */
+function sanitizeReasoningFromMessages(
+  messages: Array<{ role: string; content: unknown }>,
+): Array<{ role: string; content: unknown }> {
+  return messages.map((msg) => {
+    if (msg.role !== 'assistant' || !Array.isArray(msg.content)) return msg;
+    const filtered = (msg.content as Array<{ type: string }>).filter(
+      (part) => part.type !== 'reasoning' && part.type !== 'redacted-reasoning',
+    );
+    return {
+      ...msg,
+      content: filtered.length > 0 ? filtered : [{ type: 'text', text: '' }],
+    };
+  });
+}
 
 /**
  * Build an error SessionResult.
