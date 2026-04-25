@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Combobox } from './combobox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
-import { useOpenRouterModels, preloadOpenRouterModels } from '../../hooks/useOpenRouterModels';
+import { useOpenRouterModels, preloadOpenRouterModels } from '@/hooks/useOpenRouterModels';
 import { ALL_AVAILABLE_MODELS, AVAILABLE_MODELS } from '@shared/constants';
 import { cn } from '../../lib/utils';
 import type { BuiltinProvider } from '@shared/types/provider-account';
