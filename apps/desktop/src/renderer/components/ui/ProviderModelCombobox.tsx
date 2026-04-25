@@ -107,9 +107,9 @@ export function ProviderModelCombobox({
     <Combobox
       id={id}
       className={`${sizeClass} ${className ?? ''}`}
-      placeholder={t('common:select.model', 'Select model…')}
-      searchPlaceholder={t('common:search.models', 'Search models…')}
-      emptyMessage={t('common:empty.models', 'No models found')}
+      placeholder={t('common:modelCombobox.placeholder')}
+      searchPlaceholder={t('common:modelCombobox.searchPlaceholder')}
+      emptyMessage={t('common:modelCombobox.emptyMessage')}
       allowCustomValue
       isLoading={isComboLoading}
       value={value}

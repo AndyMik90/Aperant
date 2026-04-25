@@ -954,5 +954,10 @@
       "blockedTooltip": "Cette PR ne peut pas être fusionnée en raison de conditions bloquantes",
       "conflictTooltip": "Cette PR a des conflits de fusion qui doivent être résolus"
     }
+  },
+  "modelCombobox": {
+    "placeholder": "Sélectionner un modèle…",
+    "searchPlaceholder": "Rechercher des modèles…",
+    "emptyMessage": "Aucun modèle trouvé"
   }
 }
