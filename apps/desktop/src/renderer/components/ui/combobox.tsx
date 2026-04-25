@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { useTranslation } from 'react-i18next';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Check, ChevronDown, Search } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -54,7 +53,6 @@ const Combobox = React.forwardRef<HTMLButtonElement, ComboboxProps>(
     },
     ref
   ) => {
-    const { t } = useTranslation(['common']);
     const [open, setOpen] = React.useState(false);
     const [search, setSearch] = React.useState('');
     const [focusedIndex, setFocusedIndex] = React.useState(-1);
@@ -257,7 +255,7 @@ const Combobox = React.forwardRef<HTMLButtonElement, ComboboxProps>(
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                 </svg>
-                {t('common:combobox.loading')}
+                Loading…
               </div>
             )}
 

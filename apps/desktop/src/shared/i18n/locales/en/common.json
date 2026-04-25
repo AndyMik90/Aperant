@@ -959,8 +959,5 @@
     "placeholder": "Select model…",
     "searchPlaceholder": "Search models…",
     "emptyMessage": "No models found"
-  },
-  "combobox": {
-    "loading": "Loading…"
   }
 }
