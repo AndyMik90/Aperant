@@ -238,17 +238,29 @@ export function createProvider(options: CreateProviderOptions): LanguageModel {
  * @param modelId - Full model ID (e.g., 'claude-sonnet-4-5-20250929', 'gpt-4o')
  * @returns The detected provider, or undefined if no match
  */
+/** Cached fallback provider — read once from disk, reset on process restart. */
+let _fallbackProviderCache: SupportedProvider | null = null;
+
+/** Reads fallbackProviderId from settings (cached). Defaults to OpenRouter. */
 function getConfiguredFallbackProvider(): SupportedProvider {
+  if (_fallbackProviderCache !== null) return _fallbackProviderCache;
   try {
     const settings = readSettingsFile();
     const id = settings?.fallbackProviderId as string | undefined;
     if (id && Object.values(SupportedProvider).includes(id as SupportedProvider)) {
-      return id as SupportedProvider;
+      _fallbackProviderCache = id as SupportedProvider;
+      return _fallbackProviderCache;
     }
   } catch {
     // ignore — fall through to default
   }
-  return SupportedProvider.OpenRouter;
+  _fallbackProviderCache = SupportedProvider.OpenRouter;
+  return _fallbackProviderCache;
+}
+
+/** Invalidates the fallback provider cache (call after settings are saved). */
+export function resetFallbackProviderCache(): void {
+  _fallbackProviderCache = null;
 }
 
 export function detectProviderFromModel(

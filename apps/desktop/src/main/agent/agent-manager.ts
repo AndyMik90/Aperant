@@ -189,8 +189,8 @@ export class AgentManager extends EventEmitter {
     // Fallback: legacy Claude profile system
     const profileManager = getClaudeProfileManager();
     const activeProfile = profileManager?.getActiveProfile();
-    const configDir = activeProfile?.configDir;
     const provider = detectProviderFromModel(requestedModel) ?? 'anthropic';
+    const configDir = provider === 'anthropic' ? activeProfile?.configDir : undefined;
     const auth = await resolveAuth({ provider, configDir });
     return { auth, provider, modelId: requestedModel, configDir };
   }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Combobox } from './combobox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
@@ -35,6 +35,7 @@ export function ProviderModelCombobox({
   const { t } = useTranslation(['common']);
 
   const isOpenRouter = provider === 'openrouter';
+  const isOllama = provider === 'ollama';
 
   useEffect(() => {
     if (isOpenRouter) preloadOpenRouterModels();
@@ -42,19 +43,46 @@ export function ProviderModelCombobox({
 
   const { options: openRouterOptions, isLoading: openRouterLoading } = useOpenRouterModels();
 
+  const [ollamaOptions, setOllamaOptions] = useState<{ value: string; label: string }[]>([]);
+  const [ollamaLoading, setOllamaLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isOllama) return;
+    const controller = new AbortController();
+    setOllamaLoading(true);
+    (async () => {
+      try {
+        const result = await window.electronAPI.listOllamaModels();
+        if (controller.signal.aborted) return;
+        if (result?.success && result.data?.models) {
+          setOllamaOptions(
+            result.data.models
+              .filter((m: { is_embedding: boolean }) => !m.is_embedding)
+              .map((m: { name: string }) => ({ value: m.name, label: m.name })),
+          );
+        }
+      } catch {
+        // Non-fatal — leave options empty
+      } finally {
+        if (!controller.signal.aborted) setOllamaLoading(false);
+      }
+    })();
+    return () => controller.abort();
+  }, [isOllama]);
+
   const staticOptions = useMemo(() => {
     if (!provider) return AVAILABLE_MODELS.map((m) => ({ value: m.value, label: m.label }));
     const providerModels = ALL_AVAILABLE_MODELS.filter((m) => m.provider === provider);
     if (providerModels.length > 0) {
       return providerModels.map((m) => ({ value: m.value, label: m.label }));
     }
-    return null; // null = no static list → freeform
+    return null; // null = no static list → combobox
   }, [provider]);
 
   const sizeClass = size === 'sm' ? 'h-8 text-xs' : 'h-9';
 
-  // Static list → <Select>
-  if (staticOptions) {
+  // Static list (non-Ollama known providers) → <Select>
+  if (staticOptions && !isOllama) {
     return (
       <Select value={value} onValueChange={onValueChange} disabled={disabled}>
         <SelectTrigger id={id} className={`${sizeClass} ${className ?? ''}`}>
@@ -71,7 +99,10 @@ export function ProviderModelCombobox({
     );
   }
 
-  // OpenRouter or unknown provider → <Combobox> with allowCustomValue
+  // OpenRouter, Ollama, or unknown provider → <Combobox> with allowCustomValue
+  const comboOptions = isOpenRouter ? openRouterOptions : isOllama ? ollamaOptions : [];
+  const isComboLoading = isOpenRouter ? openRouterLoading : isOllama ? ollamaLoading : false;
+
   return (
     <Combobox
       id={id}
@@ -80,10 +111,10 @@ export function ProviderModelCombobox({
       searchPlaceholder={t('common:search.models', 'Search models…')}
       emptyMessage={t('common:empty.models', 'No models found')}
       allowCustomValue
-      isLoading={isOpenRouter ? openRouterLoading : false}
+      isLoading={isComboLoading}
       value={value}
       onValueChange={onValueChange}
-      options={isOpenRouter ? openRouterOptions : []}
+      options={comboOptions}
       disabled={disabled}
     />
   );
