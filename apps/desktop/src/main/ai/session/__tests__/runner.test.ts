@@ -413,6 +413,35 @@ describe('runAgentSession', () => {
     expect(parts.every((p) => p.type !== 'redacted-reasoning')).toBe(true);
   });
 
+  it('should use [redacted] placeholder when all parts are stripped (avoids empty content rejection)', async () => {
+    mockStreamText.mockReturnValue(
+      createMockStreamResult([], { text: '', totalUsage: { inputTokens: 0, outputTokens: 0 } }),
+    );
+
+    await runAgentSession(
+      createMockConfig({
+        model: 'gpt-4o' as any,
+        initialMessages: [
+          { role: 'user' as const, content: 'Hello' },
+          {
+            role: 'assistant' as const,
+            // Message with ONLY reasoning parts — all would be stripped
+            content: [
+              { type: 'reasoning', text: 'Only thinking here…' },
+            ] as unknown as string,
+          },
+        ],
+      }),
+    );
+
+    const { messages } = mockStreamText.mock.calls[0][0];
+    const assistantMsg = messages.find((m: { role: string }) => m.role === 'assistant');
+    const parts = assistantMsg.content as Array<{ type: string; text?: string }>;
+    expect(parts).toHaveLength(1);
+    expect(parts[0].type).toBe('text');
+    expect(parts[0].text).toBe('[redacted]');
+  });
+
   it('should not modify string content messages regardless of provider', async () => {
     mockStreamText.mockReturnValue(
       createMockStreamResult([], { text: '', totalUsage: { inputTokens: 0, outputTokens: 0 } }),

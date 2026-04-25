@@ -666,7 +666,8 @@ function sanitizeReasoningFromMessages(
     );
     return {
       ...msg,
-      content: filtered.length > 0 ? filtered : [{ type: 'text', text: '' }],
+      // Fallback to '[redacted]' rather than empty string — some providers reject empty content
+      content: filtered.length > 0 ? filtered : [{ type: 'text', text: '[redacted]' }],
     };
   });
 }
