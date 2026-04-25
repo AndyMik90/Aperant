@@ -213,11 +213,11 @@ export function ProviderAccountsList() {
       <div className="rounded-lg border border-border/60 bg-muted/20 px-4 py-3 space-y-2">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
-            <p className="text-sm font-medium">{t('providers.fallback.label')}</p>
+            <p id="fallback-provider-label" className="text-sm font-medium">{t('providers.fallback.label')}</p>
             <p className="text-xs text-muted-foreground mt-0.5">{t('providers.fallback.description')}</p>
           </div>
           <Select value={fallbackProviderId} onValueChange={handleFallbackProviderChange}>
-            <SelectTrigger className="w-44 shrink-0 h-8 text-xs">
+            <SelectTrigger aria-labelledby="fallback-provider-label" className="w-44 shrink-0 h-8 text-xs">
               <SelectValue placeholder={t('providers.fallback.placeholder')} />
             </SelectTrigger>
             <SelectContent>
