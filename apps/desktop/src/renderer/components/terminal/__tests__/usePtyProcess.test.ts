@@ -34,9 +34,6 @@ Object.defineProperty(window, 'electronAPI', {
 let mockTerminalStatus: TerminalStatus = 'idle';
 let mockIsRestored: boolean = false;
 
-const mockSetTerminalStatus = vi.fn();
-const mockGetTerminal = vi.fn();
-
 vi.mock('../../../stores/terminal-store', () => ({
   useTerminalStore: Object.assign(vi.fn(), {
     getState: () => ({
@@ -50,10 +47,11 @@ vi.mock('../../../stores/terminal-store', () => ({
         },
       ],
       setTerminalStatus: mockSetTerminalStatus,
-      getTerminal: mockGetTerminal,
     }),
   }),
 }));
+
+const mockSetTerminalStatus = vi.fn();
 
 const DEFAULT_OPTIONS = {
   terminalId: 'term-1',
