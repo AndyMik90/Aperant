@@ -574,28 +574,6 @@ export function registerMemoryHandlers(): void {
     },
   );
 
-  // ============================================
-  // OpenRouter Model Discovery
-  // ============================================
-
-  ipcMain.handle(
-    IPC_CHANNELS.OPENROUTER_LIST_MODELS,
-    async (): Promise<IPCResult<{ models: Array<{ id: string; name: string }> }>> => {
-      try {
-        const res = await fetch('https://openrouter.ai/api/v1/models');
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json() as { data: Array<{ id: string; name: string }> };
-        const models = (json.data ?? []).map((m) => ({ id: m.id, name: m.name || m.id }));
-        return { success: true, data: { models } };
-      } catch (error) {
-        return {
-          success: false,
-          error: error instanceof Error ? error.message : 'Failed to fetch OpenRouter models',
-        };
-      }
-    },
-  );
-
   // Insert a user-taught memory (from /remember command or Teach panel)
   ipcMain.handle(
     'memory:insert-user-taught',
