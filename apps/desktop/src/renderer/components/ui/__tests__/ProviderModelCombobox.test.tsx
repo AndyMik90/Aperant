@@ -43,11 +43,10 @@ describe('ProviderModelCombobox', () => {
     expect(screen.getByRole('combobox')).toBeInTheDocument();
   });
 
-  it('renders a combobox when provider is undefined (freeform)', () => {
+  it('renders a static <Select> when provider is undefined (falls back to anthropic model list)', () => {
     render(
       <ProviderModelCombobox provider={undefined} value="" onValueChange={noop} />
     );
-    // undefined falls back to AVAILABLE_MODELS (anthropic list) → Select
     expect(screen.getByRole('combobox')).toBeInTheDocument();
   });
 
@@ -84,7 +83,6 @@ describe('ProviderModelCombobox', () => {
         ],
       },
     });
-    vi.stubGlobal('electronAPI', { listOllamaModels });
     Object.defineProperty(window, 'electronAPI', { value: { listOllamaModels }, writable: true });
 
     render(
