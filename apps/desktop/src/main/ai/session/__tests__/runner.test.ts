@@ -312,4 +312,124 @@ describe('runAgentSession', () => {
     const callArgs = mockStreamText.mock.calls[0][0];
     expect(callArgs.stopWhen).toEqual({ type: 'stepCount', count: 500 });
   });
+
+  // ===========================================================================
+  // Reasoning / thinking_blocks sanitization (#1988)
+  // ===========================================================================
+
+  it('should strip reasoning parts from messages when provider is not Claude', async () => {
+    mockStreamText.mockReturnValue(
+      createMockStreamResult([], { text: '', totalUsage: { inputTokens: 0, outputTokens: 0 } }),
+    );
+
+    const messagesWithReasoning = [
+      { role: 'user' as const, content: 'Hello' },
+      // Simulate an assistant message that contains reasoning parts (e.g. from a prior Claude session)
+      {
+        role: 'assistant' as const,
+        content: [
+          { type: 'reasoning', text: 'Let me think…' },
+          { type: 'text', text: 'The answer is 42.' },
+        ] as unknown as string,
+      },
+    ];
+
+    // Non-Claude model — reasoning parts must be stripped
+    await runAgentSession(
+      createMockConfig({
+        model: 'gpt-4o' as any,
+        initialMessages: messagesWithReasoning,
+      }),
+    );
+
+    const { messages } = mockStreamText.mock.calls[0][0];
+    const assistantMsg = messages.find((m: { role: string }) => m.role === 'assistant');
+    expect(assistantMsg).toBeDefined();
+    // Content should be an array with only the text part
+    expect(Array.isArray(assistantMsg.content)).toBe(true);
+    const parts = assistantMsg.content as Array<{ type: string }>;
+    expect(parts.every((p) => p.type !== 'reasoning')).toBe(true);
+    expect(parts.some((p) => p.type === 'text')).toBe(true);
+  });
+
+  it('should preserve reasoning parts when provider is Claude', async () => {
+    mockStreamText.mockReturnValue(
+      createMockStreamResult([], { text: '', totalUsage: { inputTokens: 0, outputTokens: 0 } }),
+    );
+
+    const messagesWithReasoning = [
+      { role: 'user' as const, content: 'Hello' },
+      {
+        role: 'assistant' as const,
+        content: [
+          { type: 'reasoning', text: 'Let me think…' },
+          { type: 'text', text: 'The answer is 42.' },
+        ] as unknown as string,
+      },
+    ];
+
+    // Claude model — reasoning parts must be passed through unchanged
+    await runAgentSession(
+      createMockConfig({
+        model: 'claude-sonnet-4-5' as any,
+        initialMessages: messagesWithReasoning,
+      }),
+    );
+
+    const { messages } = mockStreamText.mock.calls[0][0];
+    const assistantMsg = messages.find((m: { role: string }) => m.role === 'assistant');
+    expect(assistantMsg).toBeDefined();
+    expect(Array.isArray(assistantMsg.content)).toBe(true);
+    const parts = assistantMsg.content as Array<{ type: string }>;
+    expect(parts.some((p) => p.type === 'reasoning')).toBe(true);
+  });
+
+  it('should handle redacted-reasoning parts the same as reasoning for non-Claude providers', async () => {
+    mockStreamText.mockReturnValue(
+      createMockStreamResult([], { text: '', totalUsage: { inputTokens: 0, outputTokens: 0 } }),
+    );
+
+    const messagesWithRedacted = [
+      { role: 'user' as const, content: 'Hello' },
+      {
+        role: 'assistant' as const,
+        content: [
+          { type: 'redacted-reasoning', data: 'encrypted…' },
+          { type: 'text', text: 'Done.' },
+        ] as unknown as string,
+      },
+    ];
+
+    await runAgentSession(
+      createMockConfig({
+        model: 'gpt-4o' as any,
+        initialMessages: messagesWithRedacted,
+      }),
+    );
+
+    const { messages } = mockStreamText.mock.calls[0][0];
+    const assistantMsg = messages.find((m: { role: string }) => m.role === 'assistant');
+    const parts = assistantMsg.content as Array<{ type: string }>;
+    expect(parts.every((p) => p.type !== 'redacted-reasoning')).toBe(true);
+  });
+
+  it('should not modify string content messages regardless of provider', async () => {
+    mockStreamText.mockReturnValue(
+      createMockStreamResult([], { text: '', totalUsage: { inputTokens: 0, outputTokens: 0 } }),
+    );
+
+    await runAgentSession(
+      createMockConfig({
+        model: 'gpt-4o' as any,
+        initialMessages: [
+          { role: 'user', content: 'Hello' },
+          { role: 'assistant', content: 'Hi there.' },
+        ],
+      }),
+    );
+
+    const { messages } = mockStreamText.mock.calls[0][0];
+    const assistantMsg = messages.find((m: { role: string }) => m.role === 'assistant');
+    expect(assistantMsg.content).toBe('Hi there.');
+  });
 });
