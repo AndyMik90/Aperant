@@ -244,12 +244,15 @@ function getConfiguredFallbackProvider(): SupportedProvider {
   try {
     const settings = readSettingsFile();
     const id = settings?.fallbackProviderId as string | undefined;
-    if (id && Object.values(SupportedProvider).includes(id as SupportedProvider)) {
-      _fallbackProviderCache = id as SupportedProvider;
-      return _fallbackProviderCache;
+    if (id) {
+      if (Object.values(SupportedProvider).includes(id as SupportedProvider)) {
+        _fallbackProviderCache = id as SupportedProvider;
+        return _fallbackProviderCache;
+      }
+      console.warn(`[factory] fallbackProviderId "${id}" is not a known SupportedProvider — falling back to openrouter`);
     }
-  } catch {
-    // ignore — fall through to default
+  } catch (err) {
+    console.warn('[factory] Failed to read fallbackProviderId from settings:', err);
   }
   _fallbackProviderCache = SupportedProvider.OpenRouter;
   return _fallbackProviderCache;
