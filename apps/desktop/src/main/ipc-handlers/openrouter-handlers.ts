@@ -25,8 +25,13 @@ export function registerOpenRouterHandlers(): void {
       try {
         const res = await fetch('https://openrouter.ai/api/v1/models');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json() as { data: OpenRouterModel[] };
-        const models = (json.data ?? []).map((m) => ({ id: m.id, name: m.name || m.id }));
+        const json = await res.json() as { data?: unknown };
+        if (!Array.isArray(json.data)) {
+          throw new Error('Unexpected OpenRouter response shape');
+        }
+        const models = (json.data as Array<Partial<OpenRouterModel>>)
+          .filter((m) => typeof m?.id === 'string')
+          .map((m) => ({ id: m.id!, name: m.name || m.id! }));
         return { success: true, data: { models } };
       } catch (error) {
         return {
