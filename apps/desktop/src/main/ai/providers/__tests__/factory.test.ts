@@ -4,7 +4,11 @@
  * Validates provider instantiation, detection, and error handling.
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
+
+vi.mock('../../../settings-utils', () => ({
+  readSettingsFile: vi.fn(),
+}));
 
 // Mock all @ai-sdk/* providers
 vi.mock('@ai-sdk/anthropic', () => ({
@@ -80,8 +84,11 @@ vi.mock('@openrouter/ai-sdk-provider', () => ({
 }));
 
 import { createAnthropic } from '@ai-sdk/anthropic';
-import { createProvider, detectProviderFromModel, createProviderFromModelId } from '../factory';
+import { createProvider, detectProviderFromModel, createProviderFromModelId, resetFallbackProviderCache } from '../factory';
 import { SupportedProvider } from '../types';
+import { readSettingsFile } from '../../../settings-utils';
+
+const mockReadSettingsFile = vi.mocked(readSettingsFile);
 
 describe('createProvider', () => {
   const allProviders = Object.values(SupportedProvider);
@@ -135,6 +142,33 @@ describe('createProvider', () => {
       baseURL: 'https://custom.api.com',
       headers: { 'X-Custom': 'value' },
     });
+  });
+});
+
+describe('getConfiguredFallbackProvider (via detectProviderFromModel without explicit fallback)', () => {
+  beforeEach(() => {
+    resetFallbackProviderCache();
+    mockReadSettingsFile.mockReset();
+  });
+
+  it('returns configured fallback when fallbackProviderId is a valid provider', () => {
+    mockReadSettingsFile.mockReturnValue({ fallbackProviderId: SupportedProvider.OpenAI });
+    expect(detectProviderFromModel('any/model')).toBe(SupportedProvider.OpenAI);
+  });
+
+  it('defaults to openrouter when fallbackProviderId is invalid', () => {
+    mockReadSettingsFile.mockReturnValue({ fallbackProviderId: 'not-a-real-provider' });
+    expect(detectProviderFromModel('any/model')).toBe(SupportedProvider.OpenRouter);
+  });
+
+  it('defaults to openrouter when readSettingsFile throws', () => {
+    mockReadSettingsFile.mockImplementation(() => { throw new Error('disk error'); });
+    expect(detectProviderFromModel('any/model')).toBe(SupportedProvider.OpenRouter);
+  });
+
+  it('defaults to openrouter when no fallbackProviderId is set', () => {
+    mockReadSettingsFile.mockReturnValue({});
+    expect(detectProviderFromModel('any/model')).toBe(SupportedProvider.OpenRouter);
   });
 });
 

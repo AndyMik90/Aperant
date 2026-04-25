@@ -66,4 +66,40 @@ describe('ProviderModelCombobox', () => {
     );
     expect(preloadOpenRouterModels).not.toHaveBeenCalled();
   });
+
+  it('renders a combobox for ollama (dynamic list)', () => {
+    render(
+      <ProviderModelCombobox provider="ollama" value="" onValueChange={noop} />
+    );
+    expect(screen.getByRole('combobox')).toBeInTheDocument();
+  });
+
+  it('calls listOllamaModels when provider is ollama', async () => {
+    const listOllamaModels = vi.fn().mockResolvedValue({
+      success: true,
+      data: {
+        models: [
+          { name: 'llama3', is_embedding: false },
+          { name: 'embed-model', is_embedding: true },
+        ],
+      },
+    });
+    vi.stubGlobal('electronAPI', { listOllamaModels });
+    Object.defineProperty(window, 'electronAPI', { value: { listOllamaModels }, writable: true });
+
+    render(
+      <ProviderModelCombobox provider="ollama" value="" onValueChange={noop} />
+    );
+    expect(listOllamaModels).toHaveBeenCalled();
+  });
+
+  it('does not call listOllamaModels when provider is not ollama', () => {
+    const listOllamaModels = vi.fn();
+    Object.defineProperty(window, 'electronAPI', { value: { listOllamaModels }, writable: true });
+
+    render(
+      <ProviderModelCombobox provider="anthropic" value="sonnet" onValueChange={noop} />
+    );
+    expect(listOllamaModels).not.toHaveBeenCalled();
+  });
 });
