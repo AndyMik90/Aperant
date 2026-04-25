@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { ComboboxOption } from '../components/ui/combobox';
 
 type FetchState = 'idle' | 'loading' | 'done' | 'error';
+type OpenRouterModel = { id: string; name: string };
 
 let cachedOptions: ComboboxOption[] | null = null;
 let cacheState: FetchState = 'idle';
@@ -26,10 +27,8 @@ async function fetchModels() {
     if (!result.success || !result.data) throw new Error(result.error ?? 'Failed');
 
     cachedOptions = result.data.models
-      .sort((a: { id: string; name: string }, b: { id: string; name: string }) =>
-        a.id.localeCompare(b.id)
-      )
-      .map((m: { id: string; name: string }) => {
+      .sort((a: OpenRouterModel, b: OpenRouterModel) => a.id.localeCompare(b.id))
+      .map((m: OpenRouterModel) => {
         const slashIdx = m.id.indexOf('/');
         const providerSlug = slashIdx !== -1 ? m.id.slice(0, slashIdx) : m.id;
         const group = providerSlug
