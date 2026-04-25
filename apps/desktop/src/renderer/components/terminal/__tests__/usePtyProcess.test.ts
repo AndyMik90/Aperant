@@ -20,8 +20,10 @@ const mockCreateTerminal = vi.fn();
 const mockDestroyTerminal = vi.fn();
 const mockRestoreTerminalSession = vi.fn();
 
-vi.stubGlobal('window', {
-  electronAPI: {
+Object.defineProperty(window, 'electronAPI', {
+  configurable: true,
+  writable: true,
+  value: {
     createTerminal: mockCreateTerminal,
     destroyTerminal: mockDestroyTerminal,
     restoreTerminalSession: mockRestoreTerminalSession,
