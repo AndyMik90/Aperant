@@ -31,6 +31,7 @@ function OpenRouterCombobox({ value, onValueChange, disabled, className, id, siz
       placeholder={t('common:modelCombobox.placeholder')}
       searchPlaceholder={t('common:modelCombobox.searchPlaceholder')}
       emptyMessage={t('common:modelCombobox.emptyMessage')}
+      loadingMessage={t('common:modelCombobox.loadingMessage')}
       allowCustomValue
       isLoading={isLoading}
       value={value}

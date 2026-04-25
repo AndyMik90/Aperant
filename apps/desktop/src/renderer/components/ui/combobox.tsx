@@ -20,6 +20,7 @@ interface ComboboxProps {
   placeholder?: string;
   searchPlaceholder?: string;
   emptyMessage?: string;
+  loadingMessage?: string;
   disabled?: boolean;
   className?: string;
   id?: string;
@@ -45,6 +46,7 @@ const Combobox = React.forwardRef<HTMLButtonElement, ComboboxProps>(
       placeholder = 'Select...',
       searchPlaceholder = 'Search...',
       emptyMessage = 'No results found',
+      loadingMessage = 'Loading…',
       disabled = false,
       className,
       id,
@@ -255,7 +257,7 @@ const Combobox = React.forwardRef<HTMLButtonElement, ComboboxProps>(
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                 </svg>
-                Loading…
+                {loadingMessage}
               </div>
             )}
 

@@ -958,6 +958,7 @@
   "modelCombobox": {
     "placeholder": "Sélectionner un modèle…",
     "searchPlaceholder": "Rechercher des modèles…",
-    "emptyMessage": "Aucun modèle trouvé"
+    "emptyMessage": "Aucun modèle trouvé",
+    "loadingMessage": "Chargement…"
   }
 }
