@@ -152,15 +152,16 @@ export function usePtyProcess({
     const alreadyRunning = terminalState?.status === 'running' || terminalState?.status === 'claude-active';
     const isRestored = terminalState?.isRestored;
 
-    // Do not create a new PTY for a terminal that has exited naturally.
+    // Do not create a new PTY when the terminal has exited naturally or is no longer
+    // in the store (removed while the component was still mounted).
     // When the shell exits (e.g. user types "exit"), the terminal is kept in the DOM
     // for a short grace period (pendingCleanup). During that period the component can
     // mount/unmount rapidly — without this guard each mount would spin up a new PTY,
     // causing an infinite mount → create PTY → unmount → mount loop.
     // Deliberate recreation (worktree switch) sets isRecreatingRef before exiting, so
     // it is excluded from this guard.
-    if (terminalState?.status === 'exited' && !isRecreatingRef?.current) {
-      debugLog(`[usePtyProcess] Skipping PTY creation for terminal: ${terminalId} - terminal has exited naturally (status=exited)`);
+    if (!terminalState || (terminalState.status === 'exited' && !isRecreatingRef?.current)) {
+      debugLog(`[usePtyProcess] Skipping PTY creation for terminal: ${terminalId} - terminal has exited naturally or is not in store (status=${terminalState?.status})`);
       return;
     }
 
