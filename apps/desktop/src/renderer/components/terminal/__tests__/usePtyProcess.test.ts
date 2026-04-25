@@ -92,6 +92,7 @@ describe('usePtyProcess — exited-terminal guard (#fix/terminal-exit-pty-recrea
     }
 
     expect(mockCreateTerminal).not.toHaveBeenCalled();
+    expect(mockDestroyTerminal).not.toHaveBeenCalled();
   });
 
   it('allows PTY creation when status is exited but isRecreatingRef is true (worktree switch)', async () => {
