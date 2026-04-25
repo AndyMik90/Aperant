@@ -7,6 +7,40 @@ import { ALL_AVAILABLE_MODELS, AVAILABLE_MODELS } from '@shared/constants';
 import { cn } from '../../lib/utils';
 import type { BuiltinProvider } from '@shared/types/provider-account';
 
+interface OpenRouterComboboxProps {
+  value: string;
+  onValueChange: (value: string) => void;
+  disabled: boolean;
+  className?: string;
+  id?: string;
+  sizeClass: string;
+}
+
+function OpenRouterCombobox({ value, onValueChange, disabled, className, id, sizeClass }: OpenRouterComboboxProps) {
+  const { t } = useTranslation(['common']);
+  const { options, isLoading } = useOpenRouterModels();
+
+  useEffect(() => {
+    preloadOpenRouterModels();
+  }, []);
+
+  return (
+    <Combobox
+      id={id}
+      className={cn(sizeClass, className)}
+      placeholder={t('common:modelCombobox.placeholder')}
+      searchPlaceholder={t('common:modelCombobox.searchPlaceholder')}
+      emptyMessage={t('common:modelCombobox.emptyMessage')}
+      allowCustomValue
+      isLoading={isLoading}
+      value={value}
+      onValueChange={onValueChange}
+      options={options}
+      disabled={disabled}
+    />
+  );
+}
+
 interface ProviderModelComboboxProps {
   provider: BuiltinProvider | undefined;
   value: string;
@@ -37,12 +71,6 @@ export function ProviderModelCombobox({
 
   const isOpenRouter = provider === 'openrouter';
   const isOllama = provider === 'ollama';
-
-  useEffect(() => {
-    if (isOpenRouter) preloadOpenRouterModels();
-  }, [isOpenRouter]);
-
-  const { options: openRouterOptions, isLoading: openRouterLoading } = useOpenRouterModels();
 
   const [ollamaOptions, setOllamaOptions] = useState<{ value: string; label: string }[]>([]);
   const [ollamaLoading, setOllamaLoading] = useState(false);
@@ -100,9 +128,23 @@ export function ProviderModelCombobox({
     );
   }
 
-  // OpenRouter, Ollama, or unknown provider → <Combobox> with allowCustomValue
-  const comboOptions = isOpenRouter ? openRouterOptions : isOllama ? ollamaOptions : [];
-  const isComboLoading = isOpenRouter ? openRouterLoading : isOllama ? ollamaLoading : false;
+  // OpenRouter → dedicated component so useOpenRouterModels() is only subscribed when needed
+  if (isOpenRouter) {
+    return (
+      <OpenRouterCombobox
+        id={id}
+        sizeClass={sizeClass}
+        className={className}
+        value={value}
+        onValueChange={onValueChange}
+        disabled={disabled}
+      />
+    );
+  }
+
+  // Ollama or unknown provider → <Combobox> with allowCustomValue
+  const comboOptions = isOllama ? ollamaOptions : [];
+  const isComboLoading = isOllama ? ollamaLoading : false;
 
   return (
     <Combobox
