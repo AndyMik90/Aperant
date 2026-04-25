@@ -54,7 +54,8 @@ export function preloadOpenRouterModels() {
  * React hook that subscribes to the module-level OpenRouter model cache.
  * Re-renders automatically when the fetch state changes (loading → done/error).
  *
- * @returns `options` for the combobox, `isLoading`, and `isError` flags.
+ * @returns `options` for the combobox, `isLoading`, `isError` flags, and a `refresh()` function
+ *   that clears the cache and retries the fetch (useful after a network error).
  */
 export function useOpenRouterModels() {
   const [, forceUpdate] = useState(0);
@@ -75,9 +76,16 @@ export function useOpenRouterModels() {
     return () => { subscribers.delete(rerender); };
   }, []);
 
+  const refresh = () => {
+    cachedOptions = null;
+    cacheState = 'idle';
+    fetchModels();
+  };
+
   return {
     options: cachedOptions ?? [],
     isLoading: cacheState === 'loading',
     isError: cacheState === 'error',
+    refresh,
   };
 }
