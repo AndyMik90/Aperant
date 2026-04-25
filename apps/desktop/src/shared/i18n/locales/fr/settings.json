@@ -1189,5 +1189,8 @@
         "description": "Une erreur s'est produite lors de l'enregistrement de la configuration du fournisseur."
       }
     }
+  },
+  "errors": {
+    "saveFailed": "Échec de l'enregistrement des paramètres"
   }
 }

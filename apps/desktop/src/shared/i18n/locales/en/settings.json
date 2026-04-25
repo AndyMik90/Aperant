@@ -1189,5 +1189,8 @@
         "description": "An error occurred while saving your provider configuration."
       }
     }
+  },
+  "errors": {
+    "saveFailed": "Failed to save settings"
   }
 }

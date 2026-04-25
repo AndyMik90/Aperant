@@ -198,7 +198,11 @@ export function ProviderAccountsList() {
   }
 
   const handleFallbackProviderChange = async (value: string) => {
-    await saveSettings({ fallbackProviderId: value });
+    try {
+      await saveSettings({ fallbackProviderId: value as BuiltinProvider });
+    } catch {
+      toast({ variant: 'destructive', title: t('settings:errors.saveFailed') });
+    }
   };
 
   const fallbackProviderId = settings.fallbackProviderId ?? 'openrouter';
