@@ -173,28 +173,35 @@ describe('getConfiguredFallbackProvider (via detectProviderFromModel without exp
 });
 
 describe('detectProviderFromModel', () => {
+  beforeEach(() => {
+    // Reset module-level cache to avoid cross-suite contamination
+    resetFallbackProviderCache();
+    mockReadSettingsFile.mockReset();
+    mockReadSettingsFile.mockReturnValue({});
+  });
+
   it('detects Anthropic from claude- prefix', () => {
-    expect(detectProviderFromModel('claude-sonnet-4-5-20250929')).toBe('anthropic');
+    expect(detectProviderFromModel('claude-sonnet-4-5-20250929')).toBe(SupportedProvider.Anthropic);
   });
 
   it('detects OpenAI from gpt- prefix', () => {
-    expect(detectProviderFromModel('gpt-4o')).toBe('openai');
+    expect(detectProviderFromModel('gpt-4o')).toBe(SupportedProvider.OpenAI);
   });
 
   it('detects OpenAI from o1- prefix', () => {
-    expect(detectProviderFromModel('o1-preview')).toBe('openai');
+    expect(detectProviderFromModel('o1-preview')).toBe(SupportedProvider.OpenAI);
   });
 
   it('detects Google from gemini- prefix', () => {
-    expect(detectProviderFromModel('gemini-pro')).toBe('google');
+    expect(detectProviderFromModel('gemini-pro')).toBe(SupportedProvider.Google);
   });
 
   it('detects Groq from llama- prefix', () => {
-    expect(detectProviderFromModel('llama-3.1-70b')).toBe('groq');
+    expect(detectProviderFromModel('llama-3.1-70b')).toBe(SupportedProvider.Groq);
   });
 
   it('detects XAI from grok- prefix', () => {
-    expect(detectProviderFromModel('grok-2')).toBe('xai');
+    expect(detectProviderFromModel('grok-2')).toBe(SupportedProvider.XAI);
   });
 
   it('returns undefined for unknown model', () => {
@@ -202,19 +209,19 @@ describe('detectProviderFromModel', () => {
   });
 
   it('routes slash-format models to the explicit fallback provider', () => {
-    expect(detectProviderFromModel('anthropic/claude-sonnet-4-5', 'openrouter')).toBe('openrouter');
-    expect(detectProviderFromModel('deepseek/deepseek-chat', 'openrouter')).toBe('openrouter');
-    expect(detectProviderFromModel('meta-llama/llama-3.3-70b', 'openrouter')).toBe('openrouter');
+    expect(detectProviderFromModel('anthropic/claude-sonnet-4-5', SupportedProvider.OpenRouter)).toBe(SupportedProvider.OpenRouter);
+    expect(detectProviderFromModel('deepseek/deepseek-chat', SupportedProvider.OpenRouter)).toBe(SupportedProvider.OpenRouter);
+    expect(detectProviderFromModel('meta-llama/llama-3.3-70b', SupportedProvider.OpenRouter)).toBe(SupportedProvider.OpenRouter);
   });
 
   it('routes slash-format models to a custom fallback provider when specified', () => {
-    expect(detectProviderFromModel('any-provider/any-model', 'anthropic')).toBe('anthropic');
-    expect(detectProviderFromModel('some/model', 'openai')).toBe('openai');
+    expect(detectProviderFromModel('any-provider/any-model', SupportedProvider.Anthropic)).toBe(SupportedProvider.Anthropic);
+    expect(detectProviderFromModel('some/model', SupportedProvider.OpenAI)).toBe(SupportedProvider.OpenAI);
   });
 
   it('native prefixes take priority over slash fallback', () => {
-    expect(detectProviderFromModel('claude-sonnet-4-6', 'openrouter')).toBe('anthropic');
-    expect(detectProviderFromModel('gpt-4o', 'openrouter')).toBe('openai');
+    expect(detectProviderFromModel('claude-sonnet-4-6', SupportedProvider.OpenRouter)).toBe(SupportedProvider.Anthropic);
+    expect(detectProviderFromModel('gpt-4o', SupportedProvider.OpenRouter)).toBe(SupportedProvider.OpenAI);
   });
 });
 
