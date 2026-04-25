@@ -231,17 +231,14 @@ export function createProvider(options: CreateProviderOptions): LanguageModel {
 // Provider Detection
 // =============================================================================
 
-/**
- * Detects the provider for a model ID based on its prefix.
- * Uses MODEL_PROVIDER_MAP for prefix-based matching.
- *
- * @param modelId - Full model ID (e.g., 'claude-sonnet-4-5-20250929', 'gpt-4o')
- * @returns The detected provider, or undefined if no match
- */
 /** Cached fallback provider — read once from disk, reset on process restart. */
 let _fallbackProviderCache: SupportedProvider | null = null;
 
-/** Reads fallbackProviderId from settings (cached). Defaults to OpenRouter. */
+/**
+ * Reads the user-configured fallback provider from settings (result is cached).
+ * Called when a model ID contains a slash but no explicit provider is given.
+ * Defaults to OpenRouter if the setting is absent or invalid.
+ */
 function getConfiguredFallbackProvider(): SupportedProvider {
   if (_fallbackProviderCache !== null) return _fallbackProviderCache;
   try {
@@ -263,6 +260,15 @@ export function resetFallbackProviderCache(): void {
   _fallbackProviderCache = null;
 }
 
+/**
+ * Detects the provider for a model ID based on its prefix or slash format.
+ * Uses MODEL_PROVIDER_MAP for prefix-based matching. For slash-format IDs
+ * (e.g. `"openrouter/gpt-4o"`), falls back to the user-configured fallback provider.
+ *
+ * @param modelId - Full model ID (e.g., `'claude-sonnet-4-5'`, `'gpt-4o'`, `'openrouter/llama-3'`)
+ * @param fallbackProvider - Override for slash-format fallback (skips settings read)
+ * @returns The detected provider, or `undefined` if no match
+ */
 export function detectProviderFromModel(
   modelId: string,
   fallbackProvider?: SupportedProvider,
