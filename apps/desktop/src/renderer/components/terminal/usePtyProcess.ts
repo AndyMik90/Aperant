@@ -23,6 +23,18 @@ interface UsePtyProcessOptions {
   onError?: (error: string) => void;
 }
 
+/**
+ * Manages the PTY process lifecycle for a terminal instance.
+ *
+ * Creates and tracks the underlying PTY process, handling:
+ * - Initial creation once xterm has measured valid dimensions (`skipCreation`)
+ * - Session restoration for terminals persisted across hot-reloads
+ * - Deliberate recreation after worktree switches (`isRecreatingRef`)
+ * - Retry logic when dimensions are not yet ready during recreation
+ *
+ * @returns `prepareForRecreate` / `resetForRecreate` callbacks used by
+ *   `Terminal.tsx` to coordinate controlled PTY destruction and recreation.
+ */
 export function usePtyProcess({
   terminalId,
   cwd,
@@ -139,6 +151,18 @@ export function usePtyProcess({
     const terminalState = store.terminals.find((t) => t.id === terminalId);
     const alreadyRunning = terminalState?.status === 'running' || terminalState?.status === 'claude-active';
     const isRestored = terminalState?.isRestored;
+
+    // Do not create a new PTY for a terminal that has exited naturally.
+    // When the shell exits (e.g. user types "exit"), the terminal is kept in the DOM
+    // for a short grace period (pendingCleanup). During that period the component can
+    // mount/unmount rapidly — without this guard each mount would spin up a new PTY,
+    // causing an infinite mount → create PTY → unmount → mount loop.
+    // Deliberate recreation (worktree switch) sets isRecreatingRef before exiting, so
+    // it is excluded from this guard.
+    if (terminalState?.status === 'exited' && !isRecreatingRef?.current) {
+      debugLog(`[usePtyProcess] Skipping PTY creation for terminal: ${terminalId} - terminal has exited naturally (status=exited)`);
+      return;
+    }
 
     debugLog(`[usePtyProcess] Starting PTY creation for terminal: ${terminalId}`);
     debugLog(`[usePtyProcess] Terminal ${terminalId} state: isRestored=${isRestored}, status=${terminalState?.status}`);
