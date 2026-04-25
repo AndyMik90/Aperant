@@ -4,6 +4,7 @@ import { Combobox } from './combobox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
 import { useOpenRouterModels, preloadOpenRouterModels } from '../../hooks/useOpenRouterModels';
 import { ALL_AVAILABLE_MODELS, AVAILABLE_MODELS } from '@shared/constants';
+import { cn } from '../../lib/utils';
 import type { BuiltinProvider } from '@shared/types/provider-account';
 
 interface ProviderModelComboboxProps {
@@ -85,7 +86,7 @@ export function ProviderModelCombobox({
   if (staticOptions && !isOllama) {
     return (
       <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-        <SelectTrigger id={id} className={`${sizeClass} ${className ?? ''}`}>
+        <SelectTrigger id={id} className={cn(sizeClass, className)}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -106,7 +107,7 @@ export function ProviderModelCombobox({
   return (
     <Combobox
       id={id}
-      className={`${sizeClass} ${className ?? ''}`}
+      className={cn(sizeClass, className)}
       placeholder={t('common:modelCombobox.placeholder')}
       searchPlaceholder={t('common:modelCombobox.searchPlaceholder')}
       emptyMessage={t('common:modelCombobox.emptyMessage')}
