@@ -32,13 +32,15 @@ async function fetchModels() {
       .map((m: { id: string; name: string }) => {
         const slashIdx = m.id.indexOf('/');
         const providerSlug = slashIdx !== -1 ? m.id.slice(0, slashIdx) : m.id;
-        const group =
-          providerSlug.charAt(0).toUpperCase() + providerSlug.slice(1).replace(/-/g, ' ');
+        const group = providerSlug
+          ? providerSlug.charAt(0).toUpperCase() + providerSlug.slice(1).replace(/-/g, ' ')
+          : 'Other';
         return { value: m.id, label: m.name || m.id, description: m.id, group };
       });
 
     cacheState = 'done';
-  } catch {
+  } catch (err) {
+    console.error('[useOpenRouterModels] Failed to fetch OpenRouter models:', err);
     cacheState = 'error';
   }
 
