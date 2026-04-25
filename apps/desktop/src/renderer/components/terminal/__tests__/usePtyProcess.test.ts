@@ -14,6 +14,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useRef } from 'react';
 import { usePtyProcess } from '../usePtyProcess';
+import type { TerminalStatus } from '../../../stores/terminal-store';
 
 const mockCreateTerminal = vi.fn();
 const mockDestroyTerminal = vi.fn();
@@ -28,7 +29,7 @@ vi.stubGlobal('window', {
 });
 
 /** Mutable terminal state controlled per test */
-let mockTerminalStatus: string = 'idle';
+let mockTerminalStatus: TerminalStatus = 'idle';
 let mockIsRestored: boolean = false;
 
 const mockSetTerminalStatus = vi.fn();
@@ -104,6 +105,8 @@ describe('usePtyProcess — exited-terminal guard (#fix/terminal-exit-pty-recrea
     });
 
     expect(mockCreateTerminal).toHaveBeenCalledTimes(1);
+    // The recreation path resets status from 'exited' → 'idle' before creating the PTY
+    expect(mockSetTerminalStatus).toHaveBeenCalledWith('term-1', 'idle');
   });
 
   it('calls createTerminal when terminal status is idle', async () => {
