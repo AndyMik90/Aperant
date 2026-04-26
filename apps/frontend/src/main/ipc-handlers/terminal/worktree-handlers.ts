@@ -840,14 +840,19 @@ async function createTerminalWorktree(
     // re-links the parent repo's node_modules into the worktree's pnpm
     // store, corrupting the parent's dependency graph after cleanup.
     // See: https://pnpm.io/npmrc#ignore-workspace
+    // If the host repo already commits a .npmrc (registry/auth config), we
+    // append the directive instead of skipping — otherwise the workspace
+    // fix gets bypassed silently for monorepos that need it most.
     const npmrcPath = path.join(worktreePath, '.npmrc');
-    if (!existsSync(npmrcPath)) {
-      try {
-        writeFileSync(npmrcPath, 'ignore-workspace=true\n', 'utf-8');
-        debugLog('[TerminalWorktree] Wrote .npmrc (ignore-workspace=true) to worktree:', worktreePath);
-      } catch (npmrcError) {
-        debugError('[TerminalWorktree] Could not write .npmrc to worktree:', npmrcError);
+    try {
+      const existing = existsSync(npmrcPath) ? readFileSync(npmrcPath, 'utf-8') : '';
+      if (!/^\s*ignore-workspace\s*=/m.test(existing)) {
+        const separator = !existing || existing.endsWith('\n') ? '' : '\n';
+        writeFileSync(npmrcPath, existing + separator + 'ignore-workspace=true\n', 'utf-8');
+        debugLog('[TerminalWorktree] Ensured ignore-workspace=true in .npmrc for worktree:', worktreePath);
       }
+    } catch (npmrcError) {
+      debugError('[TerminalWorktree] Could not write .npmrc to worktree:', npmrcError);
     }
 
     // Set up dependencies (node_modules, venvs, etc.) for tooling support

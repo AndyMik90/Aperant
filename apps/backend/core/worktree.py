@@ -39,6 +39,11 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
+# Detects an existing `ignore-workspace=...` directive in a .npmrc, regardless
+# of leading whitespace. Used to decide whether to append it when the host repo
+# already commits a .npmrc (registry/auth config) into worktrees.
+_IGNORE_WORKSPACE_PATTERN = re.compile(r"^\s*ignore-workspace\s*=", re.MULTILINE)
+
 
 def _is_retryable_network_error(stderr: str) -> bool:
     """Check if an error is a retryable network/connection issue."""
@@ -739,13 +744,24 @@ class WorktreeManager:
         # re-links the parent repo's node_modules into the worktree's pnpm
         # store, corrupting the parent's dependency graph after cleanup.
         # See: https://pnpm.io/npmrc#ignore-workspace
+        # If the host repo already commits a .npmrc (registry/auth config), we
+        # append the directive instead of skipping — otherwise the workspace
+        # fix gets bypassed silently for monorepos that need it most.
         npmrc_path = worktree_path / ".npmrc"
-        if not npmrc_path.exists():
-            try:
-                npmrc_path.write_text("ignore-workspace=true\n", encoding="utf-8")
-                logger.debug("Wrote .npmrc (ignore-workspace=true) to worktree: %s", worktree_path)
-            except OSError as e:
-                logger.warning("Could not write .npmrc to worktree %s: %s", worktree_path, e)
+        try:
+            existing = npmrc_path.read_text(encoding="utf-8") if npmrc_path.exists() else ""
+            if not _IGNORE_WORKSPACE_PATTERN.search(existing):
+                separator = "" if not existing or existing.endswith("\n") else "\n"
+                npmrc_path.write_text(
+                    existing + separator + "ignore-workspace=true\n",
+                    encoding="utf-8",
+                )
+                logger.debug(
+                    "Ensured ignore-workspace=true in .npmrc for worktree: %s",
+                    worktree_path,
+                )
+        except OSError as e:
+            logger.warning("Could not write .npmrc to worktree %s: %s", worktree_path, e)
 
         return WorktreeInfo(
             path=worktree_path,
