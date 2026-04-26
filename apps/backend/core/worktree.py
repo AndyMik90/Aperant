@@ -733,6 +733,20 @@ class WorktreeManager:
 
         print(f"Created worktree: {worktree_path.name} on branch {branch_name}")
 
+        # Write .npmrc to prevent pnpm/npm from walking up to the parent
+        # workspace root (pnpm-workspace.yaml / package.json#workspaces).
+        # Without this, running `pnpm install` inside the worktree silently
+        # re-links the parent repo's node_modules into the worktree's pnpm
+        # store, corrupting the parent's dependency graph after cleanup.
+        # See: https://pnpm.io/npmrc#ignore-workspace
+        npmrc_path = worktree_path / ".npmrc"
+        if not npmrc_path.exists():
+            try:
+                npmrc_path.write_text("ignore-workspace=true\n", encoding="utf-8")
+                logger.debug("Wrote .npmrc (ignore-workspace=true) to worktree: %s", worktree_path)
+            except OSError as e:
+                logger.warning("Could not write .npmrc to worktree %s: %s", worktree_path, e)
+
         return WorktreeInfo(
             path=worktree_path,
             branch=branch_name,

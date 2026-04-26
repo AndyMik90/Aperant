@@ -834,6 +834,22 @@ async function createTerminalWorktree(
       debugLog('[TerminalWorktree] Created worktree in detached HEAD mode from', baseRef);
     }
 
+    // Write .npmrc to prevent pnpm/npm from walking up to the parent
+    // workspace root (pnpm-workspace.yaml / package.json#workspaces).
+    // Without this, running `pnpm install` inside the worktree silently
+    // re-links the parent repo's node_modules into the worktree's pnpm
+    // store, corrupting the parent's dependency graph after cleanup.
+    // See: https://pnpm.io/npmrc#ignore-workspace
+    const npmrcPath = path.join(worktreePath, '.npmrc');
+    if (!existsSync(npmrcPath)) {
+      try {
+        writeFileSync(npmrcPath, 'ignore-workspace=true\n', 'utf-8');
+        debugLog('[TerminalWorktree] Wrote .npmrc (ignore-workspace=true) to worktree:', worktreePath);
+      } catch (npmrcError) {
+        debugError('[TerminalWorktree] Could not write .npmrc to worktree:', npmrcError);
+      }
+    }
+
     // Set up dependencies (node_modules, venvs, etc.) for tooling support
     // This allows pre-commit hooks to run typecheck without npm install in worktree
     const setupDeps = await setupWorktreeDependencies(projectPath, worktreePath);
