@@ -113,8 +113,9 @@ describe('usePtyProcess — exited-terminal guard (#fix/terminal-exit-pty-recrea
     });
 
     expect(mockCreateTerminal).toHaveBeenCalledTimes(1);
-    // The recreation path resets status from 'exited' → 'idle' before creating the PTY
-    expect(mockSetTerminalStatus).toHaveBeenCalledWith('term-1', 'idle');
+    // The recreation path must reset status from 'exited' → 'idle' BEFORE creating the PTY,
+    // otherwise the exited-guard above would short-circuit creation.
+    expect(mockSetTerminalStatus).toHaveBeenNthCalledWith(1, 'term-1', 'idle');
   });
 
   it('calls createTerminal when terminal status is idle', async () => {
