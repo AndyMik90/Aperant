@@ -32,7 +32,10 @@ Object.defineProperty(window, 'electronAPI', {
 
 /** Mutable terminal state controlled per test */
 let mockTerminalStatus: TerminalStatus = 'idle';
-let mockIsRestored: boolean = false;
+let mockIsRestored = false;
+
+const mockSetTerminalStatus = vi.fn();
+const mockUpdateTerminal = vi.fn();
 
 vi.mock('../../../stores/terminal-store', () => ({
   useTerminalStore: Object.assign(vi.fn(), {
@@ -44,14 +47,17 @@ vi.mock('../../../stores/terminal-store', () => ({
           isRestored: mockIsRestored,
           isCLIMode: false,
           cwd: '/test',
+          title: 'Terminal 1',
+          claudeSessionId: undefined,
+          worktreeConfig: undefined,
+          createdAt: new Date('2024-01-01T00:00:00Z'),
         },
       ],
       setTerminalStatus: mockSetTerminalStatus,
+      updateTerminal: mockUpdateTerminal,
     }),
   }),
 }));
-
-const mockSetTerminalStatus = vi.fn();
 
 const DEFAULT_OPTIONS = {
   terminalId: 'term-1',
@@ -69,6 +75,7 @@ describe('usePtyProcess — exited-terminal guard (#fix/terminal-exit-pty-recrea
     mockIsRestored = false;
     mockCreateTerminal.mockResolvedValue({ success: true });
     mockDestroyTerminal.mockResolvedValue({ success: true });
+    mockRestoreTerminalSession.mockResolvedValue({ success: true, data: { success: true } });
   });
 
   it('does not call createTerminal when terminal status is exited (natural exit)', async () => {
@@ -123,7 +130,7 @@ describe('usePtyProcess — exited-terminal guard (#fix/terminal-exit-pty-recrea
     );
   });
 
-  it('calls createTerminal when terminal status is running (e.g. reconnect)', async () => {
+  it('calls createTerminal (new-terminal branch) when status is running and isRestored is false', async () => {
     mockTerminalStatus = 'running';
 
     await act(async () => {
@@ -131,6 +138,20 @@ describe('usePtyProcess — exited-terminal guard (#fix/terminal-exit-pty-recrea
     });
 
     expect(mockCreateTerminal).toHaveBeenCalledTimes(1);
+    expect(mockRestoreTerminalSession).not.toHaveBeenCalled();
+  });
+
+  it('calls restoreTerminalSession (restore branch) when status is running and isRestored is true', async () => {
+    mockTerminalStatus = 'running';
+    mockIsRestored = true;
+
+    await act(async () => {
+      renderHook(() => usePtyProcess(DEFAULT_OPTIONS));
+    });
+
+    expect(mockRestoreTerminalSession).toHaveBeenCalledTimes(1);
+    expect(mockCreateTerminal).not.toHaveBeenCalled();
+    expect(mockUpdateTerminal).toHaveBeenCalledWith('term-1', { isRestored: false });
   });
 
   it('does not call createTerminal when skipCreation is true', async () => {
