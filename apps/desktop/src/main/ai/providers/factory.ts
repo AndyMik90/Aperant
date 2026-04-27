@@ -20,10 +20,13 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { createXai } from '@ai-sdk/xai';
 import type { LanguageModel } from 'ai';
 
+import { isMainThread } from 'node:worker_threads';
 import { MODEL_PROVIDER_MAP } from '../config/types';
-import { readSettingsFile } from '../../settings-utils';
 import { createOAuthProviderFetch } from './oauth-fetch';
 import { type ProviderConfig, SupportedProvider } from './types';
+
+/** Minimal settings shape consumed by factory — avoids importing AppSettings here. */
+type FactorySettings = { fallbackProviderId?: string };
 
 // =============================================================================
 // OAuth Token Detection
@@ -235,15 +238,35 @@ export function createProvider(options: CreateProviderOptions): LanguageModel {
 let _fallbackProviderCache: SupportedProvider | null = null;
 
 /**
+ * Pluggable settings reader. Defaults to a no-op so worker threads (which have
+ * no access to electron.app) never pull in settings-utils at module load time.
+ * Each Worker Thread gets its own module instance (Node isolates module graphs
+ * per thread), so this default is safe — workers receive their provider already
+ * resolved via workerData and never hit the slash-format path.
+ * The main process wires this up via `configureSettingsReader(readSettingsFile)`
+ * at startup. Tests inject their own mock via the same function.
+ */
+let _settingsReader: () => FactorySettings | undefined = () => undefined;
+let _readerConfigured = false;
+
+export function configureSettingsReader(reader: () => FactorySettings | undefined): void {
+  _settingsReader = reader;
+  _readerConfigured = true;
+}
+
+/**
  * Reads the user-configured fallback provider from settings (result is cached).
  * Called when a model ID contains a slash but no explicit provider is given.
  * Defaults to OpenRouter if the setting is absent or invalid.
  */
 function getConfiguredFallbackProvider(): SupportedProvider {
   if (_fallbackProviderCache !== null) return _fallbackProviderCache;
+  if (!_readerConfigured && isMainThread) {
+    console.warn('[factory] configureSettingsReader() not called — fallbackProviderId from settings will be ignored');
+  }
   try {
-    const settings = readSettingsFile();
-    const id = settings?.fallbackProviderId as string | undefined;
+    const settings = _settingsReader();
+    const id = settings?.fallbackProviderId;
     if (id) {
       if (Object.values(SupportedProvider).includes(id as SupportedProvider)) {
         _fallbackProviderCache = id as SupportedProvider;

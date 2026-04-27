@@ -4,11 +4,7 @@
  * Validates provider instantiation, detection, and error handling.
  */
 
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-
-vi.mock('../../../settings-utils', () => ({
-  readSettingsFile: vi.fn(),
-}));
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock all @ai-sdk/* providers
 vi.mock('@ai-sdk/anthropic', () => ({
@@ -84,11 +80,17 @@ vi.mock('@openrouter/ai-sdk-provider', () => ({
 }));
 
 import { createAnthropic } from '@ai-sdk/anthropic';
-import { createProvider, detectProviderFromModel, createProviderFromModelId, resetFallbackProviderCache } from '../factory';
+import { createProvider, detectProviderFromModel, createProviderFromModelId, resetFallbackProviderCache, configureSettingsReader } from '../factory';
 import { SupportedProvider } from '../types';
-import { readSettingsFile } from '../../../settings-utils';
 
-const mockReadSettingsFile = vi.mocked(readSettingsFile);
+const mockReadSettingsFile = vi.fn<() => { fallbackProviderId?: string } | undefined>();
+
+// Global reset — runs before every test in this file regardless of describe.
+// Ensures cache and reader don't bleed between suites.
+beforeEach(() => {
+  resetFallbackProviderCache();
+  configureSettingsReader(() => undefined);
+});
 
 describe('createProvider', () => {
   const allProviders = Object.values(SupportedProvider);
@@ -147,8 +149,8 @@ describe('createProvider', () => {
 
 describe('getConfiguredFallbackProvider (via detectProviderFromModel without explicit fallback)', () => {
   beforeEach(() => {
-    resetFallbackProviderCache();
     mockReadSettingsFile.mockReset();
+    configureSettingsReader(mockReadSettingsFile);
   });
 
   it('returns configured fallback when fallbackProviderId is a valid provider', () => {
@@ -174,10 +176,9 @@ describe('getConfiguredFallbackProvider (via detectProviderFromModel without exp
 
 describe('detectProviderFromModel', () => {
   beforeEach(() => {
-    // Reset module-level cache to avoid cross-suite contamination
-    resetFallbackProviderCache();
     mockReadSettingsFile.mockReset();
     mockReadSettingsFile.mockReturnValue({});
+    configureSettingsReader(mockReadSettingsFile);
   });
 
   it('detects Anthropic from claude- prefix', () => {

@@ -62,6 +62,7 @@ import { DEFAULT_APP_SETTINGS, IPC_CHANNELS, SPELL_CHECK_LANGUAGE_MAP, DEFAULT_S
 import { getAppLanguage, initAppLanguage } from './app-language';
 import { readSettingsFile } from './settings-utils';
 import { registerSettingsAccessor } from './ai/auth/resolver';
+import { configureSettingsReader } from './ai/providers/factory';
 import { appLog, setupErrorLogging } from './app-logger';
 import { initSentryMain } from './sentry';
 import { preWarmToolCache } from './cli-tool-manager';
@@ -121,6 +122,11 @@ registerSettingsAccessor((key: string) => {
   const settings = readSettingsFile();
   return settings?.[key] as string | undefined;
 });
+
+// Wire up settings reader for provider factory. Worker threads import factory.ts
+// but receive their provider already resolved via workerData, so they never need
+// this reader — their module-level default (no-op) is intentional.
+configureSettingsReader(readSettingsFile);
 
 /**
  * Load app settings synchronously (for use during startup).
