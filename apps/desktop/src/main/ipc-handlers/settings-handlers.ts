@@ -19,6 +19,7 @@ import type { BrowserWindow } from 'electron';
 import { setUpdateChannel, setUpdateChannelWithDowngradeCheck } from '../app-updater';
 import { getSettingsPath, readSettingsFile } from '../settings-utils';
 import { resetMemoryService } from './context/memory-service-factory';
+import { resetFallbackProviderCache } from '../ai/providers/factory';
 import { configureTools, getToolPath, getToolInfo, isPathFromWrongPlatform, preWarmToolCache } from '../cli-tool-manager';
 import type { ProviderAccount } from '../../shared/types/provider-account';
 import type { APIProfile } from '../../shared/types/profile';
@@ -502,6 +503,10 @@ export function registerSettingsHandlers(
               console.error('[settings-handlers] Failed to check for stable downgrade:', err);
             });
           }
+        }
+
+        if (settings.fallbackProviderId !== undefined) {
+          resetFallbackProviderCache();
         }
 
         return { success: true };
