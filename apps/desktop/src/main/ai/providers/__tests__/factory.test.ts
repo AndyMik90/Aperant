@@ -4,7 +4,7 @@
  * Validates provider instantiation, detection, and error handling.
  */
 
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 // Mock all @ai-sdk/* providers
 vi.mock('@ai-sdk/anthropic', () => ({
