@@ -33,6 +33,7 @@ function OpenRouterCombobox({ value, onValueChange, disabled, className, id, siz
       emptyMessage={t('common:modelCombobox.emptyMessage')}
       loadingMessage={t('common:modelCombobox.loadingMessage')}
       allowCustomValue
+      customValueLabel={t('common:modelCombobox.useLabel')}
       isLoading={isLoading}
       value={value}
       onValueChange={onValueChange}
@@ -155,6 +156,7 @@ export function ProviderModelCombobox({
       searchPlaceholder={t('common:modelCombobox.searchPlaceholder')}
       emptyMessage={t('common:modelCombobox.emptyMessage')}
       allowCustomValue
+      customValueLabel={t('common:modelCombobox.useLabel')}
       isLoading={isComboLoading}
       value={value}
       onValueChange={onValueChange}

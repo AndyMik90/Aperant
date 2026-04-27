@@ -25,6 +25,7 @@ interface ComboboxProps {
   className?: string;
   id?: string;
   allowCustomValue?: boolean;
+  customValueLabel?: string;
   isLoading?: boolean;
 }
 
@@ -51,6 +52,7 @@ const Combobox = React.forwardRef<HTMLButtonElement, ComboboxProps>(
       className,
       id,
       allowCustomValue = false,
+      customValueLabel = 'Use',
       isLoading = false,
     },
     ref
@@ -350,7 +352,7 @@ const Combobox = React.forwardRef<HTMLButtonElement, ComboboxProps>(
                         isFocused && 'bg-accent text-accent-foreground'
                       )}
                     >
-                      <span className="text-muted-foreground text-xs shrink-0">Use</span>
+                      <span className="text-muted-foreground text-xs shrink-0">{customValueLabel}</span>
                       <span className="truncate font-mono text-xs">{row.value}</span>
                     </li>
                   );

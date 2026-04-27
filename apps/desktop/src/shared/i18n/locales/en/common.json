@@ -959,6 +959,7 @@
     "placeholder": "Select model…",
     "searchPlaceholder": "Search models…",
     "emptyMessage": "No models found",
-    "loadingMessage": "Loading…"
+    "loadingMessage": "Loading…",
+    "useLabel": "Use"
   }
 }
