@@ -29,11 +29,16 @@ export default defineConfig({
     setupFiles: ['src/__tests__/setup.ts']
   },
   resolve: {
+    // Mirrors apps/desktop/tsconfig.json paths exactly so tests resolve
+    // imports the same way production builds do (audit: IDEA-004 / RISK-015).
     alias: {
-      '@': resolve(__dirname, 'src'),
-      '@main': resolve(__dirname, 'src/main'),
-      '@renderer': resolve(__dirname, 'src/renderer'),
-      '@shared': resolve(__dirname, 'src/shared')
+      '@': resolve(__dirname, 'src/renderer'),
+      '@shared': resolve(__dirname, 'src/shared'),
+      '@preload': resolve(__dirname, 'src/preload'),
+      '@features': resolve(__dirname, 'src/renderer/features'),
+      '@components': resolve(__dirname, 'src/renderer/shared/components'),
+      '@hooks': resolve(__dirname, 'src/renderer/shared/hooks'),
+      '@lib': resolve(__dirname, 'src/renderer/shared/lib')
     }
   }
 });

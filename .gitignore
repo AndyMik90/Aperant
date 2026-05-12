@@ -32,6 +32,10 @@ credentials/
 .vscode/
 *.swp
 *.swo
+*.bk
+*.bak
+*.orig
+*~
 *.sublime-workspace
 *.sublime-project
 .project

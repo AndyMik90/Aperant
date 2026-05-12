@@ -5,8 +5,7 @@
   "license": "AGPL-3.0",
   "author": "Auto Claude Team",
   "workspaces": [
-    "apps/*",
-    "libs/*"
+    "apps/*"
   ],
   "scripts": {
     "install:all": "cd apps/desktop && npm install",
