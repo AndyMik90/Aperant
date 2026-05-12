@@ -187,6 +187,21 @@ The release workflow **validates** that `CHANGELOG.md` has an entry for the vers
 | `release.yml` | Tag `v*` pushed | Builds binaries, extracts changelog, creates release |
 | `update-readme` (in release.yml) | After release | Updates README with new version |
 
+## Build-Time Embedded Keys (INV-006 / UNK-007)
+
+`apps/desktop/electron.vite.config.ts` injects build-time constants into the bundled main process via Vite `define`:
+
+| Constant | Source env var | CI workflows that supply it | Local-build behavior |
+|---|---|---|---|
+| `__SENTRY_DSN__` | `SENTRY_DSN` | `release.yml`, `beta-release.yml`, `build-prebuilds.yml` (GitHub secret) | Embeds `apps/desktop/.env` value if set; empty otherwise |
+| `__SENTRY_TRACES_SAMPLE_RATE__` | `SENTRY_TRACES_SAMPLE_RATE` | same as above | Defaults to `'0.1'` |
+| `__SENTRY_PROFILES_SAMPLE_RATE__` | `SENTRY_PROFILES_SAMPLE_RATE` | same as above | Defaults to `'0.1'` |
+| `__SERPER_API_KEY__` | `SERPER_API_KEY` | **None** (no CI workflow currently passes this secret) | Embeds developer's `.env` value if present |
+
+**Current state of Serper search in shipped builds.** Because no CI workflow supplies `SERPER_API_KEY`, the `WebSearch` tool's Serper provider effectively ships **disabled** in CI release builds: the build embeds an empty string and `serper-search.ts` returns the "missing key" error path. Local builds with a populated `apps/desktop/.env` will bundle the developer's key.
+
+A guardrail that refuses to embed any `__*_API_KEY__` constant in non-CI builds (unless `ALLOW_LOCAL_KEY_EMBED=1` is explicitly set) is tracked by `IDEA-007` / `MS-005` in `.claude/pipeline/roadmap-2026-05-12.md`. Wiring `SERPER_API_KEY` into the release-workflow secrets is **not** currently planned; if you want Serper search to work in shipped builds, add `SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}` to the build steps in `release.yml`, `beta-release.yml`, and `build-prebuilds.yml`.
+
 ## Troubleshooting
 
 ### Release didn't trigger after merge

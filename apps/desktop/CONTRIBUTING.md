@@ -107,6 +107,10 @@ npm run test:coverage
 npm run test:e2e
 ```
 
+### Coverage Strategy (INV-004 / UNK-004)
+
+The Vitest coverage thresholds in `vitest.config.ts` (`lines: 22, branches: 17, functions: 19, statements: 22`) are **regression floors**, not targets. They were set by commit `d958fa65` (*"harden CI/CD with coverage enforcement"*) as the post-Python-elimination baseline. PRs must not drop coverage below these floors. Raising the floors and adding per-module thresholds for high-risk paths (`ai/security`, `ai/tools`, `ai/agent`, `ipc-handlers`) is tracked by `IDEA-011` / `MS-008` in `.claude/pipeline/roadmap-2026-05-12.md`.
+
 ### Writing Tests
 
 ```typescript

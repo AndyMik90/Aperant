@@ -21,7 +21,14 @@ const sentryDefines = {
   '__SENTRY_PROFILES_SAMPLE_RATE__': JSON.stringify(process.env.SENTRY_PROFILES_SAMPLE_RATE || '0.1'),
 };
 
-/** Embedded API keys — search works out of the box, no user config needed. */
+/**
+ * Embedded API keys (see RELEASE.md § Build-Time Embedded Keys, INV-006 / UNK-007).
+ *
+ * NOTE: no CI workflow currently supplies SERPER_API_KEY, so CI release builds
+ * embed an empty string and the Serper search provider ships effectively disabled.
+ * Local builds embed whatever is in apps/desktop/.env at build time — a guardrail
+ * against accidental dev-key embedding is tracked by IDEA-007 / MS-005.
+ */
 const embeddedKeys = {
   '__SERPER_API_KEY__': JSON.stringify(process.env.SERPER_API_KEY || ''),
 };

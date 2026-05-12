@@ -30,11 +30,11 @@ Auto Claude is a desktop application (+ CLI) where users describe a goal and AI 
 
 ## Critical Rules
 
-**Vercel AI SDK only** — All AI interactions use the Vercel AI SDK v6 (`ai` package) via the TypeScript agent layer in `apps/desktop/src/main/ai/`. NEVER use `@anthropic-ai/sdk` or `anthropic.Anthropic()` directly. Use `createProvider()` from `ai/providers/factory.ts` and `streamText()`/`generateText()` from the `ai` package. Provider-specific adapters (e.g., `@ai-sdk/anthropic`, `@ai-sdk/openai`) are managed through the provider registry.
+**Vercel AI SDK only** — All AI interactions use the Vercel AI SDK v6 (`ai` package) via the TypeScript agent layer in `apps/desktop/src/main/ai/`. NEVER use `@anthropic-ai/sdk` or `anthropic.Anthropic()` directly. Use `createProvider()` from `ai/providers/factory.ts` and `streamText()`/`generateText()` from the `ai` package. Provider-specific adapters (e.g., `@ai-sdk/anthropic`, `@ai-sdk/openai`) are managed through the provider registry. **Exception (INV-005 / UNK-005):** `apps/desktop/src/main/services/profile/profile-service.ts` imports `@anthropic-ai/sdk` solely for API-key validation when a user adds a new profile — it consumes the SDK's typed exceptions (`AuthenticationError`, `NotFoundError`, `APIConnectionError`, `APIConnectionTimeoutError`) to produce precise user-facing error messages. New code outside this file MUST NOT add `@anthropic-ai/sdk` imports.
 
 **i18n required** — All frontend user-facing text uses `react-i18next` translation keys. Hardcoded strings in JSX/TSX break localization for non-English users. Add keys to both `en/*.json` and `fr/*.json`.
 
-**Platform abstraction** — Never use `process.platform` directly. Import from `apps/desktop/src/main/platform/`. CI tests all three platforms.
+**Platform abstraction (INV-007 / UNK-008)** — Never use `process.platform` directly. Two complementary layers exist by design: `apps/desktop/src/main/platform/` for main-process path/executable abstractions (paths, executable lookup, OS-specific shell handling); `apps/desktop/src/shared/platform.ts` for the typed `Platform` detection (`getCurrentPlatform`, `isWindows`, `isMacOS`, `isLinux`, `isUnix`) usable cross-process; `apps/desktop/src/shared/platform.cjs` for the same detection from build scripts that cannot import TypeScript. CI tests all three platforms.
 
 **No time estimates** — Provide priority-based ordering instead of duration predictions.
 
