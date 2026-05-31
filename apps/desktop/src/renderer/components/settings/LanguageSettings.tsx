@@ -62,7 +62,7 @@ export function LanguageSettings({ settings, onSettingsChange }: LanguageSetting
                   )}
                 >
                   <Globe className="h-5 w-5 shrink-0" />
-                  <div className="text-left">
+                  <div className="text-start">
                     <div className="text-sm font-medium">{lang.nativeLabel}</div>
                     <div className="text-xs text-muted-foreground">{lang.label}</div>
                   </div>

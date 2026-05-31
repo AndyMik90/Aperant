@@ -23,6 +23,7 @@ export function ProviderAccountsList() {
   const {
     deleteProviderAccount,
     updateProviderAccount,
+    addProviderAccount,
     providerAccounts,
     checkEnvCredentials,
     loadProviderAccounts,
@@ -33,6 +34,7 @@ export function ProviderAccountsList() {
   const [isLoading] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isImportingClaudeCode, setIsImportingClaudeCode] = useState(false);
 
   // AddAccountDialog state
   const [dialogState, setDialogState] = useState<{
@@ -104,6 +106,79 @@ export function ProviderAccountsList() {
   const handleDeleteAccount = (id: string) => {
     setDeleteTarget(id);
   };
+
+  const handleImportClaudeCode = useCallback(async () => {
+    if (isImportingClaudeCode) return;
+    setIsImportingClaudeCode(true);
+    try {
+      const result = await window.electronAPI.importClaudeFromCli();
+
+      if (!result.success || !result.data) {
+        const isNoLogin = result.error === 'NO_CLI_LOGIN';
+        toast({
+          variant: 'destructive',
+          title: isNoLogin
+            ? t('providers.toast.importNoLoginTitle')
+            : t('providers.toast.importFailed'),
+          description: isNoLogin
+            ? t('providers.toast.importNoLoginDescription')
+            : result.error ?? '',
+        });
+        return;
+      }
+
+      const { profileId, email, subscriptionType } = result.data;
+
+      // Link a unified ProviderAccount to the imported Claude profile so the
+      // autonomous pipeline (resolver) picks it up.
+      const accountName = email
+        ? subscriptionType
+          ? `${email} (${subscriptionType})`
+          : email
+        : t('providers.section.importClaudeCode');
+
+      const addResult = await addProviderAccount({
+        provider: 'anthropic',
+        name: accountName,
+        authType: 'oauth',
+        billingModel: 'subscription',
+        claudeProfileId: profileId,
+        ...(email ? { email } : {}),
+      });
+
+      if (addResult.success) {
+        try {
+          await window.electronAPI.requestAllProfilesUsage?.(true);
+        } catch {
+          // Non-fatal; usage refreshes on next polling cycle.
+        }
+        toast({
+          title: t('providers.toast.importSuccess'),
+          description: email ?? accountName,
+        });
+      } else if (addResult.error?.startsWith('DUPLICATE_EMAIL:')) {
+        // Profile metadata was still refreshed — treat as success for the user.
+        toast({
+          title: t('providers.toast.importSuccess'),
+          description: email ?? accountName,
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: t('providers.toast.importFailed'),
+          description: addResult.error ?? '',
+        });
+      }
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: t('providers.toast.importFailed'),
+        description: err instanceof Error ? err.message : '',
+      });
+    } finally {
+      setIsImportingClaudeCode(false);
+    }
+  }, [isImportingClaudeCode, addProviderAccount, toast, t]);
 
   const handleReauthAccount = useCallback(async (account: ProviderAccount) => {
     if (account.authType !== 'oauth') return;
@@ -210,6 +285,8 @@ export function ProviderAccountsList() {
                   onEditAccount={handleEditAccount}
                   onDeleteAccount={handleDeleteAccount}
                   onReauthAccount={handleReauthAccount}
+                  onImportClaudeCode={providerInfo.id === 'anthropic' ? handleImportClaudeCode : undefined}
+                  isImportingClaudeCode={isImportingClaudeCode}
                 />
               );
             })}

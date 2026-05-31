@@ -1,0 +1,9 @@
+{
+  "task": {
+    "parseImplementationPlan": "فشل تحليل implementation_plan.json للمواصفة {{specId}}: {{error}}",
+    "jsonError": {
+      "titleSuffix": "(خطأ JSON)",
+      "description": "⚠️ خطأ في تحليل JSON: {{error}}\n\nملف implementation_plan.json تالف. شغّل الإصلاح التلقائي من الخلفية أو أصلح الملف يدوياً."
+    }
+  }
+}

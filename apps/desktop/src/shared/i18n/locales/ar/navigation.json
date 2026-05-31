@@ -1,0 +1,87 @@
+{
+  "sections": {
+    "project": "المشروع",
+    "tools": "الأدوات"
+  },
+  "items": {
+    "kanban": "لوحة كانبان",
+    "terminals": "محطات العميل",
+    "insights": "الرؤى",
+    "roadmap": "خارطة الطريق",
+    "ideation": "توليد الأفكار",
+    "changelog": "سجل التغييرات",
+    "context": "السياق",
+    "githubIssues": "مشكلات GitHub",
+    "githubPRs": "طلبات السحب في GitHub",
+    "gitlabIssues": "مشكلات GitLab",
+    "gitlabMRs": "طلبات الدمج في GitLab",
+    "worktrees": "أشجار العمل",
+    "agentTools": "نظرة عامة على MCP"
+  },
+  "actions": {
+    "settings": "الإعدادات",
+    "help": "المساعدة والملاحظات",
+    "newTask": "مهمة جديدة",
+    "collapseSidebar": "طي الشريط الجانبي",
+    "expandSidebar": "توسيع الشريط الجانبي",
+    "sponsor": "ادعمنا"
+  },
+  "tooltips": {
+    "settings": "إعدادات التطبيق",
+    "help": "المساعدة والملاحظات"
+  },
+  "messages": {
+    "initializeToCreateTasks": "قم بتهيئة Aperant لإنشاء المهام"
+  },
+  "updateBanner": {
+    "title": "تحديث متاح",
+    "version": "الإصدار {{version}} جاهز",
+    "updateAndRestart": "تحديث وإعادة تشغيل",
+    "installAndRestart": "تثبيت وإعادة تشغيل",
+    "downloading": "جارٍ التنزيل...",
+    "dismiss": "تجاهل",
+    "downloadError": "فشل تنزيل التحديث",
+    "readOnlyVolumeWarning": "انقل إلى مجلد التطبيقات للتحديث"
+  },
+  "claudeCode": {
+    "checking": "جارٍ التحقق من Claude Code...",
+    "upToDate": "Claude Code محدّث",
+    "updateAvailable": "تحديث Claude Code متاح",
+    "notInstalled": "Claude Code غير مثبّت",
+    "error": "خطأ في التحقق من Claude Code",
+    "installed": "مثبّت",
+    "outdated": "تحديث متاح",
+    "missing": "غير مثبّت",
+    "current": "الحالي",
+    "latest": "الأحدث",
+    "path": "المسار",
+    "lastChecked": "آخر فحص",
+    "learnMore": "اعرف المزيد عن Claude Code",
+    "learnMoreAriaLabel": "اعرف المزيد عن Claude Code (يفتح في نافذة جديدة)",
+    "viewChangelog": "عرض سجل تغييرات Claude Code",
+    "viewChangelogAriaLabel": "عرض سجل تغييرات Claude Code (يفتح في نافذة جديدة)",
+    "updateWarningTitle": "تحديث Claude Code؟",
+    "updateWarningDescription": "سيؤدي التحديث إلى إغلاق جميع جلسات Claude Code الجارية. قد تُفقد أي أعمال غير محفوظة في تلك الجلسات. تأكد من حفظ عملك قبل المتابعة.",
+    "updateWarningTerminalNote": "ستُفتح نافذة طرفية لتشغيل أمر التثبيت. يُرجى الانتظار حتى اكتمال التثبيت قبل المتابعة.",
+    "updateAnyway": "فتح الطرفية والتحديث",
+    "switchVersion": "تبديل الإصدار",
+    "selectVersion": "اختر الإصدار",
+    "loadingVersions": "جارٍ تحميل الإصدارات...",
+    "failedToLoadVersions": "فشل تحميل الإصدارات",
+    "installingVersion": "جارٍ تثبيت الإصدار {{version}}...",
+    "rollbackWarningTitle": "التبديل إلى الإصدار {{version}}؟",
+    "rollbackWarningDescription": "سيؤدي تبديل الإصدارات إلى إغلاق جميع جلسات Claude Code الجارية. قد تُفقد أي أعمال غير محفوظة في تلك الجلسات. تأكد من حفظ عملك قبل المتابعة.",
+    "rollbackWarningTerminalNote": "ستُفتح نافذة طرفية لتشغيل أمر التثبيت. يُرجى الانتظار حتى اكتمال التثبيت قبل المتابعة.",
+    "switchAnyway": "فتح الطرفية والتبديل",
+    "currentVersion": "الحالي",
+    "switchInstallation": "تبديل التثبيت",
+    "selectInstallation": "اختر التثبيت",
+    "loadingInstallations": "جارٍ تحميل التثبيتات...",
+    "failedToLoadInstallations": "فشل تحميل التثبيتات",
+    "activeInstallation": "نشط",
+    "pathChangeWarningTitle": "تبديل تثبيت CLI؟",
+    "pathChangeWarningDescription": "سيؤدي تبديل تثبيتات CLI إلى استخدام ملف تنفيذي مختلف لـ Claude Code. ستواصل الجلسات الجارية استخدام التثبيت السابق حتى تتم إعادة تشغيلها.",
+    "switchInstallationConfirm": "تبديل",
+    "versionUnknown": "الإصدار غير معروف"
+  }
+}

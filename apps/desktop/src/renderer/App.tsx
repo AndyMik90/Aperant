@@ -318,6 +318,13 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Only run when settings.language changes, not on every i18n object change
   }, [settings.language, i18n.language, i18n.changeLanguage]);
 
+  // Sync document direction and lang attribute with i18n language (RTL support)
+  useEffect(() => {
+    const isRtl = i18n.language === 'ar';
+    document.documentElement.dir = isRtl ? 'rtl' : 'ltr';
+    document.documentElement.lang = i18n.language;
+  }, [i18n.language]);
+
   // Sync spell check language with i18n language
   useEffect(() => {
     const syncSpellCheck = async () => {

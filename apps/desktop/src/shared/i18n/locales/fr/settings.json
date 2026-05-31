@@ -688,8 +688,8 @@
       "typeAPI": "API",
       "payPerUse": "Paiement à l'usage",
       "needsAuth": "Non authentifié",
-      "duplicateUsage": "Doublon d\u2019utilisation",
-      "duplicateUsageHint": "Ces profils OAuth partagent des valeurs d\u2019utilisation identiques. Vérifiez qu\u2019ils correspondent bien à des comptes différents si ce n\u2019est pas attendu.",
+      "duplicateUsage": "Doublon d’utilisation",
+      "duplicateUsageHint": "Ces profils OAuth partagent des valeurs d’utilisation identiques. Vérifiez qu’ils correspondent bien à des comptes différents si ce n’est pas attendu.",
       "needsReauth": "Réauth requise",
       "needsReauthHint": "Le token de rafraîchissement de ce profil est invalide. Cliquez pour vous réauthentifier.",
       "sessionUsage": "Utilisation de session (fenêtre de 5 heures)",
@@ -757,7 +757,9 @@
       "addCodingPlan": "Ajouter Coding Plan",
       "addUsageBased": "Ajouter clé API à l'utilisation",
       "addApiKey": "Ajouter une clé API",
-      "addEndpoint": "Ajouter un point de terminaison"
+      "addEndpoint": "Ajouter un point de terminaison",
+      "importClaudeCode": "Importer depuis Claude Code",
+      "importClaudeCodeHint": "Réutilisez votre connexion Claude Code existante (~/.claude) sans vous reconnecter"
     },
     "dialog": {
       "addTitle": "Ajouter un compte",
@@ -822,7 +824,11 @@
       "deleteFailed": "Échec de la suppression du compte",
       "reauthStarted": "Ouverture de l'authentification...",
       "reauthSuccess": "Ré-authentification réussie",
-      "reauthFailed": "Échec de la ré-authentification"
+      "reauthFailed": "Échec de la ré-authentification",
+      "importSuccess": "Connexion Claude Code importée",
+      "importFailed": "Échec de l'importation de la connexion Claude Code",
+      "importNoLoginTitle": "Aucune connexion Claude Code trouvée",
+      "importNoLoginDescription": "Exécutez d'abord « claude /login » dans un terminal, puis réessayez l'importation."
     },
     "categories": {
       "popular": "Populaires",

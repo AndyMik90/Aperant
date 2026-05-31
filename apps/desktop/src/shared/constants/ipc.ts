@@ -124,6 +124,7 @@ export const IPC_CHANNELS = {
   CLAUDE_PROFILE_VERIFY_AUTH: 'claude:profileVerifyAuth',  // Check if profile has been authenticated
   CLAUDE_AUTH_LOGIN_SUBPROCESS: 'claude:authLoginSubprocess',  // Run `claude auth login` as subprocess
   CLAUDE_AUTH_LOGIN_PROGRESS: 'claude:authLoginProgress',      // Main → Renderer progress events
+  CLAUDE_IMPORT_FROM_CLI: 'claude:importFromCli',             // Import existing Claude Code login (~/.claude) without re-login
   CLAUDE_PROFILE_AUTO_SWITCH_SETTINGS: 'claude:autoSwitchSettings',
   CLAUDE_PROFILE_UPDATE_AUTO_SWITCH: 'claude:updateAutoSwitch',
   CLAUDE_PROFILE_FETCH_USAGE: 'claude:fetchUsage',

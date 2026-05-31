@@ -1,0 +1,357 @@
+{
+  "refreshTasks": "تحديث المهام",
+  "status": {
+    "backlog": "قائمة الانتظار",
+    "queue": "الطابور",
+    "todo": "للتنفيذ",
+    "in_progress": "قيد التنفيذ",
+    "review": "مراجعة",
+    "prCreated": "تم إنشاء PR",
+    "complete": "مكتمل",
+    "archived": "مؤرشف"
+  },
+  "actions": {
+    "start": "بدء",
+    "stop": "إيقاف",
+    "recover": "استرداد",
+    "resume": "استئناف",
+    "archive": "أرشفة",
+    "delete": "حذف",
+    "view": "عرض التفاصيل",
+    "viewPR": "عرض PR",
+    "moveTo": "نقل إلى",
+    "taskActions": "إجراءات المهمة",
+    "selectTask": "تحديد المهمة: {{title}}"
+  },
+  "labels": {
+    "running": "قيد التشغيل",
+    "aiReview": "مراجعة AI",
+    "needsReview": "تحتاج مراجعة",
+    "pending": "معلّق",
+    "stuck": "متوقف",
+    "incomplete": "غير مكتمل",
+    "recovering": "جارٍ الاسترداد...",
+    "needsRecovery": "تحتاج استرداد",
+    "needsResume": "تحتاج استئناف"
+  },
+  "reviewReason": {
+    "completed": "مكتمل",
+    "hasErrors": "يحتوي على أخطاء",
+    "qaIssues": "مشاكل في QA",
+    "approvePlan": "اعتماد الخطة",
+    "stopped": "متوقف"
+  },
+  "tooltips": {
+    "archiveTask": "أرشفة المهمة",
+    "archiveAllDone": "أرشفة جميع المهام المنجزة",
+    "viewPR": "فتح طلب السحب في المتصفح"
+  },
+  "creation": {
+    "title": "إنشاء مهمة جديدة",
+    "description": "صف ما تريد بناءه",
+    "placeholder": "صف مهمتك..."
+  },
+  "empty": {
+    "title": "لا توجد مهام بعد",
+    "description": "أنشئ مهمتك الأولى للبدء"
+  },
+  "columns": {
+    "backlog": "التخطيط",
+    "queue": "الطابور",
+    "in_progress": "قيد التنفيذ",
+    "ai_review": "مراجعة AI",
+    "human_review": "مراجعة بشرية",
+    "done": "منجز",
+    "pr_created": "تم إنشاء PR",
+    "error": "خطأ"
+  },
+  "kanban": {
+    "emptyBacklog": "لا توجد مهام مخططة",
+    "emptyBacklogHint": "أضف مهمة للبدء",
+    "emptyQueue": "الطابور فارغ",
+    "emptyQueueHint": "ستنتظر المهام هنا عند الوصول إلى الحد الأقصى للمهام المتوازية",
+    "emptyInProgress": "لا يوجد شيء قيد التشغيل",
+    "emptyInProgressHint": "ابدأ مهمة من قسم التخطيط",
+    "emptyAiReview": "لا توجد مهام في المراجعة",
+    "emptyAiReviewHint": "سيراجع AI المهام المكتملة",
+    "emptyHumanReview": "لا يوجد شيء للمراجعة",
+    "emptyHumanReviewHint": "تنتظر المهام موافقتك هنا",
+    "emptyDone": "لا توجد مهام مكتملة",
+    "emptyDoneHint": "تظهر المهام المعتمدة هنا",
+    "emptyDefault": "لا توجد مهام",
+    "dropHere": "أسقط هنا",
+    "showArchived": "عرض المؤرشف",
+    "addTaskAriaLabel": "إضافة مهمة جديدة إلى قائمة الانتظار",
+    "queueAllAriaLabel": "نقل جميع المهام إلى الطابور",
+    "closeTaskDetailsAriaLabel": "إغلاق تفاصيل المهمة",
+    "editTask": "تعديل المهمة",
+    "cannotEditWhileRunning": "لا يمكن التعديل أثناء تشغيل المهمة",
+    "worktreeCleanupTitle": "تنظيف Worktree",
+    "worktreeCleanupStaged": "تمت معالجة هذه المهمة ولديها worktree. هل تريد تنظيف الـ worktree؟",
+    "worktreeCleanupNotStaged": "هذه المهمة لديها worktree يحتوي على تغييرات لم يتم دمجها. احذف الـ worktree لوضع علامة مكتمل، أو ألغِ لمراجعة التغييرات أولاً.",
+    "keepWorktree": "الإبقاء على Worktree",
+    "deleteWorktree": "حذف Worktree وتعيين منجز",
+    "refreshTasks": "تحديث المهام",
+    "queueSettings": "إعدادات الطابور",
+    "orderSaveFailedTitle": "لم يتم حفظ إعادة الترتيب",
+    "orderSaveFailedDescription": "تم تطبيق تغيير ترتيب مهامك ولكن تعذّر حفظه في التخزين. سيُفقد عند التحديث.",
+    "selectAll": "تحديد الكل",
+    "deselectAll": "إلغاء تحديد الكل",
+    "selectedCount": "{{count}} محدد",
+    "selectedCountOne": "{{count}} مهمة محددة",
+    "selectedCountOther": "{{count}} مهام محددة",
+    "createPRs": "إنشاء PRs",
+    "deleteSelected": "حذف",
+    "deleteConfirmTitle": "حذف المهام المحددة",
+    "deleteConfirmDescription": "هل أنت متأكد من رغبتك في حذف هذه المهام نهائياً؟",
+    "deleteWarning": "لا يمكن التراجع عن هذا الإجراء. ستُحذف جميع ملفات المهمة بشكل دائم من المشروع، بما في ذلك المواصفات وخطة التنفيذ وأي كود تم إنشاؤه.",
+    "tasksToDelete": "المهام المراد حذفها",
+    "deleteConfirmButton": "حذف {{count}} مهام",
+    "deleteSuccess": "تم حذف {{count}} مهمة(مهام) بنجاح",
+    "deleteError": "فشل في حذف بعض المهام",
+    "clearSelection": "مسح التحديد",
+    "collapseColumn": "طي العمود",
+    "expandColumn": "توسيع العمود",
+    "resizeColumn": "تغيير حجم العمود",
+    "lockColumn": "قفل عرض العمود",
+    "unlockColumn": "إلغاء قفل عرض العمود",
+    "columnLocked": "عرض العمود مقفل",
+    "expandAll": "توسيع جميع الأعمدة"
+  },
+  "queue": {
+    "limitReached": "تم الوصول إلى الحد الأقصى للمهام المتوازية ({{current}}/{{max}}). تم نقل المهمة إلى الطابور.",
+    "movedToQueue": "تم نقل المهمة إلى الطابور.",
+    "autoPromoted": "تمت ترقية المهمة تلقائياً من الطابور إلى قيد التنفيذ.",
+    "capacityAvailable": "{{count}} خانة(خانات) متاحة في قيد التنفيذ.",
+    "queueAll": "إضافة الكل إلى الطابور",
+    "queueAllSuccess": "تم نقل {{count}} مهام إلى الطابور.",
+    "settings": {
+      "title": "إعدادات الطابور",
+      "description": "تكوين الحد الأقصى لعدد المهام التي يمكن تشغيلها بالتوازي في لوحة \"قيد التنفيذ\"",
+      "maxParallelLabel": "الحد الأقصى للمهام المتوازية",
+      "minValueError": "يجب أن يكون على الأقل 1",
+      "maxValueError": "لا يمكن تجاوز 10",
+      "hint": "عند الوصول إلى هذا الحد، ستنتظر المهام الجديدة في الطابور قبل الانتقال إلى \"قيد التنفيذ\"",
+      "saved": "تم حفظ إعدادات الطابور",
+      "saveFailed": "فشل في حفظ إعدادات الطابور",
+      "retry": "يرجى المحاولة مرة أخرى"
+    }
+  },
+  "execution": {
+    "phases": {
+      "idle": "خامل",
+      "planning": "التخطيط",
+      "coding": "البرمجة",
+      "rate_limit_paused": "تجاوز حد المعدل",
+      "auth_failure_paused": "المصادقة مطلوبة",
+      "reviewing": "المراجعة",
+      "fixing": "الإصلاح",
+      "complete": "مكتمل",
+      "failed": "فشل"
+    },
+    "labels": {
+      "interrupted": "متقطع",
+      "progress": "التقدم",
+      "entry": "إدخال",
+      "entries": "إدخالات"
+    },
+    "shortPhases": {
+      "plan": "خطة",
+      "code": "كود",
+      "qa": "QA"
+    }
+  },
+  "files": {
+    "title": "الملفات",
+    "tab": "الملفات",
+    "noSpecPath": "لا توجد ملفات مواصفات متاحة",
+    "noFiles": "لم يتم العثور على ملفات",
+    "loading": "جارٍ تحميل الملفات...",
+    "loadingContent": "جارٍ تحميل المحتوى...",
+    "errorLoading": "فشل في تحميل الملفات",
+    "errorLoadingContent": "فشل في تحميل محتوى الملف",
+    "retry": "إعادة المحاولة",
+    "selectFile": "حدد ملفاً لعرض محتواه",
+    "openInIDE": "فتح في IDE"
+  },
+  "metadata": {
+    "fastMode": "سريع",
+    "severity": "الخطورة",
+    "pullRequest": "طلب السحب",
+    "showMore": "عرض المزيد",
+    "showLess": "عرض أقل"
+  },
+  "images": {
+    "removeImageAriaLabel": "إزالة الصورة {{filename}}",
+    "pasteHint": "تلميح: الصق لقطات الشاشة مباشرة باستخدام {{shortcut}} لإضافة صور مرجعية."
+  },
+  "imagePreview": {
+    "close": "إغلاق المعاينة",
+    "unavailable": "الصورة غير متاحة",
+    "description": "معاينة {{filename}}",
+    "doubleClickHint": "انقر نقراً مزدوجاً للتكبير",
+    "lowResolution": "معاينة بدقة منخفضة"
+  },
+  "notifications": {
+    "backgroundTaskTitle": "المهمة تستمر في الخلفية",
+    "backgroundTaskDescription": "المهمة لا تزال قيد التشغيل. يمكنك إعادة فتح هذا الحوار لمتابعة التقدم."
+  },
+  "wizard": {
+    "createTitle": "إنشاء مهمة جديدة",
+    "createDescription": "صف ما تريد بناءه. سيقوم AI بتحليل طلبك وإنشاء مواصفات تفصيلية.",
+    "descriptionPlaceholder": "صف الميزة أو إصلاح الخطأ أو التحسين الذي تريد تنفيذه. كن محدداً قدر الإمكان بشأن المتطلبات والقيود والسلوك المتوقع. اكتب @ للإشارة إلى الملفات.",
+    "draftRestored": "تم استعادة المسودة",
+    "startFresh": "بدء من جديد",
+    "hideFiles": "إخفاء الملفات",
+    "browseFiles": "تصفح الملفات",
+    "creating": "جارٍ الإنشاء...",
+    "createTask": "إنشاء مهمة",
+    "worktreeNotice": {
+      "title": "مساحة عمل معزولة",
+      "description": "تعمل هذه المهمة في git worktree معزول. يظل فرعك الرئيسي آمناً حتى تختار الدمج."
+    },
+    "gitOptions": {
+      "title": "خيارات Git (اختياري)",
+      "baseBranchLabel": "الفرع الأساسي (اختياري)",
+      "useProjectDefault": "استخدام الافتراضي للمشروع",
+      "useProjectDefaultWithBranch": "استخدام الافتراضي للمشروع ({{branch}})",
+      "searchBranches": "البحث في الفروع...",
+      "noBranchesFound": "لم يتم العثور على فروع",
+      "helpText": "تجاوز الفرع الذي سيتم إنشاء worktree الخاص بهذه المهمة منه. اتركه فارغاً لاستخدام الفرع الافتراضي المكوّن للمشروع.",
+      "pushNewBranchesLabel": "نشر الفرع الجديد تلقائياً",
+      "pushNewBranchesDescription": "نشر فرع هذه المهمة إلى GitHub وتعيين التتبع التلقائي. عطّل هذا الخيار للاحتفاظ به محلياً فقط.",
+      "useWorktreeLabel": "استخدام مساحة عمل معزولة (موصى به)",
+      "useWorktreeDescription": "ينشئ التغييرات في git worktree منفصل للمراجعة الآمنة قبل الدمج. عطّل للبناء مباشرة في مشروعك (أسرع ولكن أكثر خطورة)."
+    },
+    "errors": {
+      "createFailed": "فشل في إنشاء المهمة. يرجى المحاولة مرة أخرى.",
+      "startFailed": "فشل في بدء المهمة"
+    }
+  },
+  "feedback": {
+    "dragDropHint": "اسحب وأسقط الصور أو الصق لقطات الشاشة",
+    "imageAdded": "تمت إضافة الصورة بنجاح",
+    "maxImagesError": "الحد الأقصى هو {{count}} صور",
+    "invalidTypeError": "نوع الصورة غير صالح. المسموح به: {{types}}",
+    "removeImage": "إزالة الصورة",
+    "processingError": "فشل في معالجة الصورة"
+  },
+  "review": {
+    "mergeTooltip": "يدمج التغييرات من فرع worktree الخاص بالمهمة إلى فرعك الأساسي. سيقوم AI بحل أي تعارضات. يمكنك بعد ذلك اختيار الاحتفاظ بـ worktree أو إزالته."
+  },
+  "edit": {
+    "title": "تعديل المهمة",
+    "description": "تحديث تفاصيل المهمة بما في ذلك العنوان والوصف والتصنيف والصور والإعدادات. سيتم حفظ التغييرات في ملفات المواصفات.",
+    "saveChanges": "حفظ التغييرات",
+    "errors": {
+      "updateFailed": "فشل في تحديث المهمة. يرجى المحاولة مرة أخرى."
+    }
+  },
+  "form": {
+    "description": "الوصف",
+    "descriptionPlaceholder": "صف الميزة أو إصلاح الخطأ أو التحسين الذي تريد تنفيذه. كن محدداً قدر الإمكان بشأن المتطلبات والقيود والسلوك المتوقع.",
+    "imageAddedSuccess": "تمت إضافة الصورة بنجاح!",
+    "taskTitle": "عنوان المهمة",
+    "titlePlaceholder": "اتركه فارغاً للإنشاء التلقائي من الوصف",
+    "titleHelpText": "سيتم إنشاء عنوان قصير ووصفي تلقائياً إذا تُرك فارغاً.",
+    "classificationOptional": "التصنيف (اختياري)",
+    "requireReviewLabel": "طلب مراجعة بشرية قبل البرمجة",
+    "requireReviewDescription": "عند التفعيل، ستتم مطالبتك بمراجعة المواصفات وخطة التنفيذ قبل بدء مرحلة البرمجة. يتيح لك ذلك الاعتماد أو طلب التغييرات أو تقديم ملاحظات.",
+    "fastModeLabel": "الوضع السريع",
+    "fastModeDescription": "نفس نموذج Opus 4.6 مع إخراج أسرع. تكلفة أعلى لكل رمز.",
+    "fastModeNotice": "يتطلب تفعيل \"الاستخدام الإضافي\" في اشتراك Claude الخاص بك.",
+    "errors": {
+      "descriptionRequired": "يرجى تقديم وصف",
+      "maxImagesReached": "الحد الأقصى هو 5 صور",
+      "invalidImageType": "نوع الصورة غير صالح. المسموح به: PNG، JPEG، GIF، WebP",
+      "processPasteFailed": "فشل في معالجة الصورة الملصقة",
+      "processDropFailed": "فشل في معالجة الصورة المُسقطة"
+    },
+    "classification": {
+      "category": "الفئة",
+      "selectCategory": "اختر الفئة",
+      "priority": "الأولوية",
+      "selectPriority": "اختر الأولوية",
+      "complexity": "التعقيد",
+      "selectComplexity": "اختر التعقيد",
+      "impact": "التأثير",
+      "selectImpact": "اختر التأثير",
+      "helpText": "تساعد هذه التسميات في تنظيم المهام وترتيب أولوياتها. وهي اختيارية لكنها مفيدة للتصفية.",
+      "values": {
+        "category": {
+          "feature": "ميزة",
+          "bug_fix": "إصلاح خطأ",
+          "refactoring": "إعادة هيكلة",
+          "documentation": "توثيق",
+          "security": "أمان"
+        },
+        "priority": {
+          "low": "منخفضة",
+          "medium": "متوسطة",
+          "high": "عالية",
+          "urgent": "عاجلة"
+        },
+        "complexity": {
+          "trivial": "بسيط جداً",
+          "small": "صغير",
+          "medium": "متوسط",
+          "large": "كبير",
+          "complex": "معقد"
+        },
+        "impact": {
+          "low": "تأثير منخفض",
+          "medium": "تأثير متوسط",
+          "high": "تأثير عالٍ",
+          "critical": "تأثير حرج"
+        }
+      }
+    }
+  },
+  "subtasks": {
+    "untitled": "مهمة فرعية بدون عنوان",
+    "expandAll": "توسيع الكل",
+    "collapseAll": "طي الكل"
+  },
+  "bulkPR": {
+    "selectAllInColumn": "تحديد جميع المهام في العمود",
+    "deselectAllInColumn": "إلغاء تحديد جميع المهام",
+    "selectionMode": "وضع التحديد نشط",
+    "exitSelectionMode": "الخروج من وضع التحديد",
+    "noTasksToSelect": "لا توجد مهام متاحة للتحديد",
+    "confirmBulkAction": "تأكيد الإجراء الجماعي لـ {{count}} مهام",
+    "processingTasks": "جارٍ معالجة المهام المحددة..."
+  },
+  "screenshot": {
+    "title": "التقاط لقطة شاشة",
+    "description": "حدد شاشة أو نافذة لالتقاطها كصورة مرجعية",
+    "capture": "التقاط",
+    "capturing": "جارٍ الالتقاط...",
+    "noSources": "لم يتم العثور على شاشات أو نوافذ",
+    "errors": {
+      "getSources": "فشل في الحصول على مصادر لقطة الشاشة",
+      "fetchSources": "فشل في جلب مصادر لقطة الشاشة",
+      "capture": "فشل في التقاط لقطة الشاشة",
+      "captureFailed": "فشل في التقاط لقطة الشاشة"
+    },
+    "devMode": {
+      "title": "التقاط لقطة الشاشة غير متاح",
+      "description": "التقاط الشاشة غير متاح في وضع التطوير بسبب قيود أذونات النظام.",
+      "hint": "استخدم أداة لقطة شاشة خارجية والصق مباشرة في وصف المهمة باستخدام {{shortcut}}."
+    }
+  },
+  "deleteDialog": {
+    "title": "حذف المهمة",
+    "confirmMessage": "هل أنت متأكد من رغبتك في حذف",
+    "destructiveWarning": "لا يمكن التراجع عن هذا الإجراء. ستُحذف جميع ملفات المهمة بشكل دائم من المشروع، بما في ذلك المواصفات وخطة التنفيذ وأي كود تم إنشاؤه.",
+    "checkingChanges": "جارٍ التحقق من التغييرات غير الملتزمة...",
+    "uncommittedChanges": "يحتوي worktree هذه المهمة على {{count}} ملف(ملفات) غير ملتزمة",
+    "uncommittedChangesHint": "لم يتم التزام هذه التغييرات أو دمجها. سيؤدي حذف هذه المهمة إلى تجاهل جميع الأعمال غير الملتزمة في worktree بشكل دائم.",
+    "cancel": "إلغاء",
+    "deletePermanently": "حذف نهائي",
+    "deleting": "جارٍ الحذف..."
+  },
+  "referenceImages": {
+    "title": "الصور المرجعية (اختياري)",
+    "description": "أضف مراجع مرئية مثل لقطات الشاشة أو التصاميم لمساعدة AI على فهم متطلباتك."
+  }
+}

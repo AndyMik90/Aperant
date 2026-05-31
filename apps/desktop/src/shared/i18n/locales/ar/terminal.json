@@ -1,0 +1,58 @@
+{
+  "expand": {
+    "expand": "توسيع الطرفية",
+    "collapse": "طي الطرفية"
+  },
+  "resume": {
+    "pending": "الاستئناف متاح",
+    "pendingTooltip": "انقر لاستئناف جلسة Claude السابقة",
+    "resumeAllSessions": "استئناف الكل"
+  },
+  "auth": {
+    "terminalTitle": "المصادقة: {{profileName}}",
+    "maxTerminalsReached": "لا يمكن فتح طرفية المصادقة: تم الوصول إلى الحد الأقصى للطرفيات. أغلق طرفية أولاً."
+  },
+  "swap": {
+    "inProgress": "جارٍ تبديل الملف الشخصي...",
+    "resumingSession": "جارٍ استئناف جلسة Claude...",
+    "sessionResumed": "تم استئناف الجلسة تحت الملف الشخصي الجديد",
+    "resumeFailed": "تعذّر استئناف الجلسة. يمكنك بدء جلسة جديدة.",
+    "noSession": "تم تبديل الملف الشخصي. لا توجد جلسة نشطة للاستئناف.",
+    "migrationFailed": "تم تبديل الملف الشخصي، لكن فشل ترحيل الجلسة. جارٍ بدء طرفية جديدة."
+  },
+  "worktree": {
+    "create": "شجرة عمل",
+    "createNew": "شجرة عمل جديدة",
+    "existing": "أشجار عمل الطرفية",
+    "taskWorktrees": "أشجار عمل المهام",
+    "otherWorktrees": "أخرى",
+    "createTitle": "إنشاء شجرة عمل للطرفية",
+    "createDescription": "إنشاء مساحة عمل معزولة لهذه الطرفية. سيتم تنفيذ جميع الأعمال في دليل شجرة العمل.",
+    "name": "اسم شجرة العمل",
+    "namePlaceholder": "my-feature",
+    "nameRequired": "اسم شجرة العمل مطلوب",
+    "nameInvalid": "يجب أن يبدأ الاسم وينتهي بحرف أو رقم",
+    "nameHelp": "أحرف صغيرة وأرقام وشرطات وشرطات سفلية (المسافات تصبح شرطات)",
+    "associateTask": "ربط بمهمة",
+    "selectTask": "اختر مهمة...",
+    "noTask": "بدون مهمة (شجرة عمل مستقلة)",
+    "createBranch": "إنشاء فرع Git",
+    "branchHelp": "ينشئ الفرع: {{branch}}",
+    "baseBranch": "الفرع الأساسي",
+    "selectBaseBranch": "اختر الفرع الأساسي...",
+    "searchBranch": "بحث في الفروع...",
+    "noBranchFound": "لم يُعثر على فرع",
+    "useProjectDefault": "استخدام الافتراضي للمشروع ({{branch}})",
+    "baseBranchHelp": "الفرع الذي سيتم إنشاء شجرة العمل منه",
+    "openInIDE": "فتح في IDE",
+    "maxReached": "تم الوصول إلى الحد الأقصى وهو 12 شجرة عمل للطرفية",
+    "alreadyExists": "توجد بالفعل شجرة عمل بهذا الاسم",
+    "searchPlaceholder": "بحث في أشجار العمل...",
+    "noResults": "لم يُعثر على أشجار عمل",
+    "deleteTitle": "حذف شجرة العمل؟",
+    "deleteDescription": "سيؤدي هذا إلى حذف شجرة العمل وفرعها نهائياً. ستُفقد أي تغييرات غير محفوظة.",
+    "detached": "(منفصل)",
+    "remotePushFailed": "لم يتم إعداد التتبع عن بُعد",
+    "remotePushFailedDescription": "تم إنشاء شجرة العمل لكن تعذّر دفع الفرع إلى المستودع البعيد. قد تحتاج إلى تشغيل git push -u يدوياً."
+  }
+}

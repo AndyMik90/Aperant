@@ -27,6 +27,19 @@ import frTaskReview from './locales/fr/taskReview.json';
 import frTerminal from './locales/fr/terminal.json';
 import frErrors from './locales/fr/errors.json';
 
+// Import Arabic translation resources
+import arCommon from './locales/ar/common.json';
+import arNavigation from './locales/ar/navigation.json';
+import arSettings from './locales/ar/settings.json';
+import arTasks from './locales/ar/tasks.json';
+import arWelcome from './locales/ar/welcome.json';
+import arOnboarding from './locales/ar/onboarding.json';
+import arDialogs from './locales/ar/dialogs.json';
+import arGitlab from './locales/ar/gitlab.json';
+import arTaskReview from './locales/ar/taskReview.json';
+import arTerminal from './locales/ar/terminal.json';
+import arErrors from './locales/ar/errors.json';
+
 export const defaultNS = 'common';
 
 export const resources = {
@@ -55,6 +68,19 @@ export const resources = {
     taskReview: frTaskReview,
     terminal: frTerminal,
     errors: frErrors
+  },
+  ar: {
+    common: arCommon,
+    navigation: arNavigation,
+    settings: arSettings,
+    tasks: arTasks,
+    welcome: arWelcome,
+    onboarding: arOnboarding,
+    dialogs: arDialogs,
+    gitlab: arGitlab,
+    taskReview: arTaskReview,
+    terminal: arTerminal,
+    errors: arErrors
   }
 } as const;
 

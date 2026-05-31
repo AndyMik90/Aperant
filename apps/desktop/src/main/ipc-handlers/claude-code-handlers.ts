@@ -1634,5 +1634,71 @@ export function registerClaudeCodeHandlers(): void {
     }
   );
 
+  // Import the existing Claude Code CLI login (~/.claude) WITHOUT a fresh browser login.
+  // Reuses the OAuth token that the standalone Claude Code CLI already saved to disk
+  // (~/.claude/.credentials.json or, on Windows, the Credential Manager). Creates a
+  // Claude profile pointing at the standard ~/.claude config dir so the resolver reads
+  // the live, auto-refreshing token from there at request time.
+  ipcMain.handle(
+    IPC_CHANNELS.CLAUDE_IMPORT_FROM_CLI,
+    async (): Promise<IPCResult<{ profileId: string; email?: string; subscriptionType?: string }>> => {
+      try {
+        const DEFAULT_CONFIG_DIR = '~/.claude';
+
+        // 1. Verify there is an existing Claude Code login to import
+        const authCheck = checkProfileAuthentication(DEFAULT_CONFIG_DIR);
+        if (!authCheck.authenticated) {
+          return { success: false, error: 'NO_CLI_LOGIN' };
+        }
+
+        const profileManager = getClaudeProfileManager();
+
+        // 2. Reuse an existing profile that already points at ~/.claude, otherwise create one.
+        const expandedDefault = path.join(os.homedir(), '.claude');
+        const existing = profileManager.getSettings().profiles.find(p => {
+          const cd = p.configDir
+            ? (p.configDir.startsWith('~') ? path.join(os.homedir(), p.configDir.slice(1)) : p.configDir)
+            : '';
+          return cd === expandedDefault;
+        });
+
+        const baseName = authCheck.email || 'Claude Code';
+        const profile = existing ?? {
+          id: profileManager.generateProfileId(baseName),
+          name: baseName,
+          isDefault: false,
+          configDir: DEFAULT_CONFIG_DIR,
+          createdAt: new Date(),
+        };
+
+        // 3. Populate metadata (email, subscription tier) read live from the credentials.
+        profile.isAuthenticated = true;
+        if (authCheck.email) profile.email = authCheck.email;
+        updateProfileSubscriptionMetadata(profile, expandedDefault);
+
+        // NOTE: We intentionally do NOT store the OAuth token on the profile — the
+        // resolver reads it fresh from ~/.claude each request so Claude CLI's own
+        // refresh keeps it valid (same pattern as CLAUDE_PROFILE_VERIFY_AUTH).
+        const saved = profileManager.saveProfile(profile);
+
+        // Ensure usage/credential caches reflect the imported account immediately.
+        clearKeychainCache(expandedDefault);
+
+        return {
+          success: true,
+          data: {
+            profileId: saved.id,
+            email: saved.email,
+            subscriptionType: saved.subscriptionType ?? undefined,
+          },
+        };
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        console.error('[Claude Code] Import from CLI failed:', errorMsg, error);
+        return { success: false, error: `Failed to import Claude Code login: ${errorMsg}` };
+      }
+    }
+  );
+
   console.warn('[IPC] Claude Code handlers registered');
 }

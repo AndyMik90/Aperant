@@ -1,0 +1,1194 @@
+{
+  "title": "الإعدادات",
+  "tabs": {
+    "app": "إعدادات التطبيق",
+    "project": "إعدادات المشروع"
+  },
+  "sections": {
+    "appearance": {
+      "title": "المظهر",
+      "description": "تخصيص مظهر Aperant"
+    },
+    "display": {
+      "title": "العرض",
+      "description": "ضبط حجم عناصر واجهة المستخدم"
+    },
+    "language": {
+      "title": "اللغة",
+      "description": "اختر لغتك المفضلة"
+    },
+    "devtools": {
+      "title": "أدوات المطور",
+      "description": "تفضيلات IDE والطرفية"
+    },
+    "agent": {
+      "title": "إعدادات الوكيل",
+      "description": "النموذج والإطار الافتراضيان"
+    },
+    "paths": {
+      "title": "المسارات",
+      "description": "مسارات أدوات CLI والإطار"
+    },
+    "accounts": {
+      "title": "الحسابات",
+      "description": "حسابات Claude ونقاط نهاية API"
+    },
+    "updates": {
+      "title": "التحديثات",
+      "description": "تحديثات Aperant"
+    },
+    "notifications": {
+      "title": "الإشعارات",
+      "description": "تفضيلات التنبيهات"
+    },
+    "debug": {
+      "title": "التصحيح والسجلات",
+      "description": "أدوات استكشاف الأخطاء"
+    },
+    "terminal-fonts": {
+      "title": "خطوط الطرفية",
+      "description": "تخصيص مظهر خط الطرفية"
+    }
+  },
+  "apiProfiles": {
+    "title": "ملفات تعريف API",
+    "description": "تكوين نقاط نهاية API متوافقة مع Anthropic",
+    "addButton": "إضافة ملف تعريف",
+    "presets": {
+      "anthropic": "Anthropic",
+      "openrouter": "OpenRouter",
+      "groq": "Groq",
+      "zaiGlobal": "z.AI (عالمي)",
+      "zaiChina": "z.AI (الصين)"
+    },
+    "fields": {
+      "name": "الاسم",
+      "preset": "إعداد مسبق",
+      "baseUrl": "عنوان URL الأساسي",
+      "apiKey": "مفتاح API"
+    },
+    "placeholders": {
+      "name": "واجهة API مخصصة",
+      "preset": "اختر إعدادًا مسبقًا للمزود",
+      "baseUrl": "https://api.anthropic.com",
+      "apiKey": "sk-ant-..."
+    },
+    "hints": {
+      "preset": "تملأ الإعدادات المسبقة عنوان URL الأساسي؛ لا تزال بحاجة إلى لصق مفتاح API الخاص بك.",
+      "baseUrl": "مثال: https://api.anthropic.com أو http://localhost:8080"
+    },
+    "validation": {
+      "nameRequired": "الاسم مطلوب",
+      "baseUrlRequired": "عنوان URL الأساسي مطلوب",
+      "baseUrlInvalid": "تنسيق URL غير صالح (يجب أن يكون http:// أو https://)",
+      "apiKeyRequired": "مفتاح API مطلوب",
+      "apiKeyInvalid": "تنسيق مفتاح API غير صالح"
+    },
+    "actions": {
+      "save": "حفظ الملف التعريفي",
+      "saving": "جارٍ الحفظ...",
+      "cancel": "إلغاء",
+      "changeKey": "تغيير",
+      "cancelKeyChange": "إلغاء"
+    },
+    "testConnection": {
+      "label": "اختبار الاتصال",
+      "testing": "جارٍ الاختبار...",
+      "success": "الاتصال ناجح",
+      "failure": "فشل الاتصال"
+    },
+    "models": {
+      "title": "اختياري: تعيينات أسماء النماذج",
+      "description": "اختر النماذج من مزود API الخاص بك. اتركه فارغًا لاستخدام الافتراضيات.",
+      "defaultLabel": "النموذج الافتراضي (اختياري)",
+      "haikuLabel": "نموذج Haiku (اختياري)",
+      "sonnetLabel": "نموذج Sonnet (اختياري)",
+      "opusLabel": "نموذج Opus (اختياري)",
+      "defaultPlaceholder": "مثال: claude-sonnet-4-6",
+      "haikuPlaceholder": "مثال: claude-haiku-4-5-20251001",
+      "sonnetPlaceholder": "مثال: claude-sonnet-4-6",
+      "opusPlaceholder": "مثال: claude-opus-4-6",
+      "opus1mPlaceholder": "مثال: claude-opus-4-6 (سياق 1M)"
+    },
+    "empty": {
+      "title": "لا توجد ملفات تعريف API مكوّنة",
+      "description": "أنشئ ملف تعريف لتكوين نقاط نهاية API مخصصة لمشاريعك.",
+      "action": "إنشاء أول ملف تعريف"
+    },
+    "switchToOauth": {
+      "label": "التبديل إلى OAuth",
+      "loading": "جارٍ التبديل..."
+    },
+    "activeBadge": "نشط",
+    "customModels": "نماذج مخصصة: {{models}}",
+    "setActive": {
+      "label": "تعيين كنشط",
+      "loading": "جارٍ التعيين..."
+    },
+    "tooltips": {
+      "edit": "تعديل الملف التعريفي",
+      "deleteActive": "التبديل إلى OAuth قبل الحذف",
+      "deleteInactive": "حذف الملف التعريفي"
+    },
+    "deleteAriaLabel": "حذف الملف التعريفي {{name}}",
+    "toast": {
+      "create": {
+        "title": "تم إنشاء الملف التعريفي",
+        "description": "تم إضافة \"{{name}}\" بنجاح."
+      },
+      "update": {
+        "title": "تم تحديث الملف التعريفي",
+        "description": "تم تحديث \"{{name}}\" بنجاح."
+      },
+      "delete": {
+        "title": "تم حذف الملف التعريفي",
+        "description": "تمت إزالة \"{{name}}\".",
+        "errorTitle": "فشل حذف الملف التعريفي",
+        "errorFallback": "حدث خطأ أثناء حذف الملف التعريفي."
+      },
+      "switch": {
+        "oauthTitle": "تم التبديل إلى OAuth",
+        "oauthDescription": "يتم الآن استخدام مصادقة OAuth",
+        "profileTitle": "تم تفعيل الملف التعريفي",
+        "profileDescription": "يتم الآن استخدام {{name}}",
+        "errorTitle": "فشل تبديل المصادقة",
+        "errorFallback": "حدث خطأ أثناء تبديل طريقة المصادقة."
+      }
+    },
+    "dialog": {
+      "createTitle": "إضافة ملف تعريف API",
+      "editTitle": "تعديل الملف التعريفي",
+      "description": "تكوين نقطة نهاية API مخصصة متوافقة مع Anthropic لمشاريعك.",
+      "deleteTitle": "حذف الملف التعريفي؟",
+      "deleteDescription": "هل أنت متأكد من رغبتك في حذف \"{{name}}\"؟ لا يمكن التراجع عن هذا الإجراء.",
+      "cancel": "إلغاء",
+      "delete": "حذف",
+      "deleting": "جارٍ الحذف..."
+    }
+  },
+  "modelSelect": {
+    "placeholder": "اختر نموذجًا أو اكتب يدويًا",
+    "placeholderManual": "أدخل اسم النموذج (مثال: claude-sonnet-4-6)",
+    "searchPlaceholder": "البحث في النماذج...",
+    "noResults": "لا توجد نماذج تطابق بحثك",
+    "discoveryNotAvailable": "اكتشاف النماذج غير متاح. أدخل اسم النموذج يدويًا.",
+    "ollamaLoading": "جارٍ تحميل نماذج Ollama...",
+    "ollamaNoModels": "لا توجد نماذج Ollama مثبتة",
+    "ollamaNoModelsHint": "ثبّت النماذج في إعدادات الوكيل ← تبويب Ollama",
+    "apiKeyOnly": "مفتاح API"
+  },
+  "language": {
+    "label": "لغة الواجهة",
+    "description": "اختر لغة واجهة التطبيق"
+  },
+  "scale": {
+    "presets": "إعدادات الحجم المسبقة",
+    "presetsDescription": "خيارات حجم سريعة للتفضيلات الشائعة",
+    "fineTune": "ضبط دقيق للحجم",
+    "fineTuneDescription": "الضبط من 75% إلى 200% بزيادات 5%",
+    "default": "افتراضي",
+    "comfortable": "مريح",
+    "large": "كبير"
+  },
+  "logOrder": {
+    "label": "ترتيب السجلات",
+    "description": "اختر كيفية عرض السجلات في عرض تفاصيل المهمة",
+    "chronological": "زمني (الأقدم أولًا)",
+    "reverseChronological": "زمني عكسي (الأحدث أولًا)"
+  },
+  "gpuAcceleration": {
+    "label": "تسريع GPU",
+    "description": "استخدام WebGL لعرض الطرفية (تجريبي، أسرع مع طرفيات متعددة)",
+    "auto": "تلقائي (استخدام WebGL عند الدعم)",
+    "on": "دائمًا مفعّل",
+    "off": "مطفأ (افتراضي)",
+    "helperText": "تُطبَّق التغييرات على الطرفيات الجديدة فقط"
+  },
+  "general": {
+    "otherAgentSettings": "إعدادات الوكيل الأخرى",
+    "otherAgentSettingsDescription": "خيارات تكوين إضافية للوكيل",
+    "agentFramework": "إطار عمل الوكيل",
+    "agentFrameworkDescription": "إطار البرمجة المستخدم للمهام المستقلة",
+    "agentFrameworkAutoClaude": "Aperant",
+    "aiTerminalNaming": "تسمية طرفية AI",
+    "aiTerminalNamingDescription": "تسمية الطرفيات تلقائيًا استنادًا إلى الأوامر (يستخدم نموذج تسمية AI)",
+    "featureModelSettings": "إعدادات نموذج الميزات",
+    "featureModelSettingsDescription": "النموذج ومستوى التفكير للرؤى والابتكار وخارطة الطريق",
+    "model": "النموذج",
+    "thinkingLevel": "مستوى التفكير",
+    "paths": "المسارات",
+    "pathsDescription": "تكوين مسارات الملفات التنفيذية وإطار العمل",
+    "pythonPath": "مسار Python",
+    "pythonPathDescription": "مسار ملف Python التنفيذي (اتركه فارغًا للكشف التلقائي)",
+    "pythonPathPlaceholder": "python3 (افتراضي)",
+    "gitPath": "مسار Git",
+    "gitPathDescription": "مسار ملف Git التنفيذي (اتركه فارغًا للكشف التلقائي)",
+    "gitPathPlaceholder": "git (افتراضي)",
+    "githubCLIPath": "مسار GitHub CLI",
+    "githubCLIPathDescription": "مسار ملف GitHub CLI (gh) التنفيذي (اتركه فارغًا للكشف التلقائي)",
+    "githubCLIPathPlaceholder": "gh (افتراضي)",
+    "gitlabCLIPath": "مسار GitLab CLI",
+    "gitlabCLIPathDescription": "مسار ملف GitLab CLI (glab) التنفيذي (اتركه فارغًا للكشف التلقائي)",
+    "gitlabCLIPathPlaceholder": "glab (افتراضي)",
+    "claudePath": "مسار Claude CLI",
+    "claudePathDescription": "مسار ملف Claude CLI التنفيذي (اتركه فارغًا للكشف التلقائي)",
+    "claudePathPlaceholder": "claude (افتراضي)",
+    "detectedPath": "تم الكشف تلقائيًا",
+    "detectedVersion": "الإصدار",
+    "detectedSource": "المصدر",
+    "sourceUserConfig": "تكوين المستخدم",
+    "sourceVenv": "البيئة الافتراضية",
+    "sourceHomebrew": "Homebrew",
+    "sourceNvm": "NVM",
+    "sourceSystemPath": "مسار النظام",
+    "sourceBundled": "مُجمَّع",
+    "sourceFallback": "احتياطي",
+    "notDetected": "لم يُكتشف",
+    "autoClaudePath": "مسار Aperant",
+    "autoClaudePathDescription": "المسار النسبي إلى مجلد auto-claude في المشاريع",
+    "autoClaudePathPlaceholder": "auto-claude (افتراضي)",
+    "autoNameTerminals": "تسمية الطرفيات تلقائيًا",
+    "autoNameTerminalsDescription": "استخدام AI لإنشاء أسماء وصفية لتبويبات الطرفية استنادًا إلى نشاطها"
+  },
+  "theme": {
+    "title": "المظهر",
+    "description": "تخصيص مظهر Aperant",
+    "mode": "الوضع",
+    "modeDescription": "الاختيار بين السمات الفاتحة والداكنة",
+    "light": "فاتح",
+    "dark": "داكن",
+    "system": "النظام",
+    "colorTheme": "سمة الألوان",
+    "colorThemeDescription": "اختر لوحة الألوان المفضلة لديك"
+  },
+  "devtools": {
+    "title": "أدوات المطور",
+    "description": "تكوين تفضيلات IDE والطرفية وإعدادات خط الطرفية",
+    "detecting": "جارٍ الكشف عن الأدوات المثبتة...",
+    "detectAgain": "الكشف مجددًا",
+    "tabTools": "الأدوات",
+    "tabTerminalFonts": "خطوط الطرفية",
+    "ide": {
+      "label": "IDE المفضل",
+      "description": "سيفتح Aperant مساحات العمل في هذا المحرر",
+      "placeholder": "اختر IDE...",
+      "customPath": "مسار IDE مخصص",
+      "customPathPlaceholder": "/path/to/your/ide"
+    },
+    "terminal": {
+      "label": "الطرفية المفضلة",
+      "description": "سيفتح Aperant جلسات الطرفية هنا",
+      "placeholder": "اختر طرفية...",
+      "customPath": "مسار طرفية مخصص",
+      "customPathPlaceholder": "/path/to/your/terminal"
+    },
+    "cli": {
+      "label": "CLI المفضل",
+      "description": "أداة CLI المستخدمة لجلسات الطرفية المدعومة بـ AI",
+      "placeholder": "اختر CLI...",
+      "customPath": "مسار CLI مخصص",
+      "customPathPlaceholder": "/path/to/your/cli"
+    },
+    "detected": "تم الكشف",
+    "notInstalled": "غير مثبت",
+    "detectedSummary": "تم الكشف على نظامك:",
+    "noToolsDetected": "لم يُكتشف أي أدوات إضافية (سيتم استخدام VS Code وطرفية النظام)",
+    "autoNameClaude": {
+      "label": "التسمية التلقائية لطرفيات Claude",
+      "description": "استخدام AI لإنشاء اسم وصفي لطرفيات Claude استنادًا إلى رسالتك الأولى"
+    },
+    "yoloMode": {
+      "label": "وضع YOLO",
+      "description": "تشغيل Claude مع علامة --dangerously-skip-permissions، متجاوزًا جميع مطالبات الأمان. استخدم بحذر شديد.",
+      "warning": "يتجاوز هذا الوضع نظام أذونات Claude. فعّله فقط إذا كنت تثق تمامًا بالكود المُنفَّذ."
+    }
+  },
+  "updates": {
+    "title": "التحديثات",
+    "description": "إدارة تحديثات Aperant",
+    "appUpdateReady": "تحديث التطبيق جاهز",
+    "newVersion": "إصدار جديد",
+    "released": "تم الإصدار",
+    "downloading": "جارٍ التنزيل...",
+    "updateDownloaded": "تم تنزيل التحديث! انقر على تثبيت لإعادة التشغيل وتطبيق التحديث.",
+    "installAndRestart": "تثبيت وإعادة تشغيل",
+    "downloadUpdate": "تنزيل التحديث",
+    "version": "الإصدار",
+    "loading": "جارٍ التحميل...",
+    "checkingForUpdates": "جارٍ البحث عن تحديثات...",
+    "newVersionAvailable": "إصدار جديد متاح:",
+    "latestVersion": "أنت تشغّل أحدث إصدار.",
+    "viewRelease": "عرض الإصدار الكامل على GitHub",
+    "unableToCheck": "تعذّر البحث عن تحديثات",
+    "checkForUpdates": "البحث عن تحديثات",
+    "autoUpdateProjects": "التحديث التلقائي للمشاريع",
+    "autoUpdateProjectsDescription": "تحديث Aperant في المشاريع تلقائيًا عند توفر إصدار جديد",
+    "betaUpdates": "تحديثات بيتا",
+    "betaUpdatesDescription": "استقبال إصدارات بيتا التجريبية بمزايا جديدة (قد تكون أقل استقرارًا)",
+    "stableDowngradeAvailable": "إصدار مستقر متاح",
+    "stableDowngradeDescription": "أنت حاليًا على إصدار بيتا. نظرًا لتعطيلك تحديثات بيتا، يمكنك التبديل إلى أحدث إصدار مستقر.",
+    "stableVersion": "الإصدار المستقر",
+    "downloadStableVersion": "تنزيل الإصدار المستقر",
+    "readOnlyVolumeTitle": "لا يمكن التثبيت من صورة القرص",
+    "readOnlyVolumeDescription": "يعمل Aperant من صورة قرص للقراءة فقط (DMG). يرجى سحب التطبيق إلى مجلد التطبيقات وإعادة تشغيله من هناك لتثبيت التحديثات.",
+    "downloadError": "فشل تنزيل التحديث"
+  },
+  "notifications": {
+    "title": "الإشعارات",
+    "description": "تكوين تفضيلات الإشعارات الافتراضية",
+    "onTaskComplete": "عند اكتمال المهمة",
+    "onTaskCompleteDescription": "الإشعار عند انتهاء المهمة بنجاح",
+    "onTaskFailed": "عند فشل المهمة",
+    "onTaskFailedDescription": "الإشعار عند مواجهة المهمة لخطأ",
+    "onReviewNeeded": "عند الحاجة إلى مراجعة",
+    "onReviewNeededDescription": "الإشعار عندما يتطلب QA مراجعتك",
+    "sound": "الصوت",
+    "soundDescription": "تشغيل صوت مع الإشعارات"
+  },
+  "actions": {
+    "save": "حفظ الإعدادات",
+    "rerunWizard": "إعادة تشغيل المعالج",
+    "rerunWizardDescription": "بدء معالج الإعداد مجددًا"
+  },
+  "projectSections": {
+    "general": {
+      "title": "عام",
+      "description": "البناء التلقائي وتكوين الوكيل",
+      "useClaudeMd": "استخدام CLAUDE.md",
+      "useClaudeMdDescription": "تضمين تعليمات CLAUDE.md في سياق الوكيل"
+    },
+    "claude": {
+      "title": "مصادقة Claude",
+      "description": "مصادقة Claude"
+    },
+    "linear": {
+      "title": "Linear",
+      "description": "تكامل Linear",
+      "integrationTitle": "تكامل Linear",
+      "integrationDescription": "الاتصال بـ Linear لتتبع المشكلات واستيراد المهام",
+      "syncDescription": "المزامنة مع Linear لتتبع المشكلات"
+    },
+    "github": {
+      "title": "GitHub",
+      "description": "مزامنة مشكلات GitHub",
+      "integrationTitle": "تكامل GitHub",
+      "integrationDescription": "الاتصال بـ GitHub لتتبع المشكلات",
+      "syncDescription": "المزامنة مع مشكلات GitHub",
+      "defaultBranch": {
+        "label": "الفرع الافتراضي",
+        "description": "الفرع الأساسي لإنشاء مساحات عمل المهام",
+        "autoDetect": "كشف تلقائي (main/master)",
+        "searchPlaceholder": "البحث في الفروع...",
+        "noBranchesFound": "لم يُعثر على فروع",
+        "selectedBranchHelp": "ستتفرع جميع المهام الجديدة من {{branch}}"
+      },
+      "pushNewBranches": {
+        "label": "رفع الفروع الجديدة تلقائيًا",
+        "description": "رفع فروع المهام ومساحات العمل الجديدة إلى GitHub وتعيين التتبع الأمامي تلقائيًا"
+      }
+    },
+    "gitlab": {
+      "title": "GitLab",
+      "description": "مزامنة مشكلات GitLab",
+      "integrationTitle": "تكامل GitLab",
+      "integrationDescription": "الاتصال بـ GitLab لتتبع المشكلات",
+      "syncDescription": "المزامنة مع مشكلات GitLab"
+    },
+    "memory": {
+      "title": "الذاكرة",
+      "description": "خلفية ذاكرة Graphiti",
+      "integrationTitle": "الذاكرة",
+      "integrationDescription": "تكوين ذاكرة مستمرة عبر الجلسات للوكلاء",
+      "syncDescription": "تكوين الذاكرة المستمرة"
+    }
+  },
+  "agentProfile": {
+    "label": "ملف تعريف الوكيل",
+    "title": "ملف تعريف الوكيل الافتراضي",
+    "sectionDescription": "اختر إعدادًا مسبقًا للنموذج ومستوى التفكير",
+    "profilesInfo": "توفر ملفات تعريف الوكيل إعدادات مسبقة لنموذج Claude ومستوى التفكير. عند إنشاء مهمة جديدة، ستُستخدم هذه الإعدادات كافتراضيات. يمكنك دائمًا تجاوزها في معالج إنشاء المهمة.",
+    "custom": "مخصص",
+    "customConfiguration": "تكوين مخصص",
+    "customDescription": "اختر النموذج ومستوى التفكير",
+    "phaseConfiguration": "تكوين المرحلة",
+    "phaseConfigurationDescription": "تخصيص النموذج ومستوى التفكير لكل مرحلة",
+    "clickToCustomize": "انقر للتخصيص",
+    "model": "النموذج",
+    "thinking": "التفكير",
+    "thinkingLevel": "مستوى التفكير",
+    "selectModel": "اختر نموذجًا",
+    "selectThinkingLevel": "اختر مستوى التفكير",
+    "perPhaseOptimization": "(تحسين لكل مرحلة)",
+    "resetToDefaults": "إعادة ضبط الافتراضيات",
+    "resetToProfileDefaults": "إعادة ضبط افتراضيات {{profile}}",
+    "customized": "مخصص",
+    "ollamaNotConfigured": "اختر النماذج أدناه",
+    "phaseConfigNote": "ستُستخدم هذه الإعدادات كافتراضيات عند إنشاء مهام جديدة بهذا الملف التعريفي. يمكنك تجاوزها لكل مهمة في معالج إنشاء المهمة.",
+    "adaptiveThinking": {
+      "badge": "تكيّفي",
+      "tooltip": "يستخدم Opus التفكير التكيّفي — فهو يقرر ديناميكيًا مقدار التفكير ضمن حد الميزانية المحدد بمستوى التفكير."
+    },
+    "reasoning": {
+      "adaptive": "تكيّفي",
+      "budget": "الميزانية",
+      "reasoning": "الاستدلال",
+      "thinking": "التفكير",
+      "noThinking": "(بلا تفكير)",
+      "toggle": {
+        "off": "مطفأ",
+        "on": "مفعّل"
+      },
+      "badgeTooltip": {
+        "adaptive_effort": "يقرر ديناميكيًا مقدار التفكير ضمن حد الميزانية",
+        "thinking_tokens": "تفكير قائم على الميزانية مع تخصيص رموز قابل للتكوين",
+        "reasoning_effort": "مستويات جهد الاستدلال (منخفض/متوسط/مرتفع)",
+        "thinking_toggle": "مفتاح تشغيل/إيقاف التفكير",
+        "none": "لا يدعم التفكير الموسّع"
+      }
+    },
+    "phases": {
+      "spec": {
+        "label": "إنشاء المواصفات",
+        "description": "الاستكشاف والمتطلبات وجمع السياق"
+      },
+      "planning": {
+        "label": "التخطيط",
+        "description": "تخطيط التنفيذ والهندسة المعمارية"
+      },
+      "coding": {
+        "label": "البرمجة",
+        "description": "تنفيذ الكود الفعلي"
+      },
+      "qa": {
+        "label": "مراجعة QA",
+        "description": "ضمان الجودة والتحقق"
+      }
+    },
+    "providerOverrides": {
+      "title": "تعيين نموذج المزود",
+      "description": "تخصيص النموذج الذي يستخدمه كل مزود لكل اختصار",
+      "defaultMapping": "افتراضي",
+      "yourOverride": "تجاوزك",
+      "shorthand": "اختصار",
+      "useDefault": "استخدام الافتراضي",
+      "resetAll": "إعادة ضبط الكل",
+      "noConnectedProviders": "لا يوجد مزودون متصلون. أضف حسابات في إعدادات الحسابات لتكوين تعيينات النماذج.",
+      "equivalentNote": "عندما يكون مزود غير Anthropic نشطًا، تحدد هذه التعيينات النموذج المستخدم لكل مرحلة."
+    },
+    "providerTabs": {
+      "moreProviders": "المزيد",
+      "noProviders": "لا يوجد مزودون متصلون. أضف حسابات في إعدادات الحسابات لتكوين إعدادات الوكيل الخاصة بالمزود.",
+      "configureFor": "تكوين إعدادات الوكيل لـ {{provider}}",
+      "crossProvider": "متعدد المزودين",
+      "crossProviderDisabledTooltip": "اتصل بحسابين أو أكثر من مزودين لتفعيل إمكانيات تعدد المزودين",
+      "needsSetup": "يتطلب إعدادًا"
+    },
+    "crossProviderTab": {
+      "title": "تكوين متعدد المزودين",
+      "description": "تعيين مزود ونموذج مختلف لكل مرحلة من مراحل البنية التحتية لأقصى قدر من المرونة.",
+      "activateInfo": "ستستخدم المهام المنشأة أثناء تفعيل هذا التكوين إعداد تعدد المزودين.",
+      "featureModelsTitle": "نماذج الميزات",
+      "featureModelsDescription": "تكوين النماذج للميزات غير المتعلقة بالبنية التحتية (الرؤى، الابتكار، إلخ)"
+    },
+    "customProfile": {
+      "name": "مخصص (متعدد المزودين)",
+      "description": "مزج مزودين ونماذج مختلفة لكل مرحلة",
+      "phaseAssignment": "تعيين مزود ونموذج لكل مرحلة"
+    },
+    "ollamaModels": {
+      "title": "نماذج Ollama",
+      "description": "إدارة النماذج المثبتة محليًا لمهام وكيل AI",
+      "installed": "النماذج المثبتة",
+      "installedCount": "{{count}} نموذج (نماذج)",
+      "noModels": "لا توجد نماذج LLM مثبتة",
+      "recommended": "موصى به للبرمجة",
+      "recommendedDescription": "نماذج شائعة محسّنة لإنشاء الكود والاستدلال",
+      "download": "تنزيل",
+      "downloading": "جارٍ التنزيل...",
+      "refresh": "تحديث",
+      "loading": "جارٍ تحميل النماذج...",
+      "ollamaNotAvailable": "اتصل بـ Ollama في إعدادات الحساب لإدارة النماذج"
+    }
+  },
+  "workspace": {
+    "roles": {
+      "backend": "الواجهة الخلفية",
+      "frontend": "الواجهة الأمامية",
+      "mobile": "الجوال",
+      "shared": "مشترك",
+      "apiGateway": "بوابة API",
+      "worker": "عامل",
+      "other": "أخرى"
+    }
+  },
+  "integrations": {
+    "title": "التكاملات",
+    "description": "إدارة حسابات Claude ومفاتيح API",
+    "claudeAccounts": "حسابات Claude",
+    "claudeAccountsDescription": "أضف اشتراكات Claude متعددة للتبديل التلقائي بينها عند الوصول إلى حدود المعدل.",
+    "claudeAccountsWarning": "عند المصادقة، تأكد من تسجيل الدخول إلى حساب Claude الصحيح في متصفحك. يجب أن يستخدم كل ملف تعريف اشتراكًا مختلفًا.",
+    "noAccountsYet": "لا توجد حسابات مكوّنة بعد",
+    "default": "افتراضي",
+    "active": "نشط",
+    "authenticated": "تمت المصادقة",
+    "needsAuth": "يحتاج مصادقة",
+    "authenticate": "مصادقة",
+    "authenticating": "جارٍ المصادقة...",
+    "setActive": "تعيين كنشط",
+    "manualTokenEntry": "إدخال الرمز يدويًا",
+    "runSetupToken": "شغّل claude واكتب /login للمصادقة",
+    "tokenPlaceholder": "sk-ant-oat01-...",
+    "emailPlaceholder": "البريد الإلكتروني (اختياري، للعرض)",
+    "saveToken": "حفظ الرمز",
+    "accountNamePlaceholder": "اسم الحساب (مثال: العمل، الشخصي)",
+    "autoSwitching": "التبديل التلقائي للحساب",
+    "autoSwitchingDescription": "التبديل التلقائي بين حسابات Claude لتجنب الانقطاعات. تكوين المراقبة الاستباقية للتبديل قبل الوصول إلى الحدود.",
+    "enableAutoSwitching": "تفعيل التبديل التلقائي",
+    "masterSwitch": "المفتاح الرئيسي لجميع ميزات التبديل التلقائي",
+    "proactiveMonitoring": "المراقبة الاستباقية",
+    "proactiveDescription": "فحص الاستخدام بانتظام والتبديل قبل الوصول إلى الحدود",
+    "checkUsageEvery": "فحص الاستخدام كل",
+    "seconds15": "15 ثانية",
+    "seconds30": "30 ثانية (موصى به)",
+    "minute1": "دقيقة واحدة",
+    "disabled": "معطّل",
+    "sessionThreshold": "عتبة استخدام الجلسة",
+    "sessionThresholdDescription": "التبديل عندما يصل استخدام الجلسة إلى هذا المستوى (موصى به: 95%)",
+    "weeklyThreshold": "عتبة الاستخدام الأسبوعي",
+    "weeklyThresholdDescription": "التبديل عندما يصل الاستخدام الأسبوعي إلى هذا المستوى (موصى به: 99%)",
+    "reactiveRecovery": "الاسترداد التفاعلي",
+    "reactiveDescription": "التبديل التلقائي عند الوصول غير المتوقع لحد المعدل",
+    "autoSwitchOnAuthFailure": "التبديل التلقائي عند فشل المصادقة",
+    "autoSwitchOnAuthFailureDescription": "التبديل التلقائي إلى حساب مصادق عليه آخر عند فشل المصادقة",
+    "apiKeys": "مفاتيح API",
+    "apiKeysInfo": "المفاتيح المحددة هنا تُستخدم كافتراضيات. يمكن للمشاريع الفردية تجاوزها في إعداداتها.",
+    "openaiKey": "مفتاح OpenAI API",
+    "openaiKeyDescription": "مطلوب لخلفية ذاكرة Graphiti (التضمينات)",
+    "toast": {
+      "authSuccess": "تمت مصادقة الملف التعريفي",
+      "authSuccessWithEmail": "متصل بحساب {{email}}",
+      "authSuccessGeneric": "اكتملت المصادقة. يمكنك الآن استخدام هذا الملف التعريفي.",
+      "authStartFailed": "فشلت المصادقة",
+      "addProfileFailed": "فشل إضافة الملف التعريفي",
+      "loadProfilesFailed": "فشل تحميل ملفات التعريف",
+      "deleteProfileFailed": "فشل حذف الملف التعريفي",
+      "renameProfileFailed": "فشل إعادة تسمية الملف التعريفي",
+      "setActiveProfileFailed": "فشل تعيين الملف التعريفي كنشط",
+      "profileCreatedAuthFailed": "تم إنشاء الملف التعريفي - مطلوب المصادقة",
+      "profileCreatedAuthFailedDescription": "تمت إضافة الملف التعريفي لكن تعذّر بدء المصادقة. انقر على زر تسجيل الدخول للمصادقة.",
+      "tokenSaved": "تم حفظ الرمز",
+      "tokenSavedDescription": "تم حفظ الرمز الخاص بك بنجاح.",
+      "tokenSaveFailed": "فشل حفظ الرمز",
+      "settingsUpdateFailed": "فشل تحديث الإعدادات",
+      "tryAgain": "يرجى المحاولة مجددًا.",
+      "terminalCreationFailed": "فشل إنشاء طرفية المصادقة",
+      "terminalCreationFailedDescription": "تعذّر بدء عملية المصادقة. {{error}}",
+      "maxTerminalsReached": "تم الوصول إلى الحد الأقصى للطرفيات",
+      "maxTerminalsReachedDescription": "يرجى إغلاق بعض الطرفيات والمحاولة مجددًا. يمكنك فتح 12 طرفية كحد أقصى.",
+      "terminalError": "خطأ في الطرفية",
+      "terminalErrorDescription": "فشل إنشاء الطرفية: {{error}}",
+      "authProcessFailed": "فشل بدء عملية المصادقة",
+      "authProcessFailedDescription": "تعذّر إنشاء طرفية المصادقة. يرجى المحاولة مجددًا أو مراجعة السجلات للمزيد من التفاصيل."
+    },
+    "alerts": {
+      "profileCreatedAuthFailed": "تم إنشاء الملف التعريفي لكن فشل تحضير المصادقة: {{error}}",
+      "authPrepareFailed": "فشل تحضير المصادقة: {{error}}",
+      "authStartFailedMessage": "فشل بدء المصادقة. يرجى المحاولة مجددًا."
+    }
+  },
+  "accounts": {
+    "title": "الحسابات",
+    "description": "إدارة حسابات Claude ونقاط نهاية API",
+    "tabs": {
+      "claudeCode": "Claude Code",
+      "customEndpoints": "نقاط نهاية مخصصة"
+    },
+    "claudeCode": {
+      "description": "أضف اشتراكات Claude متعددة للتبديل التلقائي بينها عند الوصول إلى حدود المعدل.",
+      "noAccountsYet": "لا توجد حسابات مكوّنة بعد",
+      "default": "افتراضي",
+      "active": "نشط",
+      "authenticated": "تمت المصادقة",
+      "needsAuth": "يحتاج مصادقة",
+      "authenticate": "مصادقة",
+      "authenticating": "جارٍ المصادقة...",
+      "setActive": "تعيين كنشط",
+      "manualTokenEntry": "إدخال الرمز يدويًا",
+      "runSetupToken": "شغّل claude واكتب /login للمصادقة",
+      "tokenPlaceholder": "sk-ant-oat01-...",
+      "emailPlaceholder": "البريد الإلكتروني (اختياري، للعرض)",
+      "saveToken": "حفظ الرمز",
+      "accountNamePlaceholder": "اسم الحساب (مثال: العمل، الشخصي)"
+    },
+    "customEndpoints": {
+      "description": "تكوين نقاط نهاية API مخصصة متوافقة مع Anthropic",
+      "addButton": "إضافة ملف تعريف",
+      "activeBadge": "نشط",
+      "customModels": "نماذج مخصصة: {{models}}",
+      "setActive": {
+        "label": "تعيين كنشط",
+        "loading": "جارٍ التعيين..."
+      },
+      "switchToOauth": {
+        "label": "استخدام Claude Code",
+        "loading": "جارٍ التبديل..."
+      },
+      "tooltips": {
+        "edit": "تعديل الملف التعريفي",
+        "deleteActive": "لا يمكن حذف الملف التعريفي النشط",
+        "deleteInactive": "حذف الملف التعريفي"
+      },
+      "empty": {
+        "title": "لا توجد نقاط نهاية مخصصة",
+        "description": "تكوين نقاط نهاية API مخصصة متوافقة مع Anthropic لاستخدام مزودين بديلين.",
+        "action": "إضافة ملف تعريف"
+      },
+      "dialog": {
+        "deleteTitle": "حذف الملف التعريفي",
+        "deleteDescription": "هل أنت متأكد من رغبتك في حذف \"{{name}}\"؟ لا يمكن التراجع عن هذا الإجراء.",
+        "cancel": "إلغاء",
+        "delete": "حذف",
+        "deleting": "جارٍ الحذف..."
+      }
+    },
+    "autoSwitching": {
+      "title": "التبديل التلقائي للحساب",
+      "description": "التبديل التلقائي بين الحسابات لتجنب الانقطاعات. تكوين المراقبة الاستباقية للتبديل قبل الوصول إلى الحدود.",
+      "enableAutoSwitching": "تفعيل التبديل التلقائي",
+      "masterSwitch": "المفتاح الرئيسي لجميع ميزات التبديل التلقائي",
+      "proactiveMonitoring": "المراقبة الاستباقية",
+      "proactiveDescription": "فحص الاستخدام بانتظام والتبديل قبل الوصول إلى الحدود",
+      "sessionThreshold": "عتبة استخدام الجلسة",
+      "sessionThresholdDescription": "التبديل عندما يصل استخدام الجلسة إلى هذا المستوى (موصى به: 95%)",
+      "weeklyThreshold": "عتبة الاستخدام الأسبوعي",
+      "weeklyThresholdDescription": "التبديل عندما يصل الاستخدام الأسبوعي إلى هذا المستوى (موصى به: 99%)",
+      "reactiveRecovery": "الاسترداد التفاعلي",
+      "reactiveDescription": "التبديل التلقائي عند الوصول غير المتوقع لحد المعدل",
+      "autoSwitchOnAuthFailure": "التبديل التلقائي عند فشل المصادقة",
+      "autoSwitchOnAuthFailureDescription": "التبديل التلقائي إلى حساب مصادق عليه آخر عند فشل المصادقة"
+    },
+    "priority": {
+      "title": "ترتيب أولوية الحساب",
+      "description": "اسحب لإعادة الترتيب. سيتبدل النظام إلى الحساب التالي المتاح بالترتيب.",
+      "tabs": {
+        "default": "افتراضي",
+        "crossProvider": "متعدد المزودين"
+      },
+      "crossProviderDescription": "يُستخدم ترتيب الأولوية هذا عند تفعيل وضع تعدد المزودين. عندما تشترك حسابات متعددة في مزود واحد، يختار النظام الأفضل المتاح استنادًا إلى هذا الترتيب.",
+      "setActive": "تعيين كنشط",
+      "setActiveTooltip": "جعل هذا الحساب الأساسي",
+      "noAccounts": "لا توجد حسابات مكوّنة. أضف حسابات أعلاه لتعيين الأولوية.",
+      "noEmail": "لا يوجد بريد إلكتروني",
+      "active": "نشط",
+      "inUse": "قيد الاستخدام",
+      "next": "التالي",
+      "unlimited": "غير محدود",
+      "unavailable": "غير متاح",
+      "typeOAuth": "OAuth",
+      "typeAPI": "API",
+      "payPerUse": "الدفع حسب الاستخدام",
+      "needsAuth": "لم تتم المصادقة",
+      "duplicateUsage": "نمط استخدام مكرر",
+      "duplicateUsageHint": "تشترك ملفات تعريف OAuth هذه في قيم استخدام متطابقة. تحقق من أن كل ملف تعريف مرتبط بحساب مختلف إذا كان ذلك غير متوقع.",
+      "needsReauth": "يحتاج إعادة مصادقة",
+      "needsReauthHint": "رمز التحديث لهذا الملف التعريفي غير صالح. انقر لإعادة المصادقة.",
+      "sessionUsage": "استخدام الجلسة (نافذة 5 ساعات)",
+      "weeklyUsage": "الاستخدام الأسبوعي (نافذة 7 أيام)",
+      "oauthSection": "حسابات Claude (التدوير أولًا)",
+      "apiSection": "نقاط النهاية الاحتياطية (عند استنفاد جميع الحسابات)",
+      "tipTitle": "كيف تعمل الأولوية",
+      "tipDescription": "حسابات Claude مضمّنة في اشتراكك وسيتم تدويرها أولًا. نقاط نهاية API تُحسب رسومها لكل طلب وتُستخدم كاحتياط عند وصول جميع حسابات Claude إلى حدودها.",
+      "status": {
+        "healthy": "سليم",
+        "moderate": "متوسط",
+        "highUsage": "استخدام مرتفع",
+        "nearLimit": "قرب الحد",
+        "rateLimited": "محدود المعدل"
+      }
+    },
+    "toast": {
+      "loadProfilesFailed": "فشل تحميل ملفات التعريف",
+      "addProfileFailed": "فشل إضافة الملف التعريفي",
+      "deleteProfileFailed": "فشل حذف الملف التعريفي",
+      "renameProfileFailed": "فشل إعادة تسمية الملف التعريفي",
+      "setActiveProfileFailed": "فشل تعيين الملف التعريفي كنشط",
+      "tokenSaved": "تم حفظ الرمز",
+      "tokenSavedDescription": "تم حفظ الرمز الخاص بك بنجاح.",
+      "tokenSaveFailed": "فشل حفظ الرمز",
+      "settingsUpdateFailed": "فشل تحديث الإعدادات",
+      "tryAgain": "يرجى المحاولة مجددًا."
+    },
+    "alerts": {
+      "profileCreatedAuthFailed": "تم إنشاء الملف التعريفي لكن فشل تحضير المصادقة: {{error}}",
+      "authPrepareFailed": "فشل تحضير المصادقة: {{error}}",
+      "authStartFailedMessage": "فشل بدء المصادقة. يرجى المحاولة مجددًا."
+    }
+  },
+  "providers": {
+    "card": {
+      "oauth": "OAuth",
+      "codex": "Codex",
+      "codexSubscription": "اشتراك Codex",
+      "claudeCode": "Claude Code",
+      "claudeCodeSubscription": "اشتراك Claude Code",
+      "zaiCodingPlan": "خطة البرمجة",
+      "zaiUsageBased": "قائم على الاستخدام",
+      "zaiCodingPlanSubscription": "خطة برمجة Z.AI",
+      "apiKey": "مفتاح API",
+      "active": "نشط",
+      "setDefault": "تعيين كنشط",
+      "edit": "تعديل الحساب",
+      "reauth": "إعادة المصادقة",
+      "delete": "حذف الحساب",
+      "showKey": "إظهار مفتاح API",
+      "hideKey": "إخفاء مفتاح API",
+      "oauthAccount": "حساب OAuth",
+      "oauthLinked": "حساب مرتبط",
+      "noEndpoint": "لا توجد نقطة نهاية",
+      "customModels": "{{count}} نموذج (نماذج) مكوّن"
+    },
+    "section": {
+      "envDetected": "من البيئة",
+      "envCredentialDetected": "تم الكشف عن بيانات الاعتماد من متغير البيئة {{envVar}}",
+      "noAccounts": "لا توجد حسابات مكوّنة",
+      "addOAuth": "إضافة حساب OAuth",
+      "addClaudeCode": "إضافة حساب Claude Code",
+      "addCodexSubscription": "إضافة اشتراك Codex",
+      "addCodingPlan": "إضافة خطة برمجة",
+      "addUsageBased": "إضافة مفتاح API قائم على الاستخدام",
+      "addApiKey": "إضافة مفتاح API",
+      "addEndpoint": "إضافة نقطة نهاية",
+      "importClaudeCode": "استيراد من Claude Code",
+      "importClaudeCodeHint": "إعادة استخدام تسجيل دخول Claude Code الموجود (~/.claude) دون تسجيل الدخول مجددًا"
+    },
+    "dialog": {
+      "addTitle": "إضافة حساب",
+      "editTitle": "تعديل الحساب",
+      "deleteTitle": "حذف الحساب؟",
+      "deleteDescription": "هل أنت متأكد من رغبتك في حذف هذا الحساب؟ لا يمكن التراجع عن هذا الإجراء.",
+      "cancel": "إلغاء",
+      "close": "إغلاق",
+      "delete": "حذف",
+      "deleting": "جارٍ الحذف...",
+      "save": "حفظ التغييرات",
+      "add": "إضافة حساب",
+      "optional": "(اختياري)",
+      "oauthDescription": "الاتصال باستخدام مصادقة OAuth",
+      "apiKeyDescription": "إضافة مفتاح API والتكوين الخاص بك",
+      "zaiCodingPlanDescription": "أضف مفتاح API لخطة برمجة Z.AI لاستخدام نماذج GLM مع اشتراكك",
+      "zaiUsageBasedDescription": "أضف مفتاح API القائم على الاستخدام من Z.AI للوصول بنظام الدفع حسب الاستخدام إلى نماذج GLM",
+      "codexOAuthDescription": "سجّل الدخول باشتراك ChatGPT Plus أو Pro لاستخدام نماذج Codex",
+      "codexAuthenticating": "جارٍ فتح تسجيل دخول OpenAI في متصفحك...",
+      "codexWaiting": "في انتظار مصادقة المتصفح...",
+      "codexSuccess": "تمت المصادقة مع OpenAI Codex",
+      "codexError": "فشلت مصادقة OpenAI: {{error}}",
+      "codexAuthenticate": "المصادقة مع OpenAI",
+      "codexReauthenticate": "إعادة المصادقة مع OpenAI",
+      "oauthInstructions": "لإضافة حساب OAuth، استخدم تدفق مصادقة Claude Code من تبويب Claude Code أعلاه. حسابات OAuth مرتبطة باشتراك Claude.ai الخاص بك.",
+      "oauthAuthenticate": "المصادقة مع Anthropic",
+      "oauthReauthenticate": "إعادة المصادقة مع Anthropic",
+      "oauthAuthenticating": "جارٍ فتح المتصفح...",
+      "oauthWaiting": "في انتظار التفويض...",
+      "oauthSuccess": "تمت المصادقة بحساب {{email}}",
+      "oauthError": "فشلت المصادقة: {{error}}",
+      "oauthFallback": "استخدام الطرفية (احتياطي)",
+      "oauthFallbackDescription": "إذا لم يعمل تسجيل دخول المتصفح، استخدم الطرفية المضمّنة",
+      "oauthNameRequired": "أدخل اسم حساب قبل المصادقة",
+      "modelsDescription": "أضف معرّفات النماذج المتاحة في نقطة النهاية هذه. ستظهر في محدد النموذج.",
+      "fields": {
+        "name": "اسم الحساب",
+        "apiKey": "مفتاح API",
+        "baseUrl": "عنوان URL الأساسي",
+        "region": "منطقة AWS",
+        "models": "النماذج"
+      },
+      "placeholders": {
+        "name": "حسابي",
+        "apiKey": "sk-...",
+        "baseUrl": "https://...",
+        "modelId": "معرّف النموذج (مثال: llama-3.1-70b)",
+        "modelLabel": "اسم العرض"
+      },
+      "toast": {
+        "added": "تمت إضافة الحساب",
+        "updated": "تم تحديث الحساب",
+        "error": "فشل حفظ الحساب",
+        "duplicateEmail": "البريد الإلكتروني هذا مسجّل بالفعل باسم \"{{existingName}}\"",
+        "createProfileFailed": "فشل إنشاء الملف التعريفي",
+        "authPrepareFailed": "فشل تحضير الطرفية",
+        "unexpectedError": "خطأ غير متوقع"
+      }
+    },
+    "toast": {
+      "deleted": "تم حذف الحساب",
+      "deleteFailed": "فشل حذف الحساب",
+      "reauthStarted": "جارٍ فتح المصادقة...",
+      "reauthSuccess": "تمت إعادة المصادقة بنجاح",
+      "reauthFailed": "فشلت إعادة المصادقة",
+      "importSuccess": "تم استيراد تسجيل دخول Claude Code",
+      "importFailed": "فشل استيراد تسجيل دخول Claude Code",
+      "importNoLoginTitle": "لم يُعثر على تسجيل دخول Claude Code",
+      "importNoLoginDescription": "شغّل \"claude /login\" في طرفية أولًا، ثم حاول الاستيراد مجددًا."
+    },
+    "categories": {
+      "popular": "شائع",
+      "infrastructure": "البنية التحتية",
+      "local": "محلي ومخصص"
+    },
+    "ollama": {
+      "connection": {
+        "checking": "جارٍ التحقق من اتصال Ollama...",
+        "connected": "متصل",
+        "connectedDescription": "Ollama يعمل وجاهز للاستخدام",
+        "modelsAvailable": "{{count}} نموذج LLM مثبت",
+        "noModels": "لا توجد نماذج LLM مثبتة بعد",
+        "customUrl": "عنوان URL مخصص",
+        "customUrlPlaceholder": "http://localhost:11434",
+        "notInstalled": "Ollama غير مثبت",
+        "notInstalledDescription": "ثبّت Ollama لتشغيل نماذج AI مفتوحة المصدر محليًا",
+        "notRunning": "Ollama لا يعمل",
+        "notRunningDescription": "ابدأ خدمة Ollama للاتصال",
+        "install": "تثبيت Ollama",
+        "retry": "إعادة المحاولة",
+        "learnMore": "معرفة المزيد",
+        "autoConnected": "متصل تلقائيًا كمزود محلي",
+        "startCommand": "شغّل 'ollama serve' في طرفيتك"
+      }
+    }
+  },
+  "debug": {
+    "title": "التصحيح والسجلات",
+    "description": "الوصول إلى السجلات ومعلومات التصحيح لاستكشاف الأخطاء",
+    "errorReporting": {
+      "label": "الإبلاغ المجهول عن الأخطاء",
+      "description": "إرسال تقارير الأعطال للمساعدة في تحسين Aperant. لا يتم جمع أي بيانات شخصية أو كود."
+    },
+    "openLogsFolder": "فتح مجلد السجلات",
+    "copyDebugInfo": "نسخ معلومات التصحيح",
+    "copied": "تم النسخ!",
+    "loadInfo": "تحميل معلومات التصحيح",
+    "systemInfo": "معلومات النظام",
+    "logsLocation": "موقع السجلات",
+    "recentErrors": "الأخطاء الأخيرة",
+    "noRecentErrors": "لا توجد أخطاء حديثة",
+    "helpTitle": "الإبلاغ عن المشكلات",
+    "helpText": "عند الإبلاغ عن أخطاء، انقر على \"نسخ معلومات التصحيح\" للحصول على معلومات النظام والأخطاء الأخيرة التي تساعدنا في تشخيص المشكلة."
+  },
+  "projectSettings": {
+    "noProjectSelected": {
+      "title": "لم يُحدد أي مشروع",
+      "description": "اختر مشروعًا من الشريط الجانبي لتكوين إعداداته."
+    }
+  },
+  "mcp": {
+    "title": "نظرة عامة على خادم MCP",
+    "titleWithProject": "نظرة عامة على خادم MCP لـ {{projectName}}",
+    "description": "تكوين خوادم MCP المتاحة للوكلاء في هذا المشروع",
+    "descriptionNoProject": "اختر مشروعًا لتكوين خوادم MCP",
+    "serversEnabled": "{{count}} خوادم مفعّلة",
+    "configuration": "تكوين خادم MCP",
+    "configurationHint": "الخوادم المعطّلة تقلل استخدام السياق ووقت البدء",
+    "noProjectSelected": "لم يُحدد أي مشروع",
+    "noProjectSelectedDescription": "اختر مشروعًا من القائمة المنسدلة لعرض وتكوين خوادم MCP.",
+    "projectNotInitialized": "المشروع غير مهيأ",
+    "projectNotInitializedDescription": "هيّئ Aperant لهذا المشروع لتكوين خوادم MCP.",
+    "browserAutomation": "أتمتة المتصفح (لوكلاء QA فقط)",
+    "alwaysEnabled": "مفعّل دائمًا",
+    "addServer": "إضافة خادم",
+    "addMcpTo": "إضافة خادم MCP إلى {{agent}}",
+    "addMcpDescription": "اختر خادم MCP لإضافته إلى هذا الوكيل",
+    "allMcpsAdded": "جميع خوادم MCP المتاحة مضافة بالفعل",
+    "added": "مضاف",
+    "removed": "محذوف",
+    "remove": "إزالة",
+    "restore": "استعادة",
+    "noMcpServers": "لا توجد خوادم MCP",
+    "cannotRemove": "لا يمكن الإزالة (مطلوب)",
+    "servers": {
+      "context7": {
+        "name": "Context7",
+        "description": "البحث في توثيق المكتبات"
+      },
+      "graphiti": {
+        "name": "ذاكرة Graphiti",
+        "description": "رسم بياني للمعرفة لسياق عبر الجلسات",
+        "notConfigured": "يتطلب تكوين الذاكرة (راجع إعدادات الذاكرة)"
+      },
+      "linear": {
+        "name": "Linear",
+        "description": "تكامل إدارة المشاريع",
+        "notConfigured": "يتطلب تكامل Linear (راجع إعدادات Linear)"
+      },
+      "electron": {
+        "name": "Electron",
+        "description": "أتمتة تطبيق سطح المكتب عبر Chrome DevTools"
+      },
+      "puppeteer": {
+        "name": "Puppeteer",
+        "description": "أتمتة متصفح الويب للاختبار"
+      },
+      "autoClaude": {
+        "name": "أدوات Aperant",
+        "description": "تتبع تقدم البناء"
+      }
+    },
+    "customServers": "خوادم مخصصة",
+    "addCustomServer": "إضافة خادم مخصص",
+    "editCustomServer": "تعديل الخادم المخصص",
+    "customServerDescription": "إضافة خادم MCP قائم على الأوامر أو HTTP",
+    "serverType": "نوع الخادم",
+    "typeCommand": "أمر (npx/npm)",
+    "typeHttp": "HTTP",
+    "serverName": "الاسم",
+    "serverNamePlaceholder": "خادم MCP الخاص بي",
+    "serverDescription": "الوصف",
+    "serverDescriptionPlaceholder": "ما يفعله هذا الخادم",
+    "command": "الأمر",
+    "args": "الوسائط",
+    "argsHint": "وسائط مفصولة بمسافات",
+    "url": "URL",
+    "headers": "الترويسات",
+    "headerName": "اسم الترويسة",
+    "headerValue": "قيمة الترويسة",
+    "noCustomServers": "لا توجد خوادم مخصصة مكوّنة. أضف واحدًا للاستخدام مع وكلائك.",
+    "errorNameRequired": "اسم الخادم مطلوب",
+    "errorIdExists": "يوجد بالفعل خادم بهذا المعرّف",
+    "errorCommandRequired": "الأمر مطلوب للخوادم القائمة على الأوامر",
+    "errorUrlRequired": "عنوان URL مطلوب للخوادم القائمة على HTTP",
+    "testConnection": "اختبار",
+    "testing": "جارٍ الاختبار...",
+    "authToken": "رمز المصادقة",
+    "authTokenPlaceholder": "الصق رمز API أو PAT هنا",
+    "authTokenHint": "يُستخدم كرمز Bearer في ترويسة التفويض",
+    "advancedHeaders": "ترويسات إضافية",
+    "status": {
+      "healthy": "الخادم يستجيب",
+      "unhealthy": "الخادم لا يستجيب",
+      "needsAuth": "المصادقة مطلوبة",
+      "checking": "جارٍ التحقق...",
+      "unknown": "الحالة غير معروفة"
+    },
+    "hints": {
+      "github": "يبدو أن هذا خادم GitHub MCP. ستحتاج إلى رمز وصول شخصي بالصلاحيات المناسبة.",
+      "createGithubPat": "إنشاء GitHub PAT",
+      "google": "يبدو أن هذا واجهة برمجة Google. ستحتاج إلى رمز OAuth أو مفتاح API.",
+      "createGoogleToken": "إنشاء بيانات اعتماد Google",
+      "anthropic": "يبدو أن هذا واجهة برمجة Anthropic. ستحتاج إلى مفتاح API.",
+      "createAnthropicKey": "إنشاء مفتاح Anthropic API",
+      "openai": "يبدو أن هذا واجهة برمجة OpenAI. ستحتاج إلى مفتاح API.",
+      "createOpenaiKey": "إنشاء مفتاح OpenAI API"
+    }
+  },
+  "terminalFonts": {
+    "title": "خطوط الطرفية",
+    "description": "تخصيص مظهر خط الطرفية وسلوكه",
+    "configActions": "التكوين:",
+    "export": "تصدير JSON",
+    "import": "استيراد JSON",
+    "copy": "نسخ إلى الحافظة",
+    "fontConfig": {
+      "title": "تكوين الخط",
+      "description": "تخصيص عائلة الخط والحجم والوزن وارتفاع السطر والتباعد بين الأحرف",
+      "fontFamily": "عائلة الخط",
+      "fontFamilyDescription": "خط أحادي المسافة الأساسي لنص الطرفية",
+      "selectFont": "اختر خطًا...",
+      "searchFont": "البحث في الخطوط...",
+      "noFonts": "لم يُعثر على خطوط",
+      "fontChain": "سلسلة الخطوط:",
+      "fontSize": "حجم الخط",
+      "fontSizeDescription": "حجم الخط الأساسي بالبكسل (10-24px)",
+      "decreaseFontSize": "تقليل حجم الخط بمقدار {{step}}px",
+      "increaseFontSize": "زيادة حجم الخط بمقدار {{step}}px",
+      "pixels": "بكسل",
+      "fontWeight": "وزن الخط",
+      "fontWeightDescription": "وزن الخط من 100 (رفيع) إلى 900 (غامق)، بخطوات 100",
+      "commonWeights": "شائع: 400 (عادي)، 600 (شبه عريض)، 700 (عريض)",
+      "decreaseFontWeight": "تقليل وزن الخط بمقدار {{step}}",
+      "increaseFontWeight": "زيادة وزن الخط بمقدار {{step}}",
+      "lineHeight": "ارتفاع السطر",
+      "lineHeightDescription": "ارتفاع السطر كمضاعف لحجم الخط (1.0-2.0)",
+      "letterSpacing": "التباعد بين الأحرف",
+      "letterSpacingDescription": "التباعد الأفقي بين الأحرف (من -2 إلى 5px)"
+    },
+    "cursorConfig": {
+      "title": "تكوين المؤشر",
+      "description": "تخصيص نمط المؤشر وسلوك الوميض ولون التمييز",
+      "cursorStyle": "نمط المؤشر",
+      "cursorStyleDescription": "اختر مظهر مؤشر الطرفية",
+      "selectStyle": "اختر نمط المؤشر...",
+      "currentStyle": "الحالي:",
+      "styleBlock": "مربع",
+      "styleBlockDescription": "مؤشر مربع كامل",
+      "styleUnderline": "تسطير",
+      "styleUnderlineDescription": "مؤشر تسطير",
+      "styleBar": "شريط",
+      "styleBarDescription": "مؤشر شريط عمودي",
+      "cursorBlink": "وميض المؤشر",
+      "cursorBlinkDescription": "تفعيل أو تعطيل حركة وميض المؤشر",
+      "blinkStatus": "الحالة:",
+      "enabled": "مفعّل",
+      "disabled": "معطّل",
+      "cursorAccentColor": "لون تمييز المؤشر",
+      "cursorAccentColorDescription": "اختر لون مؤشر الطرفية",
+      "cursorColorLabel": "لون تمييز المؤشر",
+      "cursorColorDescription": "اللون الحالي: {{color}}",
+      "pickColor": "انقر لاختيار لون",
+      "resetColor": "إعادة ضبط إلى الأسود",
+      "reset": "إعادة ضبط",
+      "preview": "معاينة:"
+    },
+    "performanceConfig": {
+      "title": "إعدادات الأداء",
+      "description": "ضبط حد التمرير للخلف وإعدادات الأداء الأخرى",
+      "presets": "إعدادات مسبقة سريعة",
+      "presetsDescription": "حدود تمرير شائعة لحالات استخدام مختلفة",
+      "scrollback": "حد التمرير للخلف",
+      "scrollbackDescription": "الحد الأقصى لعدد الأسطر التي يتم الاحتفاظ بها في سجل الطرفية",
+      "scrollbackPresets": "إعدادات مسبقة سريعة",
+      "presetMinimal": "ضئيل",
+      "presetMinimalDescription": "سجل ضئيل (1000 سطر)",
+      "presetStandard": "قياسي",
+      "presetStandardDescription": "سجل قياسي (10000 سطر)",
+      "presetExtended": "موسّع",
+      "presetExtendedDescription": "سجل موسّع (50000 سطر)",
+      "presetMaximum": "أقصى",
+      "presetMaximumDescription": "سجل أقصى (100000 سطر)",
+      "decreaseScrollback": "تقليل التمرير للخلف بمقدار {{step}}",
+      "increaseScrollback": "زيادة التمرير للخلف بمقدار {{step}}",
+      "lines": "أسطر",
+      "kValue": "{{value}}K",
+      "scrollbackValue": "{{value}} أسطر"
+    },
+    "presets": {
+      "title": "إعدادات مسبقة سريعة",
+      "description": "تطبيق إعدادات خط طرفية مكوّنة مسبقًا أو حفظ إعداداتك الخاصة",
+      "builtin": "الإعدادات المسبقة المدمجة",
+      "builtinDescription": "انقر لتطبيق إعداد مسبق مكوّن",
+      "vscode": "Consolas 14px، مؤشر مربع",
+      "vscodeName": "VS Code",
+      "intellij": "JetBrains Mono 13px، مؤشر مربع",
+      "intellijName": "IntelliJ IDEA",
+      "macos": "SF Mono 13px، مؤشر مربع",
+      "macosName": "طرفية macOS",
+      "ubuntu": "Ubuntu Mono 13px، مؤشر مربع",
+      "ubuntuName": "طرفية Ubuntu",
+      "reset": "إعادة ضبط الافتراضيات",
+      "resetDescription": "استعادة الإعدادات الافتراضية لنظام تشغيلك",
+      "resetToOS": "إعادة ضبط إلى افتراضيات {{os}}",
+      "resetButton": "إعادة ضبط إلى افتراضيات نظام التشغيل",
+      "custom": "إعدادات مسبقة مخصصة",
+      "customDescription": "حفظ تكوينك الحالي كإعداد مسبق مخصص",
+      "presetNamePlaceholder": "اسم الإعداد المسبق...",
+      "savePreset": "حفظ التكوين الحالي كإعداد مسبق",
+      "applyPreset": "تطبيق هذا الإعداد المسبق",
+      "deletePreset": "حذف هذا الإعداد المسبق",
+      "noCustomPresets": "لا توجد إعدادات مسبقة مخصصة بعد. احفظ تكوينك الحالي للبدء.",
+      "duplicateName": "يوجد بالفعل إعداد مسبق بهذا الاسم",
+      "saved": "تم حفظ الإعداد المسبق \"{{name}}\"",
+      "deleted": "تم حذف الإعداد المسبق \"{{name}}\"",
+      "unknownFont": "غير معروف",
+      "applyFailed": "فشل تطبيق الإعداد المسبق \"{{name}}\"",
+      "presetNameLabel": "اسم الإعداد المسبق",
+      "summary": "{{font}}، {{size}}px، مؤشر {{cursor}}"
+    },
+    "preview": {
+      "title": "معاينة مباشرة",
+      "description": "معاينة إعدادات الطرفية في الوقت الفعلي (يُحدَّث خلال 300ms)",
+      "ariaLabel": "معاينة خط الطرفية",
+      "infoText": "تُحدَّث هذه المعاينة خلال 300ms من أي تغيير لتُظهر كيف ستبدو إعداداتك في الطرفيات الفعلية."
+    },
+    "importExport": {
+      "exportSuccess": "تم تصدير الإعدادات بنجاح",
+      "exportFailed": "فشل تصدير الإعدادات",
+      "importSuccess": "تم استيراد الإعدادات بنجاح",
+      "importFailed": "فشل استيراد الإعدادات: تنسيق JSON غير صالح",
+      "importFailedRange": "فشل استيراد الإعدادات: القيم خارج النطاق الصالح",
+      "copySuccess": "تم نسخ الإعدادات إلى الحافظة",
+      "copyFailed": "فشل النسخ إلى الحافظة",
+      "fileTooLarge": "ملف الاستيراد كبير جدًا (الحد الأقصى 10KB)",
+      "readError": "فشل قراءة الملف"
+    },
+    "slider": {
+      "decrease": "تقليل {{label}} بمقدار {{step}}",
+      "increase": "زيادة {{label}} بمقدار {{step}}",
+      "currentValue": "القيمة الحالية: {{value}}"
+    }
+  },
+  "agents": {
+    "pr_template_filler": {
+      "label": "ملء قالب PR",
+      "description": "يملأ AI قوالب GitHub PR من تغييرات الكود"
+    }
+  },
+  "provider": {
+    "title": "مزود AI",
+    "description": "تكوين مزود AI وتفضيلات النموذج",
+    "selection": {
+      "label": "المزود",
+      "description": "اختر مزود AI المستخدم لمهام الوكيل",
+      "anthropic": "Anthropic",
+      "openai": "OpenAI",
+      "ollama": "Ollama (محلي)",
+      "openrouter": "OpenRouter"
+    },
+    "apiKey": {
+      "label": "مفتاح API",
+      "description": "مفتاح API الخاص بك للمزود المحدد",
+      "placeholder": "أدخل مفتاح API الخاص بك",
+      "anthropicPlaceholder": "sk-ant-...",
+      "openaiPlaceholder": "sk-...",
+      "openrouterPlaceholder": "sk-or-...",
+      "validation": {
+        "required": "مفتاح API مطلوب لهذا المزود",
+        "invalid": "تنسيق مفتاح API غير صالح"
+      }
+    },
+    "ollama": {
+      "endpointUrl": "عنوان URL لنقطة نهاية Ollama",
+      "endpointDescription": "عنوان URL حيث يعمل نظام Ollama الخاص بك",
+      "endpointPlaceholder": "http://localhost:11434",
+      "validation": {
+        "urlRequired": "عنوان URL لنقطة النهاية مطلوب لـ Ollama",
+        "urlInvalid": "تنسيق URL غير صالح (يجب أن يكون http:// أو https://)"
+      }
+    },
+    "phaseModels": {
+      "title": "تفضيلات النموذج لكل مرحلة",
+      "description": "تكوين النموذج المستخدم لكل مرحلة من مراحل البنية التحتية",
+      "spec": {
+        "label": "نموذج إنشاء المواصفات",
+        "description": "النموذج المستخدم للاستكشاف والمتطلبات وجمع السياق"
+      },
+      "planning": {
+        "label": "نموذج التخطيط",
+        "description": "النموذج المستخدم لتخطيط التنفيذ والهندسة المعمارية"
+      },
+      "coding": {
+        "label": "نموذج البرمجة",
+        "description": "النموذج المستخدم لتنفيذ الكود"
+      },
+      "qa": {
+        "label": "نموذج مراجعة QA",
+        "description": "النموذج المستخدم لضمان الجودة والتحقق"
+      },
+      "placeholder": "اختر نموذجًا",
+      "useDefault": "استخدام النموذج الافتراضي"
+    },
+    "testConnection": {
+      "label": "اختبار الاتصال",
+      "testing": "جارٍ الاختبار...",
+      "success": "الاتصال ناجح",
+      "failure": "فشل الاتصال"
+    },
+    "toast": {
+      "saved": {
+        "title": "تم حفظ إعدادات المزود",
+        "description": "تم تحديث تكوين مزود AI الخاص بك."
+      },
+      "error": {
+        "title": "فشل حفظ إعدادات المزود",
+        "description": "حدث خطأ أثناء حفظ تكوين مزودك."
+      }
+    }
+  }
+}

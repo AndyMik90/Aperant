@@ -1,0 +1,208 @@
+{
+  "title": "مشاكل GitLab",
+  "states": {
+    "opened": "مفتوح",
+    "closed": "مغلق"
+  },
+  "complexity": {
+    "simple": "بسيط",
+    "standard": "قياسي",
+    "complex": "معقد"
+  },
+  "header": {
+    "open": "مفتوح",
+    "searchPlaceholder": "البحث في المشاكل..."
+  },
+  "filters": {
+    "opened": "مفتوح",
+    "closed": "مغلق",
+    "all": "الكل"
+  },
+  "empty": {
+    "noMatch": "لا توجد مشاكل تطابق بحثك",
+    "selectIssue": "حدد مشكلة لعرض التفاصيل"
+  },
+  "notConnected": {
+    "title": "GitLab غير متصل",
+    "description": "قم بتهيئة رمز GitLab والمشروع في إعدادات المشروع لمزامنة المشاكل.",
+    "openSettings": "فتح الإعدادات"
+  },
+  "detail": {
+    "notes": "ملاحظات",
+    "viewTask": "عرض المهمة",
+    "createTask": "إنشاء مهمة",
+    "taskLinked": "المهمة مرتبطة",
+    "taskId": "معرّف المهمة",
+    "description": "الوصف",
+    "noDescription": "لم يتم توفير وصف.",
+    "assignees": "المعيَّنون",
+    "milestone": "المعلم"
+  },
+  "investigation": {
+    "title": "إنشاء مهمة من مشكلة",
+    "issuePrefix": "المشكلة",
+    "description": "إنشاء مهمة من هذه المشكلة في GitLab. ستُضاف المهمة إلى لوحة Kanban في عمود الأعمال المتراكمة.",
+    "selectNotes": "اختر الملاحظات لتضمينها",
+    "deselectAll": "إلغاء تحديد الكل",
+    "selectAll": "تحديد الكل",
+    "willInclude": "ستتضمن المهمة:",
+    "includeTitle": "عنوان المشكلة ووصفها",
+    "includeLink": "رابط يعود إلى مشكلة GitLab",
+    "includeLabels": "التصنيفات والبيانات الوصفية من المشكلة",
+    "noNotes": "لا توجد ملاحظات (هذه المشكلة لا تحتوي على ملاحظات)",
+    "failedToLoadNotes": "فشل تحميل الملاحظات",
+    "taskCreated": "تم إنشاء المهمة! اعرضها في لوحة Kanban.",
+    "creating": "جارٍ الإنشاء...",
+    "cancel": "إلغاء",
+    "done": "تم",
+    "close": "إغلاق"
+  },
+  "settings": {
+    "enableIssues": "تفعيل مشاكل GitLab",
+    "enableIssuesDescription": "مزامنة المشاكل من GitLab وإنشاء المهام تلقائياً",
+    "instance": "نسخة GitLab",
+    "instanceDescription": "استخدم https://gitlab.com أو رابط نسختك المستضافة ذاتياً",
+    "connectedVia": "متصل عبر GitLab CLI",
+    "authenticatedAs": "مُوثَّق بوصفك",
+    "useDifferentToken": "استخدام رمز مختلف",
+    "authentication": "مصادقة GitLab",
+    "useManualToken": "استخدام رمز يدوي",
+    "authenticating": "جارٍ المصادقة مع glab CLI...",
+    "browserWindow": "يجب أن تُفتح نافذة متصفح لتسجيل الدخول.",
+    "personalAccessToken": "رمز الوصول الشخصي",
+    "useOAuth": "استخدام OAuth بدلاً من ذلك",
+    "tokenScope": "أنشئ رمزاً بصلاحية",
+    "scopeApi": "api",
+    "scopeFrom": "من",
+    "gitlabSettings": "إعدادات GitLab",
+    "project": "المشروع",
+    "enterManually": "إدخال يدوي",
+    "loadingProjects": "جارٍ تحميل المشاريع...",
+    "selectProject": "اختر مشروعاً...",
+    "searchProjects": "البحث في المشاريع...",
+    "noMatchingProjects": "لا توجد مشاريع مطابقة",
+    "noProjectsFound": "لم يتم العثور على مشاريع",
+    "selected": "محدد",
+    "projectFormat": "الصيغة:",
+    "projectFormatExample": "(مثلاً: gitlab-org/gitlab)",
+    "connectionStatus": "حالة الاتصال",
+    "checking": "جارٍ الفحص...",
+    "connectedTo": "متصل بـ",
+    "notConnected": "غير متصل",
+    "issuesAvailable": "المشاكل متاحة",
+    "issuesAvailableDescription": "الوصول إلى مشاكل GitLab من الشريط الجانبي لعرضها والتحقيق فيها وإنشاء المهام منها.",
+    "defaultBranch": "الفرع الافتراضي",
+    "defaultBranchDescription": "الفرع الأساسي لإنشاء مساحات عمل المهام",
+    "loadingBranches": "جارٍ تحميل الفروع...",
+    "autoDetect": "اكتشاف تلقائي (main/master)",
+    "searchBranches": "البحث في الفروع...",
+    "noMatchingBranches": "لا توجد فروع مطابقة",
+    "noBranchesFound": "لم يتم العثور على فروع",
+    "branchFromNote": "جميع المهام الجديدة ستتفرع من",
+    "autoSyncOnLoad": "مزامنة تلقائية عند التحميل",
+    "autoSyncDescription": "جلب المشاكل تلقائياً عند تحميل المشروع",
+    "cli": {
+      "required": "GitLab CLI مطلوب",
+      "notInstalled": "GitLab CLI (glab) مطلوب لمصادقة OAuth. ثبّته لاستخدام خيار 'استخدام OAuth'.",
+      "installButton": "تثبيت glab",
+      "installing": "جارٍ التثبيت...",
+      "installSuccess": "بدأ التثبيت في طرفيتك. أكمله وانقر على تحديث.",
+      "refresh": "تحديث",
+      "learnMore": "معرفة المزيد",
+      "installed": "GitLab CLI مثبّت:"
+    }
+  },
+  "mergeRequests": {
+    "title": "طلبات دمج GitLab",
+    "newMR": "طلب دمج جديد",
+    "selectMR": "حدد طلب دمج لعرض التفاصيل",
+    "states": {
+      "opened": "مفتوح",
+      "closed": "مغلق",
+      "merged": "مدموج",
+      "locked": "مقفل"
+    },
+    "filters": {
+      "opened": "مفتوح",
+      "closed": "مغلق",
+      "merged": "مدموج",
+      "all": "الكل"
+    }
+  },
+  "mrReview": {
+    "runReview": "تشغيل مراجعة AI",
+    "reviewing": "جارٍ المراجعة...",
+    "followupReview": "مراجعة متابعة",
+    "newCommits": "إيداع جديد",
+    "newCommitsPlural": "إيداعات جديدة",
+    "cancel": "إلغاء",
+    "postFindings": "نشر النتائج",
+    "posting": "جارٍ النشر...",
+    "postedTo": "تم النشر على GitLab",
+    "approve": "موافقة",
+    "approving": "جارٍ الموافقة...",
+    "merge": "دمج MR",
+    "merging": "جارٍ الدمج...",
+    "aiReviewResult": "نتيجة مراجعة AI",
+    "followupReviewResult": "مراجعة المتابعة",
+    "description": "الوصف",
+    "noDescription": "لم يتم توفير وصف.",
+    "labels": "التصنيفات",
+    "status": {
+      "notReviewed": "لم تتم المراجعة",
+      "notReviewedDesc": "شغّل مراجعة AI لتحليل هذا MR",
+      "reviewComplete": "اكتملت المراجعة",
+      "reviewCompleteDesc": "نتيجة(نتائج) وُجدت. حدد وانشر على GitLab.",
+      "waitingForChanges": "في انتظار التغييرات",
+      "waitingForChangesDesc": "نتيجة(نتائج) تم نشرها. في انتظار المساهم لمعالجة المشاكل.",
+      "readyToMerge": "جاهز للدمج",
+      "readyToMergeDesc": "لم يتم العثور على مشاكل حاجبة. يمكن دمج هذا MR.",
+      "needsAttention": "يحتاج انتباهاً",
+      "needsAttentionDesc": "نتيجة(نتائج) تحتاج إلى نشر على GitLab.",
+      "readyForFollowup": "جاهز للمتابعة",
+      "readyForFollowupDesc": "منذ المراجعة. شغّل المتابعة للتحقق من حل المشاكل.",
+      "blockingIssues": "مشاكل حاجبة",
+      "blockingIssuesDesc": "مشكلة(مشاكل) حاجبة لا تزال مفتوحة."
+    },
+    "overallStatus": {
+      "approve": "موافقة",
+      "requestChanges": "طُلبت تغييرات",
+      "comment": "تعليق"
+    },
+    "resolution": {
+      "resolved": "محلول",
+      "stillOpen": "لا يزال مفتوحاً",
+      "newIssue": "مشكلة جديدة",
+      "newIssues": "مشاكل جديدة"
+    }
+  },
+  "findings": {
+    "summary": "محدد",
+    "selectCriticalHigh": "اختيار الحاجب/المطلوب",
+    "selectAll": "تحديد الكل",
+    "clear": "مسح",
+    "noIssues": "لم يتم العثور على مشاكل! الكود يبدو جيداً.",
+    "suggestedFix": "الإصلاح المقترح:",
+    "posted": "تم النشر",
+    "severity": {
+      "critical": "حاجب",
+      "criticalDesc": "يجب إصلاحه",
+      "high": "مطلوب",
+      "highDesc": "ينبغي إصلاحه",
+      "medium": "موصى به",
+      "mediumDesc": "تحسين الجودة",
+      "low": "اقتراح",
+      "lowDesc": "للنظر"
+    },
+    "category": {
+      "security": "أمان",
+      "quality": "جودة",
+      "style": "أسلوب",
+      "test": "اختبار",
+      "docs": "توثيق",
+      "pattern": "نمط",
+      "performance": "أداء",
+      "logic": "منطق"
+    }
+  }
+}

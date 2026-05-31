@@ -99,5 +99,6 @@ export const claudeProfileMock = {
   }),
 
   claudeAuthLoginSubprocess: async () => ({ success: true, data: { authenticated: false } }),
+  importClaudeFromCli: async () => ({ success: false, error: 'NO_CLI_LOGIN' }),
   onClaudeAuthLoginProgress: () => () => {},
 };

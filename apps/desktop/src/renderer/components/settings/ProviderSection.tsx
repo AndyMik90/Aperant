@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, ChevronRight, Plus } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, Download } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '../ui/button';
 import { cn } from '../../lib/utils';
@@ -16,6 +16,10 @@ interface ProviderSectionProps {
   onEditAccount: (account: ProviderAccount) => void;
   onDeleteAccount: (id: string) => void;
   onReauthAccount?: (account: ProviderAccount) => void;
+  /** Import the existing Claude Code CLI login (Anthropic only). */
+  onImportClaudeCode?: () => void;
+  /** Whether a Claude Code import is currently in progress. */
+  isImportingClaudeCode?: boolean;
 }
 
 export function ProviderSection({
@@ -26,6 +30,8 @@ export function ProviderSection({
   onEditAccount,
   onDeleteAccount,
   onReauthAccount,
+  onImportClaudeCode,
+  isImportingClaudeCode,
 }: ProviderSectionProps) {
   const { t } = useTranslation('settings');
   const [isOpen, setIsOpen] = useState(accounts.length > 0);
@@ -140,6 +146,20 @@ export function ProviderSection({
                             : provider.id === 'anthropic'
                               ? t('providers.section.addClaudeCode')
                               : t('providers.section.addOAuth')}
+                        </Button>
+                      )}
+                      {/* Anthropic: import the existing Claude Code CLI login (no browser re-login) */}
+                      {provider.id === 'anthropic' && onImportClaudeCode && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={onImportClaudeCode}
+                          disabled={isImportingClaudeCode}
+                          className="h-7 text-xs gap-1"
+                          title={t('providers.section.importClaudeCodeHint')}
+                        >
+                          <Download className={cn('h-3 w-3', isImportingClaudeCode && 'animate-pulse')} />
+                          {t('providers.section.importClaudeCode')}
                         </Button>
                       )}
                       {/* Z.AI: Coding Plan subscription button before generic API Key */}

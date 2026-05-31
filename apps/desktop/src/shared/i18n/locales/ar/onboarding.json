@@ -1,0 +1,261 @@
+{
+  "wizard": {
+    "title": "معالج الإعداد",
+    "description": "قم بتكوين بيئة Aperant الخاصة بك في بضع خطوات بسيطة",
+    "helpText": "سيساعدك هذا المعالج على إعداد بيئتك في بضع خطوات فقط. يمكنك تكوين رمز Claude OAuth الخاص بك، وإعداد ميزات الذاكرة، وإنشاء مهمتك الأولى."
+  },
+  "welcome": {
+    "title": "مرحباً بك في Aperant",
+    "subtitle": "أنشئ البرامج بشكل مستقل مع وكلاء مدعومين بالذكاء الاصطناعي",
+    "getStarted": "ابدأ الآن",
+    "skip": "تخطي الإعداد",
+    "features": {
+      "aiPowered": {
+        "title": "تطوير مدعوم بالذكاء الاصطناعي",
+        "description": "إنشاء الكود وبناء الميزات باستخدام وكلاء Claude Code"
+      },
+      "specDriven": {
+        "title": "سير عمل مبني على المواصفات",
+        "description": "حدد المهام بمواصفات واضحة ودع Aperant يتولى التنفيذ"
+      },
+      "memory": {
+        "title": "الذاكرة والسياق",
+        "description": "ذاكرة مستمرة عبر الجلسات مع Graphiti"
+      },
+      "parallel": {
+        "title": "التنفيذ المتوازي",
+        "description": "تشغيل وكلاء متعددة في وقت واحد لدورات تطوير أسرع"
+      }
+    }
+  },
+  "oauth": {
+    "title": "مصادقة Claude",
+    "description": "قم بتوصيل حساب Claude الخاص بك لتفعيل ميزات الذكاء الاصطناعي",
+    "configureTitle": "تكوين مصادقة Claude",
+    "addAccountsDesc": "أضف حسابات Claude الخاصة بك لتفعيل ميزات الذكاء الاصطناعي",
+    "multiAccountInfo": "أضف اشتراكات Claude متعددة للتبديل التلقائي بينها عند الوصول إلى حدود المعدل.",
+    "noAccountsYet": "لم يتم تكوين أي حسابات بعد",
+    "badges": {
+      "default": "افتراضي",
+      "active": "نشط",
+      "authenticated": "تمت المصادقة",
+      "needsAuth": "يحتاج مصادقة"
+    },
+    "buttons": {
+      "authenticate": "المصادقة",
+      "setActive": "تعيين كنشط",
+      "rename": "إعادة التسمية",
+      "delete": "حذف",
+      "add": "إضافة",
+      "adding": "جارٍ الإضافة...",
+      "showToken": "إظهار الرمز",
+      "hideToken": "إخفاء الرمز",
+      "copyToken": "نسخ الرمز",
+      "back": "رجوع",
+      "continue": "متابعة",
+      "skip": "تخطي"
+    },
+    "labels": {
+      "accountName": "اسم الحساب",
+      "namePlaceholder": "اسم الملف الشخصي (مثلاً: عمل، شخصي)",
+      "tokenLabel": "رمز OAuth",
+      "tokenPlaceholder": "أدخل الرمز هنا",
+      "tokenHint": "الصق الرمز الظاهر في الطرفية بعد إتمام تسجيل الدخول عبر OAuth."
+    },
+    "keychainTitle": "التخزين الآمن",
+    "keychainDescription": "يتم تشفير رموزك باستخدام سلسلة مفاتيح نظامك. قد تظهر لك نافذة كلمة مرور من macOS — انقر على \"السماح دائماً\" لتجنب ظهورها مرة أخرى.",
+    "toast": {
+      "authSuccess": "تمت مصادقة الملف الشخصي بنجاح",
+      "authSuccessWithEmail": "الحساب: {{email}}",
+      "authSuccessGeneric": "اكتملت المصادقة. يمكنك الآن استخدام هذا الملف الشخصي.",
+      "authStartFailed": "فشل في بدء المصادقة",
+      "addProfileFailed": "فشل في إضافة الملف الشخصي",
+      "tokenSaved": "تم حفظ الرمز",
+      "tokenSavedDescription": "تم حفظ رمزك بنجاح.",
+      "tokenSaveFailed": "فشل في حفظ الرمز",
+      "tryAgain": "يرجى المحاولة مرة أخرى."
+    },
+    "alerts": {
+      "profileCreatedAuthFailed": "تم إنشاء الملف الشخصي لكن فشل إعداد المصادقة: {{error}}",
+      "authPrepareFailed": "فشل في إعداد المصادقة: {{error}}",
+      "authStartFailedMessage": "فشل في بدء المصادقة. يرجى المحاولة مرة أخرى."
+    }
+  },
+  "memory": {
+    "title": "الذاكرة",
+    "description": "تكوين الذاكرة المستمرة عبر الجلسات للوكلاء",
+    "contextDescription": "تساعد ذاكرة Aperant على تذكر السياق عبر جلسات البرمجة الخاصة بك",
+    "enableMemory": "تفعيل الذاكرة",
+    "enableMemoryDescription": "ذاكرة مستمرة عبر الجلسات باستخدام قاعدة بيانات مدمجة",
+    "memoryDisabledInfo": "الذاكرة معطّلة. ستُخزَّن رؤى الجلسة في الملفات المحلية فقط. فعّل الذاكرة للحصول على سياق مستمر عبر الجلسات مع البحث الدلالي.",
+    "embeddingProvider": "موفر التضمين",
+    "embeddingProviderDescription": "موفر البحث الدلالي (اختياري - البحث بالكلمات المفتاحية يعمل بدونه)",
+    "selectEmbeddingModel": "اختر نموذج التضمين",
+    "openaiApiKey": "مفتاح OpenAI API",
+    "openaiApiKeyDescription": "مطلوب لتضمينات OpenAI",
+    "openaiGetKey": "احصل على مفتاحك من",
+    "voyageApiKey": "مفتاح Voyage AI API",
+    "voyageApiKeyDescription": "مطلوب لتضمينات Voyage AI",
+    "voyageEmbeddingModel": "نموذج التضمين",
+    "googleApiKey": "مفتاح Google AI API",
+    "googleApiKeyDescription": "مطلوب لتضمينات Google AI",
+    "azureConfig": "تكوين Azure OpenAI",
+    "azureApiKey": "مفتاح API",
+    "azureBaseUrl": "عنوان URL الأساسي",
+    "azureEmbeddingDeployment": "اسم نشر التضمين",
+    "memoryInfo": "تخزّن الذاكرة الاكتشافات والأنماط والرؤى حول قاعدة الكود الخاصة بك حتى تبدأ الجلسات المستقبلية بسياق محمّل مسبقاً.",
+    "learnMore": "اعرف المزيد عن الذاكرة",
+    "back": "رجوع",
+    "skip": "تخطي",
+    "saving": "جارٍ الحفظ...",
+    "saveAndContinue": "حفظ ومتابعة",
+    "providers": {
+      "ollama": "Ollama (محلي - مجاني)",
+      "openai": "OpenAI",
+      "voyage": "Voyage AI",
+      "google": "Google AI",
+      "azure": "Azure OpenAI"
+    },
+    "ollamaConfig": "تكوين Ollama",
+    "checking": "جارٍ التحقق...",
+    "connected": "متصل",
+    "notRunning": "غير قيد التشغيل",
+    "baseUrl": "عنوان URL الأساسي",
+    "embeddingModel": "نموذج التضمين",
+    "embeddingDim": "أبعاد التضمين",
+    "embeddingDimDescription": "مطلوب لتضمينات Ollama (مثلاً: 768 لـ nomic-embed-text)",
+    "modelRecommendation": "موصى به: qwen3-embedding:4b (متوازن)، :8b (جودة)، :0.6b (سريع)"
+  },
+  "completion": {
+    "title": "أنت جاهز تماماً!",
+    "subtitle": "Aperant مستعد لمساعدتك في بناء برامج رائعة",
+    "setupComplete": "اكتمل الإعداد",
+    "setupCompleteDescription": "تم تكوين بيئتك وهي جاهزة للاستخدام. يمكنك البدء في إنشاء المهام فوراً أو استكشاف التطبيق بالسرعة التي تناسبك.",
+    "whatsNext": "ما التالي؟",
+    "createTask": {
+      "title": "إنشاء مهمة",
+      "description": "ابدأ بإنشاء مهمتك الأولى لترى Aperant في العمل.",
+      "action": "فتح منشئ المهام"
+    },
+    "customizeSettings": {
+      "title": "تخصيص الإعدادات",
+      "description": "ضبط تفضيلاتك، وتكوين التكاملات، أو إعادة تشغيل هذا المعالج.",
+      "action": "فتح الإعدادات"
+    },
+    "exploreDocs": {
+      "title": "استكشاف التوثيق",
+      "description": "تعرف على المزيد حول الميزات المتقدمة وأفضل الممارسات واستكشاف الأخطاء."
+    },
+    "finish": "إنهاء والبدء في البناء",
+    "rerunHint": "يمكنك دائماً إعادة تشغيل هذا المعالج من الإعدادات ← التطبيق"
+  },
+  "steps": {
+    "welcome": "مرحباً",
+    "accounts": "الحسابات",
+    "devtools": "أدوات التطوير",
+    "privacy": "الخصوصية",
+    "memory": "الذاكرة",
+    "done": "تم"
+  },
+  "privacy": {
+    "title": "ساعد في تحسين Aperant",
+    "subtitle": "الإبلاغ المجهول عن الأخطاء يساعدنا على إصلاح المشكلات بسرعة أكبر",
+    "whatWeCollect": {
+      "title": "ما نجمعه",
+      "crashReports": "تقارير الأعطال وتتبعات مكدس الأخطاء",
+      "errorMessages": "رسائل الخطأ (مع إخفاء مسارات الملفات)",
+      "appVersion": "إصدار التطبيق ومعلومات المنصة"
+    },
+    "whatWeNeverCollect": {
+      "title": "ما لا نجمعه أبداً",
+      "code": "كودك أو ملفات مشروعك",
+      "filenames": "مسارات الملفات الكاملة (تُخفى أسماء المستخدمين)",
+      "apiKeys": "مفاتيح API أو الرموز",
+      "personalData": "المعلومات الشخصية أو بيانات الاستخدام"
+    },
+    "toggle": {
+      "label": "إرسال تقارير خطأ مجهولة",
+      "description": "ساعدنا في تحديد المشكلات وإصلاحها"
+    }
+  },
+  "claudeCode": {
+    "title": "واجهة سطر أوامر Claude Code",
+    "description": "قم بتثبيت أو تحديث CLI الخاص بـ Claude Code لتفعيل الميزات المدعومة بالذكاء الاصطناعي",
+    "detecting": "جارٍ التحقق من تثبيت Claude Code...",
+    "info": {
+      "title": "ما هو Claude Code؟",
+      "description": "Claude Code هو CLI الرسمي من Anthropic الذي يشغّل ميزات الذكاء الاصطناعي في Aperant. يوفر مصادقة آمنة ووصولاً مباشراً إلى نماذج Claude."
+    },
+    "status": {
+      "installed": "مثبّت",
+      "outdated": "تحديث متاح",
+      "notFound": "غير مثبّت"
+    },
+    "version": {
+      "current": "الإصدار الحالي",
+      "latest": "أحدث إصدار"
+    },
+    "install": {
+      "button": "تثبيت Claude Code",
+      "updating": "تحديث Claude Code",
+      "inProgress": "جارٍ التثبيت...",
+      "success": "تم إرسال أمر التثبيت إلى الطرفية. يرجى إكمال التثبيت هناك.",
+      "instructions": "سيفتح المثبّت في الطرفية. اتبع التعليمات لإكمال التثبيت."
+    },
+    "learnMore": "اعرف المزيد عن Claude Code"
+  },
+  "devtools": {
+    "title": "أدوات المطور",
+    "description": "اختر بيئة التطوير المتكاملة والطرفية وCLI المفضلة لديك للعمل مع worktrees في Aperant",
+    "detecting": "جارٍ الكشف عن الأدوات المثبّتة...",
+    "detectAgain": "الكشف مجدداً",
+    "whyConfigure": "لماذا نقوم بتكوين هذه الأدوات؟",
+    "whyConfigureDescription": "عندما يبني Aperant ميزات في worktrees معزولة، يمكنك فتحها مباشرة في بيئة التطوير أو الطرفية المفضلة لديك لاختبار التغييرات ومراجعتها.",
+    "ide": {
+      "label": "بيئة التطوير المتكاملة المفضلة",
+      "description": "سيفتح Aperant الـ worktrees في هذا المحرر",
+      "customPath": "مسار بيئة التطوير المخصص"
+    },
+    "terminal": {
+      "label": "الطرفية المفضلة",
+      "description": "سيفتح Aperant جلسات الطرفية هنا",
+      "customPath": "مسار الطرفية المخصص"
+    },
+    "cli": {
+      "label": "CLI المفضل",
+      "description": "أداة CLI المستخدمة لجلسات الطرفية المدعومة بالذكاء الاصطناعي",
+      "customPath": "مسار CLI المخصص"
+    },
+    "detectedSummary": "تم الكشف عنها على نظامك:",
+    "noToolsDetected": "لم يتم الكشف عن أدوات إضافية (سيتم استخدام VS Code وطرفية النظام)",
+    "custom": "مخصص...",
+    "saveAndContinue": "حفظ ومتابعة"
+  },
+  "accounts": {
+    "title": "إضافة حسابات AI الخاصة بك",
+    "description": "قم بتوصيل حسابات موفر الذكاء الاصطناعي الخاصة بك. يمكنك إضافة المزيد لاحقاً في الإعدادات.",
+    "buttons": {
+      "back": "رجوع",
+      "continue": "متابعة",
+      "skip": "تخطي الآن"
+    }
+  },
+  "ollama": {
+    "notInstalled": {
+      "title": "Ollama غير مثبّت",
+      "description": "يوفر Ollama نماذج تضمين محلية ومجانية للبحث الدلالي. قم بتثبيته بنقرة واحدة لتفعيل هذه الميزة.",
+      "installSuccess": "بدأ التثبيت في الطرفية. أكمل التثبيت هناك، ثم انقر على إعادة المحاولة.",
+      "installButton": "تثبيت Ollama",
+      "installing": "جارٍ التثبيت...",
+      "retry": "إعادة المحاولة",
+      "learnMore": "اعرف المزيد",
+      "fallbackNote": "ستعمل الذاكرة مع البحث بالكلمات المفتاحية حتى بدون Ollama."
+    },
+    "notRunning": {
+      "title": "Ollama غير قيد التشغيل",
+      "description": "Ollama مثبّت لكنه لا يعمل. ابدأ تشغيل Ollama لاستخدام نماذج التضمين المحلية.",
+      "retry": "إعادة المحاولة",
+      "fallbackNote": "ستعمل الذاكرة مع البحث بالكلمات المفتاحية حتى بدون التضمينات."
+    }
+  }
+}

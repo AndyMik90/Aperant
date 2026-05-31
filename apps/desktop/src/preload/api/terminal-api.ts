@@ -106,6 +106,8 @@ export interface TerminalAPI {
   authenticateClaudeProfile: (profileId: string) => Promise<IPCResult<{ terminalId: string; configDir: string }>>;
   verifyClaudeProfileAuth: (profileId: string) => Promise<IPCResult<{ authenticated: boolean; email?: string }>>;
   claudeAuthLoginSubprocess: (profileId: string) => Promise<IPCResult<{ authenticated: boolean; email?: string }>>;
+  /** Import the existing Claude Code CLI login (~/.claude) without a fresh browser login. */
+  importClaudeFromCli: () => Promise<IPCResult<{ profileId: string; email?: string; subscriptionType?: string }>>;
   onClaudeAuthLoginProgress: (callback: (data: { status: string; message?: string }) => void) => () => void;
   getAutoSwitchSettings: () => Promise<IPCResult<import('../../shared/types').ClaudeAutoSwitchSettings>>;
   updateAutoSwitchSettings: (settings: Partial<import('../../shared/types').ClaudeAutoSwitchSettings>) => Promise<IPCResult>;
@@ -449,6 +451,9 @@ export const createTerminalAPI = (): TerminalAPI => ({
 
   claudeAuthLoginSubprocess: (profileId: string): Promise<IPCResult<{ authenticated: boolean; email?: string }>> =>
     ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_AUTH_LOGIN_SUBPROCESS, profileId),
+
+  importClaudeFromCli: (): Promise<IPCResult<{ profileId: string; email?: string; subscriptionType?: string }>> =>
+    ipcRenderer.invoke(IPC_CHANNELS.CLAUDE_IMPORT_FROM_CLI),
 
   onClaudeAuthLoginProgress: (
     callback: (data: { status: string; message?: string }) => void

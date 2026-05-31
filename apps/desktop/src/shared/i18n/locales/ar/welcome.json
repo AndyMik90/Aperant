@@ -1,0 +1,17 @@
+{
+  "hero": {
+    "title": "مرحباً بك في Aperant",
+    "subtitle": "بناء البرمجيات باستقلالية باستخدام وكلاء مدعومين بالذكاء الاصطناعي"
+  },
+  "actions": {
+    "newProject": "مشروع جديد",
+    "openProject": "فتح مشروع"
+  },
+  "recentProjects": {
+    "title": "المشاريع الأخيرة",
+    "empty": "لا توجد مشاريع بعد",
+    "emptyDescription": "أنشئ مشروعاً جديداً أو افتح مشروعاً موجوداً للبدء",
+    "openFolder": "فتح مجلد",
+    "openProjectAriaLabel": "فتح المشروع {{name}}"
+  }
+}

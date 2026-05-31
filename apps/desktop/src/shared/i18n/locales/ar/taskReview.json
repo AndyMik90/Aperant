@@ -1,0 +1,162 @@
+{
+  "terminal": {
+    "openTerminal": "فتح الطرفية",
+    "openInbuilt": "فتح في الطرفية المدمجة",
+    "openExternal": "فتح في الطرفية الخارجية"
+  },
+  "merge": {
+    "branchHasNewCommits": "فرع {{branch}} لديه {{count}} إيداع جديد.",
+    "branchHasNewCommits_other": "فرع {{branch}} لديه {{count}} إيداعات جديدة.",
+    "branchHasNewCommitsSinceWorktree": "فرع {{branch}} لديه {{count}} إيداع جديد منذ إنشاء مساحة العمل هذه.",
+    "branchHasNewCommitsSinceWorktree_other": "فرع {{branch}} لديه {{count}} إيداعات جديدة منذ إنشاء مساحة العمل هذه.",
+    "filesNeedMerging": "{{count}} ملف يحتاج إلى دمج.",
+    "filesNeedMerging_other": "{{count}} ملفات تحتاج إلى دمج.",
+    "filesNeedIntelligentMerging": "{{count}} ملف سيحتاج إلى دمج ذكي:",
+    "filesNeedIntelligentMerging_other": "{{count}} ملفات ستحتاج إلى دمج ذكي:",
+    "branchHasNewCommitsSinceBuild": "فرع {{branch}} لديه {{count}} إيداع جديد منذ بدء هذه العملية.",
+    "branchHasNewCommitsSinceBuild_other": "فرع {{branch}} لديه {{count}} إيداعات جديدة منذ بدء هذه العملية.",
+    "filesNeedAIMergeDueToRenames": "{{count}} ملف يحتاج إلى دمج بواسطة AI بسبب {{renameCount}} إعادة تسمية ملف.",
+    "filesNeedAIMergeDueToRenames_other": "{{count}} ملفات تحتاج إلى دمج بواسطة AI بسبب {{renameCount}} إعادات تسمية ملفات.",
+    "filesNeedAIMergeDueToRenamesPlural": "{{count}} ملف يحتاج إلى دمج بواسطة AI بسبب {{renameCount}} إعادات تسمية ملفات.",
+    "filesNeedAIMergeDueToRenamesPlural_other": "{{count}} ملفات تحتاج إلى دمج بواسطة AI بسبب {{renameCount}} إعادات تسمية ملفات.",
+    "fileRenamesDetected": "تم اكتشاف {{count}} إعادة تسمية ملف - سيتولى AI معالجة الدمج.",
+    "fileRenamesDetected_other": "تم اكتشاف {{count}} إعادات تسمية ملفات - سيتولى AI معالجة الدمج.",
+    "filesRenamedOrMoved": "قد تكون الملفات أُعيدت تسميتها أو نُقلت - سيتولى AI معالجة الدمج.",
+    "alreadyMergedTitle": "التغييرات موجودة بالفعل في فرعك",
+    "alreadyMergedDescription": "يبدو أن هذه التغييرات موجودة بالفعل في فرعك الحالي. يمكنك تحديد هذه المهمة كمنجزة بأمان.",
+    "alreadyMergedTooltip": "تغييرات المهمة موجودة بالفعل في فرعك. تحديدها كمنجزة سيقوم بتنظيف مساحة العمل دون دمج.",
+    "matchingFiles": "الملفات المطابقة",
+    "supersededTitle": "تم تجاوز التغييرات",
+    "supersededDescription": "يحتوي فرعك الحالي على إصدار أحدث من هذه التغييرات. فكر في تجاهل هذه المهمة أو عرض المقارنة.",
+    "supersededCompareTooltip": "عرض مقارنة تفصيلية لمعرفة كيف يختلف الفرع الحالي عن تغييرات هذه المهمة.",
+    "supersededDiscardTooltip": "إزالة مساحة عمل هذه المهمة حيث لم تعد التغييرات مطلوبة.",
+    "status": {
+      "branchDiverged": "تشعّب الفرع",
+      "aiWillResolve": "سيقوم AI بالحل",
+      "filesRenamed": "ملفات مُعاد تسميتها",
+      "branchBehind": "الفرع متأخر",
+      "readyToMerge": "جاهز للدمج",
+      "files": "ملفات",
+      "file": "ملف",
+      "conflict": "تعارض",
+      "conflicts": "تعارضات",
+      "details": "التفاصيل",
+      "refresh": "تحديث",
+      "stageOnly": "الإضافة للتدريج فقط (مراجعة في IDE قبل الإيداع)",
+      "discardBuild": "تجاهل العملية"
+    },
+    "buttons": {
+      "stageWithAIMerge": "تدريج مع دمج AI",
+      "mergeWithAI": "دمج مع AI",
+      "stageTo": "تدريج إلى {{branch}}",
+      "mergeTo": "دمج إلى {{branch}}",
+      "resolving": "جارٍ الحل...",
+      "staging": "جارٍ التدريج...",
+      "merging": "جارٍ الدمج...",
+      "completing": "جارٍ الإكمال..."
+    },
+    "actions": {
+      "markAsDone": "تحديد كمنجز",
+      "discardTask": "تجاهل المهمة",
+      "viewComparison": "عرض المقارنة"
+    }
+  },
+  "pr": {
+    "title": "إنشاء طلب سحب",
+    "description": "رفع الفرع وإنشاء طلب سحب لـ \"{{taskTitle}}\"",
+    "errors": {
+      "unknown": "حدث خطأ غير معروف أثناء إنشاء طلب السحب",
+      "invalidBranchName": "اسم الفرع يحتوي على أحرف غير صالحة. استخدم الحروف والأرقام والشرطات (-) والشرطات السفلية (_) والشرطات المائلة (/) فقط.",
+      "emptyTitle": "لا يمكن أن يكون عنوان طلب السحب فارغاً."
+    },
+    "success": {
+      "created": "تم إنشاء طلب السحب بنجاح!",
+      "alreadyExists": "يوجد طلب سحب بالفعل لهذا الفرع"
+    },
+    "actions": {
+      "retry": "إعادة المحاولة",
+      "creating": "جارٍ إنشاء PR...",
+      "create": "إنشاء طلب سحب"
+    },
+    "labels": {
+      "sourceBranch": "الفرع المصدر",
+      "targetBranch": "الفرع الهدف",
+      "commits": "الإيداعات",
+      "changes": "التغييرات",
+      "prTitle": "عنوان PR (اختياري)",
+      "draftPR": "إنشاء كـ PR مسودة",
+      "unknown": "غير معروف"
+    },
+    "hints": {
+      "targetBranch": "اتركه فارغاً لاستخدام الفرع الافتراضي",
+      "prTitle": "اتركه فارغاً لاستخدام عنوان المهمة"
+    }
+  },
+  "mergeProgress": {
+    "stages": {
+      "analyzing": "جارٍ تحليل التغييرات",
+      "detectingConflicts": "جارٍ اكتشاف التعارضات",
+      "resolving": "جارٍ حل التعارضات",
+      "validating": "جارٍ التحقق من الدمج",
+      "complete": "اكتمل الدمج",
+      "error": "فشل الدمج",
+      "stalled": "توقف الدمج"
+    },
+    "conflictCounter": "{{found}} مكتشف، {{resolved}} محلول",
+    "currentFile": "الملف الحالي",
+    "viewLogs": "عرض السجلات",
+    "hideLogs": "إخفاء السجلات",
+    "logTypes": {
+      "info": "معلومات",
+      "warning": "تحذير",
+      "error": "خطأ",
+      "conflict": "تعارض",
+      "resolution": "حل"
+    },
+    "completionMessage": "تم دمج جميع التغييرات بنجاح.",
+    "errorMessage": "حدث خطأ أثناء عملية الدمج."
+  },
+  "stagedSuccess": {
+    "title": "تم تدريج التغييرات بنجاح",
+    "aiCommitMessage": "رسالة إيداع مُولَّدة بواسطة AI",
+    "copied": "تم النسخ!",
+    "copy": "نسخ",
+    "editHint": "قم بالتعديل حسب الحاجة، ثم انسخ واستخدم مع",
+    "nextSteps": "الخطوات التالية:",
+    "reviewChanges": "مراجعة التغييرات المُدرَّجة مع",
+    "commitWhenReady": "الإيداع عند الاستعداد:",
+    "pushToRemote": "الرفع إلى المستودع البعيد عند الرضا",
+    "cleaningUp": "جارٍ التنظيف...",
+    "markingDone": "جارٍ التحديد كمنجز...",
+    "resetting": "جارٍ إعادة الضبط...",
+    "deleteWorktreeAndMarkDone": "حذف مساحة العمل وتحديدها كمنجزة",
+    "markDoneOnly": "تحديد كمنجز فقط",
+    "markAsDone": "تحديد كمنجز",
+    "reviewAgain": "مراجعة مجدداً",
+    "commitMessagePlaceholder": "رسالة الإيداع...",
+    "worktreeExplanation": "\"حذف مساحة العمل وتحديدها كمنجزة\" تنظف مساحة العمل المعزولة. \"تحديد كمنجز فقط\" تحتفظ بها كمرجع.",
+    "errors": {
+      "failedToDeleteWorktree": "فشل حذف مساحة العمل",
+      "worktreeDeletedButStatusFailed": "تم حذف مساحة العمل لكن فشل تحديث حالة المهمة: {{error}}",
+      "failedToMarkAsDone": "فشل التحديد كمنجز",
+      "failedToResetStagedState": "فشل إعادة ضبط حالة التدريج"
+    }
+  },
+  "bulkPR": {
+    "title": "إنشاء طلبات سحب",
+    "description": "إنشاء طلبات سحب لـ {{count}} مهام محددة",
+    "creating": "جارٍ إنشاء PR {{current}} من {{total}}...",
+    "creatingPR": "جارٍ إنشاء PR {{current}} من {{total}}",
+    "resultsDescription": "{{success}} نجح، {{failed}} فشل",
+    "tasksToProcess": "المهام المراد معالجتها",
+    "targetBranchHint": "اتركه فارغاً لاستخدام الفرع الافتراضي لكل مهمة. سيُطبَّق على جميع PRs.",
+    "createAll": "إنشاء {{count}} PRs",
+    "completed": "مكتمل",
+    "succeeded": "نجح",
+    "failed": "فشل",
+    "skipped": "تم تخطيه",
+    "alreadyExisted": "موجود بالفعل",
+    "noWorktree": "لم يتم العثور على مساحة عمل لهذه المهمة",
+    "resultsDescriptionWithSkipped": "{{success}} نجح، {{skipped}} تم تخطيه، {{failed}} فشل"
+  }
+}

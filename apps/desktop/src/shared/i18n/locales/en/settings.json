@@ -757,7 +757,9 @@
       "addCodingPlan": "Add Coding Plan",
       "addUsageBased": "Add Usage-Based API Key",
       "addApiKey": "Add API Key",
-      "addEndpoint": "Add Endpoint"
+      "addEndpoint": "Add Endpoint",
+      "importClaudeCode": "Import from Claude Code",
+      "importClaudeCodeHint": "Reuse your existing Claude Code login (~/.claude) without signing in again"
     },
     "dialog": {
       "addTitle": "Add Account",
@@ -822,7 +824,11 @@
       "deleteFailed": "Failed to delete account",
       "reauthStarted": "Opening authentication...",
       "reauthSuccess": "Re-authenticated successfully",
-      "reauthFailed": "Re-authentication failed"
+      "reauthFailed": "Re-authentication failed",
+      "importSuccess": "Claude Code login imported",
+      "importFailed": "Failed to import Claude Code login",
+      "importNoLoginTitle": "No Claude Code login found",
+      "importNoLoginDescription": "Run \"claude /login\" in a terminal first, then try importing again."
     },
     "categories": {
       "popular": "Popular",
