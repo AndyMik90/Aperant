@@ -97,7 +97,7 @@ export function SortableFeatureCard({
                       variant="outline"
                       className="text-[10px] px-1.5 py-0 text-muted-foreground border-muted-foreground/30"
                     >
-                      <Layers className="h-2.5 w-2.5 mr-0.5" />
+                      <Layers className="h-2.5 w-2.5 me-0.5" />
                       {phaseName.length > 12 ? `${phaseName.slice(0, 12)}...` : phaseName}
                     </Badge>
                   </TooltipTrigger>
@@ -142,7 +142,7 @@ export function SortableFeatureCard({
                   onGoToTask?.(feature.linkedSpecId!);
                 }}
               >
-                <ExternalLink className="h-3 w-3 mr-1" />
+                <ExternalLink className="h-3 w-3 me-1" />
                 {t('roadmap.task')}
               </Button>
             ) : (
@@ -157,7 +157,7 @@ export function SortableFeatureCard({
                     onConvertToSpec(feature);
                   }}
                 >
-                  <Play className="h-3 w-3 mr-1" />
+                  <Play className="h-3 w-3 me-1" />
                   {t('roadmap.build')}
                 </Button>
               )
@@ -207,7 +207,7 @@ export function SortableFeatureCard({
                   variant="outline"
                   className="text-[10px] px-1.5 py-0 text-muted-foreground"
                 >
-                  <ThumbsUp className="h-2.5 w-2.5 mr-0.5" />
+                  <ThumbsUp className="h-2.5 w-2.5 me-0.5" />
                   {feature.votes}
                 </Badge>
               </TooltipTrigger>

@@ -108,7 +108,7 @@ export function GenerationProgressScreen({
               size="sm"
               onClick={() => setShowLogs(!showLogs)}
             >
-              <FileCode className="h-4 w-4 mr-1" />
+              <FileCode className="h-4 w-4 me-1" />
               {showLogs ? 'Hide' : 'Show'} Logs
             </Button>
             <Tooltip>
@@ -119,7 +119,7 @@ export function GenerationProgressScreen({
                   onClick={handleStopClick}
                   disabled={isStopping}
                 >
-                  <Square className="h-4 w-4 mr-1" />
+                  <Square className="h-4 w-4 me-1" />
                   {isStopping ? 'Stopping...' : 'Stop'}
                 </Button>
               </TooltipTrigger>
@@ -148,7 +148,7 @@ export function GenerationProgressScreen({
               <TypeIcon type={type} />
               <span>{IDEATION_TYPE_LABELS[type]}</span>
               {typeStates[type] === 'completed' && session && (
-                <span className="ml-1 font-medium">
+                <span className="ms-1 font-medium">
                   ({getStreamingIdeasByType(type).length})
                 </span>
               )}
@@ -164,7 +164,7 @@ export function GenerationProgressScreen({
             <div className="p-3 space-y-1 font-mono text-xs">
               {logs.map((log, index) => (
                 <div key={index} className="text-muted-foreground leading-relaxed">
-                  <span className="text-muted-foreground/50 mr-2 select-none">
+                  <span className="text-muted-foreground/50 me-2 select-none">
                     {String(index + 1).padStart(3, '0')}
                   </span>
                   {log}
@@ -198,7 +198,7 @@ export function GenerationProgressScreen({
                   <h3 className="font-medium">{IDEATION_TYPE_LABELS[type]}</h3>
                   <TypeStateIcon state={state} />
                   {ideas.length > 0 && (
-                    <Badge variant="outline" className="ml-auto">
+                    <Badge variant="outline" className="ms-auto">
                       {ideas.length} ideas
                     </Badge>
                   )}

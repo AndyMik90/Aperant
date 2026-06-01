@@ -1103,12 +1103,12 @@ ${t('prReview.blockedStatusMessageFooter')}`;
                       >
                         {isUpdatingBranch ? (
                           <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            <Loader2 className="h-4 w-4 me-2 animate-spin" />
                             {t('prReview.updatingBranch')}
                           </>
                         ) : (
                           <>
-                            <GitBranch className="h-4 w-4 mr-2" />
+                            <GitBranch className="h-4 w-4 me-2" />
                             {t('prReview.updateBranch')}
                           </>
                         )}
@@ -1160,12 +1160,12 @@ ${t('prReview.blockedStatusMessageFooter')}`;
                 <Button onClick={handlePostReview} variant="secondary" disabled={isPostingFindings} className="flex-1 sm:flex-none">
                   {isPostingFindings ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="h-4 w-4 me-2 animate-spin" />
                       {t('prReview.posting')}
                     </>
                   ) : (
                     <>
-                      <Send className="h-4 w-4 mr-2" />
+                      <Send className="h-4 w-4 me-2" />
                       {t('prReview.postFindings', { count: selectedCount })}
                     </>
                   )}
@@ -1182,12 +1182,12 @@ ${t('prReview.blockedStatusMessageFooter')}`;
                 >
                   {isPostingCleanReview ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="h-4 w-4 me-2 animate-spin" />
                       {t('prReview.postingCleanReview')}
                     </>
                   ) : (
                     <>
-                      <MessageSquare className="h-4 w-4 mr-2" />
+                      <MessageSquare className="h-4 w-4 me-2" />
                       {t('prReview.postCleanReview')}
                     </>
                   )}
@@ -1205,12 +1205,12 @@ ${t('prReview.blockedStatusMessageFooter')}`;
                 >
                   {isPostingBlockedStatus ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="h-4 w-4 me-2 animate-spin" />
                       {t('prReview.postingBlockedStatus')}
                     </>
                   ) : (
                     <>
-                      <AlertTriangle className="h-4 w-4 mr-2" />
+                      <AlertTriangle className="h-4 w-4 me-2" />
                       {t('prReview.postBlockedStatus')}
                     </>
                   )}
@@ -1228,15 +1228,15 @@ ${t('prReview.blockedStatusMessageFooter')}`;
                 >
                   {isPosting ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="h-4 w-4 me-2 animate-spin" />
                       {t('prReview.postingApproval')}
                     </>
                   ) : (
                     <>
-                      <CheckCheck className="h-4 w-4 mr-2" />
+                      <CheckCheck className="h-4 w-4 me-2" />
                       {t('prReview.autoApprovePR')}
                       {hasFindings && lowSeverityFindings.length > 0 && (
-                        <span className="ml-1 text-xs opacity-80">
+                        <span className="ms-1 text-xs opacity-80">
                           {t('prReview.suggestions', { count: lowSeverityFindings.length })}
                         </span>
                       )}
@@ -1254,7 +1254,7 @@ ${t('prReview.blockedStatusMessageFooter')}`;
                   variant="default"
                   className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white"
                 >
-                  {isPosting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                  {isPosting ? <Loader2 className="h-4 w-4 me-2 animate-spin" /> : <CheckCircle className="h-4 w-4 me-2" />}
                   {t('prReview.approve')}
                 </Button>
              )}
@@ -1281,14 +1281,14 @@ ${t('prReview.blockedStatusMessageFooter')}`;
              )}
 
              {postSuccess && (
-               <div className="ml-auto flex items-center gap-2 text-emerald-600 text-sm font-medium animate-pulse">
+               <div className="ms-auto flex items-center gap-2 text-emerald-600 text-sm font-medium animate-pulse">
                  <CheckCircle className="h-4 w-4" />
                  {t('prReview.postedFindings', { count: postSuccess.count })}
                </div>
              )}
 
              {cleanReviewPosted && !postSuccess && (
-               <div className="ml-auto flex items-center gap-2 text-emerald-600 text-sm font-medium animate-pulse">
+               <div className="ms-auto flex items-center gap-2 text-emerald-600 text-sm font-medium animate-pulse">
                  <CheckCircle className="h-4 w-4" />
                  {t('prReview.cleanReviewPosted')}
                </div>
@@ -1298,7 +1298,7 @@ ${t('prReview.blockedStatusMessageFooter')}`;
              {/* Note: Uses inline layout (not Card) to match other action bar status messages.
                  Separate Card-based error at line 972 handles review result errors. */}
              {cleanReviewError && (
-               <div className="ml-auto flex items-center gap-2">
+               <div className="ms-auto flex items-center gap-2">
                  <div className="flex items-center gap-2 text-destructive text-sm font-medium">
                    <XCircle className="h-4 w-4" />
                    {t('prReview.failedPostCleanReview')}
@@ -1326,7 +1326,7 @@ ${t('prReview.blockedStatusMessageFooter')}`;
              {cleanReviewError && showCleanReviewErrorDetails && (
                <div
                  id={cleanReviewErrorDetailsId}
-                 className="ml-auto text-xs text-muted-foreground max-w-md truncate"
+                 className="ms-auto text-xs text-muted-foreground max-w-md truncate"
                  title={cleanReviewError}
                >
                  {cleanReviewError}
@@ -1335,7 +1335,7 @@ ${t('prReview.blockedStatusMessageFooter')}`;
 
              {/* Blocked status posted success message */}
              {blockedStatusPosted && !postSuccess && !cleanReviewPosted && (
-               <div className="ml-auto flex items-center gap-2 text-amber-600 text-sm font-medium animate-pulse">
+               <div className="ms-auto flex items-center gap-2 text-amber-600 text-sm font-medium animate-pulse">
                  <CheckCircle className="h-4 w-4" />
                  {t('prReview.blockedStatusPosted')}
                </div>
@@ -1343,7 +1343,7 @@ ${t('prReview.blockedStatusMessageFooter')}`;
 
              {/* Blocked status error display */}
              {blockedStatusError && (
-               <div className="ml-auto flex items-center gap-2 text-destructive text-sm font-medium">
+               <div className="ms-auto flex items-center gap-2 text-destructive text-sm font-medium">
                  <XCircle className="h-4 w-4" />
                  {t('prReview.failedPostBlockedStatus')}
                </div>
@@ -1387,19 +1387,19 @@ ${t('prReview.blockedStatusMessageFooter')}`;
                 <div className="flex flex-wrap items-center gap-3 pb-4 border-b border-border/50">
                   {(reviewResult.resolvedFindings?.length ?? 0) > 0 && (
                     <Badge variant="outline" className="bg-success/10 text-success border-success/30 px-3 py-1">
-                      <CheckCircle className="h-3.5 w-3.5 mr-1.5" />
+                      <CheckCircle className="h-3.5 w-3.5 me-1.5" />
                       {t('prReview.resolved', { count: reviewResult.resolvedFindings?.length ?? 0 })}
                     </Badge>
                   )}
                   {(reviewResult.unresolvedFindings?.length ?? 0) > 0 && (
                     <Badge variant="outline" className="bg-warning/10 text-warning border-warning/30 px-3 py-1">
-                      <AlertCircle className="h-3.5 w-3.5 mr-1.5" />
+                      <AlertCircle className="h-3.5 w-3.5 me-1.5" />
                       {t('prReview.stillOpen', { count: reviewResult.unresolvedFindings?.length ?? 0 })}
                     </Badge>
                   )}
                   {(reviewResult.newFindingsSinceLastReview?.length ?? 0) > 0 && (
                     <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/30 px-3 py-1">
-                      <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                      <XCircle className="h-3.5 w-3.5 me-1.5" />
                       {t('prReview.newIssue', { count: reviewResult.newFindingsSinceLastReview?.length ?? 0 })}
                     </Badge>
                   )}
@@ -1407,7 +1407,7 @@ ${t('prReview.blockedStatusMessageFooter')}`;
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 px-2 ml-auto text-muted-foreground hover:text-foreground"
+                    className="h-7 px-2 ms-auto text-muted-foreground hover:text-foreground"
                     onClick={onRunFollowupReview}
                     disabled={isReviewing}
                     title={t('prReview.rerunFollowup')}
@@ -1458,7 +1458,7 @@ ${t('prReview.blockedStatusMessageFooter')}`;
             icon={<Clock className="h-4 w-4 text-warning" />}
             badge={
               <Badge variant="outline" className="text-xs bg-warning/10 text-warning border-warning/30">
-                <AlertTriangle className="h-3 w-3 mr-1" />
+                <AlertTriangle className="h-3 w-3 me-1" />
                 {t('prReview.blockedByWorkflows')}
               </Badge>
             }
@@ -1494,7 +1494,7 @@ ${t('prReview.blockedStatusMessageFooter')}`;
                         className="h-7 text-xs"
                         onClick={() => window.open(workflow.html_url, '_blank')}
                       >
-                        <ExternalLink className="h-3 w-3 mr-1" />
+                        <ExternalLink className="h-3 w-3 me-1" />
                         {t('prReview.viewOnGitHub')}
                       </Button>
                       <Button
@@ -1508,7 +1508,7 @@ ${t('prReview.blockedStatusMessageFooter')}`;
                           <Loader2 className="h-3 w-3 animate-spin" />
                         ) : (
                           <>
-                            <Play className="h-3 w-3 mr-1" />
+                            <Play className="h-3 w-3 me-1" />
                             {t('prReview.approveWorkflow')}
                           </>
                         )}
@@ -1527,9 +1527,9 @@ ${t('prReview.blockedStatusMessageFooter')}`;
                     disabled={isApprovingWorkflow !== null}
                   >
                     {isApprovingWorkflow !== null ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="h-4 w-4 me-2 animate-spin" />
                     ) : (
-                      <Play className="h-4 w-4 mr-2" />
+                      <Play className="h-4 w-4 me-2" />
                     )}
                     {t('prReview.approveAllWorkflows')}
                   </Button>
@@ -1547,7 +1547,7 @@ ${t('prReview.blockedStatusMessageFooter')}`;
             badge={
               isReviewing ? (
                 <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-500 border-blue-500/30">
-                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  <Loader2 className="h-3 w-3 me-1 animate-spin" />
                   {t('prReview.aiReviewInProgress')}
                 </Badge>
               ) : prLogs ? (

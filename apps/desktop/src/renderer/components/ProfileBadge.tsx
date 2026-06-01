@@ -104,7 +104,7 @@ export function ProfileBadge({
         ${className}
       `}
     >
-      <User className={compact ? 'h-3 w-3 mr-0.5' : 'h-3 w-3 mr-1'} />
+      <User className={compact ? 'h-3 w-3 me-0.5' : 'h-3 w-3 me-1'} />
       {displayName}
     </Badge>
   );

@@ -123,7 +123,7 @@ export function OllamaConnectionPanel({ accounts, onAccountCreated }: OllamaConn
                 size="sm"
                 onClick={() => window.electronAPI?.openExternal?.('https://ollama.com/download')}
               >
-                <Download className="h-3.5 w-3.5 mr-1.5" />
+                <Download className="h-3.5 w-3.5 me-1.5" />
                 {t('providers.ollama.connection.install', { defaultValue: 'Install Ollama' })}
               </Button>
               <Button
@@ -131,7 +131,7 @@ export function OllamaConnectionPanel({ accounts, onAccountCreated }: OllamaConn
                 size="sm"
                 onClick={() => checkConnection()}
               >
-                <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                <RefreshCw className="h-3.5 w-3.5 me-1.5" />
                 {t('providers.ollama.connection.retry', { defaultValue: 'Retry' })}
               </Button>
               <Button
@@ -140,7 +140,7 @@ export function OllamaConnectionPanel({ accounts, onAccountCreated }: OllamaConn
                 onClick={() => window.electronAPI?.openExternal?.('https://ollama.com')}
                 className="text-muted-foreground"
               >
-                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                <ExternalLink className="h-3.5 w-3.5 me-1.5" />
                 {t('providers.ollama.connection.learnMore', { defaultValue: 'Learn More' })}
               </Button>
             </div>
@@ -171,7 +171,7 @@ export function OllamaConnectionPanel({ accounts, onAccountCreated }: OllamaConn
               onClick={() => checkConnection()}
               className="mt-3"
             >
-              <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+              <RefreshCw className="h-3.5 w-3.5 me-1.5" />
               {t('providers.ollama.connection.retry', { defaultValue: 'Retry' })}
             </Button>
           </div>

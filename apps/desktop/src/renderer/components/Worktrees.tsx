@@ -496,7 +496,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
               }
             }}
           >
-            <CheckSquare2 className="h-4 w-4 mr-2" />
+            <CheckSquare2 className="h-4 w-4 me-2" />
             {isSelectionMode ? t('common:selection.done') : t('common:selection.select')}
           </Button>
           <Button
@@ -505,7 +505,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
             onClick={loadWorktrees}
             disabled={isLoading}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 me-2 ${isLoading ? 'animate-spin' : ''}`} />
             {t('common:buttons.refresh')}
           </Button>
         </div>
@@ -534,7 +534,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
               disabled={selectedWorktreeIds.size === 0}
               onClick={handleBulkDelete}
             >
-              <Trash2 className="h-4 w-4 mr-2" />
+              <Trash2 className="h-4 w-4 me-2" />
               {t('common:buttons.delete')} ({selectedWorktreeIds.size})
             </Button>
           </div>
@@ -613,7 +613,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
                               )}
                             </div>
                           </div>
-                          <Badge variant="outline" className="shrink-0 ml-2">
+                          <Badge variant="outline" className="shrink-0 ms-2">
                             {worktree.specName}
                           </Badge>
                         </div>
@@ -642,7 +642,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
                         {/* Branch info */}
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4 bg-muted/50 rounded-md p-2">
                           <span className="font-mono">{worktree.baseBranch || t('common:labels.orphaned')}</span>
-                          <ChevronRight className="h-3 w-3" />
+                          <ChevronRight className="h-3 w-3 rtl:-scale-x-100" />
                           <span className="font-mono text-info">{worktree.isOrphaned ? t('common:labels.orphaned') : worktree.branch}</span>
                         </div>
 
@@ -654,7 +654,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
                             onClick={() => openMergeDialog(worktree)}
                             disabled={!task}
                           >
-                            <GitMerge className="h-3.5 w-3.5 mr-1.5" />
+                            <GitMerge className="h-3.5 w-3.5 me-1.5" />
                             Merge to {worktree.baseBranch}
                           </Button>
                           {task && (
@@ -663,7 +663,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
                               size="sm"
                               onClick={() => openCreatePRDialog(worktree, task)}
                             >
-                              <GitPullRequest className="h-3.5 w-3.5 mr-1.5" />
+                              <GitPullRequest className="h-3.5 w-3.5 me-1.5" />
                               {t('common:buttons.createPR')}
                             </Button>
                           )}
@@ -673,7 +673,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
                               size="sm"
                               onClick={() => window.electronAPI?.openExternal(task.metadata?.prUrl ?? '')}
                             >
-                              <GitPullRequest className="h-3.5 w-3.5 mr-1.5" />
+                              <GitPullRequest className="h-3.5 w-3.5 me-1.5" />
                               {t('common:buttons.openPR')}
                             </Button>
                           )}
@@ -685,7 +685,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
                               navigator.clipboard.writeText(worktree.path);
                             }}
                           >
-                            <FolderOpen className="h-3.5 w-3.5 mr-1.5" />
+                            <FolderOpen className="h-3.5 w-3.5 me-1.5" />
                             Copy Path
                           </Button>
                           <Button
@@ -695,7 +695,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
                             onClick={() => confirmDelete(worktree)}
                             disabled={!task && !worktree.isOrphaned}
                           >
-                            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                            <Trash2 className="h-3.5 w-3.5 me-1.5" />
                             Delete
                           </Button>
                         </div>
@@ -740,7 +740,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
                             </div>
                           </div>
                           {wt.taskId && (
-                            <Badge variant="outline" className="shrink-0 ml-2">
+                            <Badge variant="outline" className="shrink-0 ms-2">
                               {wt.taskId}
                             </Badge>
                           )}
@@ -751,7 +751,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
                       {wt.baseBranch && wt.branchName && (
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mb-4 bg-muted/50 rounded-md p-2">
                           <span className="font-mono">{wt.baseBranch}</span>
-                          <ChevronRight className="h-3 w-3" />
+                          <ChevronRight className="h-3 w-3 rtl:-scale-x-100" />
                           <span className="font-mono text-amber-500">{wt.branchName}</span>
                         </div>
                       )}
@@ -773,7 +773,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
                             navigator.clipboard.writeText(wt.worktreePath);
                           }}
                         >
-                          <FolderOpen className="h-3.5 w-3.5 mr-1.5" />
+                          <FolderOpen className="h-3.5 w-3.5 me-1.5" />
                           Copy Path
                         </Button>
                         <Button
@@ -782,7 +782,7 @@ export function Worktrees({ projectId }: WorktreesProps) {
                           className="text-destructive hover:text-destructive hover:bg-destructive/10"
                           onClick={() => setTerminalWorktreeToDelete(wt)}
                         >
-                          <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                          <Trash2 className="h-3.5 w-3.5 me-1.5" />
                           Delete
                         </Button>
                       </div>
@@ -886,12 +886,12 @@ export function Worktrees({ projectId }: WorktreesProps) {
               >
                 {isMerging ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-4 w-4 me-2 animate-spin" />
                     Merging...
                   </>
                 ) : (
                   <>
-                    <GitMerge className="h-4 w-4 mr-2" />
+                    <GitMerge className="h-4 w-4 me-2" />
                     Merge
                   </>
                 )}
@@ -928,12 +928,12 @@ export function Worktrees({ projectId }: WorktreesProps) {
             >
               {isDeleting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 me-2 animate-spin" />
                   Deleting...
                 </>
               ) : (
                 <>
-                  <Trash2 className="h-4 w-4 mr-2" />
+                  <Trash2 className="h-4 w-4 me-2" />
                   Delete
                 </>
               )}
@@ -971,12 +971,12 @@ export function Worktrees({ projectId }: WorktreesProps) {
             >
               {isDeletingTerminal ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 me-2 animate-spin" />
                   Deleting...
                 </>
               ) : (
                 <>
-                  <Trash2 className="h-4 w-4 mr-2" />
+                  <Trash2 className="h-4 w-4 me-2" />
                   Delete
                 </>
               )}
@@ -1009,12 +1009,12 @@ export function Worktrees({ projectId }: WorktreesProps) {
             >
               {isBulkDeleting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="me-2 h-4 w-4 animate-spin" />
                   {t('dialogs:worktrees.deleting')}
                 </>
               ) : (
                 <>
-                  <Trash2 className="mr-2 h-4 w-4" />
+                  <Trash2 className="me-2 h-4 w-4" />
                   {t('dialogs:worktrees.deleteSelected')}
                 </>
               )}

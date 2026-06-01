@@ -53,7 +53,7 @@ export function AgentProfiles() {
         key={profile.id}
         onClick={() => handleSelectProfile(profile.id)}
         className={cn(
-          'relative w-full rounded-xl border p-6 text-left transition-all duration-200',
+          'relative w-full rounded-xl border p-6 text-start transition-all duration-200',
           'hover:border-primary/50 hover:shadow-md',
           isSelected
             ? 'border-primary bg-primary/5 shadow-sm'
@@ -62,7 +62,7 @@ export function AgentProfiles() {
       >
         {/* Selected indicator */}
         {isSelected && (
-          <div className="absolute right-4 top-4 flex h-6 w-6 items-center justify-center rounded-full bg-primary">
+          <div className="absolute end-4 top-4 flex h-6 w-6 items-center justify-center rounded-full bg-primary">
             <Check className="h-4 w-4 text-primary-foreground" />
           </div>
         )}

@@ -35,7 +35,7 @@ export function MergeRequestItem({ mr, isSelected, onClick }: MergeRequestItemPr
       type="button"
       onClick={onClick}
       className={cn(
-        'w-full text-left p-3 rounded-lg border transition-colors',
+        'w-full text-start p-3 rounded-lg border transition-colors',
         isSelected
           ? 'border-primary bg-primary/5'
           : 'border-transparent hover:bg-muted/50'

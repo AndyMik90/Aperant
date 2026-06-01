@@ -50,7 +50,7 @@ export function FeatureDetailPanel({
   };
 
   return (
-    <div className="fixed inset-y-0 right-0 w-96 bg-card border-l border-border shadow-lg flex flex-col z-50">
+    <div className="fixed inset-y-0 end-0 w-96 bg-card border-s border-border shadow-lg flex flex-col z-50">
       {/* Header */}
       <div className="shrink-0 p-4 border-b border-border electron-no-drag">
         <div className="flex items-start justify-between gap-2">
@@ -83,7 +83,7 @@ export function FeatureDetailPanel({
               <Trash2 className="h-4 w-4" />
             </Button>
             <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label={t('accessibility.closeFeatureDetailsAriaLabel')}>
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-4 w-4 rtl:-scale-x-100" />
             </Button>
           </div>
         </div>
@@ -229,7 +229,7 @@ export function FeatureDetailPanel({
             onClick={handleArchive}
             aria-label={t('accessibility.archiveFeatureAriaLabel')}
           >
-            <Archive className="h-4 w-4 mr-2" />
+            <Archive className="h-4 w-4 me-2" />
             {t('roadmap.archiveFeature')}
           </Button>
         );
@@ -246,7 +246,7 @@ export function FeatureDetailPanel({
         if (feature.linkedSpecId) return (
           <div className="shrink-0 p-4 border-t border-border space-y-2">
             <Button className="w-full" onClick={() => onGoToTask(feature.linkedSpecId!)}>
-              <ExternalLink className="h-4 w-4 mr-2" />
+              <ExternalLink className="h-4 w-4 me-2" />
               {t('roadmap.goToTask')}
             </Button>
             {archiveButton}
@@ -262,7 +262,7 @@ export function FeatureDetailPanel({
         return (
           <div className="shrink-0 p-4 border-t border-border">
             <Button className="w-full" onClick={() => onConvertToSpec(feature)}>
-              <Zap className="h-4 w-4 mr-2" />
+              <Zap className="h-4 w-4 me-2" />
               {t('roadmap.convertToTask')}
             </Button>
           </div>

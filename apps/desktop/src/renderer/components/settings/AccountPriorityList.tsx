@@ -173,7 +173,7 @@ function SortableAccountItem({ account, index, onSetActive }: SortableAccountIte
       <div
         {...attributes}
         {...listeners}
-        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 -ml-1"
+        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1 -ms-1"
       >
         <GripVertical className="h-4 w-4" />
       </div>

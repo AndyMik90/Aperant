@@ -289,7 +289,7 @@ export function BulkPRDialog({
                 {t('common:buttons.cancel')}
               </Button>
               <Button onClick={handleCreatePRs} disabled={tasks.length === 0 || step !== 'options'}>
-                <GitPullRequest className="mr-2 h-4 w-4" />
+                <GitPullRequest className="me-2 h-4 w-4" />
                 {t('taskReview:bulkPR.createAll', { count: tasks.length })}
               </Button>
             </DialogFooter>

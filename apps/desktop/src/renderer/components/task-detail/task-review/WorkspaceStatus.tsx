@@ -295,7 +295,7 @@ export function WorkspaceStatus({
             onClick={() => onShowDiffDialog(true)}
             className="h-7 px-2 text-xs"
           >
-            <Eye className="h-3.5 w-3.5 mr-1" />
+            <Eye className="h-3.5 w-3.5 me-1" />
             View
           </Button>
         </div>
@@ -345,7 +345,7 @@ export function WorkspaceStatus({
               onClick={handleOpenInIDE}
               className="h-7 px-2 text-xs"
             >
-              <Code className="h-3.5 w-3.5 mr-1" />
+              <Code className="h-3.5 w-3.5 me-1" />
               Open in {IDE_LABELS[preferredIDE]}
             </Button>
             <Button
@@ -354,7 +354,7 @@ export function WorkspaceStatus({
               onClick={handleOpenInTerminal}
               className="h-7 px-2 text-xs"
             >
-              <Terminal className="h-3.5 w-3.5 mr-1" />
+              <Terminal className="h-3.5 w-3.5 me-1" />
               Open in {TERMINAL_LABELS[preferredTerminal]}
             </Button>
           </div>
@@ -450,7 +450,7 @@ export function WorkspaceStatus({
                   <AlertTriangle className="h-4 w-4 text-warning" />
                   <div>
                     <span className="text-sm font-medium text-warning">{t('taskReview:merge.status.branchDiverged')}</span>
-                    <span className="text-xs text-muted-foreground ml-2">{t('taskReview:merge.status.aiWillResolve')}</span>
+                    <span className="text-xs text-muted-foreground ms-2">{t('taskReview:merge.status.aiWillResolve')}</span>
                   </div>
                 </>
               ) : isBranchBehind || hasPathMappedMerges ? (
@@ -460,7 +460,7 @@ export function WorkspaceStatus({
                     <span className="text-sm font-medium text-warning">
                       {hasPathMappedMerges ? t('taskReview:merge.status.filesRenamed') : t('taskReview:merge.status.branchBehind')}
                     </span>
-                    <span className="text-xs text-muted-foreground ml-2">
+                    <span className="text-xs text-muted-foreground ms-2">
                       {t('taskReview:merge.status.aiWillResolve')} ({hasPathMappedMerges ? `${pathMappedAIMergeCount} ${t('taskReview:merge.status.files')}` : `${commitsBehind} commits`})
                     </span>
                   </div>
@@ -469,7 +469,7 @@ export function WorkspaceStatus({
                 <>
                   <CheckCircle className="h-4 w-4 text-success" />
                   <span className="text-sm font-medium text-success">{t('taskReview:merge.status.readyToMerge')}</span>
-                  <span className="text-xs text-muted-foreground ml-1">
+                  <span className="text-xs text-muted-foreground ms-1">
                     {mergePreview.summary.totalFiles} {t('taskReview:merge.status.files')}
                   </span>
                 </>
@@ -513,7 +513,7 @@ export function WorkspaceStatus({
 
         {/* Git Conflicts Details - hide for already_merged/superseded scenarios */}
         {hasGitConflicts && mergePreview?.gitConflicts && !isAlreadyMerged && !isSuperseded && (
-          <div className="text-xs text-muted-foreground pl-6">
+          <div className="text-xs text-muted-foreground ps-6">
             {t('taskReview:merge.branchHasNewCommits', { branch: mergePreview.gitConflicts.baseBranch, count: mergePreview.gitConflicts.commitsBehind })}
             {mergePreview.gitConflicts.conflictingFiles.length > 0 && (
               <span className="text-warning">
@@ -525,7 +525,7 @@ export function WorkspaceStatus({
 
         {/* Branch Behind Details (no explicit conflicts but needs AI merge due to path mappings) */}
         {!hasGitConflicts && isBranchBehind && mergePreview?.gitConflicts && !isAlreadyMerged && !isSuperseded && (
-          <div className="text-xs text-muted-foreground pl-6">
+          <div className="text-xs text-muted-foreground ps-6">
             {t('taskReview:merge.branchHasNewCommitsSinceBuild', { branch: mergePreview.gitConflicts.baseBranch, count: commitsBehind })}
             {hasPathMappedMerges ? (
               <span className="text-warning">
@@ -572,7 +572,7 @@ export function WorkspaceStatus({
               disabled={isMerging || isDiscarding}
               className="flex-1"
             >
-              <GitMerge className="mr-2 h-4 w-4" />
+              <GitMerge className="me-2 h-4 w-4" />
               Check for Conflicts
             </Button>
           )}
@@ -584,7 +584,7 @@ export function WorkspaceStatus({
               disabled
               className="flex-1"
             >
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="me-2 h-4 w-4 animate-spin" />
               Checking for conflicts...
             </Button>
           )}
@@ -601,12 +601,12 @@ export function WorkspaceStatus({
                 >
                   {isMerging ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="me-2 h-4 w-4 animate-spin" />
                       {t('taskReview:merge.buttons.completing')}
                     </>
                   ) : (
                     <>
-                      <CheckCheck className="mr-2 h-4 w-4" />
+                      <CheckCheck className="me-2 h-4 w-4" />
                       {t('taskReview:merge.actions.markAsDone')}
                     </>
                   )}
@@ -631,7 +631,7 @@ export function WorkspaceStatus({
                     disabled={isMerging || isDiscarding}
                     className="flex-1"
                   >
-                    <Eye className="mr-2 h-4 w-4" />
+                    <Eye className="me-2 h-4 w-4" />
                     {t('taskReview:merge.actions.viewComparison')}
                   </Button>
                 </TooltipTrigger>
@@ -649,7 +649,7 @@ export function WorkspaceStatus({
                     disabled={isMerging || isDiscarding}
                     className="flex-1"
                   >
-                    <FolderX className="mr-2 h-4 w-4" />
+                    <FolderX className="me-2 h-4 w-4" />
                     {t('taskReview:merge.actions.discardTask')}
                   </Button>
                 </TooltipTrigger>
@@ -674,7 +674,7 @@ export function WorkspaceStatus({
                 >
                   {isMerging ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="me-2 h-4 w-4 animate-spin" />
                       {hasGitConflicts || isBranchBehind || hasPathMappedMerges
                         ? t('taskReview:merge.buttons.resolving')
                         : stageOnly
@@ -683,7 +683,7 @@ export function WorkspaceStatus({
                     </>
                   ) : (
                     <>
-                      <GitMerge className="mr-2 h-4 w-4" />
+                      <GitMerge className="me-2 h-4 w-4" />
                       {hasGitConflicts || isBranchBehind || hasPathMappedMerges
                         ? (stageOnly ? t('taskReview:merge.buttons.stageWithAIMerge') : t('taskReview:merge.buttons.mergeWithAI'))
                         : (stageOnly
@@ -711,12 +711,12 @@ export function WorkspaceStatus({
             >
               {isCreatingPR ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="me-2 h-4 w-4 animate-spin" />
                   {t('taskReview:pr.actions.creating')}
                 </>
               ) : (
                 <>
-                  <GitPullRequest className="mr-2 h-4 w-4" />
+                  <GitPullRequest className="me-2 h-4 w-4" />
                   {t('common:buttons.createPR')}
                 </>
               )}

@@ -135,7 +135,7 @@ export function CompetitorAnalysisDialog({
                 <UserPlus className="h-3.5 w-3.5" />
                 {t('dialogs:competitorAnalysis.addKnownCompetitors', 'Add Known Competitors')}
                 {addedCount > 0 && (
-                  <span className="ml-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
+                  <span className="ms-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
                     {t('dialogs:competitorAnalysis.competitorsAdded', '{{count}} added', { count: addedCount })}
                   </span>
                 )}

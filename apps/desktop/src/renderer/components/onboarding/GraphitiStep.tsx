@@ -395,13 +395,13 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                   setValidationStatus(prev => ({ ...prev, provider: null }));
                 }}
                 placeholder="sk-..."
-                className="pr-10 font-mono text-sm"
+                className="pe-10 font-mono text-sm"
                 disabled={isSaving || isValidating}
               />
               <button
                 type="button"
                 onClick={() => toggleShowApiKey('openai')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 {showApiKey['openai'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -428,13 +428,13 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                 value={config.anthropicApiKey}
                 onChange={(e) => setConfig(prev => ({ ...prev, anthropicApiKey: e.target.value }))}
                 placeholder="sk-ant-..."
-                className="pr-10 font-mono text-sm"
+                className="pe-10 font-mono text-sm"
                 disabled={isSaving || isValidating}
               />
               <button
                 type="button"
                 onClick={() => toggleShowApiKey('anthropic')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 {showApiKey['anthropic'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -461,13 +461,13 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                   value={config.azureOpenaiApiKey}
                   onChange={(e) => setConfig(prev => ({ ...prev, azureOpenaiApiKey: e.target.value }))}
                   placeholder="Azure API key"
-                  className="pr-10 font-mono text-sm"
+                  className="pe-10 font-mono text-sm"
                   disabled={isSaving || isValidating}
                 />
                 <button
                   type="button"
                   onClick={() => toggleShowApiKey('azure')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
                   {showApiKey['azure'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -529,13 +529,13 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                 value={config.voyageApiKey}
                 onChange={(e) => setConfig(prev => ({ ...prev, voyageApiKey: e.target.value }))}
                 placeholder="pa-..."
-                className="pr-10 font-mono text-sm"
+                className="pe-10 font-mono text-sm"
                 disabled={isSaving || isValidating}
               />
               <button
                 type="button"
                 onClick={() => toggleShowApiKey('voyage')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 {showApiKey['voyage'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -562,13 +562,13 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                 value={config.googleApiKey}
                 onChange={(e) => setConfig(prev => ({ ...prev, googleApiKey: e.target.value }))}
                 placeholder="AIza..."
-                className="pr-10 font-mono text-sm"
+                className="pe-10 font-mono text-sm"
                 disabled={isSaving || isValidating}
               />
               <button
                 type="button"
                 onClick={() => toggleShowApiKey('google')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 {showApiKey['google'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -595,13 +595,13 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                 value={config.groqApiKey}
                 onChange={(e) => setConfig(prev => ({ ...prev, groqApiKey: e.target.value }))}
                 placeholder="gsk_..."
-                className="pr-10 font-mono text-sm"
+                className="pe-10 font-mono text-sm"
                 disabled={isSaving || isValidating}
               />
               <button
                 type="button"
                 onClick={() => toggleShowApiKey('groq')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 {showApiKey['groq'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -628,13 +628,13 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                 value={config.openrouterApiKey}
                 onChange={(e) => setConfig(prev => ({ ...prev, openrouterApiKey: e.target.value }))}
                 placeholder="sk-or-..."
-                className="pr-10 font-mono text-sm"
+                className="pe-10 font-mono text-sm"
                 disabled={isSaving || isValidating}
               />
               <button
                 type="button"
                 onClick={() => toggleShowApiKey('openrouter')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 {showApiKey['openrouter'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -985,12 +985,12 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
                       >
                         {isValidating ? (
                           <>
-                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                            <Loader2 className="h-4 w-4 animate-spin me-2" />
                             Testing connection...
                           </>
                         ) : (
                           <>
-                            <Zap className="h-4 w-4 mr-2" />
+                            <Zap className="h-4 w-4 me-2" />
                             Test Connection
                           </>
                         )}
@@ -1041,7 +1041,7 @@ export function GraphitiStep({ onNext, onBack, onSkip }: GraphitiStepProps) {
             >
               {isSaving ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="h-4 w-4 animate-spin me-2" />
                   Saving...
                 </>
               ) : config.enabled && !success ? (

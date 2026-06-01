@@ -403,7 +403,7 @@ export function CustomMcpDialog({
                 </button>
 
                 {showAdvancedHeaders && (
-                  <div className="pl-4 space-y-2">
+                  <div className="ps-4 space-y-2">
                     <div className="flex gap-2">
                       <Input
                         value={headerKey}

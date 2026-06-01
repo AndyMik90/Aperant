@@ -453,12 +453,12 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
                       >
                         {codeCopied ? (
                           <>
-                            <Check className="h-4 w-4 mr-1 text-success" />
+                            <Check className="h-4 w-4 me-1 text-success" />
                             Copied
                           </>
                         ) : (
                           <>
-                            <Copy className="h-4 w-4 mr-1" />
+                            <Copy className="h-4 w-4 me-1" />
                             Copy
                           </>
                         )}
@@ -572,12 +572,12 @@ export function GitHubOAuthFlow({ onSuccess, onCancel }: GitHubOAuthFlowProps) {
                       >
                         {urlCopied ? (
                           <>
-                            <Check className="h-4 w-4 mr-1 text-success" />
+                            <Check className="h-4 w-4 me-1 text-success" />
                             Copied
                           </>
                         ) : (
                           <>
-                            <Copy className="h-4 w-4 mr-1" />
+                            <Copy className="h-4 w-4 me-1" />
                             Copy
                           </>
                         )}

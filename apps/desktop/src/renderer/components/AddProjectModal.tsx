@@ -165,7 +165,7 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
           className={cn(
             'w-full flex items-center gap-4 p-4 rounded-xl border border-border',
             'bg-card hover:bg-accent hover:border-accent transition-all duration-200',
-            'text-left group'
+            'text-start group'
           )}
           aria-label={t('addProject.openExistingAriaLabel')}
         >
@@ -178,7 +178,7 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
               {t('addProject.openExistingDescription')}
             </p>
           </div>
-          <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+          <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors rtl:-scale-x-100" />
         </button>
 
         {/* Create New Option */}
@@ -187,7 +187,7 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
           className={cn(
             'w-full flex items-center gap-4 p-4 rounded-xl border border-border',
             'bg-card hover:bg-accent hover:border-accent transition-all duration-200',
-            'text-left group'
+            'text-start group'
           )}
           aria-label={t('addProject.createNewAriaLabel')}
         >
@@ -200,7 +200,7 @@ export function AddProjectModal({ open, onOpenChange, onProjectAdded }: AddProje
               {t('addProject.createNewDescription')}
             </p>
           </div>
-          <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
+          <ChevronRight className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors rtl:-scale-x-100" />
         </button>
       </div>
 

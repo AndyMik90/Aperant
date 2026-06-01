@@ -109,7 +109,7 @@ export function ReferencedFilesSection({
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted-foreground">
             Referenced Files
-            <span className="ml-2 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+            <span className="ms-2 text-xs bg-primary/10 text-primary px-1.5 py-0.5 rounded">
               {files.length}/{maxFiles}
             </span>
           </span>

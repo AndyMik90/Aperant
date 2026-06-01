@@ -236,10 +236,10 @@ export function ModelSearchableSelect({
             ? t('settings:modelSelect.placeholderManual')
             : resolvedPlaceholder}
           disabled={disabled}
-          className="pr-10"
+          className="pe-10"
         />
         {/* Right side indicator: loading spinner, dropdown arrow, or nothing for manual mode */}
-        <div className="absolute right-0 top-0 h-full flex items-center px-3">
+        <div className="absolute end-0 top-0 h-full flex items-center px-3">
           {isLoading ? (
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           ) : !modelDiscoveryNotSupported ? (
@@ -266,12 +266,12 @@ export function ModelSearchableSelect({
           {/* Search input */}
           <div className="p-2 border-b">
             <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute start-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder={t('settings:modelSelect.searchPlaceholder')}
-                className="pl-8"
+                className="ps-8"
                 autoFocus
               />
             </div>
@@ -290,7 +290,7 @@ export function ModelSearchableSelect({
                   type="button"
                   onClick={() => handleSelectModel(model.id)}
                   className={cn(
-                    'w-full px-3 py-2 text-left text-sm hover:bg-accent flex items-start gap-2',
+                    'w-full px-3 py-2 text-start text-sm hover:bg-accent flex items-start gap-2',
                     value === model.id && 'bg-accent'
                   )}
                 >

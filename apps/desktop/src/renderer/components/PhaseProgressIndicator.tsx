@@ -199,7 +199,7 @@ export const PhaseProgressIndicator = memo(function PhaseProgressIndicator({
             // Static placeholder when not visible but running
             <motion.div
               key="indeterminate-static"
-              className={cn('absolute h-full w-1/3 rounded-full left-1/3', colors.color)}
+              className={cn('absolute h-full w-1/3 rounded-full start-1/3', colors.color)}
             />
           ) : null}
         </AnimatePresence>
@@ -247,7 +247,7 @@ export const PhaseProgressIndicator = memo(function PhaseProgressIndicator({
             );
           })}
           {totalSubtasks > 10 && (
-            <span key="overflow-count" className="text-[10px] text-muted-foreground font-medium ml-0.5">
+            <span key="overflow-count" className="text-[10px] text-muted-foreground font-medium ms-0.5">
               +{totalSubtasks - 10}
             </span>
           )}

@@ -117,12 +117,12 @@ export function SecuritySettings({
               placeholder={envConfig.openaiKeyIsGlobal ? 'Enter to override global key...' : 'sk-xxxxxxxx'}
               value={envConfig.openaiKeyIsGlobal ? '' : (envConfig.openaiApiKey || '')}
               onChange={(e) => updateEnvConfig({ openaiApiKey: e.target.value || undefined })}
-              className="pr-10"
+              className="pe-10"
             />
             <button
               type="button"
               onClick={() => toggleShowApiKey('openai')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               aria-label={showApiKey['openai'] ? 'Hide OpenAI API key' : 'Show OpenAI API key'}
             >
               {showApiKey['openai'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -158,12 +158,12 @@ export function SecuritySettings({
                 }
               })}
               placeholder="pa-xxxxxxxx"
-              className="pr-10"
+              className="pe-10"
             />
             <button
               type="button"
               onClick={() => toggleShowApiKey('voyage')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               aria-label={showApiKey['voyage'] ? 'Hide Voyage AI API key' : 'Show Voyage AI API key'}
             >
               {showApiKey['voyage'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -213,12 +213,12 @@ export function SecuritySettings({
                 }
               })}
               placeholder="AIzaSy..."
-              className="pr-10"
+              className="pe-10"
             />
             <button
               type="button"
               onClick={() => toggleShowApiKey('google')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               aria-label={showApiKey['google'] ? 'Hide Google API key' : 'Show Google API key'}
             >
               {showApiKey['google'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -253,12 +253,12 @@ export function SecuritySettings({
                   }
                 })}
                 placeholder="Azure API Key"
-                className="pr-10"
+                className="pe-10"
               />
               <button
                 type="button"
                 onClick={() => toggleShowApiKey('azure')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 aria-label={showApiKey['azure'] ? 'Hide Azure OpenAI API key' : 'Show Azure OpenAI API key'}
               >
                 {showApiKey['azure'] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -356,7 +356,7 @@ export function SecuritySettings({
       </button>
 
       {expanded && (
-        <div className="space-y-4 pl-6 pt-2">
+        <div className="space-y-4 ps-6 pt-2">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
               <Label className="font-normal text-foreground">Enable Memory</Label>

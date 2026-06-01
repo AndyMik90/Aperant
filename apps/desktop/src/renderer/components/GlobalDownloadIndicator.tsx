@@ -32,13 +32,13 @@ export function GlobalDownloadIndicator() {
   const hasActive = activeDownloads.length > 0;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 max-w-sm">
+    <div className="fixed bottom-4 end-4 z-50 max-w-sm">
       <div className="rounded-lg border border-border bg-card shadow-lg overflow-hidden">
         {/* Header */}
         <button
           type="button"
           className={cn(
-            'flex items-center justify-between px-3 py-2 cursor-pointer w-full text-left',
+            'flex items-center justify-between px-3 py-2 cursor-pointer w-full text-start',
             hasActive ? 'bg-primary/10' : 'bg-muted/50'
           )}
           onClick={() => setIsExpanded(!isExpanded)}

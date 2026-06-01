@@ -71,7 +71,7 @@ export function TaskModalLayout({
         {/* Full-height modal content - matches TaskDetailModal exactly */}
         <DialogPrimitive.Content
           className={cn(
-            'fixed left-[50%] top-4 z-50',
+            'fixed start-[50%] top-4 z-50',
             'translate-x-[-50%]',
             'w-[95vw] max-w-5xl h-[calc(100vh-32px)]',
             'bg-card border border-border rounded-xl',
@@ -127,7 +127,7 @@ export function TaskModalLayout({
 
             {/* Optional sidebar */}
             {sidebar && sidebarOpen && (
-              <div className="w-80 border-l border-border flex-shrink-0 overflow-hidden">
+              <div className="w-80 border-s border-border flex-shrink-0 overflow-hidden">
                 {sidebar}
               </div>
             )}

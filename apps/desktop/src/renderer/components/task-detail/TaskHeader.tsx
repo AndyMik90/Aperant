@@ -40,7 +40,7 @@ export function TaskHeader({
 
   return (
     <div className="flex items-start justify-between p-4 pb-3">
-      <div className="flex-1 min-w-0 pr-2">
+      <div className="flex-1 min-w-0 pe-2">
         <Tooltip>
           <TooltipTrigger asChild>
             <h2 className="font-semibold text-lg text-foreground line-clamp-2 leading-snug cursor-default">
@@ -95,7 +95,7 @@ export function TaskHeader({
           )}
         </div>
       </div>
-      <div className="flex items-center gap-1 shrink-0 -mr-1 -mt-1">
+      <div className="flex items-center gap-1 shrink-0 -me-1 -mt-1">
         <Tooltip>
           <TooltipTrigger asChild>
             <span>

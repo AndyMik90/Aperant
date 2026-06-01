@@ -165,7 +165,7 @@ export function FirstSpecStep({ onNext, onBack, onSkip, onOpenTaskCreator }: Fir
             onClick={handleOpenTaskCreator}
             className="gap-2 px-8"
           >
-            <ArrowRight className="h-5 w-5" />
+            <ArrowRight className="h-5 w-5 rtl:-scale-x-100" />
             Open Task Creator
           </Button>
         </div>

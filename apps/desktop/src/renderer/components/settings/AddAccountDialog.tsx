@@ -610,7 +610,7 @@ export function AddAccountDialog({
                 <Label htmlFor="account-baseurl">
                   {t('providers.dialog.fields.baseUrl')}
                   {!isBaseUrlRequired && (
-                    <span className="text-muted-foreground font-normal ml-1">
+                    <span className="text-muted-foreground font-normal ms-1">
                       {t('providers.dialog.optional')}
                     </span>
                   )}
@@ -672,7 +672,7 @@ export function AddAccountDialog({
                         <button
                           type="button"
                           onClick={() => setCustomModels(prev => prev.filter(m => m.id !== model.id))}
-                          className="ml-auto shrink-0 text-muted-foreground hover:text-destructive transition-colors"
+                          className="ms-auto shrink-0 text-muted-foreground hover:text-destructive transition-colors"
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>
@@ -755,7 +755,7 @@ export function AddAccountDialog({
               </Button>
               {(isOAuthOnly ? (isEditing || oauthStatus === 'success') : true) && (
                 <Button onClick={handleSave} disabled={!canSave() || isSaving}>
-                  {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {isSaving && <Loader2 className="h-4 w-4 me-2 animate-spin" />}
                   {isEditing ? t('providers.dialog.save') : t('providers.dialog.add')}
                 </Button>
               )}

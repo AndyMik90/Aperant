@@ -206,7 +206,7 @@ export function AuthStatusIndicator() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-start gap-1.5 text-muted-foreground">
                       <Server className="h-3.5 w-3.5 mt-0.5" />
-                      <div className="text-left">
+                      <div className="text-start">
                         <span className="font-medium text-[11px]">
                           {isCrossProviderMode ? t('common:usage.crossProviderConfig') : t('common:usage.provider')}
                         </span>

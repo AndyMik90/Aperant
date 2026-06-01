@@ -147,7 +147,7 @@ export function GitSetupModal({
           Skip for now
         </Button>
         <Button onClick={handleInitializeGit} disabled={isInitializing}>
-          <GitBranch className="mr-2 h-4 w-4" />
+          <GitBranch className="me-2 h-4 w-4" />
           Initialize Git
         </Button>
       </DialogFooter>

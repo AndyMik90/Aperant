@@ -54,7 +54,7 @@ export function ProactiveSwapListener() {
   }
 
   return (
-    <div className="fixed top-4 right-4 z-50 animate-in slide-in-from-top-2 fade-in duration-300">
+    <div className="fixed top-4 end-4 z-50 animate-in slide-in-from-top-2 fade-in duration-300">
       <div className="bg-card border border-border shadow-lg rounded-lg p-4 max-w-sm">
         <div className="flex items-start gap-3">
           <div className="flex-shrink-0 mt-0.5">

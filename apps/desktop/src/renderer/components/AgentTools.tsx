@@ -439,7 +439,7 @@ function AgentCard({ id, config, modelLabel, thinkingLabel, overrides, mcpServer
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center gap-3 p-4 hover:bg-muted/50 transition-colors text-left"
+        className="w-full flex items-center gap-3 p-4 hover:bg-muted/50 transition-colors text-start"
       >
         <div className="p-2 rounded-lg bg-muted">
           <CategoryIcon className="h-4 w-4 text-muted-foreground" />
@@ -595,7 +595,7 @@ function AgentCard({ id, config, modelLabel, thinkingLabel, overrides, mcpServer
                     type="button"
                     key={mcpId}
                     onClick={() => { onAddMcp(id, mcpId); setShowAddDialog(false); }}
-                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors text-left"
+                    className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors text-start"
                   >
                     <ServerIcon className="h-4 w-4 text-muted-foreground" />
                     <div>
@@ -624,7 +624,7 @@ function AgentCard({ id, config, modelLabel, thinkingLabel, overrides, mcpServer
                       type="button"
                       key={mcpId}
                       onClick={() => { onAddMcp(id, mcpId); setShowAddDialog(false); }}
-                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors text-left opacity-60"
+                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors text-start opacity-60"
                     >
                       <ServerIcon className="h-4 w-4 text-muted-foreground" />
                       <div>
@@ -1045,7 +1045,7 @@ export function AgentTools() {
             </p>
           </div>
           {envConfig && (
-            <div className="text-right">
+            <div className="text-end">
               <span className="text-sm text-muted-foreground">{t('settings:mcp.serversEnabled', { count: enabledCount })}</span>
             </div>
           )}
@@ -1282,7 +1282,7 @@ export function AgentTools() {
                                 ) : (
                                   <RefreshCw className="h-3 w-3" />
                                 )}
-                                <span className="ml-1">Test</span>
+                                <span className="ms-1">Test</span>
                               </Button>
                               {/* Edit/Delete - show on hover */}
                               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1332,7 +1332,7 @@ export function AgentTools() {
                 <button
                   type="button"
                   onClick={() => toggleCategory(categoryId)}
-                  className="flex items-center gap-2 w-full text-left hover:opacity-80 transition-opacity"
+                  className="flex items-center gap-2 w-full text-start hover:opacity-80 transition-opacity"
                 >
                   {isExpanded ? (
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -1350,7 +1350,7 @@ export function AgentTools() {
 
                 {/* Agent Cards */}
                 {isExpanded && (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 pl-6">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 ps-6">
                     {agents.map(({ id, config }) => {
                       const { model, thinking } = getAgentModelConfig(config);
                       return (

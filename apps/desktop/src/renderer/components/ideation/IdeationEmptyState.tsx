@@ -37,7 +37,7 @@ export function IdeationEmptyState({
         </p>
 
         {/* Configuration Preview */}
-        <div className="mb-6 p-4 bg-muted/50 rounded-lg text-left">
+        <div className="mb-6 p-4 bg-muted/50 rounded-lg text-start">
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium">Enabled Ideation Types</span>
             <Button
@@ -68,14 +68,14 @@ export function IdeationEmptyState({
         </div>
 
         <Button onClick={onGenerate} size="lg" disabled={isCheckingToken}>
-          <Sparkles className="h-4 w-4 mr-2" />
+          <Sparkles className="h-4 w-4 me-2" />
           Generate Ideas
         </Button>
 
         {/* Show warning if no provider is configured */}
         {hasToken === false && !isCheckingToken && (
           <p className="mt-3 text-sm text-muted-foreground">
-            <AlertCircle className="h-4 w-4 inline-block mr-1 text-warning" />
+            <AlertCircle className="h-4 w-4 inline-block me-1 text-warning" />
             No AI provider configured. Add a provider account in Settings to generate ideas.
           </p>
         )}

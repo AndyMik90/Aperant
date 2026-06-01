@@ -156,9 +156,9 @@ export function PreviewPanel({
                 disabled={!canSave}
               >
                 {copySuccess ? (
-                  <CheckCircle className="mr-2 h-4 w-4 text-success" />
+                  <CheckCircle className="me-2 h-4 w-4 text-success" />
                 ) : (
-                  <Copy className="mr-2 h-4 w-4" />
+                  <Copy className="me-2 h-4 w-4" />
                 )}
                 {copySuccess ? 'Copied!' : 'Copy'}
               </Button>
@@ -174,9 +174,9 @@ export function PreviewPanel({
                 disabled={!canSave}
               >
                 {saveSuccess ? (
-                  <CheckCircle className="mr-2 h-4 w-4" />
+                  <CheckCircle className="me-2 h-4 w-4" />
                 ) : (
-                  <Save className="mr-2 h-4 w-4" />
+                  <Save className="me-2 h-4 w-4" />
                 )}
                 {saveSuccess ? 'Saved!' : 'Save to CHANGELOG.md'}
               </Button>

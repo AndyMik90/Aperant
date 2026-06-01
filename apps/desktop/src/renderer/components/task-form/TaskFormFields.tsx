@@ -425,7 +425,7 @@ export function TaskFormFields({
                     {!disabled && (
                       <button
                         type="button"
-                        className="absolute top-0.5 right-0.5 h-5 w-5 flex items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute top-0.5 end-0.5 h-5 w-5 flex items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
                         onClick={(e) => {
                           e.stopPropagation();
                           removeImage(image.id);

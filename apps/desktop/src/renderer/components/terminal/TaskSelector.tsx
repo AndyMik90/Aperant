@@ -76,7 +76,7 @@ export function TaskSelector({
                   onClick={() => onTaskSelect(task.id)}
                   className="text-xs"
                 >
-                  <ListTodo className="h-3 w-3 mr-2 text-muted-foreground" />
+                  <ListTodo className="h-3 w-3 me-2 text-muted-foreground" />
                   <span className="truncate">{task.title}</span>
                 </DropdownMenuItem>
               ))}
@@ -87,7 +87,7 @@ export function TaskSelector({
             onClick={onClearTask}
             className="text-xs text-muted-foreground"
           >
-            <X className="h-3 w-3 mr-2" />
+            <X className="h-3 w-3 me-2" />
             Clear task
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -119,7 +119,7 @@ export function TaskSelector({
                 onClick={() => onTaskSelect(task.id)}
                 className="text-xs"
               >
-                <ListTodo className="h-3 w-3 mr-2 text-muted-foreground" />
+                <ListTodo className="h-3 w-3 me-2 text-muted-foreground" />
                 <span className="truncate">{task.title}</span>
               </DropdownMenuItem>
             ))}
@@ -133,7 +133,7 @@ export function TaskSelector({
                   }}
                   className="text-xs text-primary"
                 >
-                  <Plus className="h-3 w-3 mr-2" />
+                  <Plus className="h-3 w-3 me-2" />
                   Add new task
                 </DropdownMenuItem>
               </>
@@ -152,7 +152,7 @@ export function TaskSelector({
                 }}
                 className="text-xs text-primary"
               >
-                <Plus className="h-3 w-3 mr-2" />
+                <Plus className="h-3 w-3 me-2" />
                 Add new task
               </DropdownMenuItem>
             ) : (

@@ -150,7 +150,7 @@ export function ResizablePanels({
         onTouchStart={handleTouchStart}
       >
         {/* Wider invisible hit area for easier grabbing */}
-        <div className="absolute inset-y-0 -left-1 -right-1 z-10" />
+        <div className="absolute inset-y-0 -start-1 -end-1 z-10" />
       </div>
 
       {/* Right panel */}

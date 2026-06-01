@@ -109,7 +109,7 @@ export function RoadmapTabs({
                       >
                         <button
                           type="button"
-                          className="w-full text-left cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                          className="w-full text-start cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                           onClick={() => onFeatureSelect(feature)}
                         >
                           <div className="font-medium text-sm">{feature.title}</div>
@@ -128,7 +128,7 @@ export function RoadmapTabs({
                             </Badge>
                             {hasCompetitorInsight(feature) && (
                               <Badge variant="outline" className="text-xs text-primary border-primary/50">
-                                <TrendingUp className="h-3 w-3 mr-1" />
+                                <TrendingUp className="h-3 w-3 me-1" />
                                 Insight
                               </Badge>
                             )}
@@ -150,7 +150,7 @@ export function RoadmapTabs({
                                 onArchive(feature.id);
                               }}
                             >
-                              <Archive className="h-3 w-3 mr-1" />
+                              <Archive className="h-3 w-3 me-1" />
                               Archive
                             </Button>
                           </div>

@@ -79,7 +79,7 @@ export function ProviderTabBar({
           >
             {getProviderDisplayName(provider)}
             {showSetupDot && (
-              <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+              <span className="absolute -top-0.5 -end-0.5 flex h-2.5 w-2.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
                 <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500" />
               </span>
@@ -118,7 +118,7 @@ export function ProviderTabBar({
               >
                 {getProviderDisplayName(provider)}
                 {needsSetup?.(provider) && (
-                  <span className="ml-2 inline-flex h-2 w-2 rounded-full bg-red-500 shrink-0" />
+                  <span className="ms-2 inline-flex h-2 w-2 rounded-full bg-red-500 shrink-0" />
                 )}
               </DropdownMenuItem>
             ))}

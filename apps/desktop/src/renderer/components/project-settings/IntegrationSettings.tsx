@@ -166,7 +166,7 @@ export function IntegrationSettings({
         </button>
 
         {linearExpanded && (
-          <div className="space-y-4 pl-6 pt-2">
+          <div className="space-y-4 ps-6 pt-2">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label className="font-normal text-foreground">Enable Linear Sync</Label>
@@ -201,12 +201,12 @@ export function IntegrationSettings({
                       placeholder="lin_api_xxxxxxxx"
                       value={envConfig.linearApiKey || ''}
                       onChange={(e) => updateEnvConfig({ linearApiKey: e.target.value })}
-                      className="pr-10"
+                      className="pe-10"
                     />
                     <button
                       type="button"
                       onClick={() => setShowLinearKey(!showLinearKey)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     >
                       {showLinearKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -258,7 +258,7 @@ export function IntegrationSettings({
                           className="mt-2"
                           onClick={onOpenLinearImport}
                         >
-                          <Import className="h-4 w-4 mr-2" />
+                          <Import className="h-4 w-4 me-2" />
                           Import Tasks from Linear
                         </Button>
                       </div>
@@ -275,7 +275,7 @@ export function IntegrationSettings({
                       <Radio className="h-4 w-4 text-info" />
                       <Label className="font-normal text-foreground">Real-time Sync</Label>
                     </div>
-                    <p className="text-xs text-muted-foreground pl-6">
+                    <p className="text-xs text-muted-foreground ps-6">
                       Automatically import new tasks created in Linear
                     </p>
                   </div>
@@ -286,7 +286,7 @@ export function IntegrationSettings({
                 </div>
 
                 {envConfig.linearRealtimeSync && (
-                  <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 ml-6">
+                  <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 ms-6">
                     <p className="text-xs text-warning">
                       When enabled, new Linear issues will be automatically imported into AutoBuild.
                       Make sure to configure your team/project filters below to control which issues are imported.
@@ -345,7 +345,7 @@ export function IntegrationSettings({
         </button>
 
         {githubExpanded && (
-          <div className="space-y-4 pl-6 pt-2">
+          <div className="space-y-4 ps-6 pt-2">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <Label className="font-normal text-foreground">Enable GitHub Issues</Label>
@@ -380,12 +380,12 @@ export function IntegrationSettings({
                       placeholder="ghp_xxxxxxxx or github_pat_xxxxxxxx"
                       value={envConfig.githubToken || ''}
                       onChange={(e) => updateEnvConfig({ githubToken: e.target.value })}
-                      className="pr-10"
+                      className="pe-10"
                     />
                     <button
                       type="button"
                       onClick={() => setShowGitHubToken(!showGitHubToken)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     >
                       {showGitHubToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -457,7 +457,7 @@ export function IntegrationSettings({
                       <RefreshCw className="h-4 w-4 text-info" />
                       <Label className="font-normal text-foreground">Auto-Sync on Load</Label>
                     </div>
-                    <p className="text-xs text-muted-foreground pl-6">
+                    <p className="text-xs text-muted-foreground ps-6">
                       Automatically fetch issues when the project loads
                     </p>
                   </div>

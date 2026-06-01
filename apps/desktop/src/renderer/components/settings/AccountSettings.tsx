@@ -287,7 +287,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
               {autoSwitchSettings?.enabled && (
                 <>
                   {/* Proactive Monitoring */}
-                  <div className="pl-6 space-y-4 pt-2 border-l-2 border-primary/20">
+                  <div className="ps-6 space-y-4 pt-2 border-s-2 border-primary/20">
                     <div className="flex items-center justify-between">
                       <div>
                         <Label className="text-sm font-medium flex items-center gap-2">
@@ -361,7 +361,7 @@ export function AccountSettings({ settings, onSettingsChange, isOpen }: AccountS
                   </div>
 
                   {/* Reactive Recovery */}
-                  <div className="pl-6 space-y-4 pt-2 border-l-2 border-orange-500/20">
+                  <div className="ps-6 space-y-4 pt-2 border-s-2 border-orange-500/20">
                     <div className="flex items-center justify-between">
                       <div>
                         <Label className="text-sm font-medium flex items-center gap-2">

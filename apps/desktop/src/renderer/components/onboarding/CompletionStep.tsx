@@ -43,7 +43,7 @@ function NextStepCard({ icon, title, description, action, actionLabel }: NextSte
                 className="mt-2 h-auto p-0 text-primary hover:text-primary/80"
               >
                 {actionLabel}
-                <ArrowRight className="ml-1 h-3 w-3" />
+                <ArrowRight className="ms-1 h-3 w-3 rtl:-scale-x-100" />
               </Button>
             )}
           </div>
@@ -97,7 +97,7 @@ export function CompletionStep({
               <div className="flex h-20 w-20 items-center justify-center rounded-full bg-success/20 text-success">
                 <CheckCircle2 className="h-10 w-10" />
               </div>
-              <div className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
+              <div className="absolute -bottom-1 -end-1 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground">
                 <Rocket className="h-4 w-4" />
               </div>
             </div>

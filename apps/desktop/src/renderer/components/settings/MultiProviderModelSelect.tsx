@@ -257,7 +257,7 @@ export function MultiProviderModelSelect({ value, onChange, className, filterPro
         <span className={cn('truncate', !value && 'text-muted-foreground')}>
           {value ? displayLabel : t('settings:modelSelect.placeholder', { defaultValue: 'Select a model' })}
         </span>
-        <ChevronDown className={cn('h-4 w-4 text-muted-foreground shrink-0 ml-2 transition-transform', open && 'rotate-180')} />
+        <ChevronDown className={cn('h-4 w-4 text-muted-foreground shrink-0 ms-2 transition-transform', open && 'rotate-180')} />
       </button>
 
       {/* Dropdown panel */}
@@ -266,13 +266,13 @@ export function MultiProviderModelSelect({ value, onChange, className, filterPro
           {/* Search */}
           <div className="p-2 border-b border-border">
             <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Search className="absolute start-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
               <Input
                 ref={searchRef}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder={t('settings:modelSelect.searchPlaceholder', { defaultValue: 'Search models...' })}
-                className="pl-8 h-8"
+                className="ps-8 h-8"
               />
             </div>
           </div>
@@ -340,7 +340,7 @@ export function MultiProviderModelSelect({ value, onChange, className, filterPro
                           onClick={() => configured ? handleSelect(model.value) : undefined}
                           disabled={!configured}
                           className={cn(
-                            'w-full px-3 py-2 text-left text-sm flex items-start gap-2',
+                            'w-full px-3 py-2 text-start text-sm flex items-start gap-2',
                             'hover:bg-accent transition-colors',
                             isSelected && 'bg-accent',
                             !configured && 'opacity-50 cursor-not-allowed'

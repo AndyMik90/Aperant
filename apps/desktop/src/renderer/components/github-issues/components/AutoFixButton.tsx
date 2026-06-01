@@ -98,7 +98,7 @@ export function AutoFixButton({ issue, projectId, config, queueItem }: AutoFixBu
           <span>{error || queueItem?.error || 'Auto-fix failed'}</span>
         </div>
         <Button size="sm" variant="outline" onClick={handleStartAutoFix}>
-          <Wand2 className="h-4 w-4 mr-2" />
+          <Wand2 className="h-4 w-4 me-2" />
           Retry Auto Fix
         </Button>
       </div>
@@ -127,7 +127,7 @@ export function AutoFixButton({ issue, projectId, config, queueItem }: AutoFixBu
       variant={hasAutoFixLabel() ? 'default' : 'outline'}
       onClick={handleStartAutoFix}
     >
-      <Wand2 className="h-4 w-4 mr-2" />
+      <Wand2 className="h-4 w-4 me-2" />
       Auto Fix
     </Button>
   );

@@ -43,7 +43,7 @@ export function ImagePreviewModal({ open, onOpenChange, image }: ImagePreviewMod
           )}
         >
           {/* Header with title and close button */}
-          <div className="absolute top-0 left-0 right-0 flex items-center justify-between p-4">
+          <div className="absolute top-0 start-0 end-0 flex items-center justify-between p-4">
             <DialogPrimitive.Title className="text-lg font-medium text-white truncate max-w-[calc(100%-60px)]">
               {image.filename}
             </DialogPrimitive.Title>

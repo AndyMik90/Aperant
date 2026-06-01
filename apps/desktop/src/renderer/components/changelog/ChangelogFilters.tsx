@@ -82,7 +82,7 @@ export function ChangelogFilters({
   const localBranches = branches.filter((b) => !b.isRemote);
 
   return (
-    <div className="w-80 shrink-0 border-r border-border overflow-y-auto">
+    <div className="w-80 shrink-0 border-e border-border overflow-y-auto">
       <div className="p-6 space-y-6">
         {/* Source Mode Selection */}
         <div className="space-y-3">
@@ -107,7 +107,7 @@ export function ChangelogFilters({
                   <span className="font-medium text-sm">
                     {CHANGELOG_SOURCE_MODE_LABELS['tasks']}
                   </span>
-                  <Badge variant="secondary" className="ml-auto text-xs">
+                  <Badge variant="secondary" className="ms-auto text-xs">
                     {doneTasksCount}
                   </Badge>
                 </div>
@@ -312,12 +312,12 @@ export function ChangelogFilters({
               >
                 {isLoadingCommits ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="me-2 h-4 w-4 animate-spin" />
                     Loading...
                   </>
                 ) : (
                   <>
-                    <RefreshCw className="mr-2 h-4 w-4" />
+                    <RefreshCw className="me-2 h-4 w-4" />
                     Load Commits
                   </>
                 )}
@@ -397,12 +397,12 @@ export function ChangelogFilters({
               >
                 {isLoadingCommits ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="me-2 h-4 w-4 animate-spin" />
                     Loading...
                   </>
                 ) : (
                   <>
-                    <RefreshCw className="mr-2 h-4 w-4" />
+                    <RefreshCw className="me-2 h-4 w-4" />
                     Load Commits
                   </>
                 )}

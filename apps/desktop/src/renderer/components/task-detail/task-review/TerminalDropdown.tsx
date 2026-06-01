@@ -37,16 +37,16 @@ export function TerminalDropdown({
           title={t('terminal.openTerminal')}
         >
           <Terminal className="h-3.5 w-3.5" />
-          <ChevronDown className="h-3 w-3 ml-1" />
+          <ChevronDown className="h-3 w-3 ms-1" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={onOpenInbuilt}>
-          <Terminal className="h-4 w-4 mr-2" />
+          <Terminal className="h-4 w-4 me-2" />
           {t('terminal.openInbuilt')}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={onOpenExternal}>
-          <ExternalLink className="h-4 w-4 mr-2" />
+          <ExternalLink className="h-4 w-4 me-2" />
           {t('terminal.openExternal')}
         </DropdownMenuItem>
       </DropdownMenuContent>

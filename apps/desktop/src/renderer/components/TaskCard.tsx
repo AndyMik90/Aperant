@@ -461,7 +461,7 @@ export const TaskCard = memo(function TaskCard({
                 {CategoryIcon[task.metadata.category] && (
                   (() => {
                     const Icon = CategoryIcon[task.metadata.category!];
-                    return <Icon className="h-2.5 w-2.5 mr-0.5" />;
+                    return <Icon className="h-2.5 w-2.5 me-0.5" />;
                   })()
                 )}
                 {TASK_CATEGORY_LABELS[task.metadata.category]}
@@ -538,12 +538,12 @@ export const TaskCard = memo(function TaskCard({
               >
                 {isRecovering ? (
                   <>
-                    <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                    <Loader2 className="me-1.5 h-3 w-3 animate-spin" />
                     {t('labels.recovering')}
                   </>
                 ) : (
                   <>
-                    <RotateCcw className="mr-1.5 h-3 w-3" />
+                    <RotateCcw className="me-1.5 h-3 w-3" />
                     {t('actions.recover')}
                   </>
                 )}
@@ -555,7 +555,7 @@ export const TaskCard = memo(function TaskCard({
                 className="h-7 px-2.5"
                 onClick={handleStartStop}
               >
-                <Play className="mr-1.5 h-3 w-3" />
+                <Play className="me-1.5 h-3 w-3" />
                 {t('actions.resume')}
               </Button>
             ) : task.status === 'done' && task.metadata?.prUrl ? (
@@ -591,7 +591,7 @@ export const TaskCard = memo(function TaskCard({
                 onClick={handleArchive}
                 title={t('tooltips.archiveTask')}
               >
-                <Archive className="mr-1.5 h-3 w-3" />
+                <Archive className="me-1.5 h-3 w-3" />
                 {t('actions.archive')}
               </Button>
             ) : (task.status === 'backlog' || task.status === 'in_progress') && (
@@ -603,12 +603,12 @@ export const TaskCard = memo(function TaskCard({
               >
                 {isRunning ? (
                   <>
-                    <Square className="mr-1.5 h-3 w-3" />
+                    <Square className="me-1.5 h-3 w-3" />
                     {t('actions.stop')}
                   </>
                 ) : (
                   <>
-                    <Play className="mr-1.5 h-3 w-3" />
+                    <Play className="me-1.5 h-3 w-3" />
                     {t('actions.start')}
                   </>
                 )}

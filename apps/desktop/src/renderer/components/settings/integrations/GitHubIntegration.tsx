@@ -366,7 +366,7 @@ export function GitHubIntegration({
                       {t('settings:projectSections.github.defaultBranch.label')}
                     </Label>
                   </div>
-                  <p className="text-xs text-muted-foreground pl-6">
+                  <p className="text-xs text-muted-foreground ps-6">
                     {t('settings:projectSections.github.defaultBranch.description')}
                   </p>
                 </div>
@@ -382,13 +382,13 @@ export function GitHubIntegration({
               </div>
 
               {branchesError && (
-                <div className="flex items-center gap-2 text-xs text-destructive pl-6">
+                <div className="flex items-center gap-2 text-xs text-destructive ps-6">
                   <AlertCircle className="h-3 w-3" />
                   {branchesError}
                 </div>
               )}
 
-              <div className="pl-6">
+              <div className="ps-6">
                 <Combobox
                   options={branchOptions}
                   value={selectedBranch}
@@ -402,7 +402,7 @@ export function GitHubIntegration({
               </div>
 
               {selectedBranch && (
-                <p className="text-xs text-muted-foreground pl-6">
+                <p className="text-xs text-muted-foreground ps-6">
                   {t('settings:projectSections.github.defaultBranch.selectedBranchHelp', { branch: selectedBranch })}
                 </p>
               )}
@@ -559,7 +559,7 @@ function RepositoryDropdown({
                       setIsOpen(false);
                       setFilter('');
                     }}
-                    className={`w-full px-3 py-2 text-left hover:bg-accent flex items-start gap-2 ${
+                    className={`w-full px-3 py-2 text-start hover:bg-accent flex items-start gap-2 ${
                       repo.fullName === selectedRepo ? 'bg-accent' : ''
                     }`}
                   >
@@ -676,7 +676,7 @@ function AutoSyncToggle({ enabled, onToggle }: AutoSyncToggleProps) {
           <RefreshCw className="h-4 w-4 text-info" />
           <Label className="font-normal text-foreground">Auto-Sync on Load</Label>
         </div>
-        <p className="text-xs text-muted-foreground pl-6">
+        <p className="text-xs text-muted-foreground ps-6">
           Automatically fetch issues when the project loads
         </p>
       </div>

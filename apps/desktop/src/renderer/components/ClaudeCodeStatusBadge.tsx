@@ -379,19 +379,19 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
                 <Terminal className="h-4 w-4" />
                 <span
                   className={cn(
-                    "absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full",
+                    "absolute -bottom-0.5 -end-0.5 h-2 w-2 rounded-full",
                     getStatusColor()
                   )}
                 />
               </div>
               <span className="truncate">Claude Code</span>
               {status === "outdated" && (
-                <span className="ml-auto text-[10px] bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 px-1.5 py-0.5 rounded">
+                <span className="ms-auto text-[10px] bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 px-1.5 py-0.5 rounded">
                   {t("common:update", "Update")}
                 </span>
               )}
               {status === "not-found" && (
-                <span className="ml-auto text-[10px] bg-destructive/20 text-destructive px-1.5 py-0.5 rounded">
+                <span className="ms-auto text-[10px] bg-destructive/20 text-destructive px-1.5 py-0.5 rounded">
                   {t("common:install", "Install")}
                 </span>
               )}
@@ -536,7 +536,7 @@ export function ClaudeCodeStatusBadge({ className }: ClaudeCodeStatusBadgeProps)
                       >
                         <span className="font-mono">{version}</span>
                         {isCurrentVersion && (
-                          <span className="ml-2 text-muted-foreground">
+                          <span className="ms-2 text-muted-foreground">
                             ({t("navigation:claudeCode.currentVersion", "Current")})
                           </span>
                         )}

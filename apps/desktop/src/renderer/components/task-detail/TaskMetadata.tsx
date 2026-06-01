@@ -112,7 +112,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
               >
                 {CategoryIcon[task.metadata.category] && (() => {
                   const Icon = CategoryIcon[task.metadata.category!];
-                  return <Icon className="h-3 w-3 mr-1" />;
+                  return <Icon className="h-3 w-3 me-1" />;
                 })()}
                 {TASK_CATEGORY_LABELS[task.metadata.category]}
               </Badge>
@@ -150,7 +150,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
                 variant="outline"
                 className={cn('text-xs', TASK_IMPACT_COLORS[task.metadata.securitySeverity])}
               >
-                <Shield className="h-3 w-3 mr-1" />
+                <Shield className="h-3 w-3 me-1" />
                 {task.metadata.securitySeverity}
               </Badge>
             )}
@@ -197,7 +197,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
 
             {/* Gradient overlay when collapsed and has overflow */}
             {!isExpanded && hasOverflow && (
-              <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-muted/80 to-transparent pointer-events-none" />
+              <div className="absolute bottom-0 start-0 end-0 h-16 bg-gradient-to-t from-muted/80 to-transparent pointer-events-none" />
             )}
           </div>
 
@@ -214,12 +214,12 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
               >
                 {isExpanded ? (
                   <>
-                    <ChevronUp className="h-4 w-4 mr-1" aria-hidden="true" />
+                    <ChevronUp className="h-4 w-4 me-1" aria-hidden="true" />
                     {t('tasks:metadata.showLess')}
                   </>
                 ) : (
                   <>
-                    <ChevronDown className="h-4 w-4 mr-1" aria-hidden="true" />
+                    <ChevronDown className="h-4 w-4 me-1" aria-hidden="true" />
                     {t('tasks:metadata.showMore')}
                   </>
                 )}
@@ -294,7 +294,7 @@ export function TaskMetadata({ task }: TaskMetadataProps) {
                     window.electronAPI.openExternal(task.metadata.prUrl);
                   }
                 }}
-                className="text-sm text-info hover:underline flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 text-left"
+                className="text-sm text-info hover:underline flex items-center gap-1.5 bg-transparent border-none cursor-pointer p-0 text-start"
               >
                 {task.metadata.prUrl}
                 <ExternalLink className="h-3 w-3" />

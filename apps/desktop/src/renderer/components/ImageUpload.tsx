@@ -362,7 +362,7 @@ export function ImageUpload({
                   variant="destructive"
                   size="icon"
                   className={cn(
-                    'absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity',
+                    'absolute top-1 end-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity',
                     'rounded-full'
                   )}
                   onClick={(e) => {
@@ -377,7 +377,7 @@ export function ImageUpload({
               {/* Large file warning indicator */}
               {image.size > MAX_IMAGE_SIZE && (
                 <div
-                  className="absolute top-1 left-1 p-1 rounded-full bg-warning/90"
+                  className="absolute top-1 start-1 p-1 rounded-full bg-warning/90"
                   title="Large file - consider compressing"
                 >
                   <AlertCircle className="h-3 w-3 text-warning-foreground" />

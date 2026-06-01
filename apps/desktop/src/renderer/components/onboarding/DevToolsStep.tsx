@@ -291,7 +291,7 @@ export function DevToolsStep({ onNext, onBack }: DevToolsStepProps) {
         {isDetecting && (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            <span className="ml-3 text-muted-foreground">{t('devtools.detecting')}</span>
+            <span className="ms-3 text-muted-foreground">{t('devtools.detecting')}</span>
           </div>
         )}
 
@@ -332,7 +332,7 @@ export function DevToolsStep({ onNext, onBack }: DevToolsStepProps) {
                 onClick={detectTools}
                 disabled={isDetecting}
               >
-                <RefreshCw className="h-4 w-4 mr-2" />
+                <RefreshCw className="h-4 w-4 me-2" />
                 {t('devtools.detectAgain')}
               </Button>
             </div>
@@ -522,7 +522,7 @@ export function DevToolsStep({ onNext, onBack }: DevToolsStepProps) {
           >
             {isSaving ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <Loader2 className="h-4 w-4 animate-spin me-2" />
                 Saving...
               </>
             ) : (

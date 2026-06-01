@@ -90,17 +90,17 @@ export function WorktreeCleanupDialog({
           >
             {isProcessing ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="me-2 h-4 w-4 animate-spin" />
                 {t('dialogs:worktreeCleanup.completing')}
               </>
             ) : error ? (
               <>
-                <RefreshCw className="mr-2 h-4 w-4" />
+                <RefreshCw className="me-2 h-4 w-4" />
                 {t('dialogs:worktreeCleanup.retry')}
               </>
             ) : (
               <>
-                <FolderX className="mr-2 h-4 w-4" />
+                <FolderX className="me-2 h-4 w-4" />
                 {t('dialogs:worktreeCleanup.confirm')}
               </>
             )}

@@ -41,7 +41,7 @@ export function ProjectIndexTab({
                 onClick={onRefresh}
                 disabled={indexLoading}
               >
-                <RefreshCw className={cn('h-4 w-4 mr-2', indexLoading && 'animate-spin')} />
+                <RefreshCw className={cn('h-4 w-4 me-2', indexLoading && 'animate-spin')} />
                 Refresh
               </Button>
             </TooltipTrigger>
@@ -76,7 +76,7 @@ export function ProjectIndexTab({
               Click the Refresh button to analyze your project structure and create an index.
             </p>
             <Button onClick={onRefresh} className="mt-4">
-              <RefreshCw className="h-4 w-4 mr-2" />
+              <RefreshCw className="h-4 w-4 me-2" />
               Analyze Project
             </Button>
           </div>

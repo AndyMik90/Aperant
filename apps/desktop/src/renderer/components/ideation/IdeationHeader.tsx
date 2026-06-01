@@ -59,7 +59,7 @@ export function IdeationHeader({
           {/* Selection controls */}
           {hasSelection ? (
             <>
-              <Badge variant="secondary" className="mr-1">
+              <Badge variant="secondary" className="me-1">
                 {selectedCount} selected
               </Badge>
               <Button
@@ -68,7 +68,7 @@ export function IdeationHeader({
                 className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
                 onClick={onDeleteSelected}
               >
-                <Trash2 className="h-4 w-4 mr-1" />
+                <Trash2 className="h-4 w-4 me-1" />
                 Delete
               </Button>
               <Tooltip>
@@ -141,7 +141,7 @@ export function IdeationHeader({
                   onClick={onOpenAddMore}
                   aria-label={t('accessibility.addMoreAriaLabel')}
                 >
-                  <Plus className="h-4 w-4 mr-1" />
+                  <Plus className="h-4 w-4 me-1" />
                   Add More
                 </Button>
               </TooltipTrigger>
@@ -184,7 +184,7 @@ export function IdeationHeader({
             className={IDEATION_TYPE_COLORS[type]}
           >
             <TypeIcon type={type as IdeationType} />
-            <span className="ml-1">{count}</span>
+            <span className="ms-1">{count}</span>
           </Badge>
         ))}
       </div>

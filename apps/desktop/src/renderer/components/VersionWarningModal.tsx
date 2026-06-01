@@ -78,13 +78,13 @@ export function VersionWarningModal({ isOpen, onClose, onOpenSettings }: Version
         </div>
 
         <DialogFooter className="flex-col sm:flex-row gap-2">
-          <Button variant="outline" onClick={handleDismiss} className="sm:mr-auto">
+          <Button variant="outline" onClick={handleDismiss} className="sm:me-auto">
             {t('versionWarning.gotIt')}
           </Button>
           <Button onClick={handleGoToSettings} className="gap-2">
             <Settings className="h-4 w-4" />
             {t('versionWarning.goToSettings')}
-            <ChevronRight className="h-4 w-4" />
+            <ChevronRight className="h-4 w-4 rtl:-scale-x-100" />
           </Button>
         </DialogFooter>
       </DialogContent>

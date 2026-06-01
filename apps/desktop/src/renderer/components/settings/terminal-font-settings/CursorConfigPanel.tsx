@@ -198,19 +198,19 @@ export function CursorConfigPanel({ settings, onSettingChange }: CursorConfigPan
             {/* Sample cursor showing the accent color */}
             {settings.cursorStyle === 'block' && (
               <div
-                className="absolute top-0 left-0 w-3 h-full"
+                className="absolute top-0 start-0 w-3 h-full"
                 style={{ backgroundColor: settings.cursorAccentColor }}
               />
             )}
             {settings.cursorStyle === 'underline' && (
               <div
-                className="absolute bottom-0 left-0 w-3 h-1"
+                className="absolute bottom-0 start-0 w-3 h-1"
                 style={{ backgroundColor: settings.cursorAccentColor }}
               />
             )}
             {settings.cursorStyle === 'bar' && (
               <div
-                className="absolute top-0 left-1 w-0.5 h-full"
+                className="absolute top-0 start-1 w-0.5 h-full"
                 style={{ backgroundColor: settings.cursorAccentColor }}
               />
             )}

@@ -85,9 +85,9 @@ export function IssueListHeader({
                   className="flex-1"
                 >
                   {isAnalyzing ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-4 w-4 me-2 animate-spin" />
                   ) : (
-                    <Layers className="h-4 w-4 mr-2" />
+                    <Layers className="h-4 w-4 me-2" />
                   )}
                   Analyze & Group Issues
                 </Button>
@@ -137,17 +137,17 @@ export function IssueListHeader({
       {/* Filters */}
       <div className="flex items-center gap-3">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search issues..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-9"
+            className="ps-9"
           />
         </div>
         <Select value={filterState} onValueChange={onFilterChange}>
           <SelectTrigger className="w-32">
-            <Filter className="h-4 w-4 mr-2" />
+            <Filter className="h-4 w-4 me-2" />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

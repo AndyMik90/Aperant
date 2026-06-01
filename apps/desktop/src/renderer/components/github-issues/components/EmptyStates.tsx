@@ -29,7 +29,7 @@ export function NotConnectedState({ error, onOpenSettings }: NotConnectedStatePr
       </p>
       {onOpenSettings && (
         <Button onClick={onOpenSettings} variant="outline">
-          <Settings2 className="h-4 w-4 mr-2" />
+          <Settings2 className="h-4 w-4 me-2" />
           Open Settings
         </Button>
       )}

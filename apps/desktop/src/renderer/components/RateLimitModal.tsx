@@ -240,7 +240,7 @@ export function RateLimitModal() {
                               <Star className="h-3 w-3 text-yellow-500" />
                             )}
                           </span>
-                          <ChevronDown className="h-4 w-4 shrink-0 ml-2" />
+                          <ChevronDown className="h-4 w-4 shrink-0 ms-2" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start" className="w-[220px] bg-popover border border-border shadow-lg">

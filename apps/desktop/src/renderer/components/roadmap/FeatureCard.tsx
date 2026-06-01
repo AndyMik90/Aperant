@@ -47,7 +47,7 @@ export function FeatureCard({
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Badge variant="outline" className="text-xs text-primary border-primary/50">
-                    <TrendingUp className="h-3 w-3 mr-1" />
+                    <TrendingUp className="h-3 w-3 me-1" />
                     Competitor Insight
                   </Badge>
                 </TooltipTrigger>
@@ -72,7 +72,7 @@ export function FeatureCard({
                 onGoToTask(feature.linkedSpecId!);
               }}
             >
-              <ExternalLink className="h-3 w-3 mr-1" />
+              <ExternalLink className="h-3 w-3 me-1" />
               {t('roadmap.goToTask')}
             </Button>
           ) : (
@@ -85,7 +85,7 @@ export function FeatureCard({
                   onConvertToSpec(feature);
                 }}
               >
-                <Play className="h-3 w-3 mr-1" />
+                <Play className="h-3 w-3 me-1" />
                 {t('roadmap.build')}
               </Button>
             )

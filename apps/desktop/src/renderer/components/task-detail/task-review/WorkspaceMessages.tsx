@@ -101,12 +101,12 @@ export function NoWorkspaceMessage({ task, onClose }: NoWorkspaceMessageProps) {
         >
           {isProceeding ? (
             <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <Loader2 className="h-4 w-4 me-2 animate-spin" />
               Updating...
             </>
           ) : (
             <>
-              <Play className="h-4 w-4 mr-2" />
+              <Play className="h-4 w-4 me-2" />
               Proceed to Coding
             </>
           )}
@@ -121,12 +121,12 @@ export function NoWorkspaceMessage({ task, onClose }: NoWorkspaceMessageProps) {
         >
           {isMarkingDone ? (
             <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <Loader2 className="h-4 w-4 me-2 animate-spin" />
               Updating...
             </>
           ) : (
             <>
-              <Check className="h-4 w-4 mr-2" />
+              <Check className="h-4 w-4 me-2" />
               Mark as Done
             </>
           )}
@@ -269,12 +269,12 @@ export function StagedInProjectMessage({ task, projectPath, hasWorktree = false,
             >
               {isDeleting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 me-2 animate-spin" />
                   Cleaning up...
                 </>
               ) : (
                 <>
-                  <Check className="h-4 w-4 mr-2" />
+                  <Check className="h-4 w-4 me-2" />
                   Delete Worktree & Mark Done
                 </>
               )}
@@ -289,12 +289,12 @@ export function StagedInProjectMessage({ task, projectPath, hasWorktree = false,
             >
               {isMarkingDone ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 me-2 animate-spin" />
                   Marking done...
                 </>
               ) : (
                 <>
-                  <Check className="h-4 w-4 mr-2" />
+                  <Check className="h-4 w-4 me-2" />
                   Mark as Done
                 </>
               )}
@@ -315,12 +315,12 @@ export function StagedInProjectMessage({ task, projectPath, hasWorktree = false,
             >
               {isMarkingDone ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 me-2 animate-spin" />
                   Marking done...
                 </>
               ) : (
                 <>
-                  <Check className="h-4 w-4 mr-2" />
+                  <Check className="h-4 w-4 me-2" />
                   Mark Done Only
                 </>
               )}
@@ -338,12 +338,12 @@ export function StagedInProjectMessage({ task, projectPath, hasWorktree = false,
             >
               {isResetting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 me-2 animate-spin" />
                   Resetting...
                 </>
               ) : (
                 <>
-                  <RotateCcw className="h-4 w-4 mr-2" />
+                  <RotateCcw className="h-4 w-4 me-2" />
                   Review Again
                 </>
               )}

@@ -409,7 +409,7 @@ export function MRDetail({
                 className="flex-1"
                 variant="secondary"
               >
-                <RefreshCw className="h-4 w-4 mr-2" />
+                <RefreshCw className="h-4 w-4 me-2" />
                 Follow-up Review ({newCommitsCheck.newCommitCount} new commit{newCommitsCheck.newCommitCount !== 1 ? 's' : ''})
               </Button>
             ) : (
@@ -420,12 +420,12 @@ export function MRDetail({
               >
                 {isReviewing ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-4 w-4 me-2 animate-spin" />
                     Reviewing...
                   </>
                 ) : (
                   <>
-                    <Sparkles className="h-4 w-4 mr-2" />
+                    <Sparkles className="h-4 w-4 me-2" />
                     Run AI Review
                   </>
                 )}
@@ -433,7 +433,7 @@ export function MRDetail({
             )}
             {isReviewing && (
               <Button onClick={onCancelReview} variant="destructive">
-                <XCircle className="h-4 w-4 mr-2" />
+                <XCircle className="h-4 w-4 me-2" />
                 Cancel
               </Button>
             )}
@@ -441,12 +441,12 @@ export function MRDetail({
               <Button onClick={handlePostReview} variant="secondary" disabled={isPostingFindings}>
                 {isPostingFindings ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-4 w-4 me-2 animate-spin" />
                     Posting...
                   </>
                 ) : (
                   <>
-                    <Send className="h-4 w-4 mr-2" />
+                    <Send className="h-4 w-4 me-2" />
                     Post {selectedCount} Finding{selectedCount !== 1 ? 's' : ''}
                   </>
                 )}
@@ -472,12 +472,12 @@ export function MRDetail({
               >
                 {isApproving ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-4 w-4 me-2 animate-spin" />
                     Approving...
                   </>
                 ) : (
                   <>
-                    <CheckCircle className="h-4 w-4 mr-2" />
+                    <CheckCircle className="h-4 w-4 me-2" />
                     Approve
                   </>
                 )}
@@ -490,12 +490,12 @@ export function MRDetail({
               >
                 {isMerging ? (
                   <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    <Loader2 className="h-4 w-4 me-2 animate-spin" />
                     Merging...
                   </>
                 ) : (
                   <>
-                    <GitMerge className="h-4 w-4 mr-2" />
+                    <GitMerge className="h-4 w-4 me-2" />
                     Merge MR
                   </>
                 )}
@@ -523,12 +523,12 @@ export function MRDetail({
                 >
                   {isReviewing ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="h-4 w-4 me-2 animate-spin" />
                       Reviewing...
                     </>
                   ) : (
                     <>
-                      <RefreshCw className="h-4 w-4 mr-2" />
+                      <RefreshCw className="h-4 w-4 me-2" />
                       Run Follow-up Review
                     </>
                   )}
@@ -536,7 +536,7 @@ export function MRDetail({
               )}
               {mrStatus.status === 'waiting_for_changes' && newCommitsCheck?.hasNewCommits && (
                 <Badge variant="outline" className="bg-primary/20 text-primary border-primary/50 shrink-0">
-                  <RefreshCw className="h-3 w-3 mr-1" />
+                  <RefreshCw className="h-3 w-3 me-1" />
                   {newCommitsCheck.newCommitCount} new commit{newCommitsCheck.newCommitCount !== 1 ? 's' : ''}
                 </Badge>
               )}
@@ -585,19 +585,19 @@ export function MRDetail({
                 <div className="flex flex-wrap gap-2 pb-2 border-b border-border">
                   {(reviewResult.resolvedFindings?.length ?? 0) > 0 && (
                     <Badge variant="outline" className="bg-success/20 text-success border-success/50">
-                      <CheckCircle className="h-3 w-3 mr-1" />
+                      <CheckCircle className="h-3 w-3 me-1" />
                       {reviewResult.resolvedFindings?.length} resolved
                     </Badge>
                   )}
                   {(reviewResult.unresolvedFindings?.length ?? 0) > 0 && (
                     <Badge variant="outline" className="bg-warning/20 text-warning border-warning/50">
-                      <AlertCircle className="h-3 w-3 mr-1" />
+                      <AlertCircle className="h-3 w-3 me-1" />
                       {reviewResult.unresolvedFindings?.length} still open
                     </Badge>
                   )}
                   {(reviewResult.newFindingsSinceLastReview?.length ?? 0) > 0 && (
                     <Badge variant="outline" className="bg-destructive/20 text-destructive border-destructive/50">
-                      <XCircle className="h-3 w-3 mr-1" />
+                      <XCircle className="h-3 w-3 me-1" />
                       {reviewResult.newFindingsSinceLastReview?.length} new issue{reviewResult.newFindingsSinceLastReview?.length !== 1 ? 's' : ''}
                     </Badge>
                   )}

@@ -255,12 +255,12 @@ export function CreatePRDialog({
               <Button onClick={handleCreatePR} disabled={isCreating}>
                 {isCreating ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="me-2 h-4 w-4 animate-spin" />
                     {t('taskReview:pr.actions.creating')}
                   </>
                 ) : (
                   <>
-                    <GitPullRequest className="mr-2 h-4 w-4" />
+                    <GitPullRequest className="me-2 h-4 w-4" />
                     {t('taskReview:pr.actions.create')}
                   </>
                 )}

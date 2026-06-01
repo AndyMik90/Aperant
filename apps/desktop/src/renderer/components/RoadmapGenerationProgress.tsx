@@ -450,7 +450,7 @@ export function RoadmapGenerationProgress({
                 onClick={handleStopClick}
                 disabled={isStopping}
               >
-                <Square className="h-4 w-4 mr-1" />
+                <Square className="h-4 w-4 me-1" />
                 {isStopping ? t('roadmapProgress.stopping') : t('buttons.stop')}
               </Button>
             </TooltipTrigger>
@@ -473,7 +473,7 @@ export function RoadmapGenerationProgress({
           {/* Pulsing activity indicator dot for active phase */}
           {isActivePhase && (
             <motion.div
-              className={cn('absolute top-0 right-0 h-3 w-3 rounded-full', config.color)}
+              className={cn('absolute top-0 end-0 h-3 w-3 rounded-full', config.color)}
               animate={dotAnimation}
               transition={dotTransition}
             />

@@ -211,7 +211,7 @@ export function BatchReviewWizard({
         </div>
       )}
       <Button onClick={onStartAnalysis} size="lg">
-        <Layers className="h-4 w-4 mr-2" />
+        <Layers className="h-4 w-4 me-2" />
         Start Analysis
       </Button>
     </div>
@@ -306,7 +306,7 @@ export function BatchReviewWizard({
                   >
                     <Checkbox
                       checked={selectedSingleIssueNumbers.has(issue.issueNumber)}
-                      className="inline-block mr-2"
+                      className="inline-block me-2"
                       onClick={(e) => e.stopPropagation()}
                       onCheckedChange={() => toggleSingleIssueSelection(issue.issueNumber)}
                     />
@@ -402,12 +402,12 @@ export function BatchReviewWizard({
             >
               {isApproving ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 me-2 animate-spin" />
                   Creating...
                 </>
               ) : (
                 <>
-                  <Play className="h-4 w-4 mr-2" />
+                  <Play className="h-4 w-4 me-2" />
                   Approve & Create ({selectedBatchIds.size + selectedSingleIssueNumbers.size} {selectedBatchIds.size + selectedSingleIssueNumbers.size === 1 ? 'batch' : 'batches'})
                 </>
               )}
@@ -471,7 +471,7 @@ function BatchCard({
 
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-xs">
-                <Users className="h-3 w-3 mr-1" />
+                <Users className="h-3 w-3 me-1" />
                 {batch.issueCount} issues
               </Badge>
               <Badge
@@ -479,9 +479,9 @@ function BatchCard({
                 className="text-xs"
               >
                 {batch.validated ? (
-                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                  <CheckCircle2 className="h-3 w-3 me-1" />
                 ) : (
-                  <AlertTriangle className="h-3 w-3 mr-1" />
+                  <AlertTriangle className="h-3 w-3 me-1" />
                 )}
                 <span className={confidenceColor}>
                   {Math.round(batch.confidence * 100)}%

@@ -50,7 +50,7 @@ export function ProviderSection({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-3 hover:bg-muted/30 rounded-lg transition-colors text-left"
+        className="w-full flex items-center justify-between p-3 hover:bg-muted/30 rounded-lg transition-colors text-start"
       >
         <div className="flex items-center gap-3">
           {isOpen ? (

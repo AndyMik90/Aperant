@@ -253,7 +253,7 @@ export function AppUpdateNotification() {
                 </span>
               </div>
               <Progress value={downloadProgress.percent} className="h-2" />
-              <p className="text-xs text-muted-foreground text-right">
+              <p className="text-xs text-muted-foreground text-end">
                 {(downloadProgress.transferred / 1024 / 1024).toFixed(2)} MB /{" "}
                 {(downloadProgress.total / 1024 / 1024).toFixed(2)} MB
               </p>
@@ -306,19 +306,19 @@ export function AppUpdateNotification() {
 
           {isDownloaded ? (
             <Button onClick={handleInstall} disabled={showReadOnlyWarning}>
-              <RefreshCw className="mr-2 h-4 w-4" />
+              <RefreshCw className="me-2 h-4 w-4" />
               {t("dialogs:appUpdate.installAndRestart", "Install and Restart")}
             </Button>
           ) : (
             <Button onClick={handleDownload} disabled={isDownloading}>
               {isDownloading ? (
                 <>
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  <RefreshCw className="me-2 h-4 w-4 animate-spin" />
                   {t("dialogs:appUpdate.downloading", "Downloading...")}
                 </>
               ) : (
                 <>
-                  <Download className="mr-2 h-4 w-4" />
+                  <Download className="me-2 h-4 w-4" />
                   {t("dialogs:appUpdate.downloadUpdate", "Download Update")}
                 </>
               )}

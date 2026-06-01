@@ -311,7 +311,7 @@ export function Sidebar({
         <Icon className="h-4 w-4 shrink-0" />
         {!isCollapsed && (
           <>
-            <span className="flex-1 text-left">{t(item.labelKey)}</span>
+            <span className="flex-1 text-start">{t(item.labelKey)}</span>
             {item.shortcut && (
               <kbd className="pointer-events-none hidden h-5 select-none items-center gap-1 rounded-md border border-border bg-secondary px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:flex">
                 {item.shortcut}
@@ -330,7 +330,7 @@ export function Sidebar({
           <TooltipContent side="right">
             <span>{t(item.labelKey)}</span>
             {item.shortcut && (
-              <kbd className="ml-2 rounded border border-border bg-secondary px-1 font-mono text-[10px]">
+              <kbd className="ms-2 rounded border border-border bg-secondary px-1 font-mono text-[10px]">
                 {item.shortcut}
               </kbd>
             )}
@@ -345,7 +345,7 @@ export function Sidebar({
   return (
     <TooltipProvider>
       <div className={cn(
-        "flex h-full flex-col bg-sidebar border-r border-border transition-all duration-300",
+        "flex h-full flex-col bg-sidebar border-e border-border transition-all duration-300",
         isCollapsed ? "w-16" : "w-64"
       )}>
         {/* Header with drag area - extra top padding for macOS traffic lights */}
@@ -375,9 +375,9 @@ export function Sidebar({
                 aria-label={isCollapsed ? t('actions.expandSidebar') : t('actions.collapseSidebar')}
               >
                 {isCollapsed ? (
-                  <PanelLeft className="h-4 w-4" />
+                  <PanelLeft className="h-4 w-4 rtl:-scale-x-100" />
                 ) : (
-                  <PanelLeftClose className="h-4 w-4" />
+                  <PanelLeftClose className="h-4 w-4 rtl:-scale-x-100" />
                 )}
               </Button>
             </TooltipTrigger>
@@ -479,7 +479,7 @@ export function Sidebar({
                 onClick={onNewTaskClick}
                 disabled={!selectedProjectId || !selectedProject?.autoBuildPath}
               >
-                <Plus className={isCollapsed ? "h-4 w-4" : "mr-2 h-4 w-4"} />
+                <Plus className={isCollapsed ? "h-4 w-4" : "me-2 h-4 w-4"} />
                 {!isCollapsed && t('actions.newTask')}
               </Button>
             </TooltipTrigger>
@@ -545,12 +545,12 @@ export function Sidebar({
             >
               {isInitializing ? (
                 <>
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  <RefreshCw className="me-2 h-4 w-4 animate-spin" />
                   {t('common:labels.initializing')}
                 </>
               ) : (
                 <>
-                  <Download className="mr-2 h-4 w-4" />
+                  <Download className="me-2 h-4 w-4" />
                   {t('common:buttons.initialize')}
                 </>
               )}

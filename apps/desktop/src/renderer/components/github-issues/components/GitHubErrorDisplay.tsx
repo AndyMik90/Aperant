@@ -295,7 +295,7 @@ export function GitHubErrorDisplay({
             onClick={onRetry}
             className="h-7 px-2"
           >
-            <RefreshCw className="h-3 w-3 mr-1" />
+            <RefreshCw className="h-3 w-3 me-1" />
             {t('buttons.retry')}
           </Button>
         )}
@@ -306,7 +306,7 @@ export function GitHubErrorDisplay({
             onClick={onOpenSettings}
             className="h-7 px-2"
           >
-            <Settings2 className="h-3 w-3 mr-1" />
+            <Settings2 className="h-3 w-3 me-1" />
             {t('actions.settings')}
           </Button>
         )}
@@ -353,13 +353,13 @@ export function GitHubErrorDisplay({
           <div className="flex gap-2">
             {showRetry && onRetry && (
               <Button onClick={onRetry} variant="outline" size="sm">
-                <RefreshCw className="h-4 w-4 mr-2" />
+                <RefreshCw className="h-4 w-4 me-2" />
                 {t('buttons.retry')}
               </Button>
             )}
             {showSettings && onOpenSettings && (
               <Button onClick={onOpenSettings} variant="outline" size="sm">
-                <Settings2 className="h-4 w-4 mr-2" />
+                <Settings2 className="h-4 w-4 me-2" />
                 {t('actions.settings')}
               </Button>
             )}

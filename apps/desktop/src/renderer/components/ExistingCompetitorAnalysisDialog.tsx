@@ -86,7 +86,7 @@ export function ExistingCompetitorAnalysisDialog({
             <button
               type="button"
               onClick={handleUseExisting}
-              className="w-full rounded-lg bg-primary/10 border border-primary/30 p-4 text-left hover:bg-primary/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="w-full rounded-lg bg-primary/10 border border-primary/30 p-4 text-start hover:bg-primary/20 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               <div className="flex items-start gap-3">
                 <CheckCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
@@ -106,7 +106,7 @@ export function ExistingCompetitorAnalysisDialog({
             <button
               type="button"
               onClick={handleRunNew}
-              className="w-full rounded-lg bg-muted/50 border border-border p-4 text-left hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="w-full rounded-lg bg-muted/50 border border-border p-4 text-start hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               <div className="flex items-start gap-3">
                 <RefreshCw className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
@@ -125,7 +125,7 @@ export function ExistingCompetitorAnalysisDialog({
             <button
               type="button"
               onClick={() => setShowAddDialog(true)}
-              className="w-full rounded-lg bg-muted/50 border border-border p-4 text-left hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="w-full rounded-lg bg-muted/50 border border-border p-4 text-start hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               <div className="flex items-start gap-3">
                 <UserPlus className="h-5 w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
@@ -144,7 +144,7 @@ export function ExistingCompetitorAnalysisDialog({
             <button
               type="button"
               onClick={handleSkip}
-              className="w-full rounded-lg bg-muted/30 border border-border/50 p-4 text-left hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="w-full rounded-lg bg-muted/30 border border-border/50 p-4 text-start hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             >
               <div className="flex items-start gap-3">
                 <Globe className="h-5 w-5 text-muted-foreground/60 flex-shrink-0 mt-0.5" />

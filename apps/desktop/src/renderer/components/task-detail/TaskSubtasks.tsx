@@ -98,7 +98,7 @@ export function TaskSubtasks({ task }: TaskSubtasksProps) {
                 <button
                   type="button"
                   onClick={() => toggleExpand(subtask.id)}
-                  className="flex items-center gap-2 w-full p-3 text-left cursor-pointer"
+                  className="flex items-center gap-2 w-full p-3 text-start cursor-pointer"
                 >
                   <div className="shrink-0">
                     {getSubtaskStatusIcon(subtask.status)}
@@ -125,7 +125,7 @@ export function TaskSubtasks({ task }: TaskSubtasksProps) {
 
                 {/* Expanded details */}
                 {isExpanded && hasDetails && (
-                  <div className="px-3 pb-3 pt-0 ml-6 border-t border-border/30 mt-0">
+                  <div className="px-3 pb-3 pt-0 ms-6 border-t border-border/30 mt-0">
                     {subtask.description && subtask.description !== subtask.title && (
                       <p className="mt-2 text-xs text-muted-foreground break-words whitespace-pre-wrap">
                         {subtask.description}
@@ -140,7 +140,7 @@ export function TaskSubtasks({ task }: TaskSubtasksProps) {
                                 variant="secondary"
                                 className="text-xs font-mono cursor-help"
                               >
-                                <FileCode className="mr-1 h-3 w-3" />
+                                <FileCode className="me-1 h-3 w-3" />
                                 {file.split('/').pop()}
                               </Badge>
                             </TooltipTrigger>
@@ -155,7 +155,7 @@ export function TaskSubtasks({ task }: TaskSubtasksProps) {
                       <div className="mt-2 text-xs text-muted-foreground/80">
                         <span className="font-medium">Verification:</span> {subtask.verification.type}
                         {subtask.verification.run && (
-                          <code className="ml-1 text-[11px] bg-muted px-1 py-0.5 rounded">{subtask.verification.run}</code>
+                          <code className="ms-1 text-[11px] bg-muted px-1 py-0.5 rounded">{subtask.verification.run}</code>
                         )}
                       </div>
                     )}

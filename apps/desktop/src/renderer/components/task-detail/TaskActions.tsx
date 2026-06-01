@@ -59,12 +59,12 @@ export function TaskActions({
           >
             {isRecovering ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="me-2 h-4 w-4 animate-spin" />
                 Recovering...
               </>
             ) : (
               <>
-                <RotateCcw className="mr-2 h-4 w-4" />
+                <RotateCcw className="me-2 h-4 w-4" />
                 Recover Task
               </>
             )}
@@ -75,7 +75,7 @@ export function TaskActions({
             variant="default"
             onClick={onStartStop}
           >
-            <Play className="mr-2 h-4 w-4" />
+            <Play className="me-2 h-4 w-4" />
             Resume Task
           </Button>
         ) : (task.status === 'backlog' || task.status === 'in_progress') && (
@@ -86,12 +86,12 @@ export function TaskActions({
           >
             {isRunning ? (
               <>
-                <Square className="mr-2 h-4 w-4" />
+                <Square className="me-2 h-4 w-4" />
                 Stop Task
               </>
             ) : (
               <>
-                <Play className="mr-2 h-4 w-4" />
+                <Play className="me-2 h-4 w-4" />
                 Start Task
               </>
             )}
@@ -112,7 +112,7 @@ export function TaskActions({
           onClick={() => onShowDeleteDialog(true)}
           disabled={isRunning && !isStuck}
         >
-          <Trash2 className="mr-2 h-4 w-4" />
+          <Trash2 className="me-2 h-4 w-4" />
           Delete Task
         </Button>
       </div>
@@ -170,12 +170,12 @@ export function TaskActions({
             >
               {isDeleting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="me-2 h-4 w-4 animate-spin" />
                   {t('tasks:deleteDialog.deleting')}
                 </>
               ) : (
                 <>
-                  <Trash2 className="mr-2 h-4 w-4" />
+                  <Trash2 className="me-2 h-4 w-4" />
                   {t('tasks:deleteDialog.deletePermanently')}
                 </>
               )}

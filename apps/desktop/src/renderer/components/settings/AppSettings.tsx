@@ -247,7 +247,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
         <FullScreenDialogBody>
           <div className="flex h-full">
             {/* Navigation sidebar */}
-            <nav className="w-80 border-r border-border bg-muted/30 p-4">
+            <nav className="w-80 border-e border-border bg-muted/30 p-4">
               <ScrollArea className="h-full">
                 <div className="space-y-6">
                   {/* APPLICATION Section */}
@@ -267,7 +267,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
                               setAppSection(item.id);
                             }}
                             className={cn(
-                              'w-full flex items-start gap-3 p-3 rounded-lg text-left transition-all',
+                              'w-full flex items-start gap-3 p-3 rounded-lg text-start transition-all',
                               isActive
                                 ? 'bg-accent text-accent-foreground'
                                 : 'hover:bg-accent/50 text-muted-foreground hover:text-foreground'
@@ -290,7 +290,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
                             onRerunWizard();
                           }}
                           className={cn(
-                            'w-full flex items-start gap-3 p-3 rounded-lg text-left transition-all mt-2',
+                            'w-full flex items-start gap-3 p-3 rounded-lg text-start transition-all mt-2',
                             'border border-dashed border-muted-foreground/30',
                             'hover:bg-accent/50 text-muted-foreground hover:text-foreground'
                           )}
@@ -333,7 +333,7 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
                             }}
                             disabled={projectNavDisabled}
                             className={cn(
-                              'w-full flex items-start gap-3 p-3 rounded-lg text-left transition-all',
+                              'w-full flex items-start gap-3 p-3 rounded-lg text-start transition-all',
                               isActive
                                 ? 'bg-accent text-accent-foreground'
                                 : projectNavDisabled
@@ -390,12 +390,12 @@ export function AppSettingsDialog({ open, onOpenChange, initialSection, initialP
           >
             {(isSaving || (activeTopLevel === 'project' && projectSettingsHook?.isSaving)) ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="me-2 h-4 w-4 animate-spin" />
                 {t('common:buttons.saving', 'Saving...')}
               </>
             ) : (
               <>
-                <Save className="mr-2 h-4 w-4" />
+                <Save className="me-2 h-4 w-4" />
                 {t('actions.save')}
               </>
             )}

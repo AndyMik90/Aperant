@@ -59,9 +59,9 @@ function getItemBranch(item: NavigableItem): string {
 }
 
 const ITEM_ICONS = {
-  terminal: <FolderGit className="h-3 w-3 mr-2 text-amber-500/70 shrink-0" />,
-  task: <ListTodo className="h-3 w-3 mr-2 text-cyan-500/70 shrink-0" />,
-  other: <GitFork className="h-3 w-3 mr-2 text-purple-500/70 shrink-0" />,
+  terminal: <FolderGit className="h-3 w-3 me-2 text-amber-500/70 shrink-0" />,
+  task: <ListTodo className="h-3 w-3 me-2 text-cyan-500/70 shrink-0" />,
+  other: <GitFork className="h-3 w-3 me-2 text-purple-500/70 shrink-0" />,
 };
 
 function getItemKey(item: NavigableItem): string {
@@ -381,7 +381,7 @@ export function WorktreeSelector({
               e.preventDefault();
               setDeleteWorktree(item.data);
             }}
-            className="ml-2 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+            className="ms-2 p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
             aria-label={t('common:delete')}
             title={t('common:delete')}
           >
@@ -423,14 +423,14 @@ export function WorktreeSelector({
         {/* Pinned: Create new worktree */}
         <button
           type="button"
-          className="flex items-center text-xs px-2 py-1.5 m-1 rounded-sm cursor-pointer text-amber-500 hover:bg-accent/50 w-[calc(100%-0.5rem)] text-left"
+          className="flex items-center text-xs px-2 py-1.5 m-1 rounded-sm cursor-pointer text-amber-500 hover:bg-accent/50 w-[calc(100%-0.5rem)] text-start"
           onClick={(e) => {
             e.stopPropagation();
             setIsOpen(false);
             onCreateWorktree();
           }}
         >
-          <Plus className="h-3 w-3 mr-2" />
+          <Plus className="h-3 w-3 me-2" />
           {t('terminal:worktree.createNew')}
         </button>
 
@@ -438,7 +438,7 @@ export function WorktreeSelector({
 
         {/* Search input */}
         <div className="flex items-center px-2 py-1.5">
-          <Search className="h-3 w-3 mr-2 text-muted-foreground shrink-0" />
+          <Search className="h-3 w-3 me-2 text-muted-foreground shrink-0" />
           <input
             ref={searchInputRef}
             type="search"
@@ -536,12 +536,12 @@ export function WorktreeSelector({
           >
             {isDeleting ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="h-4 w-4 me-2 animate-spin" />
                 {t('common:deleting', 'Deleting...')}
               </>
             ) : (
               <>
-                <Trash2 className="h-4 w-4 mr-2" />
+                <Trash2 className="h-4 w-4 me-2" />
                 {t('common:delete')}
               </>
             )}

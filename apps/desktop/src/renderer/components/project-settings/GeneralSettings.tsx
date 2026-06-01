@@ -67,12 +67,12 @@ export function GeneralSettings({
                 >
                   {isUpdating ? (
                     <>
-                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      <RefreshCw className="me-2 h-4 w-4 animate-spin" />
                       Initializing...
                     </>
                   ) : (
                     <>
-                      <Download className="mr-2 h-4 w-4" />
+                      <Download className="me-2 h-4 w-4" />
                       Initialize Auto-Build
                     </>
                   )}

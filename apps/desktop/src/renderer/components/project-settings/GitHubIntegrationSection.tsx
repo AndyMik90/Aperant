@@ -205,7 +205,7 @@ export function GitHubIntegrationSection({
                 <RefreshCw className="h-4 w-4 text-info" />
                 <Label className="font-normal text-foreground">Auto-Sync on Load</Label>
               </div>
-              <p className="text-xs text-muted-foreground pl-6">
+              <p className="text-xs text-muted-foreground ps-6">
                 Automatically fetch issues when the project loads
               </p>
             </div>

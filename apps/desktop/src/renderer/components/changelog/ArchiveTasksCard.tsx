@@ -75,12 +75,12 @@ export function ArchiveTasksCard({
             >
               {isArchiving ? (
                 <>
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  <RefreshCw className="me-2 h-4 w-4 animate-spin" />
                   Archiving...
                 </>
               ) : (
                 <>
-                  <Archive className="mr-2 h-4 w-4" />
+                  <Archive className="me-2 h-4 w-4" />
                   Archive {selectedTasks.length} Task{selectedTasks.length !== 1 ? 's' : ''}
                 </>
               )}

@@ -39,7 +39,7 @@ export function ExternalServicesSection({ services }: ExternalServicesSectionPro
             <div className="flex flex-wrap gap-1 mt-1">
               {services.databases.map((db, idx) => (
                 <Badge key={idx} variant="secondary" className="text-xs">
-                  <HardDrive className="h-3 w-3 mr-1" />
+                  <HardDrive className="h-3 w-3 me-1" />
                   {db.type || db.client}
                 </Badge>
               ))}
@@ -52,7 +52,7 @@ export function ExternalServicesSection({ services }: ExternalServicesSectionPro
             <div className="flex flex-wrap gap-1 mt-1">
               {services.email.map((email, idx) => (
                 <Badge key={idx} variant="secondary" className="text-xs">
-                  <Mail className="h-3 w-3 mr-1" />
+                  <Mail className="h-3 w-3 me-1" />
                   {email.provider || email.client}
                 </Badge>
               ))}
@@ -65,7 +65,7 @@ export function ExternalServicesSection({ services }: ExternalServicesSectionPro
             <div className="flex flex-wrap gap-1 mt-1">
               {services.payments.map((payment, idx) => (
                 <Badge key={idx} variant="secondary" className="text-xs">
-                  <CreditCard className="h-3 w-3 mr-1" />
+                  <CreditCard className="h-3 w-3 me-1" />
                   {payment.provider || payment.client}
                 </Badge>
               ))}
@@ -78,7 +78,7 @@ export function ExternalServicesSection({ services }: ExternalServicesSectionPro
             <div className="flex flex-wrap gap-1 mt-1">
               {services.cache.map((cache, idx) => (
                 <Badge key={idx} variant="secondary" className="text-xs">
-                  <Zap className="h-3 w-3 mr-1" />
+                  <Zap className="h-3 w-3 me-1" />
                   {cache.type || cache.client}
                 </Badge>
               ))}

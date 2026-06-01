@@ -172,7 +172,7 @@ export function ReviewFindings({
           className="text-xs"
           disabled={counts.important === 0}
         >
-          <AlertTriangle className="h-3 w-3 mr-1" />
+          <AlertTriangle className="h-3 w-3 me-1" />
           {t('prReview.selectCriticalHigh', { count: counts.important })}
         </Button>
         <Button
@@ -181,7 +181,7 @@ export function ReviewFindings({
           onClick={selectAll}
           className="text-xs"
         >
-          <CheckSquare className="h-3 w-3 mr-1" />
+          <CheckSquare className="h-3 w-3 me-1" />
           {t('prReview.selectAll')}
         </Button>
         <Button
@@ -191,7 +191,7 @@ export function ReviewFindings({
           className="text-xs"
           disabled={selectedIds.size === 0}
         >
-          <Square className="h-3 w-3 mr-1" />
+          <Square className="h-3 w-3 me-1" />
           {t('prReview.clear')}
         </Button>
       </div>
@@ -254,7 +254,7 @@ export function ReviewFindings({
             type="button"
             onClick={() => setDisputedExpanded(!disputedExpanded)}
             aria-expanded={disputedExpanded}
-            className="w-full flex items-center gap-2 p-3 text-left hover:bg-purple-500/10 transition-colors rounded-t-lg"
+            className="w-full flex items-center gap-2 p-3 text-start hover:bg-purple-500/10 transition-colors rounded-t-lg"
           >
             {disputedExpanded ? (
               <ChevronDown className="h-4 w-4 text-purple-500 shrink-0" />

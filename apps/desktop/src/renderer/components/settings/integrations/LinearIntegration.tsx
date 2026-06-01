@@ -67,12 +67,12 @@ export function LinearIntegration({
                 placeholder="lin_api_xxxxxxxx"
                 value={envConfig.linearApiKey || ''}
                 onChange={(e) => updateEnvConfig({ linearApiKey: e.target.value })}
-                className="pr-10"
+                className="pe-10"
               />
               <button
                 type="button"
                 onClick={() => setShowLinearKey(!showLinearKey)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 {showLinearKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -168,7 +168,7 @@ function ImportTasksPrompt({ onOpenLinearImport }: ImportTasksPromptProps) {
             className="mt-2"
             onClick={onOpenLinearImport}
           >
-            <Import className="h-4 w-4 mr-2" />
+            <Import className="h-4 w-4 me-2" />
             Import Tasks from Linear
           </Button>
         </div>
@@ -190,7 +190,7 @@ function RealtimeSyncToggle({ enabled, onToggle }: RealtimeSyncToggleProps) {
           <Radio className="h-4 w-4 text-info" />
           <Label className="font-normal text-foreground">Real-time Sync</Label>
         </div>
-        <p className="text-xs text-muted-foreground pl-6">
+        <p className="text-xs text-muted-foreground ps-6">
           Automatically import new tasks created in Linear
         </p>
       </div>
@@ -201,7 +201,7 @@ function RealtimeSyncToggle({ enabled, onToggle }: RealtimeSyncToggleProps) {
 
 function RealtimeSyncWarning() {
   return (
-    <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 ml-6">
+    <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 ms-6">
       <p className="text-xs text-warning">
         When enabled, new Linear issues will be automatically imported into AutoBuild.
         Make sure to configure your team/project filters below to control which issues are imported.

@@ -145,12 +145,12 @@ export function StagedSuccessMessage({
             >
               {copied ? (
                 <>
-                  <Check className="h-3 w-3 mr-1 text-success" />
+                  <Check className="h-3 w-3 me-1 text-success" />
                   {t('taskReview:stagedSuccess.copied')}
                 </>
               ) : (
                 <>
-                  <Copy className="h-3 w-3 mr-1" />
+                  <Copy className="h-3 w-3 me-1" />
                   {t('taskReview:stagedSuccess.copy')}
                 </>
               )}
@@ -190,12 +190,12 @@ export function StagedSuccessMessage({
             >
               {isDeleting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 me-2 animate-spin" />
                   {t('taskReview:stagedSuccess.cleaningUp')}
                 </>
               ) : (
                 <>
-                  <Check className="h-4 w-4 mr-2" />
+                  <Check className="h-4 w-4 me-2" />
                   {t('taskReview:stagedSuccess.deleteWorktreeAndMarkDone')}
                 </>
               )}
@@ -210,12 +210,12 @@ export function StagedSuccessMessage({
             >
               {isMarkingDone ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 me-2 animate-spin" />
                   {t('taskReview:stagedSuccess.markingDone')}
                 </>
               ) : (
                 <>
-                  <Check className="h-4 w-4 mr-2" />
+                  <Check className="h-4 w-4 me-2" />
                   {t('taskReview:stagedSuccess.markAsDone')}
                 </>
               )}
@@ -235,12 +235,12 @@ export function StagedSuccessMessage({
             >
               {isMarkingDone ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 me-2 animate-spin" />
                   {t('taskReview:stagedSuccess.markingDone')}
                 </>
               ) : (
                 <>
-                  <Check className="h-4 w-4 mr-2" />
+                  <Check className="h-4 w-4 me-2" />
                   {t('taskReview:stagedSuccess.markDoneOnly')}
                 </>
               )}
@@ -257,12 +257,12 @@ export function StagedSuccessMessage({
             >
               {isResetting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 me-2 animate-spin" />
                   {t('taskReview:stagedSuccess.resetting')}
                 </>
               ) : (
                 <>
-                  <RotateCcw className="h-4 w-4 mr-2" />
+                  <RotateCcw className="h-4 w-4 me-2" />
                   {t('taskReview:stagedSuccess.reviewAgain')}
                 </>
               )}

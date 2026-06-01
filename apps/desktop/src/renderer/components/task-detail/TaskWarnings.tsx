@@ -44,12 +44,12 @@ export function TaskWarnings({
               >
                 {isRecovering ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="me-2 h-4 w-4 animate-spin" />
                     Recovering...
                   </>
                 ) : (
                   <>
-                    <RotateCcw className="mr-2 h-4 w-4" />
+                    <RotateCcw className="me-2 h-4 w-4" />
                     Recover & Restart Task
                   </>
                 )}
@@ -78,7 +78,7 @@ export function TaskWarnings({
                 onClick={onResume}
                 className="w-full"
               >
-                <Play className="mr-2 h-4 w-4" />
+                <Play className="me-2 h-4 w-4" />
                 Resume Task
               </Button>
             </div>

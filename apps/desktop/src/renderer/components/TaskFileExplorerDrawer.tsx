@@ -54,7 +54,7 @@ export function TaskFileExplorerDrawer({ isOpen, onClose, projectPath }: TaskFil
             width: { duration: 0.3, ease: [0.4, 0, 0.2, 1] },
             opacity: { duration: 0.2 }
           }}
-          className="h-full bg-card border-l border-border flex flex-col shadow-xl overflow-hidden"
+          className="h-full bg-card border-s border-border flex flex-col shadow-xl overflow-hidden"
           style={{ minWidth: 0 }}
         >
           <motion.div

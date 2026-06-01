@@ -35,7 +35,7 @@ const AlertDialogContent = React.forwardRef<
     <AlertDialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed left-[50%] top-[50%] z-50 w-full max-w-lg max-h-[90vh]',
+        'fixed start-[50%] top-[50%] z-50 w-full max-w-lg max-h-[90vh]',
         'translate-x-[-50%] translate-y-[-50%]',
         'bg-card border border-border rounded-2xl p-6',
         'shadow-xl',
@@ -59,7 +59,7 @@ const AlertDialogHeader = ({
 }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      'flex flex-col space-y-2 text-center sm:text-left',
+      'flex flex-col space-y-2 text-center sm:text-start',
       className
     )}
     {...props}

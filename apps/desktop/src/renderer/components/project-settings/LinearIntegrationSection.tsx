@@ -108,7 +108,7 @@ export function LinearIntegrationSection({
                     className="mt-2"
                     onClick={onOpenImportModal}
                   >
-                    <Import className="h-4 w-4 mr-2" />
+                    <Import className="h-4 w-4 me-2" />
                     Import Tasks from Linear
                   </Button>
                 </div>
@@ -125,7 +125,7 @@ export function LinearIntegrationSection({
                 <Radio className="h-4 w-4 text-info" />
                 <Label className="font-normal text-foreground">Real-time Sync</Label>
               </div>
-              <p className="text-xs text-muted-foreground pl-6">
+              <p className="text-xs text-muted-foreground ps-6">
                 Automatically import new tasks created in Linear
               </p>
             </div>
@@ -136,7 +136,7 @@ export function LinearIntegrationSection({
           </div>
 
           {envConfig.linearRealtimeSync && (
-            <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 ml-6">
+            <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 ms-6">
               <p className="text-xs text-warning">
                 When enabled, new Linear issues will be automatically imported into AutoBuild.
                 Make sure to configure your team/project filters below to control which issues are imported.

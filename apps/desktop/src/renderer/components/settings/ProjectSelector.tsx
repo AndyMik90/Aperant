@@ -68,14 +68,14 @@ export function ProjectSelector({
           ) : (
             projects.map((project) => (
               <div key={project.id} className="relative flex items-center">
-                <SelectItem value={project.id} className="flex-1 pr-10">
+                <SelectItem value={project.id} className="flex-1 pe-10">
                   <span className="truncate" title={`${project.name} - ${project.path}`}>
                     {project.name}
                   </span>
                 </SelectItem>
                 <button
                   type="button"
-                  className="absolute right-2 flex h-6 w-6 items-center justify-center rounded-md hover:bg-destructive/10 transition-colors"
+                  className="absolute end-2 flex h-6 w-6 items-center justify-center rounded-md hover:bg-destructive/10 transition-colors"
                   onPointerDown={(e) => {
                     e.stopPropagation();
                   }}

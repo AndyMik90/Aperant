@@ -207,7 +207,7 @@ export function ChatHistorySidebar({
   const sessionsToDelete = sessions.filter((s) => selectedIds.has(s.id));
 
   return (
-    <div className="flex h-full w-64 flex-col border-r border-border bg-muted/30">
+    <div className="flex h-full w-64 flex-col border-e border-border bg-muted/30">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-3 py-3">
         <h3 className="text-sm font-medium text-foreground">{t('insights.chatHistory')}</h3>
@@ -342,7 +342,7 @@ export function ChatHistorySidebar({
             className="flex-1 text-xs"
             onClick={() => setBulkDeleteOpen(true)}
           >
-            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+            <Trash2 className="me-1.5 h-3.5 w-3.5" />
             {t('selection.deleteSelected')} ({selectedIds.size})
           </Button>
           {onArchiveSessions && (
@@ -352,7 +352,7 @@ export function ChatHistorySidebar({
               className="flex-1 text-xs"
               onClick={handleBulkArchive}
             >
-              <Archive className="mr-1.5 h-3.5 w-3.5" />
+              <Archive className="me-1.5 h-3.5 w-3.5" />
               {t('insights.archiveSelected')} ({selectedIds.size})
             </Button>
           )}
@@ -526,7 +526,7 @@ function SessionItem({
       }}
     >
       {/* Content with reserved space for the menu button */}
-      <div className="flex items-center gap-1.5 pr-7">
+      <div className="flex items-center gap-1.5 pe-7">
         {isSelectionMode ? (
           <div className="shrink-0">
             <Checkbox
@@ -574,7 +574,7 @@ function SessionItem({
             <Button
               variant="ghost"
               size="icon"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 hover:bg-muted-foreground/20 transition-opacity"
+              className="absolute end-1 top-1/2 -translate-y-1/2 h-6 w-6 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100 hover:bg-muted-foreground/20 transition-opacity"
               aria-label={t('accessibility.moreOptionsAriaLabel')}
             >
               <MoreVertical className="h-3.5 w-3.5" />
@@ -582,20 +582,20 @@ function SessionItem({
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" sideOffset={5} className="w-36 z-[100]">
             <DropdownMenuItem onSelect={onStartEdit}>
-              <Pencil className="mr-2 h-3.5 w-3.5" />
+              <Pencil className="me-2 h-3.5 w-3.5" />
               {t('accessibility.renameAriaLabel')}
             </DropdownMenuItem>
             {isArchived ? (
               onUnarchive && (
                 <DropdownMenuItem onSelect={onUnarchive}>
-                  <ArchiveRestore className="mr-2 h-3.5 w-3.5" />
+                  <ArchiveRestore className="me-2 h-3.5 w-3.5" />
                   {t('insights.unarchive')}
                 </DropdownMenuItem>
               )
             ) : (
               onArchive && (
                 <DropdownMenuItem onSelect={onArchive}>
-                  <Archive className="mr-2 h-3.5 w-3.5" />
+                  <Archive className="me-2 h-3.5 w-3.5" />
                   {t('insights.archive')}
                 </DropdownMenuItem>
               )
@@ -604,7 +604,7 @@ function SessionItem({
               onSelect={onDelete}
               className="text-destructive focus:text-destructive"
             >
-              <Trash2 className="mr-2 h-3.5 w-3.5" />
+              <Trash2 className="me-2 h-3.5 w-3.5" />
               {t('accessibility.deleteAriaLabel')}
             </DropdownMenuItem>
           </DropdownMenuContent>

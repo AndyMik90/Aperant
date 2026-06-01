@@ -60,7 +60,7 @@ export function SortableProjectTab({
         isActive
           ? 'max-w-[180px] sm:max-w-[220px] md:max-w-[280px]'
           : 'max-w-[120px] sm:max-w-[160px] md:max-w-[200px]',
-        'border-r border-border last:border-r-0',
+        'border-e border-border last:border-e-0',
         'touch-none transition-all duration-200',
         isDragging && 'opacity-60 scale-[0.98] shadow-lg'
       )}
@@ -114,7 +114,7 @@ export function SortableProjectTab({
 
       {/* Active tab controls - settings and archive, always accessible */}
       {isActive && (
-        <div className="flex items-center gap-0.5 mr-0.5 sm:mr-1 flex-shrink-0">
+        <div className="flex items-center gap-0.5 me-0.5 sm:me-1 flex-shrink-0">
           {/* Settings icon - responsive sizing */}
           {onSettingsClick && (
             <Tooltip delayDuration={200}>
@@ -151,7 +151,7 @@ export function SortableProjectTab({
             <button
               type="button"
               className={cn(
-                'h-5 w-5 sm:h-6 sm:w-6 p-0 mr-0.5 sm:mr-1',
+                'h-5 w-5 sm:h-6 sm:w-6 p-0 me-0.5 sm:me-1',
                 'opacity-0 group-hover:opacity-100 focus-visible:opacity-100',
                 'transition-opacity duration-200 rounded flex-shrink-0',
                 'hover:bg-destructive hover:text-destructive-foreground',

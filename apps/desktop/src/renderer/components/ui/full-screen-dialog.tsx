@@ -51,7 +51,7 @@ const FullScreenDialogContent = React.forwardRef<
       {children}
       <DialogPrimitive.Close
         className={cn(
-          'absolute right-4 top-4 rounded-lg p-2',
+          'absolute end-4 top-4 rounded-lg p-2',
           'text-muted-foreground hover:text-foreground',
           'hover:bg-accent transition-colors',
           'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background',

@@ -315,7 +315,7 @@ export function OllamaModelSelector({
     return (
       <div className={cn('flex items-center justify-center py-8', className)}>
         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-        <span className="ml-2 text-sm text-muted-foreground">Checking Ollama models...</span>
+        <span className="ms-2 text-sm text-muted-foreground">Checking Ollama models...</span>
       </div>
     );
   }
@@ -358,12 +358,12 @@ export function OllamaModelSelector({
               >
                 {isInstalling ? (
                   <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin me-1.5" />
                     {t('ollama.notInstalled.installing')}
                   </>
                 ) : (
                   <>
-                    <Download className="h-3.5 w-3.5 mr-1.5" />
+                    <Download className="h-3.5 w-3.5 me-1.5" />
                     {t('ollama.notInstalled.installButton')}
                   </>
                 )}
@@ -378,7 +378,7 @@ export function OllamaModelSelector({
                 size="sm"
                 onClick={() => checkInstalledModels()}
               >
-                <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                <RefreshCw className="h-3.5 w-3.5 me-1.5" />
                 {t('ollama.notInstalled.retry')}
               </Button>
               <Button
@@ -387,7 +387,7 @@ export function OllamaModelSelector({
                 onClick={() => window.electronAPI?.openExternal?.('https://ollama.com')}
                 className="text-muted-foreground"
               >
-                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                <ExternalLink className="h-3.5 w-3.5 me-1.5" />
                 {t('ollama.notInstalled.learnMore')}
               </Button>
             </div>
@@ -420,7 +420,7 @@ export function OllamaModelSelector({
               onClick={() => checkInstalledModels()}
               className="mt-3"
             >
-              <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+              <RefreshCw className="h-3.5 w-3.5 me-1.5" />
               {t('ollama.notRunning.retry')}
             </Button>
             <p className="text-xs text-muted-foreground mt-2">
@@ -521,15 +521,15 @@ export function OllamaModelSelector({
                    >
                      {isCurrentlyDownloading ? (
                        <>
-                         <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                         <Loader2 className="h-3.5 w-3.5 animate-spin me-1.5" />
                          Downloading...
                        </>
                      ) : (
                        <>
-                         <Download className="h-3.5 w-3.5 mr-1.5" />
+                         <Download className="h-3.5 w-3.5 me-1.5" />
                          Download
                          {model.size_estimate && (
-                           <span className="ml-1 text-muted-foreground">
+                           <span className="ms-1 text-muted-foreground">
                              ({model.size_estimate})
                            </span>
                          )}

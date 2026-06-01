@@ -65,7 +65,7 @@ export function GitLabMergeRequests({ projectId, onOpenSettings }: GitLabMergeRe
   return (
     <div className="flex h-full">
       {/* List Panel */}
-      <div className="w-1/2 border-r border-border flex flex-col">
+      <div className="w-1/2 border-e border-border flex flex-col">
         <MergeRequestList
           mergeRequests={mergeRequests}
           isLoading={isLoading}

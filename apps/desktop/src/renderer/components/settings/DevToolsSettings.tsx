@@ -279,9 +279,9 @@ export function DevToolsSettings({ settings, onSettingsChange }: DevToolsSetting
             disabled={isDetecting}
           >
             {isDetecting ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <Loader2 className="h-4 w-4 me-2 animate-spin" />
             ) : (
-              <RefreshCw className="h-4 w-4 mr-2" />
+              <RefreshCw className="h-4 w-4 me-2" />
             )}
             {t('devtools.detectAgain', 'Detect Again')}
           </Button>

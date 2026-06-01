@@ -80,12 +80,12 @@ export function ConfigurationPanel({
   const versionBumpDescription = getVersionBumpDescription(versionReason);
 
   return (
-    <div className="w-80 shrink-0 border-r border-border overflow-y-auto">
+    <div className="w-80 shrink-0 border-e border-border overflow-y-auto">
       <div className="p-6 space-y-6">
         {/* Back button and summary */}
         <div className="space-y-4">
-          <Button variant="ghost" size="sm" onClick={onBack} className="-ml-2">
-            <ArrowLeft className="mr-2 h-4 w-4" />
+          <Button variant="ghost" size="sm" onClick={onBack} className="-ms-2">
+            <ArrowLeft className="me-2 h-4 w-4 rtl:-scale-x-100" />
             Back to Selection
           </Button>
           <div className="rounded-lg bg-muted/50 p-3">
@@ -262,12 +262,12 @@ export function ConfigurationPanel({
         >
           {isGenerating ? (
             <>
-              <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+              <RefreshCw className="me-2 h-4 w-4 animate-spin" />
               Generating...
             </>
           ) : (
             <>
-              <Sparkles className="mr-2 h-4 w-4" />
+              <Sparkles className="me-2 h-4 w-4" />
               Generate Changelog
             </>
           )}

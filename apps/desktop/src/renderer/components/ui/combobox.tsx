@@ -265,13 +265,13 @@ const Combobox = React.forwardRef<HTMLButtonElement, ComboboxProps>(
                         onMouseEnter={() => setFocusedIndex(index)}
                         className={cn(
                           'relative flex w-full cursor-default select-none items-center',
-                          'rounded-md py-2 pl-8 pr-2 text-sm outline-none',
+                          'rounded-md py-2 ps-8 pe-2 text-sm outline-none',
                           'hover:bg-accent hover:text-accent-foreground',
                           'transition-colors duration-150',
                           focusedIndex === index && 'bg-accent text-accent-foreground'
                         )}
                       >
-                        <span className="absolute left-2 flex h-3.5 w-3.5 items-center justify-center">
+                        <span className="absolute start-2 flex h-3.5 w-3.5 items-center justify-center">
                           {value === option.value && <Check className="h-4 w-4 text-primary" />}
                         </span>
                         <span className="flex flex-1 items-center gap-2 truncate">

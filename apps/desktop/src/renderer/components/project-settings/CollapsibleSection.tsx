@@ -42,7 +42,7 @@ export function CollapsibleSection({
       </button>
 
       {isExpanded && (
-        <div id={contentId} className="space-y-4 pl-6 pt-2">
+        <div id={contentId} className="space-y-4 ps-6 pt-2">
           {children}
         </div>
       )}

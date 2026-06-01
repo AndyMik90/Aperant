@@ -110,7 +110,7 @@ function ListItem({
 
   return (
     <li
-      className={`text-sm ${colorClass} py-1 pl-4 relative before:content-['•'] before:absolute before:left-0 before:text-muted-foreground/50`}
+      className={`text-sm ${colorClass} py-1 ps-4 relative before:content-['•'] before:absolute before:start-0 before:text-muted-foreground/50`}
     >
       {children}
     </li>
@@ -156,7 +156,7 @@ function DeadEndContent({ parsed, sections }: { parsed: ParsedMemoryContent; sec
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
             {sections.approachTried}
           </p>
-          <p className="text-sm text-foreground pl-2">{approachTried}</p>
+          <p className="text-sm text-foreground ps-2">{approachTried}</p>
         </div>
       )}
       {whyItFailed && (
@@ -164,7 +164,7 @@ function DeadEndContent({ parsed, sections }: { parsed: ParsedMemoryContent; sec
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
             {sections.whyItFailed}
           </p>
-          <p className="text-sm text-destructive pl-2">{whyItFailed}</p>
+          <p className="text-sm text-destructive ps-2">{whyItFailed}</p>
         </div>
       )}
       {alternativeUsed && (
@@ -172,7 +172,7 @@ function DeadEndContent({ parsed, sections }: { parsed: ParsedMemoryContent; sec
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
             {sections.alternativeUsed}
           </p>
-          <p className="text-sm text-success pl-2">{alternativeUsed}</p>
+          <p className="text-sm text-success ps-2">{alternativeUsed}</p>
         </div>
       )}
     </div>
@@ -186,7 +186,7 @@ function WorkflowSteps({ steps, label }: { steps: string[]; label: string }) {
       <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
         {label}
       </p>
-      <ol className="space-y-1 pl-4">
+      <ol className="space-y-1 ps-4">
         {steps.map((step, idx) => (
           <li key={idx} className="text-sm text-muted-foreground flex gap-2">
             <span className="text-xs font-mono text-muted-foreground/50 shrink-0 mt-0.5">
@@ -473,7 +473,7 @@ export function MemoryCard({ memory, onVerify, onPin, onDeprecate }: MemoryCardP
                   }
                   title={sections.approach}
                 />
-                <div className="pl-4 space-y-2">
+                <div className="ps-4 space-y-2">
                   <p className="text-sm text-foreground">
                     {parsed.discoveries.approach_outcome.approach_used}
                   </p>
@@ -523,7 +523,7 @@ export function MemoryCard({ memory, onVerify, onPin, onDeprecate }: MemoryCardP
                     title={sections.patterns}
                     count={parsed.discoveries.patterns_discovered.length}
                   />
-                  <div className="flex flex-wrap gap-2 pl-4">
+                  <div className="flex flex-wrap gap-2 ps-4">
                     {parsed.discoveries.patterns_discovered.map((pattern, idx) => {
                       const text =
                         typeof pattern === 'string'
@@ -571,7 +571,7 @@ export function MemoryCard({ memory, onVerify, onPin, onDeprecate }: MemoryCardP
                     title={sections.changedFiles}
                     count={parsed.discoveries.changed_files.length}
                   />
-                  <div className="flex flex-wrap gap-1.5 pl-4">
+                  <div className="flex flex-wrap gap-1.5 ps-4">
                     {parsed.discoveries.changed_files.map((file, idx) => (
                       <Badge key={idx} variant="outline" className="text-xs font-mono">
                         {file}
@@ -589,7 +589,7 @@ export function MemoryCard({ memory, onVerify, onPin, onDeprecate }: MemoryCardP
                   title={sections.fileInsights}
                   count={parsed.discoveries.file_insights.length}
                 />
-                <div className="space-y-2 pl-4">
+                <div className="space-y-2 ps-4">
                   {parsed.discoveries.file_insights.map((insight, idx) => (
                     <div key={idx} className="text-sm">
                       {insight.path && (
@@ -617,7 +617,7 @@ export function MemoryCard({ memory, onVerify, onPin, onDeprecate }: MemoryCardP
                   title={sections.subtasksCompleted}
                   count={parsed.subtasks_completed.length}
                 />
-                <div className="flex flex-wrap gap-1.5 pl-4">
+                <div className="flex flex-wrap gap-1.5 ps-4">
                   {parsed.subtasks_completed.map((task, idx) => (
                     <Badge key={idx} variant="secondary" className="text-xs font-mono">
                       {task}
@@ -647,7 +647,7 @@ export function MemoryCard({ memory, onVerify, onPin, onDeprecate }: MemoryCardP
                   )}
                 </button>
                 {filesExpanded && (
-                  <div className="flex flex-wrap gap-1.5 pl-6">
+                  <div className="flex flex-wrap gap-1.5 ps-6">
                     {memory.relatedFiles.map((file) => (
                       <Badge key={file} variant="outline" className="text-xs font-mono">
                         {file}

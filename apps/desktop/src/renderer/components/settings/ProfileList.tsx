@@ -143,7 +143,7 @@ export function ProfileList({ onProfileSaved }: ProfileListProps) {
           </p>
         </div>
         <Button onClick={() => setIsAddDialogOpen(true)} size="sm">
-          <Plus className="h-4 w-4 mr-2" />
+          <Plus className="h-4 w-4 me-2" />
           {t('settings:apiProfiles.addButton')}
         </Button>
       </div>
@@ -157,7 +157,7 @@ export function ProfileList({ onProfileSaved }: ProfileListProps) {
             {t('settings:apiProfiles.empty.description')}
           </p>
           <Button onClick={() => setIsAddDialogOpen(true)} variant="outline">
-            <Plus className="h-4 w-4 mr-2" />
+            <Plus className="h-4 w-4 me-2" />
             {t('settings:apiProfiles.empty.action')}
           </Button>
         </div>
@@ -198,7 +198,7 @@ export function ProfileList({ onProfileSaved }: ProfileListProps) {
                   <h4 className="font-medium truncate">{profile.name}</h4>
                   {activeProfileId === profile.id && (
                     <span className="flex items-center text-xs text-primary">
-                      <Check className="h-3 w-3 mr-1" />
+                      <Check className="h-3 w-3 me-1" />
                       {t('settings:apiProfiles.activeBadge')}
                     </span>
                   )}

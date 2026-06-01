@@ -14,7 +14,7 @@ export function RoadmapEmptyState({ onGenerate }: RoadmapEmptyStateProps) {
           creates a strategic feature plan.
         </p>
         <Button onClick={onGenerate} size="lg">
-          <Sparkles className="h-4 w-4 mr-2" />
+          <Sparkles className="h-4 w-4 me-2" />
           Generate Roadmap
         </Button>
       </Card>

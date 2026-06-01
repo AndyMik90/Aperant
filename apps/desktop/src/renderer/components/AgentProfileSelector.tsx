@@ -237,7 +237,7 @@ export function AgentProfileSelector({
                     <ProfileIcon className="h-4 w-4 shrink-0" />
                     <div>
                       <span className="font-medium">{profile.name}</span>
-                      <span className="ml-2 text-xs text-muted-foreground">
+                      <span className="ms-2 text-xs text-muted-foreground">
                         ({modelLabel} + {profile.thinkingLevel})
                       </span>
                     </div>
@@ -250,7 +250,7 @@ export function AgentProfileSelector({
                 <Sliders className="h-4 w-4 shrink-0" />
                 <div>
                   <span className="font-medium">{t('agentProfile.custom')}</span>
-                  <span className="ml-2 text-xs text-muted-foreground">
+                  <span className="ms-2 text-xs text-muted-foreground">
                     ({t('agentProfile.customDescription')})
                   </span>
                 </div>
@@ -271,7 +271,7 @@ export function AgentProfileSelector({
             type="button"
             onClick={() => setShowPhaseDetails(!showPhaseDetails)}
             className={cn(
-              'flex w-full items-center justify-between p-4 text-left',
+              'flex w-full items-center justify-between p-4 text-start',
               'hover:bg-muted/50 transition-colors',
               !disabled && 'cursor-pointer'
             )}

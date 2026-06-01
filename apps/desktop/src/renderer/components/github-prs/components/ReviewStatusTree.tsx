@@ -71,7 +71,7 @@ export function ReviewStatusTree({
               <span className="text-xs text-muted-foreground truncate block mt-0.5">{reviewError}</span>
             </div>
           </div>
-          <Button onClick={onRunReview} size="sm" variant="outline" className="gap-2 shrink-0 ml-auto sm:ml-0">
+          <Button onClick={onRunReview} size="sm" variant="outline" className="gap-2 shrink-0 ms-auto sm:ms-0">
             <RefreshCw className="h-3.5 w-3.5" />
             {t('prReview.retryReview')}
           </Button>
@@ -85,7 +85,7 @@ export function ReviewStatusTree({
           <div className="h-2.5 w-2.5 shrink-0 rounded-full bg-muted-foreground/30" />
           <span className="font-medium text-muted-foreground truncate">{t('prReview.notReviewed')}</span>
         </div>
-        <Button onClick={onRunReview} size="sm" className="gap-2 shrink-0 ml-auto sm:ml-0">
+        <Button onClick={onRunReview} size="sm" className="gap-2 shrink-0 ms-auto sm:ms-0">
           <Play className="h-3.5 w-3.5" />
           {t('prReview.runAIReview')}
         </Button>
@@ -176,7 +176,7 @@ export function ReviewStatusTree({
             size="sm"
             variant="ghost"
             onClick={onRunReview}
-            className="ml-2 h-6 text-xs px-2 text-muted-foreground hover:text-foreground"
+            className="ms-2 h-6 text-xs px-2 text-muted-foreground hover:text-foreground"
             title={t('prReview.rerunReview')}
           >
             <RefreshCw className="h-3 w-3" />
@@ -225,7 +225,7 @@ export function ReviewStatusTree({
           label: t('prReview.verifyChanges'),
           status: 'pending',
           action: (
-            <Button size="sm" variant="outline" onClick={onRunFollowupReview} className="ml-2 h-6 text-xs px-2">
+            <Button size="sm" variant="outline" onClick={onRunFollowupReview} className="ms-2 h-6 text-xs px-2">
               {t('prReview.runFollowup')}
             </Button>
           )
@@ -244,7 +244,7 @@ export function ReviewStatusTree({
               size="sm"
               variant="ghost"
               onClick={onRunFollowupReview}
-              className="ml-2 h-6 text-xs px-2 text-muted-foreground hover:text-foreground"
+              className="ms-2 h-6 text-xs px-2 text-muted-foreground hover:text-foreground"
               title={t('prReview.runFollowupAnyway')}
             >
               {t('prReview.verifyAnyway')}
@@ -317,11 +317,11 @@ export function ReviewStatusTree({
       onOpenChange={setIsOpen}
     >
       <div className="p-4 pt-0">
-        <div className="relative pl-2 ml-2 border-l border-border/50 space-y-4 pt-4">
+        <div className="relative ps-2 ms-2 border-s border-border/50 space-y-4 pt-4">
           {steps.map((step) => (
-            <div key={step.id} className="relative flex items-start gap-3 pl-4">
+            <div key={step.id} className="relative flex items-start gap-3 ps-4">
               {/* Node Dot */}
-              <div className={cn("absolute -left-[13px] top-1 bg-background rounded-full p-0.5 border",
+              <div className={cn("absolute -start-[13px] top-1 bg-background rounded-full p-0.5 border",
                 step.status === 'completed' ? "border-success text-success" :
                 step.status === 'current' ? "border-primary text-primary animate-pulse" :
                 step.status === 'alert' ? "border-warning text-warning" :

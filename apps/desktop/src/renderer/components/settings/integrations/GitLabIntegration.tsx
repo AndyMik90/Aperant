@@ -702,7 +702,7 @@ function ProjectDropdown({
                       setIsOpen(false);
                       setFilter('');
                     }}
-                    className={`w-full px-3 py-2 text-left hover:bg-accent flex items-start gap-2 ${
+                    className={`w-full px-3 py-2 text-start hover:bg-accent flex items-start gap-2 ${
                       project.pathWithNamespace === selectedProject ? 'bg-accent' : ''
                     }`}
                   >
@@ -829,7 +829,7 @@ function AutoSyncToggle({ enabled, onToggle }: AutoSyncToggleProps) {
           <RefreshCw className="h-4 w-4 text-info" />
           <Label className="font-normal text-foreground">{t('settings.autoSyncOnLoad')}</Label>
         </div>
-        <p className="text-xs text-muted-foreground pl-6">
+        <p className="text-xs text-muted-foreground ps-6">
           {t('settings.autoSyncDescription')}
         </p>
       </div>
@@ -871,7 +871,7 @@ function BranchSelector({
             <GitBranch className="h-4 w-4 text-info" />
             <Label className="text-sm font-medium text-foreground">{t('settings.defaultBranch')}</Label>
           </div>
-          <p className="text-xs text-muted-foreground pl-6">
+          <p className="text-xs text-muted-foreground ps-6">
             {t('settings.defaultBranchDescription')}
           </p>
         </div>
@@ -887,13 +887,13 @@ function BranchSelector({
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 text-xs text-destructive pl-6">
+        <div className="flex items-center gap-2 text-xs text-destructive ps-6">
           <AlertCircle className="h-3 w-3" />
           {error}
         </div>
       )}
 
-      <div className="relative pl-6">
+      <div className="relative ps-6">
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
@@ -935,7 +935,7 @@ function BranchSelector({
                 setIsOpen(false);
                 setFilter('');
               }}
-              className={`w-full px-3 py-2 text-left hover:bg-accent flex items-center gap-2 ${
+              className={`w-full px-3 py-2 text-start hover:bg-accent flex items-center gap-2 ${
                 !selectedBranch ? 'bg-accent' : ''
               }`}
             >
@@ -957,7 +957,7 @@ function BranchSelector({
                       setIsOpen(false);
                       setFilter('');
                     }}
-                    className={`w-full px-3 py-2 text-left hover:bg-accent flex items-center gap-2 ${
+                    className={`w-full px-3 py-2 text-start hover:bg-accent flex items-center gap-2 ${
                       branch === selectedBranch ? 'bg-accent' : ''
                     }`}
                   >
@@ -972,7 +972,7 @@ function BranchSelector({
       </div>
 
       {selectedBranch && (
-        <p className="text-xs text-muted-foreground pl-6">
+        <p className="text-xs text-muted-foreground ps-6">
           {t('settings.branchFromNote')} <code className="px-1 bg-muted rounded">{selectedBranch}</code>
         </p>
       )}

@@ -549,7 +549,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
             >
               <Plus className="h-3 w-3" />
               New Terminal
-              <kbd className="ml-1 text-[10px] text-muted-foreground">
+              <kbd className="ms-1 text-[10px] text-muted-foreground">
                 {navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+T
               </kbd>
             </Button>
@@ -573,7 +573,7 @@ export function TerminalGrid({ projectPath, onNewTaskClick, isActive = false }: 
           {/* Terminal grid using resizable panels */}
           <div className={cn(
             "flex-1 overflow-hidden p-2 transition-all duration-300 ease-out",
-            fileExplorerOpen && "pr-0"
+            fileExplorerOpen && "pe-0"
           )}>
             {expandedTerminalId ? (
               // Show only the expanded terminal

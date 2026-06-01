@@ -100,7 +100,7 @@ export function GitLabIssues({ onOpenSettings, onNavigateToTask }: GitLabIssuesP
       {/* Content */}
       <div className="flex-1 flex min-h-0">
         {/* Issue List */}
-        <div className="w-1/2 border-r border-border flex flex-col">
+        <div className="w-1/2 border-e border-border flex flex-col">
           <IssueList
             issues={filteredIssues}
             selectedIssueIid={selectedIssueIid}

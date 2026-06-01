@@ -177,7 +177,7 @@ function FilterDropdown<T extends string>({
             selected.length > 0 && "border-solid bg-accent/50"
           )}
         >
-          <Icon className="mr-2 h-4 w-4 text-muted-foreground" />
+          <Icon className="me-2 h-4 w-4 text-muted-foreground" />
           <span className="truncate">{title}</span>
           {selected.length > 0 && (
             <>
@@ -221,10 +221,10 @@ function FilterDropdown<T extends string>({
           </div>
           {searchable && (
             <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+              <Search className="absolute start-2 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
               <Input
                 placeholder={searchPlaceholder}
-                className="h-7 text-xs pl-7 bg-muted/50 border-none focus-visible:ring-1 focus-visible:ring-primary/50"
+                className="h-7 text-xs ps-7 bg-muted/50 border-none focus-visible:ring-1 focus-visible:ring-primary/50"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyDown={(e) => e.stopPropagation()}
@@ -272,7 +272,7 @@ function FilterDropdown<T extends string>({
                   tabIndex={-1}
                 >
                   <div className={cn(
-                    "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary/30",
+                    "me-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary/30",
                     isSelected ? "bg-primary border-primary text-primary-foreground" : "opacity-50 [&_svg]:invisible"
                   )}>
                     <Check className={cn("h-3 w-3")} />
@@ -366,7 +366,7 @@ function SortDropdown({
           size="sm"
           className="h-8 justify-start border-dashed bg-transparent"
         >
-          <ArrowUpDown className="mr-2 h-4 w-4 text-muted-foreground" />
+          <ArrowUpDown className="me-2 h-4 w-4 text-muted-foreground" />
           <span className="truncate">{title}</span>
           <Separator orientation="vertical" className="mx-2 h-4" />
           <Badge variant="secondary" className="rounded-sm px-1 font-normal">
@@ -406,12 +406,12 @@ function SortDropdown({
                 }}
               >
                 <div className={cn(
-                  "mr-2 flex h-4 w-4 items-center justify-center rounded-full border border-primary/30",
+                  "me-2 flex h-4 w-4 items-center justify-center rounded-full border border-primary/30",
                   isSelected ? "bg-primary border-primary text-primary-foreground" : "opacity-50"
                 )}>
                   {isSelected && <Check className="h-2.5 w-2.5" />}
                 </div>
-                <Icon className="mr-2 h-3.5 w-3.5 text-muted-foreground" />
+                <Icon className="me-2 h-3.5 w-3.5 text-muted-foreground" />
                 <span>{t(option.labelKey)}</span>
               </div>
             );
@@ -443,17 +443,17 @@ export function PRFilterBar({
       <div className="flex items-center gap-2 h-9">
         {/* Search Input - Flexible width */}
         <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute start-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={t('prReview.searchPlaceholder')}
             value={filters.searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="h-8 pl-9 bg-background/50 focus:bg-background transition-colors"
+            className="h-8 ps-9 bg-background/50 focus:bg-background transition-colors"
           />
           {filters.searchQuery && (
             <button
               onClick={() => onSearchChange('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              className="absolute end-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               aria-label={t('prReview.clearSearch')}
             >
               <X className="h-3 w-3" />
@@ -553,9 +553,9 @@ export function PRFilterBar({
             variant="ghost"
             size="sm"
             onClick={onClearFilters}
-            className="h-8 px-2 lg:px-3 text-muted-foreground hover:text-foreground ml-auto"
+            className="h-8 px-2 lg:px-3 text-muted-foreground hover:text-foreground ms-auto"
           >
-            <span className="hidden lg:inline mr-2">{t('prReview.reset')}</span>
+            <span className="hidden lg:inline me-2">{t('prReview.reset')}</span>
             <X className="h-4 w-4" />
           </Button>
         )}

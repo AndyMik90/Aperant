@@ -417,9 +417,9 @@ export function Insights({ projectId }: InsightsProps) {
               title={showSidebar ? 'Hide sidebar' : 'Show sidebar'}
             >
               {showSidebar ? (
-                <PanelLeftClose className="h-4 w-4" />
+                <PanelLeftClose className="h-4 w-4 rtl:-scale-x-100" />
               ) : (
-                <PanelLeft className="h-4 w-4" />
+                <PanelLeft className="h-4 w-4 rtl:-scale-x-100" />
               )}
             </Button>
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
@@ -443,7 +443,7 @@ export function Insights({ projectId }: InsightsProps) {
               size="sm"
               onClick={handleNewSession}
             >
-              <Plus className="mr-2 h-4 w-4" />
+              <Plus className="me-2 h-4 w-4" />
               New Chat
             </Button>
           </div>
@@ -635,7 +635,7 @@ export function Insights({ projectId }: InsightsProps) {
                 <button
                   type="button"
                   onClick={() => removeImage(image.id)}
-                  className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 transition-opacity group-hover:opacity-100"
+                  className="absolute -end-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 transition-opacity group-hover:opacity-100"
                   title={t('insights.images.removeImage')}
                 >
                   <X className="h-3 w-3" />
@@ -790,17 +790,17 @@ function MessageBubble({
                     >
                       {isCreating ? (
                         <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          <Loader2 className="me-2 h-4 w-4 animate-spin" />
                           {t('insights.creating')}
                         </>
                       ) : isCreated ? (
                         <>
-                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                          <CheckCircle2 className="me-2 h-4 w-4" />
                           {t('insights.taskCreated')}
                         </>
                       ) : (
                         <>
-                          <Plus className="mr-2 h-4 w-4" />
+                          <Plus className="me-2 h-4 w-4" />
                           {t('insights.createTask')}
                         </>
                       )}

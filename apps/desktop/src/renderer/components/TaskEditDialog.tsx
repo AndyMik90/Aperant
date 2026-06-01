@@ -295,7 +295,7 @@ export function TaskEditDialog({ task, open, onOpenChange, onSaved }: TaskEditDi
           <Button onClick={handleSave} disabled={isSaving || !isValid}>
             {isSaving ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="me-2 h-4 w-4 animate-spin" />
                 {t('common:buttons.saving')}
               </>
             ) : (

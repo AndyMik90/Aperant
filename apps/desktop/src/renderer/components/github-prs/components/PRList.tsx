@@ -263,7 +263,7 @@ export function PRList({
               key={pr.number}
               onClick={() => onSelectPR(pr.number)}
               className={cn(
-                'w-full p-4 text-left transition-colors hover:bg-accent/50',
+                'w-full p-4 text-start transition-colors hover:bg-accent/50',
                 selectedPRNumber === pr.number && 'bg-accent'
               )}
             >
@@ -340,7 +340,7 @@ export function PRList({
               >
                 {isLoadingMore ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="me-2 h-4 w-4 animate-spin" />
                     {t('prReview.loadingMore')}
                   </>
                 ) : (

@@ -25,7 +25,7 @@ export function ChangelogHeader({ step, onRefresh }: ChangelogHeaderProps) {
       </div>
       <div className="flex items-center gap-2">
         {/* Step indicators */}
-        <div className="flex items-center gap-2 mr-4">
+        <div className="flex items-center gap-2 me-4">
           <StepIndicator step={1} currentStep={step} label="Select" />
           <div className="w-6 h-px bg-border" />
           <StepIndicator step={2} currentStep={step} label="Generate" />
@@ -33,7 +33,7 @@ export function ChangelogHeader({ step, onRefresh }: ChangelogHeaderProps) {
           <StepIndicator step={3} currentStep={step} label="Release" />
         </div>
         <Button variant="outline" size="sm" onClick={onRefresh}>
-          <RefreshCw className="mr-2 h-4 w-4" />
+          <RefreshCw className="me-2 h-4 w-4" />
           Refresh
         </Button>
       </div>

@@ -43,7 +43,7 @@ export function ConflictDetailsDialog({
           <AlertDialogDescription>
             {mergePreview?.conflicts.length || 0} potential conflict{(mergePreview?.conflicts.length || 0) !== 1 ? 's' : ''} detected.
             {mergePreview && mergePreview.summary.autoMergeable > 0 && (
-              <span className="text-success ml-1">
+              <span className="text-success ms-1">
                 {mergePreview.summary.autoMergeable} can be auto-merged.
               </span>
             )}
@@ -113,7 +113,7 @@ export function ConflictDetailsDialog({
             }}
             className="bg-warning text-warning-foreground hover:bg-warning/90"
           >
-            <GitMerge className="mr-2 h-4 w-4" />
+            <GitMerge className="me-2 h-4 w-4" />
             {stageOnly ? 'Stage with AI Merge' : 'Merge with AI'}
           </AlertDialogAction>
         </AlertDialogFooter>

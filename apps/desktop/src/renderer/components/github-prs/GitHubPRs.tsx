@@ -29,7 +29,7 @@ function NotConnectedState({
         <p className="text-sm text-muted-foreground mb-4">{error || t("prReview.connectPrompt")}</p>
         {onOpenSettings && (
           <Button onClick={onOpenSettings} variant="outline">
-            <Settings className="h-4 w-4 mr-2" />
+            <Settings className="h-4 w-4 me-2" />
             {t("prReview.openSettings")}
           </Button>
         )}

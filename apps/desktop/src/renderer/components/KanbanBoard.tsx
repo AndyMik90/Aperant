@@ -351,7 +351,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
                 onClick={onToggleCollapsed}
                 aria-label={t('kanban.expandColumn')}
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-4 w-4 rtl:-scale-x-100" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="right">
@@ -407,7 +407,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
                   onClick={onToggleCollapsed}
                   aria-label={t('kanban.collapseColumn')}
                 >
-                  <ChevronLeft className="h-3.5 w-3.5" />
+                  <ChevronLeft className="h-3.5 w-3.5 rtl:-scale-x-100" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
@@ -541,7 +541,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
                   aria-label={t('common:accessibility.toggleShowArchivedAriaLabel')}
                 >
                   <Archive className="h-4 w-4" />
-                  <span className="absolute -top-1 -right-1 text-[10px] font-medium bg-muted rounded-full min-w-[14px] h-[14px] flex items-center justify-center">
+                  <span className="absolute -top-1 -end-1 text-[10px] font-medium bg-muted rounded-full min-w-[14px] h-[14px] flex items-center justify-center">
                     {archivedCount}
                   </span>
                 </Button>
@@ -603,7 +603,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
       {onResizeStart && onResizeEnd && (
         <div
           className={cn(
-            "absolute right-0 top-0 bottom-0 w-1 touch-none z-10",
+            "absolute end-0 top-0 bottom-0 w-1 touch-none z-10",
             "transition-colors duration-150",
             isLocked
               ? "cursor-not-allowed bg-transparent"
@@ -627,7 +627,7 @@ const DroppableColumn = memo(function DroppableColumn({ status, tasks, onTaskCli
           title={isLocked ? t('kanban.columnLocked') : undefined}
         >
           {/* Wider invisible hit area for easier grabbing */}
-          <div className="absolute inset-y-0 -left-1 -right-1" />
+          <div className="absolute inset-y-0 -start-1 -end-1" />
         </div>
       )}
     </div>
@@ -1440,7 +1440,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
                 onClick={handleExpandAll}
                 className="gap-2 text-muted-foreground hover:text-foreground"
               >
-                <ChevronsRight className="h-4 w-4" />
+                <ChevronsRight className="h-4 w-4 rtl:-scale-x-100" />
                 {t('tasks:kanban.expandAll')}
               </Button>
             )}
@@ -1518,7 +1518,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
       </DndContext>
 
       {selectedTaskIds.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+        <div className="fixed bottom-6 start-1/2 -translate-x-1/2 z-50">
           <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-border bg-card shadow-lg backdrop-blur-sm">
             <span className="text-sm font-medium text-foreground">
               {t('kanban.selectedCountOther', { count: selectedTaskIds.size })}
@@ -1602,7 +1602,7 @@ export function KanbanBoard({ tasks, onTaskClick, onNewTaskClick, onRefresh, isR
             >
               {isDeleting ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="h-4 w-4 me-2 animate-spin" />
                   {t('common:buttons.deleting')}
                 </>
               ) : (

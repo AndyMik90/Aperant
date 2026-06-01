@@ -218,7 +218,7 @@ export function TaskFiles({ task }: TaskFilesProps) {
               size="sm"
               onClick={() => loadFileContent(selectedFile)}
             >
-              <RefreshCw className="h-3 w-3 mr-1" />
+              <RefreshCw className="h-3 w-3 me-1" />
               {t('tasks:files.retry')}
             </Button>
           </div>
@@ -263,7 +263,7 @@ export function TaskFiles({ task }: TaskFilesProps) {
   return (
     <div className="h-full flex">
       {/* File list sidebar */}
-      <div className="w-52 border-r border-border flex flex-col">
+      <div className="w-52 border-e border-border flex flex-col">
         {/* Sidebar header */}
         <div className="px-3 py-2 border-b border-border flex items-center justify-between">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -302,7 +302,7 @@ export function TaskFiles({ task }: TaskFilesProps) {
                   onClick={loadFiles}
                   className="text-xs"
                 >
-                  <RefreshCw className="h-3 w-3 mr-1" />
+                  <RefreshCw className="h-3 w-3 me-1" />
                   {t('tasks:files.retry')}
                 </Button>
               </div>
@@ -320,7 +320,7 @@ export function TaskFiles({ task }: TaskFilesProps) {
                   aria-selected={selectedFile === file.path}
                   onClick={() => loadFileContent(file.path)}
                   className={cn(
-                    'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors',
+                    'w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-start transition-colors',
                     'hover:bg-secondary/50 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
                     selectedFile === file.path && 'bg-secondary'
                   )}
@@ -330,7 +330,7 @@ export function TaskFiles({ task }: TaskFilesProps) {
                     {file.name}
                   </span>
                   {selectedFile === file.path && (
-                    <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                    <ChevronRight className="h-3 w-3 text-muted-foreground rtl:-scale-x-100" />
                   )}
                 </button>
               ))

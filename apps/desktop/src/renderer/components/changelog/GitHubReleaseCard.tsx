@@ -62,7 +62,7 @@ export function GitHubReleaseCard({
               className="w-full"
               onClick={() => window.open(releaseUrl, '_blank')}
             >
-              <ExternalLink className="mr-2 h-4 w-4" />
+              <ExternalLink className="me-2 h-4 w-4" />
               View Release on GitHub
             </Button>
           </div>
@@ -84,12 +84,12 @@ export function GitHubReleaseCard({
             >
               {isCreatingRelease ? (
                 <>
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                  <RefreshCw className="me-2 h-4 w-4 animate-spin" />
                   Creating Release...
                 </>
               ) : (
                 <>
-                  <Github className="mr-2 h-4 w-4" />
+                  <Github className="me-2 h-4 w-4" />
                   Create Release {tag}
                 </>
               )}

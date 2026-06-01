@@ -150,7 +150,7 @@ export function InvestigationDialog({
                       <button
                         type="button"
                         key={note.id}
-                        className="flex gap-3 p-3 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors cursor-pointer w-full text-left"
+                        className="flex gap-3 p-3 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors cursor-pointer w-full text-start"
                         onClick={() => toggleNote(note.id)}
                       >
                         <Checkbox
@@ -217,14 +217,14 @@ export function InvestigationDialog({
                 {t('investigation.cancel')}
               </Button>
               <Button onClick={handleStartInvestigation}>
-                <Sparkles className="h-4 w-4 mr-2" />
+                <Sparkles className="h-4 w-4 me-2" />
                 {t('detail.createTask')}
               </Button>
             </>
           )}
           {investigationStatus.phase !== 'idle' && investigationStatus.phase !== 'complete' && investigationStatus.phase !== 'error' && (
             <Button variant="outline" disabled>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <Loader2 className="h-4 w-4 me-2 animate-spin" />
               {t('investigation.creating')}
             </Button>
           )}

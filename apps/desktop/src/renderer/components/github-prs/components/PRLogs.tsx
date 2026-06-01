@@ -324,7 +324,7 @@ function PhaseLogSection({ phase, phaseLog, isExpanded, onToggle, isStreaming = 
         </button>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="mt-1 ml-6 border-l-2 border-border pl-4 py-2 space-y-2">
+        <div className="mt-1 ms-6 border-s-2 border-border ps-4 py-2 space-y-2">
           {!hasEntries ? (
             <p className="text-xs text-muted-foreground italic">No logs yet</p>
           ) : (
@@ -620,7 +620,7 @@ function LogEntry({ entry }: LogEntryProps) {
           )}
         </div>
         {hasDetail && isExpanded && (
-          <div className="mt-1.5 ml-4 p-2 bg-destructive/5 rounded-md border border-destructive/20 overflow-x-auto">
+          <div className="mt-1.5 ms-4 p-2 bg-destructive/5 rounded-md border border-destructive/20 overflow-x-auto">
             <pre className="text-[10px] text-destructive/80 whitespace-pre-wrap break-words font-mono max-h-[300px] overflow-y-auto">
               {entry.detail}
             </pre>
@@ -685,7 +685,7 @@ function LogEntry({ entry }: LogEntryProps) {
         )}
       </div>
       {hasDetail && isExpanded && (
-        <div className="mt-1.5 ml-12 p-2 bg-secondary/30 rounded-md border border-border/50 overflow-x-auto">
+        <div className="mt-1.5 ms-12 p-2 bg-secondary/30 rounded-md border border-border/50 overflow-x-auto">
           <pre className="text-[10px] text-muted-foreground whitespace-pre-wrap break-words font-mono max-h-[300px] overflow-y-auto">
             {entry.detail}
           </pre>

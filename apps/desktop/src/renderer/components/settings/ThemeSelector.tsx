@@ -93,7 +93,7 @@ export function ThemeSelector({ settings, onSettingsChange }: ThemeSelectorProps
                 key={theme.id}
                 onClick={() => handleColorThemeChange(theme.id)}
                 className={cn(
-                  'relative flex flex-col p-4 rounded-lg border-2 text-left transition-all',
+                  'relative flex flex-col p-4 rounded-lg border-2 text-start transition-all',
                   'hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
                   isSelected
                     ? 'border-primary bg-primary/5 shadow-sm'
@@ -102,7 +102,7 @@ export function ThemeSelector({ settings, onSettingsChange }: ThemeSelectorProps
               >
                 {/* Selection indicator */}
                 {isSelected && (
-                  <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                  <div className="absolute top-2 end-2 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
                     <Check className="w-3 h-3 text-primary-foreground" />
                   </div>
                 )}

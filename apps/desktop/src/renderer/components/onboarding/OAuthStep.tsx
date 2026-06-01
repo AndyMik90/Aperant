@@ -599,12 +599,12 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                                   placeholder="sk-ant-oat01-..."
                                   value={manualToken}
                                   onChange={(e) => setManualToken(e.target.value)}
-                                  className="pr-10 font-mono text-xs h-8"
+                                  className="pe-10 font-mono text-xs h-8"
                                 />
                                 <button
                                   type="button"
                                   onClick={() => setShowManualToken(!showManualToken)}
-                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                  className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                                 >
                                   {showManualToken ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                                 </button>

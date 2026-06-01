@@ -121,7 +121,7 @@ export function PhaseCard({
             >
               <button
                 type="button"
-                className="flex items-center gap-2 flex-1 min-w-0 text-left cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="flex items-center gap-2 flex-1 min-w-0 text-start cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 onClick={() => onFeatureSelect(feature)}
               >
                 <Badge
@@ -155,7 +155,7 @@ export function PhaseCard({
                     onGoToTask(feature.linkedSpecId!);
                   }}
                 >
-                  <ExternalLink className="h-3 w-3 mr-1" />
+                  <ExternalLink className="h-3 w-3 me-1" />
                   {t('roadmap.viewTask')}
                 </Button>
               ) : (
@@ -168,7 +168,7 @@ export function PhaseCard({
                     onConvertToSpec(feature);
                   }}
                 >
-                  <Play className="h-3 w-3 mr-1" />
+                  <Play className="h-3 w-3 me-1" />
                   {t('roadmap.build')}
                 </Button>
               )}

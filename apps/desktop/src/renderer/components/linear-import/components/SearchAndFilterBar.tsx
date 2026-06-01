@@ -30,18 +30,18 @@ export function SearchAndFilterBar({
   return (
     <div className="flex gap-3 items-center shrink-0">
       <div className="flex-1 relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
           placeholder="Search tasks..."
           value={searchQuery}
           onChange={e => onSearchChange(e.target.value)}
-          className="pl-9"
+          className="ps-9"
         />
       </div>
 
       <Select value={filterState} onValueChange={onFilterChange}>
         <SelectTrigger className="w-[150px]">
-          <Filter className="h-4 w-4 mr-2" />
+          <Filter className="h-4 w-4 me-2" />
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

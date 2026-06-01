@@ -174,7 +174,7 @@ export function DebugSettings() {
                 {Object.entries(debugInfo.systemInfo).map(([key, value]) => (
                   <div key={key} className="flex justify-between gap-2">
                     <span className="text-muted-foreground">{key}:</span>
-                    <span className="font-mono text-right truncate" title={value}>{value}</span>
+                    <span className="font-mono text-end truncate" title={value}>{value}</span>
                   </div>
                 ))}
               </div>

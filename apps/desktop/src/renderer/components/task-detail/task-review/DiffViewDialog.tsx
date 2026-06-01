@@ -56,7 +56,7 @@ export function DiffViewDialog({
                     )} />
                     <span className="text-sm font-mono truncate">{file.path}</span>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                  <div className="flex items-center gap-2 shrink-0 ms-2">
                     <Badge
                       variant="secondary"
                       className={cn(

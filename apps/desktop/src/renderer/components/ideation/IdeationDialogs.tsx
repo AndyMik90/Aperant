@@ -172,7 +172,7 @@ export function IdeationDialogs({
                 onClick={onConfirmAddMore}
                 disabled={typesToAdd.length === 0}
               >
-                <Plus className="h-4 w-4 mr-1" />
+                <Plus className="h-4 w-4 me-1" />
                 Generate {typesToAdd.length > 0 ? `${typesToAdd.length} Types` : 'Ideas'}
               </Button>
             </div>

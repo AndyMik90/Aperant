@@ -163,7 +163,7 @@ export function OllamaModelManager() {
         <div className="flex items-center justify-between">
           <h5 className="text-sm font-medium text-foreground">
             {t('agentProfile.ollamaModels.installed', { defaultValue: 'Installed Models' })}
-            <span className="ml-2 text-xs text-muted-foreground font-normal">
+            <span className="ms-2 text-xs text-muted-foreground font-normal">
               {t('agentProfile.ollamaModels.installedCount', {
                 count: installedModels.length,
                 defaultValue: '{{count}} model(s)',
@@ -176,7 +176,7 @@ export function OllamaModelManager() {
             onClick={() => fetchModels()}
             className="h-7 px-2 text-muted-foreground"
           >
-            <RefreshCw className="h-3.5 w-3.5 mr-1" />
+            <RefreshCw className="h-3.5 w-3.5 me-1" />
             {t('agentProfile.ollamaModels.refresh', { defaultValue: 'Refresh' })}
           </Button>
         </div>
@@ -271,20 +271,20 @@ export function OllamaModelManager() {
                       size="sm"
                       onClick={() => handleDownload(model.name)}
                       disabled={isCurrentlyDownloading}
-                      className="shrink-0 ml-3"
+                      className="shrink-0 ms-3"
                     >
                       {isCurrentlyDownloading ? (
                         <>
-                          <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+                          <Loader2 className="h-3.5 w-3.5 animate-spin me-1.5" />
                           {t('agentProfile.ollamaModels.downloading', {
                             defaultValue: 'Downloading...',
                           })}
                         </>
                       ) : (
                         <>
-                          <Download className="h-3.5 w-3.5 mr-1.5" />
+                          <Download className="h-3.5 w-3.5 me-1.5" />
                           {t('agentProfile.ollamaModels.download', { defaultValue: 'Download' })}
-                          <span className="ml-1 text-muted-foreground">({model.size})</span>
+                          <span className="ms-1 text-muted-foreground">({model.size})</span>
                         </>
                       )}
                     </Button>

@@ -81,7 +81,7 @@ export function IdeaCard({ idea, isSelected, onClick, onConvert, onGoToTask, onD
           <div className="flex items-center gap-2 mb-1">
             <Badge variant="outline" className={IDEATION_TYPE_COLORS[idea.type]}>
               <TypeIcon type={idea.type} />
-              <span className="ml-1">{IDEATION_TYPE_LABELS[idea.type]}</span>
+              <span className="ms-1">{IDEATION_TYPE_LABELS[idea.type]}</span>
             </Badge>
             {idea.status !== 'draft' && (
               <Badge variant="outline" className={IDEATION_STATUS_COLORS[idea.status]}>
@@ -126,7 +126,7 @@ export function IdeaCard({ idea, isSelected, onClick, onConvert, onGoToTask, onD
           </div>
           {/* Action buttons */}
           {!isInactive && !isConverted && (
-            <div className="flex items-center gap-1 ml-2">
+            <div className="flex items-center gap-1 ms-2">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -165,7 +165,7 @@ export function IdeaCard({ idea, isSelected, onClick, onConvert, onGoToTask, onD
           )}
           {/* Archived ideas show link to task */}
           {isArchived && idea.taskId && onGoToTask && (
-            <div className="flex items-center gap-1 ml-2">
+            <div className="flex items-center gap-1 ms-2">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -187,7 +187,7 @@ export function IdeaCard({ idea, isSelected, onClick, onConvert, onGoToTask, onD
           )}
           {/* Legacy: converted status also shows link to task */}
           {isConverted && idea.taskId && onGoToTask && (
-            <div className="flex items-center gap-1 ml-2">
+            <div className="flex items-center gap-1 ms-2">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button

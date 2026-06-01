@@ -92,7 +92,7 @@ export function PRHeader({ pr, isLoadingFiles = false }: PRHeaderProps) {
           <span className="text-foreground">{pr.baseRefName}</span>
         </div>
 
-        <div className="flex items-center gap-4 ml-auto">
+        <div className="flex items-center gap-4 ms-auto">
           {/* Clickable files indicator */}
           <button
             onClick={() => setShowFiles(!showFiles)}
@@ -111,7 +111,7 @@ export function PRHeader({ pr, isLoadingFiles = false }: PRHeaderProps) {
             <span className="font-medium text-foreground">{pr.changedFiles}</span>
             <span className="text-xs">{t('prReview.files')}</span>
             {hasFiles && (
-              showFiles ? <ChevronUp className="h-3 w-3 ml-1" /> : <ChevronDown className="h-3 w-3 ml-1" />
+              showFiles ? <ChevronUp className="h-3 w-3 ms-1" /> : <ChevronDown className="h-3 w-3 ms-1" />
             )}
           </button>
           <div className="flex items-center gap-2 text-xs font-mono">
@@ -130,7 +130,7 @@ export function PRHeader({ pr, isLoadingFiles = false }: PRHeaderProps) {
         <div className="mt-4 border border-border/40 rounded-lg overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
           {isLoadingFiles ? (
             <div className="p-4 flex items-center justify-center text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              <Loader2 className="h-4 w-4 animate-spin me-2" />
               <span className="text-sm">{t('prReview.loadingFiles')}</span>
             </div>
           ) : hasFiles ? (

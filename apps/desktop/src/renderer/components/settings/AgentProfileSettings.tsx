@@ -185,7 +185,7 @@ export function AgentProfileSettings({ provider }: AgentProfileSettingsProps) {
         key={profile.id}
         onClick={() => handleSelectProfile(profile.id)}
         className={cn(
-          'relative w-full rounded-lg border p-4 text-left transition-all duration-200',
+          'relative w-full rounded-lg border p-4 text-start transition-all duration-200',
           'hover:border-primary/50 hover:shadow-sm',
           isSelected
             ? 'border-primary bg-primary/5'
@@ -194,7 +194,7 @@ export function AgentProfileSettings({ provider }: AgentProfileSettingsProps) {
       >
         {/* Selected indicator */}
         {isSelected && (
-          <div className="absolute right-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-primary">
+          <div className="absolute end-3 top-3 flex h-5 w-5 items-center justify-center rounded-full bg-primary">
             <Check className="h-3 w-3 text-primary-foreground" />
           </div>
         )}
@@ -215,7 +215,7 @@ export function AgentProfileSettings({ provider }: AgentProfileSettingsProps) {
             />
           </div>
 
-          <div className="flex-1 min-w-0 pr-6">
+          <div className="flex-1 min-w-0 pe-6">
             <div className="flex items-center gap-2">
               <h3 className="font-medium text-sm text-foreground">{profile.name}</h3>
               {isCustomized && (
@@ -276,7 +276,7 @@ export function AgentProfileSettings({ provider }: AgentProfileSettingsProps) {
           <button
             type="button"
             onClick={() => setShowPhaseConfig(!showPhaseConfig)}
-            className="flex w-full items-center justify-between p-4 text-left hover:bg-muted/50 transition-colors rounded-t-lg"
+            className="flex w-full items-center justify-between p-4 text-start hover:bg-muted/50 transition-colors rounded-t-lg"
           >
             <div>
               <h4 className="font-medium text-sm text-foreground">{t('agentProfile.phaseConfiguration')}</h4>
@@ -303,7 +303,7 @@ export function AgentProfileSettings({ provider }: AgentProfileSettingsProps) {
                     onClick={handleResetToProfileDefaults}
                     className="text-xs h-7"
                   >
-                    <RotateCcw className="h-3 w-3 mr-1.5" />
+                    <RotateCcw className="h-3 w-3 me-1.5" />
                     {t('agentProfile.resetToProfileDefaults', { profile: selectedProfile.name })}
                   </Button>
                 </div>

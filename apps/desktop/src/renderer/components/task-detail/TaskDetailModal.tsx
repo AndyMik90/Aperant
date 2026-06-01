@@ -252,12 +252,12 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
         >
           {state.isRecovering ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="me-2 h-4 w-4 animate-spin" />
               Recovering...
             </>
           ) : (
             <>
-              <RotateCcw className="mr-2 h-4 w-4" />
+              <RotateCcw className="me-2 h-4 w-4" />
               Recover Task
             </>
           )}
@@ -270,12 +270,12 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
         <Button variant="default" onClick={handleStartStop} disabled={state.isLoadingPlan}>
           {state.isLoadingPlan ? (
             <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="me-2 h-4 w-4 animate-spin" />
               Loading Plan...
             </>
           ) : (
             <>
-              <Play className="mr-2 h-4 w-4" />
+              <Play className="me-2 h-4 w-4" />
               Resume Task
             </>
           )}
@@ -291,12 +291,12 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
         >
           {state.isRunning ? (
             <>
-              <Square className="mr-2 h-4 w-4" />
+              <Square className="me-2 h-4 w-4" />
               Stop Task
             </>
           ) : (
             <>
-              <Play className="mr-2 h-4 w-4" />
+              <Play className="me-2 h-4 w-4" />
               Start Task
             </>
           )}
@@ -358,7 +358,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
           {/* Full-height centered modal content */}
           <DialogPrimitive.Content
             className={cn(
-              'fixed left-[50%] top-4 z-50',
+              'fixed start-[50%] top-4 z-50',
               'translate-x-[-50%]',
               'w-[95vw] max-w-5xl h-[calc(100vh-32px)]',
               'bg-card border border-border rounded-xl',
@@ -414,7 +414,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                       )}
                       {/* Compact progress indicator */}
                       {totalSubtasks > 0 && (
-                        <span className="text-xs text-muted-foreground ml-1">
+                        <span className="text-xs text-muted-foreground ms-1">
                           {completedSubtasks}/{totalSubtasks} subtasks
                         </span>
                       )}
@@ -455,7 +455,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
               {(state.isRunning || completedSubtasks > 0) && totalSubtasks > 0 && (
                 <div className="mt-3 flex items-center gap-3">
                   <Progress value={progressPercent} className="h-1.5 flex-1" />
-                  <span className="text-xs text-muted-foreground tabular-nums w-10 text-right">{progressPercent}%</span>
+                  <span className="text-xs text-muted-foreground tabular-nums w-10 text-end">{progressPercent}%</span>
                 </div>
               )}
 
@@ -600,7 +600,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                 onClick={() => state.setShowDeleteDialog(true)}
                 disabled={state.isRunning && !state.isStuck}
               >
-                <Trash2 className="mr-2 h-4 w-4" />
+                <Trash2 className="me-2 h-4 w-4" />
                 Delete Task
               </Button>
               <div className="flex-1" />
@@ -673,12 +673,12 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
             >
               {state.isDeleting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="me-2 h-4 w-4 animate-spin" />
                   {t('tasks:deleteDialog.deleting')}
                 </>
               ) : (
                 <>
-                  <Trash2 className="mr-2 h-4 w-4" />
+                  <Trash2 className="me-2 h-4 w-4" />
                   {t('tasks:deleteDialog.deletePermanently')}
                 </>
               )}

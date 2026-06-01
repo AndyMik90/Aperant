@@ -117,7 +117,7 @@ export function ReviewFindings({
           className="text-xs"
           disabled={counts.important === 0}
         >
-          <AlertTriangle className="h-3 w-3 mr-1" />
+          <AlertTriangle className="h-3 w-3 me-1" />
           Select Critical/High ({counts.important})
         </Button>
         <Button
@@ -126,7 +126,7 @@ export function ReviewFindings({
           onClick={selectAll}
           className="text-xs"
         >
-          <CheckSquare className="h-3 w-3 mr-1" />
+          <CheckSquare className="h-3 w-3 me-1" />
           Select All
         </Button>
         <Button
@@ -136,7 +136,7 @@ export function ReviewFindings({
           className="text-xs"
           disabled={selectedIds.size === 0}
         >
-          <Square className="h-3 w-3 mr-1" />
+          <Square className="h-3 w-3 me-1" />
           Clear
         </Button>
       </div>

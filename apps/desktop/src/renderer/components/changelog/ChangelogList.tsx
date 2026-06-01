@@ -169,9 +169,9 @@ export function ChangelogList({
       <div className="flex items-center justify-end border-t border-border px-6 py-4 bg-background">
         <Button onClick={onContinue} disabled={!canContinue} size="lg">
           Continue
-          <ArrowRight className="ml-2 h-4 w-4" />
+          <ArrowRight className="ms-2 h-4 w-4 rtl:-scale-x-100" />
           {canContinue && (
-            <Badge variant="secondary" className="ml-2">
+            <Badge variant="secondary" className="ms-2">
               {getSummaryCount()} {getSummaryLabel()}{getSummaryCount() !== 1 ? 's' : ''}
             </Badge>
           )}

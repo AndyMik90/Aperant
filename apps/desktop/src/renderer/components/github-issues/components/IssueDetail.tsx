@@ -103,13 +103,13 @@ export function IssueDetail({
         <div className="flex items-center gap-2">
           {hasLinkedTask ? (
             <Button onClick={handleViewTask} className="flex-1" variant="secondary">
-              <Eye className="h-4 w-4 mr-2" />
+              <Eye className="h-4 w-4 me-2" />
               View Task
             </Button>
           ) : (
             <>
               <Button onClick={onInvestigate} className="flex-1">
-                <Sparkles className="h-4 w-4 mr-2" />
+                <Sparkles className="h-4 w-4 me-2" />
                 Create Task
               </Button>
               {projectId && autoFixConfig?.enabled && (
@@ -185,7 +185,7 @@ export function IssueDetail({
               <div className="flex flex-wrap gap-2">
                 {issue.assignees.map((assignee) => (
                   <Badge key={assignee.login} variant="outline">
-                    <User className="h-3 w-3 mr-1" />
+                    <User className="h-3 w-3 me-1" />
                     {assignee.login}
                   </Badge>
                 ))}

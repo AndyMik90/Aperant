@@ -170,7 +170,7 @@ export function ClaudeOAuthFlow({ onSuccess, onCancel }: ClaudeOAuthFlowProps) {
                   <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                   <div className="text-xs text-muted-foreground space-y-1">
                     <p className="font-medium">{t('oauth.completeStepsTitle')}</p>
-                    <ol className="list-decimal list-inside space-y-1 ml-2">
+                    <ol className="list-decimal list-inside space-y-1 ms-2">
                       <li>
                         <Trans
                           i18nKey="oauth.stepTypeLogin"

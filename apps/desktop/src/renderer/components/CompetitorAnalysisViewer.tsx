@@ -50,12 +50,12 @@ export function CompetitorAnalysisViewer({
             onClick={() => setShowAddDialog(true)}
             className="mt-2 self-start"
           >
-            <Plus className="h-4 w-4 mr-1" />
+            <Plus className="h-4 w-4 me-1" />
             {t('competitorAnalysis.addCompetitor')}
           </Button>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 overflow-auto pr-4" style={{ maxHeight: 'calc(85vh - 120px)' }}>
+        <ScrollArea className="flex-1 overflow-auto pe-4" style={{ maxHeight: 'calc(85vh - 120px)' }}>
           <div className="space-y-6 pb-4">
             {analysis.competitors.map((competitor) => (
               <div
@@ -89,7 +89,7 @@ export function CompetitorAnalysisViewer({
                       href={competitor.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-primary hover:underline flex items-center gap-1 text-sm ml-4"
+                      className="text-primary hover:underline flex items-center gap-1 text-sm ms-4"
                       aria-label={t('accessibility.visitExternalLink', { name: competitor.name })}
                     >
                       <ExternalLink className="h-3 w-3" aria-hidden="true" />

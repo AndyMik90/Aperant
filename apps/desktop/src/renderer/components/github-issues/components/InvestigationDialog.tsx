@@ -219,14 +219,14 @@ export function InvestigationDialog({
                 Cancel
               </Button>
               <Button onClick={handleStartInvestigation}>
-                <Sparkles className="h-4 w-4 mr-2" />
+                <Sparkles className="h-4 w-4 me-2" />
                 Create Task
               </Button>
             </>
           )}
           {investigationStatus.phase !== 'idle' && investigationStatus.phase !== 'complete' && (
             <Button variant="outline" disabled>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <Loader2 className="h-4 w-4 me-2 animate-spin" />
               Creating...
             </Button>
           )}

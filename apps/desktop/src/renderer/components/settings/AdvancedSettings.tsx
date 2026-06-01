@@ -51,7 +51,7 @@ const safeMarkdownComponents: Components = {
 
 function ReleaseNotesRenderer({ content }: { content: string }) {
   return (
-    <div className="text-sm text-muted-foreground leading-relaxed prose prose-sm dark:prose-invert max-w-none [&_ul]:ml-4 [&_ol]:ml-4">
+    <div className="text-sm text-muted-foreground leading-relaxed prose prose-sm dark:prose-invert max-w-none [&_ul]:ms-4 [&_ol]:ms-4">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeRaw, rehypeSanitize]}
@@ -296,7 +296,7 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
                 onClick={checkForAppUpdates}
                 disabled={isCheckingAppUpdate}
               >
-                <RefreshCw className={`mr-2 h-4 w-4 ${isCheckingAppUpdate ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`me-2 h-4 w-4 ${isCheckingAppUpdate ? 'animate-spin' : ''}`} />
                 {t('updates.checkForUpdates')}
               </Button>
             </div>
@@ -350,7 +350,7 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
                     </span>
                   </div>
                   <Progress value={appDownloadProgress.percent} className="h-2" />
-                  <p className="text-xs text-muted-foreground text-right">
+                  <p className="text-xs text-muted-foreground text-end">
                     {(appDownloadProgress.transferred / 1024 / 1024).toFixed(2)} MB / {(appDownloadProgress.total / 1024 / 1024).toFixed(2)} MB
                   </p>
                 </div>
@@ -387,7 +387,7 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
               <div className="flex gap-3">
                 {isAppUpdateDownloaded ? (
                   <Button onClick={handleInstallAppUpdate} disabled={showReadOnlyWarning}>
-                    <RefreshCw className="mr-2 h-4 w-4" />
+                    <RefreshCw className="me-2 h-4 w-4" />
                     {t('updates.installAndRestart')}
                   </Button>
                 ) : (
@@ -397,12 +397,12 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
                   >
                     {isDownloadingAppUpdate ? (
                       <>
-                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                        <RefreshCw className="me-2 h-4 w-4 animate-spin" />
                         {t('updates.downloading')}
                       </>
                     ) : (
                       <>
-                        <Download className="mr-2 h-4 w-4" />
+                        <Download className="me-2 h-4 w-4" />
                         {t('updates.downloadUpdate')}
                       </>
                     )}
@@ -510,7 +510,7 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
                     </span>
                   </div>
                   <Progress value={appDownloadProgress.percent} className="h-2" />
-                  <p className="text-xs text-muted-foreground text-right">
+                  <p className="text-xs text-muted-foreground text-end">
                     {(appDownloadProgress.transferred / 1024 / 1024).toFixed(2)} MB / {(appDownloadProgress.total / 1024 / 1024).toFixed(2)} MB
                   </p>
                 </div>
@@ -525,12 +525,12 @@ export function AdvancedSettings({ settings, onSettingsChange, section, version 
                 >
                   {isDownloadingAppUpdate ? (
                     <>
-                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                      <RefreshCw className="me-2 h-4 w-4 animate-spin" />
                       {t('updates.downloading')}
                     </>
                   ) : (
                     <>
-                      <ArrowDownToLine className="mr-2 h-4 w-4" />
+                      <ArrowDownToLine className="me-2 h-4 w-4" />
                       {t('updates.downloadStableVersion')}
                     </>
                   )}

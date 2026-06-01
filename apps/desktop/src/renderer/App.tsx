@@ -1086,12 +1086,12 @@ export function App() {
               >
                 {isInitializing ? (
                   <>
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                    <RefreshCw className="me-2 h-4 w-4 animate-spin" />
                     {t('common:labels.initializing', { ns: 'common' })}
                   </>
                 ) : (
                   <>
-                    <Download className="mr-2 h-4 w-4" />
+                    <Download className="me-2 h-4 w-4" />
                     {t('common:buttons.initialize', { ns: 'common' })}
                   </>
                 )}

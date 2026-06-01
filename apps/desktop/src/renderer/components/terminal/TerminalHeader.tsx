@@ -88,7 +88,7 @@ export function TerminalHeader({
             {...dragHandleListeners}
             className={cn(
               'flex items-center justify-center',
-              'w-4 h-6 -ml-1',
+              'w-4 h-6 -ms-1',
               'opacity-0 group-hover/header:opacity-60',
               'hover:opacity-100 transition-opacity',
               'cursor-grab active:cursor-grabbing',

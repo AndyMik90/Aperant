@@ -423,7 +423,7 @@ export function GitHubSetupModal({
                 onClick={handleAIAuthContinue}
                 disabled={getProviderAccounts().length === 0}
               >
-                <ChevronRight className="mr-2 h-4 w-4" />
+                <ChevronRight className="me-2 h-4 w-4 rtl:-scale-x-100" />
                 {t('githubSetup.continue')}
               </Button>
             </DialogFooter>
@@ -472,7 +472,7 @@ export function GitHubSetupModal({
                 Use Different Repository
               </Button>
               <Button onClick={handleConfirmRepo}>
-                <CheckCircle2 className="mr-2 h-4 w-4" />
+                <CheckCircle2 className="me-2 h-4 w-4" />
                 Confirm & Continue
               </Button>
             </DialogFooter>
@@ -693,12 +693,12 @@ export function GitHubSetupModal({
                 <Button onClick={handleCreateRepo} disabled={isCreatingRepo || !newRepoName.trim()}>
                   {isCreatingRepo ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="me-2 h-4 w-4 animate-spin" />
                       Creating...
                     </>
                   ) : (
                     <>
-                      <Plus className="mr-2 h-4 w-4" />
+                      <Plus className="me-2 h-4 w-4" />
                       Create Repository
                     </>
                   )}
@@ -708,12 +708,12 @@ export function GitHubSetupModal({
                 <Button onClick={handleLinkRepo} disabled={isCreatingRepo || !existingRepoName.trim()}>
                   {isCreatingRepo ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="me-2 h-4 w-4 animate-spin" />
                       Linking...
                     </>
                   ) : (
                     <>
-                      <Link className="mr-2 h-4 w-4" />
+                      <Link className="me-2 h-4 w-4" />
                       Link Repository
                     </>
                   )}
@@ -723,7 +723,7 @@ export function GitHubSetupModal({
                 <Button variant="outline" onClick={detectRepository} disabled={isLoadingRepo}>
                   {isLoadingRepo ? (
                     <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="me-2 h-4 w-4 animate-spin" />
                       Checking...
                     </>
                   ) : (
@@ -835,7 +835,7 @@ export function GitHubSetupModal({
                 onClick={handleComplete}
                 disabled={!selectedBranch || isLoadingBranches}
               >
-                <CheckCircle2 className="mr-2 h-4 w-4" />
+                <CheckCircle2 className="me-2 h-4 w-4" />
                 Complete Setup
               </Button>
             </DialogFooter>
@@ -904,13 +904,13 @@ export function GitHubSetupModal({
                 index + 1
               )}
             </div>
-            <span className={`ml-2 text-xs ${
+            <span className={`ms-2 text-xs ${
               index === currentIndex ? 'text-foreground font-medium' : 'text-muted-foreground'
             }`}>
               {s.label}
             </span>
             {index < steps.length - 1 && (
-              <ChevronRight className="h-4 w-4 mx-2 text-muted-foreground" />
+              <ChevronRight className="h-4 w-4 mx-2 text-muted-foreground rtl:-scale-x-100" />
             )}
           </div>
         ))}

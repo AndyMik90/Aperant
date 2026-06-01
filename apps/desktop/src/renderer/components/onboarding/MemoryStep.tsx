@@ -163,7 +163,7 @@ export function MemoryStep({ onNext, onBack }: MemoryStepProps) {
             >
               {isSaving ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="h-4 w-4 animate-spin me-2" />
                   {t('memory.saving')}
                 </>
               ) : (

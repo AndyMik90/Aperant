@@ -235,7 +235,7 @@ export function ScreenshotCapture({ open, onOpenChange, onCapture }: ScreenshotC
                       )}
 
                       {/* Type Icon */}
-                      <div className="absolute top-2 left-2">
+                      <div className="absolute top-2 start-2">
                         <div className={`
                           p-1.5 rounded-md
                           ${isSelected
@@ -279,9 +279,9 @@ export function ScreenshotCapture({ open, onOpenChange, onCapture }: ScreenshotC
                 disabled={isLoading}
               >
                 {isLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Loader2 className="h-4 w-4 animate-spin me-2" />
                 ) : (
-                  <RefreshCw className="h-4 w-4 mr-2" />
+                  <RefreshCw className="h-4 w-4 me-2" />
                 )}
                 {t('common:buttons.retry')}
               </Button>
@@ -318,7 +318,7 @@ export function ScreenshotCapture({ open, onOpenChange, onCapture }: ScreenshotC
             >
               {isCapturing ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="me-2 h-4 w-4 animate-spin" />
                   {t('tasks:screenshot.capturing')}
                 </>
               ) : (

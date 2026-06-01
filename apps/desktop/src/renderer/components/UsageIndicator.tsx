@@ -205,7 +205,7 @@ export function UsageIndicator() {
           <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-violet-500/10">
             <Layers className="h-4 w-4 text-violet-500" />
           </div>
-          <div className="flex-1 min-w-0 text-left">
+          <div className="flex-1 min-w-0 text-start">
             <div className="flex items-center gap-1.5">
               <span className="text-[10px] text-muted-foreground font-medium">
                 {t('common:usage.crossProviderActive')}
@@ -215,7 +215,7 @@ export function UsageIndicator() {
               {crossProviderLabel}
             </div>
           </div>
-          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
+          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0 rtl:-scale-x-100" />
         </button>
       );
     }
@@ -240,10 +240,10 @@ export function UsageIndicator() {
             </span>
           </div>
           {showReauth && (
-            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-background" />
+            <div className="absolute -bottom-0.5 -end-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-background" />
           )}
         </div>
-        <div className="flex-1 min-w-0 text-left">
+        <div className="flex-1 min-w-0 text-start">
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] text-muted-foreground font-medium">
               {t('common:usage.activeAccount')}
@@ -263,7 +263,7 @@ export function UsageIndicator() {
             {displayName}
           </div>
         </div>
-        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0" />
+        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors flex-shrink-0 rtl:-scale-x-100" />
       </button>
     ) : null;
   };
@@ -482,7 +482,7 @@ export function UsageIndicator() {
             <button
               type="button"
               onClick={handleToggleCrossProviderMode}
-              className="text-[9px] px-1.5 py-0.5 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded transition-colors ml-auto"
+              className="text-[9px] px-1.5 py-0.5 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded transition-colors ms-auto"
             >
               {t('common:usage.swap')}
             </button>
@@ -490,7 +490,7 @@ export function UsageIndicator() {
             <button
               type="button"
               onClick={handleToggleCrossProviderMode}
-              className="text-[9px] px-1.5 py-0.5 bg-destructive/10 text-destructive rounded hover:bg-destructive/20 transition-colors ml-auto"
+              className="text-[9px] px-1.5 py-0.5 bg-destructive/10 text-destructive rounded hover:bg-destructive/20 transition-colors ms-auto"
             >
               {t('common:usage.swap')}
             </button>
@@ -885,7 +885,7 @@ export function UsageIndicator() {
                           </span>
                           <button
                             onClick={(e) => handleSwapAccount(e, account.id)}
-                            className="text-[9px] px-1.5 py-0.5 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded transition-colors ml-auto"
+                            className="text-[9px] px-1.5 py-0.5 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded transition-colors ms-auto"
                           >
                             {t('common:usage.swap')}
                           </button>
@@ -1014,7 +1014,7 @@ export function UsageIndicator() {
                           </span>
                           <button
                             onClick={(e) => handleSwapAccount(e, account.id)}
-                            className="text-[9px] px-1.5 py-0.5 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded transition-colors ml-auto"
+                            className="text-[9px] px-1.5 py-0.5 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded transition-colors ms-auto"
                           >
                             {t('common:usage.swap')}
                           </button>
@@ -1172,7 +1172,7 @@ export function UsageIndicator() {
                           </span>
                         </div>
                         {(profileData?.isRateLimited || profileData?.needsReauthentication) && (
-                          <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-background" />
+                          <div className="absolute -bottom-0.5 -end-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-background" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1185,7 +1185,7 @@ export function UsageIndicator() {
                           </span>
                           <button
                             onClick={(e) => handleSwapAccount(e, account.id)}
-                            className="text-[9px] px-1.5 py-0.5 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded transition-colors ml-auto"
+                            className="text-[9px] px-1.5 py-0.5 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded transition-colors ms-auto"
                           >
                             {t('common:usage.swap')}
                           </button>
@@ -1365,7 +1365,7 @@ export function UsageIndicator() {
                   </span>
                 </div>
                 {sessionResetTime && (
-                  <div className="text-[10px] text-muted-foreground pl-4 flex items-center gap-1">
+                  <div className="text-[10px] text-muted-foreground ps-4 flex items-center gap-1">
                     <Info className="h-2.5 w-2.5" />
                     {sessionResetTime}
                   </div>
@@ -1400,7 +1400,7 @@ export function UsageIndicator() {
                   </span>
                 </div>
                 {weeklyResetTime && (
-                  <div className="text-[10px] text-muted-foreground pl-4 flex items-center gap-1">
+                  <div className="text-[10px] text-muted-foreground ps-4 flex items-center gap-1">
                     <Info className="h-2.5 w-2.5" />
                     {weeklyResetTime}
                   </div>
@@ -1468,7 +1468,7 @@ export function UsageIndicator() {
                         </span>
                       </div>
                       {(profileData?.isRateLimited || profileData?.needsReauthentication) && (
-                        <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-background" />
+                        <div className="absolute -bottom-0.5 -end-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-background" />
                       )}
                     </div>
 
@@ -1482,7 +1482,7 @@ export function UsageIndicator() {
                         </span>
                         <button
                           onClick={(e) => handleSwapAccount(e, account.id)}
-                          className="text-[9px] px-1.5 py-0.5 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded transition-colors ml-auto"
+                          className="text-[9px] px-1.5 py-0.5 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded transition-colors ms-auto"
                         >
                           {t('common:usage.swap')}
                         </button>
@@ -1575,7 +1575,7 @@ export function UsageIndicator() {
                     </div>
                     {/* Status dot */}
                     {(profile.isRateLimited || profile.needsReauthentication) && (
-                      <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-background" />
+                      <div className="absolute -bottom-0.5 -end-0.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-background" />
                     )}
                   </div>
 
@@ -1594,7 +1594,7 @@ export function UsageIndicator() {
                       {profile.isAuthenticated && (
                         <button
                           onClick={(e) => handleSwapProfile(e, profile.profileId)}
-                          className="text-[9px] px-1.5 py-0.5 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded transition-colors ml-auto"
+                          className="text-[9px] px-1.5 py-0.5 bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground rounded transition-colors ms-auto"
                         >
                           {t('common:usage.swap')}
                         </button>

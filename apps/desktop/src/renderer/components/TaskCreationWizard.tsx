@@ -631,7 +631,7 @@ export function TaskCreationWizard({
                   className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground"
                   onClick={handleDiscardDraft}
                 >
-                  <RotateCcw className="h-3 w-3 mr-1" />
+                  <RotateCcw className="h-3 w-3 me-1" />
                   {t('tasks:wizard.startFresh')}
                 </Button>
               </div>
@@ -660,7 +660,7 @@ export function TaskCreationWizard({
             <Button onClick={handleCreate} disabled={isCreating || !description.trim()}>
               {isCreating ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="me-2 h-4 w-4 animate-spin" />
                   {t('tasks:wizard.creating')}
                 </>
               ) : (

@@ -150,12 +150,12 @@ export function MemoriesTab({
               </CardTitle>
               {memoryStatus?.available ? (
                 <Badge variant="outline" className="bg-success/10 text-success border-success/30">
-                  <CheckCircle className="h-3 w-3 mr-1" />
+                  <CheckCircle className="h-3 w-3 me-1" />
                   {t('memory.status.connected')}
                 </Badge>
               ) : (
                 <Badge variant="outline" className="bg-muted text-muted-foreground">
-                  <XCircle className="h-3 w-3 mr-1" />
+                  <XCircle className="h-3 w-3 me-1" />
                   {t('memory.status.notAvailable')}
                 </Badge>
               )}
@@ -354,7 +354,7 @@ export function MemoriesTab({
                   {count > 0 && (
                     <Badge
                       variant="secondary"
-                      className={cn('ml-1 px-1.5 py-0 text-xs', isActive && 'bg-background/20')}
+                      className={cn('ms-1 px-1.5 py-0 text-xs', isActive && 'bg-background/20')}
                     >
                       {count}
                     </Badge>

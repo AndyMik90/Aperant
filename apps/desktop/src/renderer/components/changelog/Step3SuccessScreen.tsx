@@ -58,7 +58,7 @@ export function Step3SuccessScreen({
         {/* Done Button */}
         <div className="pt-4">
           <Button className="w-full" size="lg" onClick={onDone}>
-            <Check className="mr-2 h-4 w-4" />
+            <Check className="me-2 h-4 w-4" />
             Done
           </Button>
         </div>

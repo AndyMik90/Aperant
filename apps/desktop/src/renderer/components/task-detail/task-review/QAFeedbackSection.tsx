@@ -341,7 +341,7 @@ export function QAFeedbackSection({
               {!isSubmitting && (
                 <button
                   type="button"
-                  className="absolute top-0.5 right-0.5 h-4 w-4 flex items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="absolute top-0.5 end-0.5 h-4 w-4 flex items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleRemoveImage(image.id);
@@ -364,12 +364,12 @@ export function QAFeedbackSection({
       >
         {isSubmitting ? (
           <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <Loader2 className="me-2 h-4 w-4 animate-spin" />
             {t('feedback.submitting', 'Submitting...')}
           </>
         ) : (
           <>
-            <RotateCcw className="mr-2 h-4 w-4" />
+            <RotateCcw className="me-2 h-4 w-4" />
             {t('feedback.requestChanges', 'Request Changes')}
           </>
         )}

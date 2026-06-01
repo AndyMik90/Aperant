@@ -443,7 +443,7 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
           >
             {isTestingConnection ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="me-2 h-4 w-4 animate-spin" />
                 {t('settings:apiProfiles.testConnection.testing')}
               </>
             ) : (
@@ -570,7 +570,7 @@ export function ProfileEditDialog({ open, onOpenChange, onSaved, profile }: Prof
           >
             {profilesLoading ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="me-2 h-4 w-4 animate-spin" />
                 {t('settings:apiProfiles.actions.saving')}
               </>
             ) : (

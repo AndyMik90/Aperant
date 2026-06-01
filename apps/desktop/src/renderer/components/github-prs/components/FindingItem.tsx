@@ -66,7 +66,7 @@ export function FindingItem({ finding, selected, posted = false, disputed = fals
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex items-center gap-2 flex-wrap">
             <Badge variant="outline" className="text-xs shrink-0">
-              <CategoryIcon className="h-3 w-3 mr-1" />
+              <CategoryIcon className="h-3 w-3 me-1" />
               {categoryLabel}
             </Badge>
             {posted && (
@@ -107,7 +107,7 @@ export function FindingItem({ finding, selected, posted = false, disputed = fals
 
       {/* Suggested Fix */}
       {finding.suggestedFix && (
-        <div className="ml-7 text-xs">
+        <div className="ms-7 text-xs">
           <span className="text-muted-foreground font-medium">{t('prReview.suggestedFix')}</span>
           <pre className="mt-1 p-2 bg-muted rounded text-xs overflow-x-auto max-w-full whitespace-pre-wrap break-words">
             {finding.suggestedFix}
