@@ -176,6 +176,7 @@ export function TerminalHeader({
               useTerminalStore.getState().resumeAllPendingClaude();
             }}
             title={t('terminal:resume.resumeAllSessions')}
+            aria-label={t('common:accessibility.resumeAllSessionsAriaLabel')}
           >
             <RotateCcw className="h-3 w-3" />
             {terminalCount < 4 && <span>{t('terminal:resume.resumeAllSessions')}</span>}
@@ -195,6 +196,7 @@ export function TerminalHeader({
               onOpenInIDE();
             }}
             title={t('terminal:worktree.openInIDE')}
+            aria-label={t('common:accessibility.openInIdeAriaLabel')}
           >
             <ExternalLink className="h-3 w-3" />
             {terminalCount < 4 && t('terminal:worktree.openInIDE')}
@@ -213,6 +215,7 @@ export function TerminalHeader({
               onInvokeClaude();
             }}
             title="Claude"
+            aria-label={t('common:accessibility.runClaudeAriaLabel')}
           >
             <Sparkles className="h-3 w-3" />
             {terminalCount < 4 && <span>Claude</span>}
@@ -229,6 +232,7 @@ export function TerminalHeader({
               onToggleExpand();
             }}
             title={`${isExpanded ? t('terminal:expand.collapse') : t('terminal:expand.expand')} (${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+Shift+E)`}
+            aria-label={isExpanded ? t('common:accessibility.collapseAriaLabel') : t('common:accessibility.expandAriaLabel')}
           >
             {isExpanded ? (
               <Minimize2 className="h-3.5 w-3.5" />
@@ -246,6 +250,7 @@ export function TerminalHeader({
             onClose();
           }}
           title={`${t('common:close')} (${navigator.platform.includes('Mac') ? '⌘' : 'Ctrl'}+W)`}
+          aria-label={t('common:accessibility.closeAriaLabel')}
         >
           <X className="h-3.5 w-3.5" />
         </Button>

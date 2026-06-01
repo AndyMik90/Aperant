@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Layers } from 'lucide-react';
 import {
   Dialog,
@@ -79,6 +80,7 @@ export function AddWorkspaceModal({
   projects,
   onCreated,
 }: AddWorkspaceModalProps) {
+  const { t } = useTranslation('common');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedProjects, setSelectedProjects] = useState<SelectedProject[]>([]);
@@ -272,6 +274,7 @@ export function AddWorkspaceModal({
                     size="icon"
                     className="h-8 w-8"
                     onClick={() => handleRemoveProject(selected.projectId)}
+                    aria-label={t('accessibility.removeAriaLabel')}
                   >
                     <X className="h-4 w-4" />
                   </Button>

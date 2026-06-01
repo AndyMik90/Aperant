@@ -370,6 +370,7 @@ export function AuthTerminal({
           size="icon"
           onClick={handleClose}
           className="h-6 w-6"
+          aria-label={t('accessibility.closeAriaLabel')}
         >
           <X className="h-4 w-4" />
         </Button>

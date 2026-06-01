@@ -415,6 +415,7 @@ export function Insights({ projectId }: InsightsProps) {
               className="h-8 w-8"
               onClick={() => setShowSidebar(!showSidebar)}
               title={showSidebar ? 'Hide sidebar' : 'Show sidebar'}
+              aria-label={t('accessibility.toggleSidebarAriaLabel')}
             >
               {showSidebar ? (
                 <PanelLeftClose className="h-4 w-4 rtl:-scale-x-100" />
@@ -588,6 +589,7 @@ export function Insights({ projectId }: InsightsProps) {
               onClick={() => setScreenshotOpen(true)}
               disabled={isLoading || !canAddMore}
               title={t('insights.images.screenshotButton')}
+              aria-label={t('accessibility.attachScreenshotAriaLabel')}
             >
               <Camera className="h-4 w-4" />
             </Button>
@@ -596,6 +598,7 @@ export function Insights({ projectId }: InsightsProps) {
               disabled={(!inputValue.trim() && pendingImages.length === 0) || isLoading}
               className="h-9 w-9"
               size="icon"
+              aria-label={t('accessibility.sendMessageAriaLabel')}
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -637,6 +640,7 @@ export function Insights({ projectId }: InsightsProps) {
                   onClick={() => removeImage(image.id)}
                   className="absolute -end-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-0 transition-opacity group-hover:opacity-100"
                   title={t('insights.images.removeImage')}
+                  aria-label={t('accessibility.removeImageAriaLabel')}
                 >
                   <X className="h-3 w-3" />
                 </button>

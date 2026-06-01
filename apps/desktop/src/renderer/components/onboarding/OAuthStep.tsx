@@ -460,6 +460,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                                   size="icon"
                                   onClick={handleRenameProfile}
                                   className="h-7 w-7 text-success hover:text-success hover:bg-success/10"
+                                  aria-label={t('common:accessibility.saveEditAriaLabel')}
                                 >
                                   <Check className="h-3 w-3" />
                                 </Button>
@@ -468,6 +469,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                                   size="icon"
                                   onClick={cancelEditingProfile}
                                   className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                  aria-label={t('common:accessibility.cancelEditAriaLabel')}
                                 >
                                   <X className="h-3 w-3" />
                                 </Button>
@@ -540,6 +542,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                               onClick={() => toggleTokenEntry(profile.id)}
                               className="h-7 w-7 text-muted-foreground hover:text-foreground"
                               title={expandedTokenProfileId === profile.id ? t('common:accessibility.hideTokenEntryAriaLabel') : t('common:accessibility.enterTokenManuallyAriaLabel')}
+                              aria-label={expandedTokenProfileId === profile.id ? t('common:accessibility.hideTokenEntryAriaLabel') : t('common:accessibility.enterTokenManuallyAriaLabel')}
                             >
                               {expandedTokenProfileId === profile.id ? (
                                 <ChevronDown className="h-3 w-3" />
@@ -553,6 +556,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                               onClick={() => startEditingProfile(profile)}
                               className="h-7 w-7 text-muted-foreground hover:text-foreground"
                               title={t('common:accessibility.renameProfileAriaLabel')}
+                              aria-label={t('common:accessibility.renameProfileAriaLabel')}
                             >
                               <Pencil className="h-3 w-3" />
                             </Button>
@@ -564,6 +568,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                                 disabled={deletingProfileId === profile.id}
                                 className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
                                 title={t('common:accessibility.deleteProfileAriaLabel')}
+                                aria-label={t('common:accessibility.deleteProfileAriaLabel')}
                               >
                                 {deletingProfileId === profile.id ? (
                                   <Loader2 className="h-3 w-3 animate-spin" />
@@ -605,6 +610,7 @@ export function OAuthStep({ onNext, onBack, onSkip }: OAuthStepProps) {
                                   type="button"
                                   onClick={() => setShowManualToken(!showManualToken)}
                                   className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                  aria-label={showManualToken ? t('common:accessibility.hidePasswordAriaLabel') : t('common:accessibility.showPasswordAriaLabel')}
                                 >
                                   {showManualToken ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                                 </button>

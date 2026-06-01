@@ -78,7 +78,7 @@ const isFilesTabEnabled = () => {
 
 // Separate component to use hooks only when task exists
 function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals, onOpenInbuiltTerminal }: { open: boolean; task: Task; onOpenChange: (open: boolean) => void; onSwitchToTerminals?: () => void; onOpenInbuiltTerminal?: (id: string, cwd: string) => void }) {
-  const { t } = useTranslation(['tasks']);
+  const { t } = useTranslation(['tasks', 'common']);
   const { toast } = useToast();
   const state = useTaskDetail({ task });
   const activeProject = useProjectStore(s => s.getActiveProject());
@@ -435,6 +435,7 @@ function TaskDetailModalContent({ open, task, onOpenChange, onSwitchToTerminals,
                     className="hover:bg-primary/10 hover:text-primary transition-colors"
                     onClick={() => state.setIsEditDialogOpen(true)}
                     disabled={state.isRunning && !state.isStuck}
+                    aria-label={t('common:accessibility.editAriaLabel')}
                   >
                     <Pencil className="h-4 w-4" />
                   </Button>

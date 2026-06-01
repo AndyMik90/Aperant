@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from 'motion/react';
+import { useTranslation } from 'react-i18next';
 import { X, FolderTree, RefreshCw } from 'lucide-react';
 import { Button } from './ui/button';
 import { FileTree } from './FileTree';
@@ -35,6 +36,7 @@ const contentVariants = {
 };
 
 export function TaskFileExplorerDrawer({ isOpen, onClose, projectPath }: TaskFileExplorerDrawerProps) {
+  const { t } = useTranslation('common');
   const { clearCache, loadDirectory } = useFileExplorerStore();
 
   const handleRefresh = () => {
@@ -82,6 +84,7 @@ export function TaskFileExplorerDrawer({ isOpen, onClose, projectPath }: TaskFil
                   className="h-6 w-6"
                   onClick={handleRefresh}
                   title="Refresh"
+                  aria-label={t('accessibility.refreshAriaLabel')}
                 >
                   <RefreshCw className="h-3.5 w-3.5" />
                 </Button>
@@ -91,6 +94,7 @@ export function TaskFileExplorerDrawer({ isOpen, onClose, projectPath }: TaskFil
                   className="h-6 w-6"
                   onClick={onClose}
                   title="Close"
+                  aria-label={t('accessibility.closeAriaLabel')}
                 >
                   <X className="h-3.5 w-3.5" />
                 </Button>

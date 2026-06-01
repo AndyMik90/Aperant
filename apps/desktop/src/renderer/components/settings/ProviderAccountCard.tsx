@@ -66,7 +66,7 @@ function UsageBar({ percent, icon: Icon, tooltipKey }: {
 }
 
 export function ProviderAccountCard({ account, onEdit, onDelete, onReauth }: ProviderAccountCardProps) {
-  const { t } = useTranslation('settings');
+  const { t } = useTranslation(['settings', 'common']);
   const [showKey, setShowKey] = useState(false);
 
   const isOAuth = account.authType === 'oauth';
@@ -176,6 +176,7 @@ export function ProviderAccountCard({ account, onEdit, onDelete, onReauth }: Pro
                 size="icon"
                 onClick={() => onEdit(account)}
                 className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                aria-label={t('common:accessibility.editAriaLabel')}
               >
                 <Pencil className="h-3 w-3" />
               </Button>
@@ -190,6 +191,7 @@ export function ProviderAccountCard({ account, onEdit, onDelete, onReauth }: Pro
                   size="icon"
                   onClick={() => onReauth(account)}
                   className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  aria-label={t('common:accessibility.reAuthenticateProfileAriaLabel')}
                 >
                   <RefreshCw className="h-3 w-3" />
                 </Button>
@@ -204,6 +206,7 @@ export function ProviderAccountCard({ account, onEdit, onDelete, onReauth }: Pro
                 size="icon"
                 onClick={() => onDelete(account.id)}
                 className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+                aria-label={t('common:accessibility.deleteAriaLabel')}
               >
                 <Trash2 className="h-3 w-3" />
               </Button>

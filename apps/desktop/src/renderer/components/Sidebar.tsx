@@ -428,6 +428,7 @@ export function Sidebar({
                   size={isCollapsed ? "icon" : "sm"}
                   className={isCollapsed ? "" : "flex-1 justify-start gap-2"}
                   onClick={onSettingsClick}
+                  aria-label={t('common:accessibility.settingsAriaLabel')}
                 >
                   <Settings className="h-4 w-4" />
                   {!isCollapsed && t('actions.settings')}
@@ -478,6 +479,7 @@ export function Sidebar({
                 size={isCollapsed ? "icon" : "default"}
                 onClick={onNewTaskClick}
                 disabled={!selectedProjectId || !selectedProject?.autoBuildPath}
+                aria-label={t('common:accessibility.newTaskAriaLabel')}
               >
                 <Plus className={isCollapsed ? "h-4 w-4" : "me-2 h-4 w-4"} />
                 {!isCollapsed && t('actions.newTask')}

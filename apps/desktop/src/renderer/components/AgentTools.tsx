@@ -374,7 +374,7 @@ interface AgentCardProps {
 function AgentCard({ id, config, modelLabel, thinkingLabel, overrides, mcpServerStates, customServers, onAddMcp, onRemoveMcp }: AgentCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const { t } = useTranslation(['settings']);
+  const { t } = useTranslation(['settings', 'common']);
   const category = CATEGORIES[config.category as keyof typeof CATEGORIES];
   const CategoryIcon = category.icon;
 
@@ -515,6 +515,7 @@ function AgentCard({ id, config, modelLabel, thinkingLabel, overrides, mcpServer
                           onClick={(e) => { e.stopPropagation(); onRemoveMcp(id, server); }}
                           className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-destructive transition-all"
                           title={t('mcp.remove')}
+                          aria-label={t('common:accessibility.removeAriaLabel')}
                         >
                           <X className="h-3.5 w-3.5" />
                         </button>
@@ -543,6 +544,7 @@ function AgentCard({ id, config, modelLabel, thinkingLabel, overrides, mcpServer
                         onClick={(e) => { e.stopPropagation(); onAddMcp(id, server); }}
                         className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-primary transition-all"
                         title={t('mcp.restore')}
+                        aria-label={t('common:accessibility.restoreAriaLabel')}
                       >
                         <RotateCcw className="h-3.5 w-3.5" />
                       </button>
@@ -644,7 +646,7 @@ function AgentCard({ id, config, modelLabel, thinkingLabel, overrides, mcpServer
 }
 
 export function AgentTools() {
-  const { t } = useTranslation(['settings']);
+  const { t } = useTranslation(['settings', 'common']);
   const settings = useSettingsStore((state) => state.settings);
   const projects = useProjectStore((state) => state.projects);
   const selectedProjectId = useProjectStore((state) => state.selectedProjectId);
@@ -1291,6 +1293,7 @@ export function AgentTools() {
                                   onClick={() => { setEditingCustomServer(server); setShowCustomMcpDialog(true); }}
                                   className="p-1.5 text-muted-foreground hover:text-foreground transition-colors"
                                   title="Edit"
+                                  aria-label={t('common:accessibility.editAriaLabel')}
                                 >
                                   <Pencil className="h-3.5 w-3.5" />
                                 </button>
@@ -1299,6 +1302,7 @@ export function AgentTools() {
                                   onClick={() => handleDeleteCustomServer(server.id)}
                                   className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"
                                   title="Delete"
+                                  aria-label={t('common:accessibility.deleteAriaLabel')}
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />
                                 </button>

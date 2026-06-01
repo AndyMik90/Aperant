@@ -34,7 +34,7 @@ function getFileIcon(filename: string) {
 }
 
 export function TaskFiles({ task }: TaskFilesProps) {
-  const { t } = useTranslation(['tasks']);
+  const { t } = useTranslation(['tasks', 'common']);
   const { settings } = useSettingsStore();
 
   // State for file listing
@@ -275,6 +275,7 @@ export function TaskFiles({ task }: TaskFilesProps) {
             className="h-6 w-6"
             onClick={loadFiles}
             disabled={isLoadingFiles}
+            aria-label={t('common:accessibility.refreshAriaLabel')}
           >
             <RefreshCw className={cn("h-3 w-3", isLoadingFiles && "animate-spin")} />
           </Button>
@@ -354,6 +355,7 @@ export function TaskFiles({ task }: TaskFilesProps) {
                     size="icon"
                     className="h-7 w-7"
                     onClick={handleOpenInIDE}
+                    aria-label={t('common:accessibility.openInIdeAriaLabel')}
                   >
                     <ExternalLink className="h-4 w-4" />
                   </Button>

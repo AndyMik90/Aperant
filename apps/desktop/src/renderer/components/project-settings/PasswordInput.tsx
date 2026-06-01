@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Eye, EyeOff } from 'lucide-react';
 import { Input } from '../ui/input';
 
@@ -10,6 +11,7 @@ interface PasswordInputProps {
 }
 
 export function PasswordInput({ value, onChange, placeholder, className }: PasswordInputProps) {
+  const { t } = useTranslation('common');
   const [showPassword, setShowPassword] = useState(false);
 
   return (
@@ -25,6 +27,7 @@ export function PasswordInput({ value, onChange, placeholder, className }: Passw
         type="button"
         onClick={() => setShowPassword(!showPassword)}
         className="absolute end-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+        aria-label={showPassword ? t('accessibility.hidePasswordAriaLabel') : t('accessibility.showPasswordAriaLabel')}
       >
         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
       </button>

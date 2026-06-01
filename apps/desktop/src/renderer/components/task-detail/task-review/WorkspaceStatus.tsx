@@ -500,6 +500,7 @@ export function WorkspaceStatus({
                 disabled={isLoadingPreview}
                 className="h-7 px-2"
                 title={t('taskReview:merge.status.refresh')}
+                aria-label={t('common:accessibility.refreshAriaLabel')}
               >
                 {isLoadingPreview ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -732,6 +733,7 @@ export function WorkspaceStatus({
               disabled={isMerging || isDiscarding || isCreatingPR}
               className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 hover:border-destructive/30"
               title={t('taskReview:merge.status.discardBuild')}
+              aria-label={t('common:accessibility.discardAriaLabel')}
             >
               <FolderX className="h-4 w-4" />
             </Button>
