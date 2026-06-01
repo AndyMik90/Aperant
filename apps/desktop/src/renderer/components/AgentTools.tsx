@@ -1277,14 +1277,14 @@ export function AgentTools() {
                                 onClick={() => handleTestConnection(server)}
                                 disabled={isTesting}
                                 className="h-7 px-2 text-xs"
-                                title="Test Connection"
+                                title={t('settings:mcp.testConnectionTitle')}
                               >
                                 {isTesting ? (
                                   <Loader2 className="h-3 w-3 animate-spin" />
                                 ) : (
                                   <RefreshCw className="h-3 w-3" />
                                 )}
-                                <span className="ms-1">Test</span>
+                                <span className="ms-1">{t('settings:mcp.testConnection')}</span>
                               </Button>
                               {/* Edit/Delete - show on hover */}
                               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1292,7 +1292,7 @@ export function AgentTools() {
                                   type="button"
                                   onClick={() => { setEditingCustomServer(server); setShowCustomMcpDialog(true); }}
                                   className="p-1.5 text-muted-foreground hover:text-foreground transition-colors"
-                                  title="Edit"
+                                  title={t('common:accessibility.editAriaLabel')}
                                   aria-label={t('common:accessibility.editAriaLabel')}
                                 >
                                   <Pencil className="h-3.5 w-3.5" />
@@ -1301,7 +1301,7 @@ export function AgentTools() {
                                   type="button"
                                   onClick={() => handleDeleteCustomServer(server.id)}
                                   className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"
-                                  title="Delete"
+                                  title={t('common:accessibility.deleteAriaLabel')}
                                   aria-label={t('common:accessibility.deleteAriaLabel')}
                                 >
                                   <Trash2 className="h-3.5 w-3.5" />

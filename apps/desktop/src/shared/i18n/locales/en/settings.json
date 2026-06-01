@@ -977,7 +977,8 @@
       "createAnthropicKey": "Create Anthropic API Key",
       "openai": "This looks like an OpenAI API. You'll need an API key.",
       "createOpenaiKey": "Create OpenAI API Key"
-    }
+    },
+    "testConnectionTitle": "Test Connection"
   },
   "terminalFonts": {
     "title": "Terminal Fonts",

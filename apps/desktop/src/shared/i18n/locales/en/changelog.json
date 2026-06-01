@@ -1,0 +1,223 @@
+{
+  "emptyState": {
+    "noProjectTitle": "No Project Selected",
+    "noProjectDescription": "Select a project from the sidebar to generate changelogs."
+  },
+  "header": {
+    "title": "Changelog Generator",
+    "subtitle": {
+      "step1": "Step 1: Select completed tasks to include",
+      "step2": "Step 2: Configure and generate changelog",
+      "step3": "Step 3: Release and archive tasks"
+    },
+    "steps": {
+      "select": "Select",
+      "generate": "Generate",
+      "release": "Release"
+    },
+    "refresh": "Refresh"
+  },
+  "filters": {
+    "source": "Changelog Source",
+    "gitHistoryOptions": "Git History Options",
+    "historyType": "History Type",
+    "historyTypeOptions": {
+      "sinceVersion": "Since Version",
+      "recentCommits": "Recent Commits",
+      "sinceDate": "Since Date",
+      "tagRange": "Tag Range"
+    },
+    "numberOfCommits": "Number of Commits",
+    "sinceDate": "Since Date",
+    "fromTag": "From Tag",
+    "toTagOptional": "To Tag (optional)",
+    "selectTagPlaceholder": "Select tag...",
+    "headLatest": "HEAD (latest)",
+    "lastVersion": "Last Version",
+    "selectVersionPlaceholder": "Select version...",
+    "sinceVersionHint": "All commits since this version will be included",
+    "includeMergeCommits": "Include merge commits",
+    "branchComparison": "Branch Comparison",
+    "baseBranch": "Base Branch",
+    "selectBaseBranchPlaceholder": "Select base branch...",
+    "baseBranchHint": "The branch you're merging into",
+    "compareBranch": "Compare Branch",
+    "selectCompareBranchPlaceholder": "Select compare branch...",
+    "compareBranchHint": "The branch with your changes",
+    "branchesMustDiffer": "Branches must be different",
+    "defaultBadge": "default",
+    "currentBadge": "current"
+  },
+  "list": {
+    "tasksSelected": "{{selected}} of {{total}} tasks selected",
+    "selectAll": "Select All",
+    "clear": "Clear",
+    "noCompletedTasksTitle": "No Completed Tasks",
+    "noCompletedTasksDescription": "Complete tasks in the Kanban board and mark them as \"Done\" to include them in your changelog.",
+    "commitsFoundSingular": "{{count}} commit found",
+    "commitsFoundPlural": "{{count}} commits found",
+    "loadingCommits": "Loading commits...",
+    "noCommitsTitle": "No Commits Found",
+    "noCommitsGitHistory": "Configure the history options and click \"Load Commits\" to preview.",
+    "noCommitsBranchDiff": "Select both branches and click \"Load Commits\" to see the changes.",
+    "summary": {
+      "taskSingular": "{{count}} task",
+      "taskPlural": "{{count}} tasks",
+      "commitSingular": "{{count}} commit",
+      "commitPlural": "{{count}} commits",
+      "itemSingular": "{{count}} item",
+      "itemPlural": "{{count}} items"
+    }
+  },
+  "entry": {
+    "hasSpecs": "Has Specs",
+    "filesSingular": "{{count}} file",
+    "filesPlural": "{{count}} files"
+  },
+  "config": {
+    "backToSelection": "Back to Selection",
+    "includingTasksSingular": "Including {{count}} task",
+    "includingTasksPlural": "Including {{count}} tasks",
+    "includingCommitsSingular": "Including {{count}} commit",
+    "includingCommitsPlural": "Including {{count}} commits",
+    "includingItemsSingular": "Including {{count}} item",
+    "includingItemsPlural": "Including {{count}} items",
+    "releaseInfo": "Release Info",
+    "version": "Version",
+    "date": "Date",
+    "versionPlaceholder": "1.0.0",
+    "previous": "Previous: {{version}}",
+    "versionBump": {
+      "major": "Major version bump (breaking changes detected)",
+      "minor": "Minor version bump (new features detected)",
+      "patch": "Patch version bump (fixes/improvements)"
+    },
+    "outputStyle": "Output Style",
+    "format": "Format",
+    "audience": "Audience",
+    "emojis": "Emojis",
+    "advancedOptions": "Advanced Options",
+    "customInstructions": "Custom Instructions",
+    "customInstructionsPlaceholder": "Add any special instructions for the AI...",
+    "customInstructionsHint": "Optional. Guide the AI on tone, specific details to include, etc.",
+    "generating": "Generating...",
+    "generateChangelog": "Generate Changelog"
+  },
+  "preview": {
+    "title": "Preview",
+    "markdown": "Markdown",
+    "preview": "Preview",
+    "copy": "Copy",
+    "copied": "Copied!",
+    "copyTooltip": "Copy to clipboard",
+    "save": "Save to CHANGELOG.md",
+    "saved": "Saved!",
+    "saveTooltip": "Prepend to CHANGELOG.md in project root",
+    "dropImagesHint": "Drop images here to add to changelog",
+    "pasteImagesHint": "Paste images into the description to save them to the changelog",
+    "generatedPlaceholder": "Generated changelog will appear here...",
+    "emptyDescription": "Click \"Generate Changelog\" to create release notes.",
+    "loadingImage": "Loading image...",
+    "imageNotFound": "Image not found",
+    "cannotLoadLocalImage": "Cannot load local image: no project path",
+    "failedToLoadImage": "Failed to load image"
+  },
+  "success": {
+    "title": "Changelog Saved!",
+    "description": "Version {{tag}} has been added to CHANGELOG.md",
+    "done": "Done"
+  },
+  "githubRelease": {
+    "title": "Create GitHub Release",
+    "createdSuccess": "Release created successfully!",
+    "viewOnGitHub": "View Release on GitHub",
+    "description": "Create a new release {{tag}} on GitHub with the changelog as release notes.",
+    "failedToCreate": "Failed to create release",
+    "creating": "Creating Release...",
+    "createRelease": "Create Release {{tag}}"
+  },
+  "archive": {
+    "title": "Archive Completed Tasks",
+    "archivedSuccessSingular": "{{count}} task archived!",
+    "archivedSuccessPlural": "{{count}} tasks archived!",
+    "descriptionSingular": "Archive {{count}} task to clean up your Kanban board. Archived tasks can be viewed using the \"Show Archived\" toggle.",
+    "descriptionPlural": "Archive {{count}} tasks to clean up your Kanban board. Archived tasks can be viewed using the \"Show Archived\" toggle.",
+    "failedToArchive": "Failed to archive tasks",
+    "archiving": "Archiving...",
+    "archiveButtonSingular": "Archive {{count}} Task",
+    "archiveButtonPlural": "Archive {{count}} Tasks"
+  },
+  "actions": {
+    "loadCommits": "Load Commits",
+    "loading": "Loading...",
+    "continue": "Continue"
+  },
+  "sourceModes": {
+    "tasks": {
+      "label": "Completed Tasks",
+      "description": "Generate from completed spec tasks"
+    },
+    "git-history": {
+      "label": "Git History",
+      "description": "Generate from recent commits or tag range"
+    },
+    "branch-diff": {
+      "label": "Branch Comparison",
+      "description": "Generate from commits between two branches"
+    }
+  },
+  "formats": {
+    "keep-a-changelog": {
+      "label": "Keep a Changelog",
+      "description": "Structured format with Added/Changed/Fixed/Removed sections"
+    },
+    "simple-list": {
+      "label": "Simple List",
+      "description": "Clean bulleted list with categories"
+    },
+    "github-release": {
+      "label": "GitHub Release",
+      "description": "GitHub-style release notes"
+    }
+  },
+  "audiences": {
+    "technical": {
+      "label": "Technical",
+      "description": "Detailed technical changes for developers"
+    },
+    "user-facing": {
+      "label": "User-Facing",
+      "description": "Clear, non-technical descriptions for end users"
+    },
+    "marketing": {
+      "label": "Marketing",
+      "description": "Value-focused copy emphasizing benefits"
+    }
+  },
+  "emojiLevels": {
+    "none": {
+      "label": "None",
+      "description": "No emojis"
+    },
+    "little": {
+      "label": "Headings Only",
+      "description": "Emojis on section headings only"
+    },
+    "medium": {
+      "label": "Headings + Highlights",
+      "description": "Emojis on headings and key items"
+    },
+    "high": {
+      "label": "Everything",
+      "description": "Emojis on headings and every line"
+    }
+  },
+  "stages": {
+    "loading_specs": "Loading spec files...",
+    "loading_commits": "Loading commits...",
+    "generating": "Generating changelog...",
+    "formatting": "Formatting output...",
+    "complete": "Complete",
+    "error": "Error"
+  }
+}

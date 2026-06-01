@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import { PartyPopper, Check } from 'lucide-react';
 import { Button } from '../ui/button';
 import { GitHubReleaseCard } from './GitHubReleaseCard';
@@ -22,7 +23,8 @@ export function Step3SuccessScreen({
   generatedChangelog,
   onDone
 }: Step3SuccessScreenProps) {
-  const selectedTasks = doneTasks.filter((t) => selectedTaskIds.includes(t.id));
+  const { t } = useTranslation('changelog');
+  const selectedTasks = doneTasks.filter((task) => selectedTaskIds.includes(task.id));
   const tag = formatVersionTag(version);
 
   return (
@@ -33,9 +35,9 @@ export function Step3SuccessScreen({
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-success/10 mb-4">
             <PartyPopper className="h-8 w-8 text-success" />
           </div>
-          <h2 className="text-2xl font-semibold">Changelog Saved!</h2>
+          <h2 className="text-2xl font-semibold">{t('success.title')}</h2>
           <p className="text-muted-foreground mt-2">
-            Version {tag} has been added to CHANGELOG.md
+            {t('success.description', { tag })}
           </p>
         </div>
 
@@ -59,7 +61,7 @@ export function Step3SuccessScreen({
         <div className="pt-4">
           <Button className="w-full" size="lg" onClick={onDone}>
             <Check className="me-2 h-4 w-4" />
-            Done
+            {t('success.done')}
           </Button>
         </div>
       </div>

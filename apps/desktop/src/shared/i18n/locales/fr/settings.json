@@ -977,7 +977,8 @@
       "createAnthropicKey": "Créer une clé API Anthropic",
       "openai": "Ceci ressemble à une API OpenAI. Vous aurez besoin d'une clé API.",
       "createOpenaiKey": "Créer une clé API OpenAI"
-    }
+    },
+    "testConnectionTitle": "Tester la connexion"
   },
   "terminalFonts": {
     "title": "Polices de Terminal",

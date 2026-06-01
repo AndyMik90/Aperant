@@ -977,7 +977,8 @@
       "createAnthropicKey": "إنشاء مفتاح Anthropic API",
       "openai": "يبدو أن هذا واجهة برمجة OpenAI. ستحتاج إلى مفتاح API.",
       "createOpenaiKey": "إنشاء مفتاح OpenAI API"
-    }
+    },
+    "testConnectionTitle": "اختبار الاتصال"
   },
   "terminalFonts": {
     "title": "خطوط الطرفية",

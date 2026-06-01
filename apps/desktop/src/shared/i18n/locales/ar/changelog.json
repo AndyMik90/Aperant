@@ -1,0 +1,223 @@
+{
+  "emptyState": {
+    "noProjectTitle": "لم يتم اختيار أي مشروع",
+    "noProjectDescription": "اختر مشروعًا من الشريط الجانبي لإنشاء سجلات التغييرات."
+  },
+  "header": {
+    "title": "مُنشئ سجل التغييرات",
+    "subtitle": {
+      "step1": "الخطوة 1: اختر المهام المكتملة المراد تضمينها",
+      "step2": "الخطوة 2: اضبط وأنشئ سجل التغييرات",
+      "step3": "الخطوة 3: أصدر وأرشف المهام"
+    },
+    "steps": {
+      "select": "الاختيار",
+      "generate": "الإنشاء",
+      "release": "الإصدار"
+    },
+    "refresh": "تحديث"
+  },
+  "filters": {
+    "source": "مصدر سجل التغييرات",
+    "gitHistoryOptions": "خيارات سجل Git",
+    "historyType": "نوع السجل",
+    "historyTypeOptions": {
+      "sinceVersion": "منذ الإصدار",
+      "recentCommits": "أحدث التغييرات",
+      "sinceDate": "منذ التاريخ",
+      "tagRange": "نطاق الوسوم"
+    },
+    "numberOfCommits": "عدد التغييرات",
+    "sinceDate": "منذ التاريخ",
+    "fromTag": "من الوسم",
+    "toTagOptional": "إلى الوسم (اختياري)",
+    "selectTagPlaceholder": "اختر وسمًا...",
+    "headLatest": "HEAD (الأحدث)",
+    "lastVersion": "آخر إصدار",
+    "selectVersionPlaceholder": "اختر إصدارًا...",
+    "sinceVersionHint": "سيتم تضمين جميع التغييرات منذ هذا الإصدار",
+    "includeMergeCommits": "تضمين تغييرات الدمج",
+    "branchComparison": "مقارنة الفروع",
+    "baseBranch": "الفرع الأساسي",
+    "selectBaseBranchPlaceholder": "اختر الفرع الأساسي...",
+    "baseBranchHint": "الفرع الذي تدمج فيه",
+    "compareBranch": "فرع المقارنة",
+    "selectCompareBranchPlaceholder": "اختر فرع المقارنة...",
+    "compareBranchHint": "الفرع الذي يحتوي على تغييراتك",
+    "branchesMustDiffer": "يجب أن يكون الفرعان مختلفين",
+    "defaultBadge": "افتراضي",
+    "currentBadge": "الحالي"
+  },
+  "list": {
+    "tasksSelected": "تم اختيار {{selected}} من {{total}} مهمة",
+    "selectAll": "اختيار الكل",
+    "clear": "مسح",
+    "noCompletedTasksTitle": "لا توجد مهام مكتملة",
+    "noCompletedTasksDescription": "أكمل المهام في لوحة كانبان وحدّدها كـ «منجزة» لتضمينها في سجل التغييرات.",
+    "commitsFoundSingular": "تم العثور على {{count}} تغيير",
+    "commitsFoundPlural": "تم العثور على {{count}} تغيير",
+    "loadingCommits": "جارٍ تحميل التغييرات...",
+    "noCommitsTitle": "لم يتم العثور على أي تغييرات",
+    "noCommitsGitHistory": "اضبط خيارات السجل وانقر على «تحميل التغييرات» للمعاينة.",
+    "noCommitsBranchDiff": "اختر كلا الفرعين وانقر على «تحميل التغييرات» لعرض الفروقات.",
+    "summary": {
+      "taskSingular": "{{count}} مهمة",
+      "taskPlural": "{{count}} مهمة",
+      "commitSingular": "{{count}} تغيير",
+      "commitPlural": "{{count}} تغيير",
+      "itemSingular": "{{count}} عنصر",
+      "itemPlural": "{{count}} عنصر"
+    }
+  },
+  "entry": {
+    "hasSpecs": "يحتوي على مواصفات",
+    "filesSingular": "{{count}} ملف",
+    "filesPlural": "{{count}} ملف"
+  },
+  "config": {
+    "backToSelection": "العودة إلى الاختيار",
+    "includingTasksSingular": "يتضمن {{count}} مهمة",
+    "includingTasksPlural": "يتضمن {{count}} مهمة",
+    "includingCommitsSingular": "يتضمن {{count}} تغيير",
+    "includingCommitsPlural": "يتضمن {{count}} تغيير",
+    "includingItemsSingular": "يتضمن {{count}} عنصر",
+    "includingItemsPlural": "يتضمن {{count}} عنصر",
+    "releaseInfo": "معلومات الإصدار",
+    "version": "الإصدار",
+    "date": "التاريخ",
+    "versionPlaceholder": "1.0.0",
+    "previous": "السابق: {{version}}",
+    "versionBump": {
+      "major": "ترقية إصدار رئيسية (تم اكتشاف تغييرات غير متوافقة)",
+      "minor": "ترقية إصدار ثانوية (تم اكتشاف ميزات جديدة)",
+      "patch": "ترقية إصدار تصحيحية (إصلاحات/تحسينات)"
+    },
+    "outputStyle": "نمط المخرجات",
+    "format": "التنسيق",
+    "audience": "الجمهور",
+    "emojis": "الرموز التعبيرية",
+    "advancedOptions": "خيارات متقدمة",
+    "customInstructions": "تعليمات مخصصة",
+    "customInstructionsPlaceholder": "أضف أي تعليمات خاصة للذكاء الاصطناعي...",
+    "customInstructionsHint": "اختياري. وجّه الذكاء الاصطناعي بشأن النبرة والتفاصيل المحددة المراد تضمينها، إلخ.",
+    "generating": "جارٍ الإنشاء...",
+    "generateChangelog": "إنشاء سجل التغييرات"
+  },
+  "preview": {
+    "title": "معاينة",
+    "markdown": "Markdown",
+    "preview": "معاينة",
+    "copy": "نسخ",
+    "copied": "تم النسخ!",
+    "copyTooltip": "نسخ إلى الحافظة",
+    "save": "حفظ في CHANGELOG.md",
+    "saved": "تم الحفظ!",
+    "saveTooltip": "الإضافة إلى بداية ملف CHANGELOG.md في جذر المشروع",
+    "dropImagesHint": "أفلت الصور هنا لإضافتها إلى سجل التغييرات",
+    "pasteImagesHint": "الصق الصور في الوصف لحفظها في سجل التغييرات",
+    "generatedPlaceholder": "سيظهر سجل التغييرات المُنشأ هنا...",
+    "emptyDescription": "انقر على «إنشاء سجل التغييرات» لإنشاء ملاحظات الإصدار.",
+    "loadingImage": "جارٍ تحميل الصورة...",
+    "imageNotFound": "الصورة غير موجودة",
+    "cannotLoadLocalImage": "تعذّر تحميل الصورة المحلية: لا يوجد مسار للمشروع",
+    "failedToLoadImage": "فشل تحميل الصورة"
+  },
+  "success": {
+    "title": "تم حفظ سجل التغييرات!",
+    "description": "تمت إضافة الإصدار {{tag}} إلى CHANGELOG.md",
+    "done": "تم"
+  },
+  "githubRelease": {
+    "title": "إنشاء إصدار على GitHub",
+    "createdSuccess": "تم إنشاء الإصدار بنجاح!",
+    "viewOnGitHub": "عرض الإصدار على GitHub",
+    "description": "أنشئ إصدارًا جديدًا {{tag}} على GitHub باستخدام سجل التغييرات كملاحظات للإصدار.",
+    "failedToCreate": "فشل إنشاء الإصدار",
+    "creating": "جارٍ إنشاء الإصدار...",
+    "createRelease": "إنشاء الإصدار {{tag}}"
+  },
+  "archive": {
+    "title": "أرشفة المهام المكتملة",
+    "archivedSuccessSingular": "تمت أرشفة {{count}} مهمة!",
+    "archivedSuccessPlural": "تمت أرشفة {{count}} مهمة!",
+    "descriptionSingular": "أرشف {{count}} مهمة لتنظيم لوحة كانبان. يمكن عرض المهام المؤرشفة باستخدام مفتاح «إظهار المؤرشفة».",
+    "descriptionPlural": "أرشف {{count}} مهمة لتنظيم لوحة كانبان. يمكن عرض المهام المؤرشفة باستخدام مفتاح «إظهار المؤرشفة».",
+    "failedToArchive": "فشلت أرشفة المهام",
+    "archiving": "جارٍ الأرشفة...",
+    "archiveButtonSingular": "أرشفة {{count}} مهمة",
+    "archiveButtonPlural": "أرشفة {{count}} مهمة"
+  },
+  "actions": {
+    "loadCommits": "تحميل التغييرات",
+    "loading": "جارٍ التحميل...",
+    "continue": "متابعة"
+  },
+  "sourceModes": {
+    "tasks": {
+      "label": "المهام المكتملة",
+      "description": "الإنشاء من مهام المواصفات المكتملة"
+    },
+    "git-history": {
+      "label": "سجل Git",
+      "description": "الإنشاء من التغييرات الأخيرة أو نطاق وسوم"
+    },
+    "branch-diff": {
+      "label": "مقارنة الفروع",
+      "description": "الإنشاء من التغييرات بين فرعين"
+    }
+  },
+  "formats": {
+    "keep-a-changelog": {
+      "label": "Keep a Changelog",
+      "description": "تنسيق منظَّم بأقسام مُضاف/مُعدَّل/مُصلَح/محذوف"
+    },
+    "simple-list": {
+      "label": "قائمة بسيطة",
+      "description": "قائمة نقطية واضحة مع فئات"
+    },
+    "github-release": {
+      "label": "إصدار GitHub",
+      "description": "ملاحظات إصدار بأسلوب GitHub"
+    }
+  },
+  "audiences": {
+    "technical": {
+      "label": "تقني",
+      "description": "تغييرات تقنية مفصّلة للمطوّرين"
+    },
+    "user-facing": {
+      "label": "موجَّه للمستخدم",
+      "description": "أوصاف واضحة وغير تقنية للمستخدمين النهائيين"
+    },
+    "marketing": {
+      "label": "تسويقي",
+      "description": "نص يركّز على القيمة ويبرز الفوائد"
+    }
+  },
+  "emojiLevels": {
+    "none": {
+      "label": "بدون",
+      "description": "بدون رموز تعبيرية"
+    },
+    "little": {
+      "label": "العناوين فقط",
+      "description": "رموز تعبيرية على عناوين الأقسام فقط"
+    },
+    "medium": {
+      "label": "العناوين + النقاط البارزة",
+      "description": "رموز تعبيرية على العناوين والعناصر الرئيسية"
+    },
+    "high": {
+      "label": "كل شيء",
+      "description": "رموز تعبيرية على العناوين وكل سطر"
+    }
+  },
+  "stages": {
+    "loading_specs": "جارٍ تحميل ملفات المواصفات...",
+    "loading_commits": "جارٍ تحميل التغييرات...",
+    "generating": "جارٍ إنشاء سجل التغييرات...",
+    "formatting": "جارٍ تنسيق المخرجات...",
+    "complete": "اكتمل",
+    "error": "خطأ"
+  }
+}

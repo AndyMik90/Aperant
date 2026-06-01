@@ -13,6 +13,7 @@ import enGitlab from './locales/en/gitlab.json';
 import enTaskReview from './locales/en/taskReview.json';
 import enTerminal from './locales/en/terminal.json';
 import enErrors from './locales/en/errors.json';
+import enChangelog from './locales/en/changelog.json';
 
 // Import French translation resources
 import frCommon from './locales/fr/common.json';
@@ -26,6 +27,7 @@ import frGitlab from './locales/fr/gitlab.json';
 import frTaskReview from './locales/fr/taskReview.json';
 import frTerminal from './locales/fr/terminal.json';
 import frErrors from './locales/fr/errors.json';
+import frChangelog from './locales/fr/changelog.json';
 
 // Import Arabic translation resources
 import arCommon from './locales/ar/common.json';
@@ -39,6 +41,7 @@ import arGitlab from './locales/ar/gitlab.json';
 import arTaskReview from './locales/ar/taskReview.json';
 import arTerminal from './locales/ar/terminal.json';
 import arErrors from './locales/ar/errors.json';
+import arChangelog from './locales/ar/changelog.json';
 
 export const defaultNS = 'common';
 
@@ -54,7 +57,8 @@ export const resources = {
     gitlab: enGitlab,
     taskReview: enTaskReview,
     terminal: enTerminal,
-    errors: enErrors
+    errors: enErrors,
+    changelog: enChangelog
   },
   fr: {
     common: frCommon,
@@ -67,7 +71,8 @@ export const resources = {
     gitlab: frGitlab,
     taskReview: frTaskReview,
     terminal: frTerminal,
-    errors: frErrors
+    errors: frErrors,
+    changelog: frChangelog
   },
   ar: {
     common: arCommon,
@@ -80,7 +85,8 @@ export const resources = {
     gitlab: arGitlab,
     taskReview: arTaskReview,
     terminal: arTerminal,
-    errors: arErrors
+    errors: arErrors,
+    changelog: arChangelog
   }
 } as const;
 
@@ -91,7 +97,7 @@ i18n
     lng: 'en', // Default language (will be overridden by settings)
     fallbackLng: 'en',
     defaultNS,
-    ns: ['common', 'navigation', 'settings', 'tasks', 'welcome', 'onboarding', 'dialogs', 'gitlab', 'taskReview', 'terminal', 'errors'],
+    ns: ['common', 'navigation', 'settings', 'tasks', 'welcome', 'onboarding', 'dialogs', 'gitlab', 'taskReview', 'terminal', 'errors', 'changelog'],
     interpolation: {
       escapeValue: false // React already escapes values
     },
