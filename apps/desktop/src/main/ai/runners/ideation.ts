@@ -15,6 +15,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createSimpleClient } from '../client/factory';
+import { buildCachedSystemMessage, withToolCacheBreakpoint } from '../providers/transforms';
 import { buildToolRegistry } from '../tools/build-registry';
 import type { ToolContext } from '../tools/types';
 import type { ModelShorthand, ThinkingLevel } from '../config/types';
@@ -174,7 +175,9 @@ export async function runIdeation(
     systemPrompt: '',
     modelShorthand,
     thinkingLevel,
-    maxSteps: 30,
+    // Idea generation does not need deep agentic tool loops; cap steps to bound
+    // worst-case token spend (was 30).
+    maxSteps: 12,
     tools,
   });
 
@@ -185,12 +188,19 @@ export async function runIdeation(
   const isCodex = modelId?.includes('codex') ?? false;
   const userPrompt = `Analyze the project at ${projectDir} and generate up to ${maxIdeasPerType} ${ideationType.replace(/_/g, ' ')} ideas. Use the available tools to explore the codebase, then write your findings as a JSON file to the output directory.`;
 
+  // Anthropic prompt caching for the stable system prompt + tools (no-op for Codex).
+  const cacheableAnthropic = !isCodex && (modelId?.startsWith('claude-') ?? false);
+
   try {
     const result = streamText({
       model: client.model,
-      system: isCodex ? undefined : prompt,
+      system: isCodex
+        ? undefined
+        : cacheableAnthropic
+          ? buildCachedSystemMessage(modelId, prompt)
+          : prompt,
       prompt: userPrompt,
-      tools: client.tools,
+      tools: cacheableAnthropic ? withToolCacheBreakpoint(modelId, client.tools) : client.tools,
       stopWhen: stepCountIs(client.maxSteps),
       abortSignal,
       ...(isCodex ? {

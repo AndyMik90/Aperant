@@ -14,6 +14,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from '
 import { join } from 'node:path';
 
 import { createSimpleClient } from '../client/factory';
+import { buildCachedSystemMessage, withToolCacheBreakpoint } from '../providers/transforms';
 import type { SimpleClientResult } from '../client/types';
 import { buildToolRegistry } from '../tools/build-registry';
 import type { ToolContext } from '../tools/types';
@@ -116,6 +117,7 @@ async function runDiscoveryPhase(
   // Detect Codex models — they require instructions via providerOptions, not system
   const discoveryModelId = typeof client.model === 'string' ? client.model : client.model.modelId;
   const isCodexDiscovery = discoveryModelId?.includes('codex') ?? false;
+  const cacheableDiscovery = !isCodexDiscovery && (discoveryModelId?.startsWith('claude-') ?? false);
 
   // Load the full prompt file with JSON schema; fall back to inline prompt
   const loadedDiscoveryPrompt = tryLoadPrompt('roadmap_discovery');
@@ -147,9 +149,13 @@ Do NOT ask questions. Make educated inferences and create the file.`;
     try {
       const result = streamText({
         model: client.model,
-        system: isCodexDiscovery ? undefined : prompt,
+        system: isCodexDiscovery
+          ? undefined
+          : cacheableDiscovery
+            ? buildCachedSystemMessage(discoveryModelId, prompt)
+            : prompt,
         prompt: discoveryUserPrompt,
-        tools: client.tools,
+        tools: cacheableDiscovery ? withToolCacheBreakpoint(discoveryModelId, client.tools) : client.tools,
         stopWhen: stepCountIs(client.maxSteps),
         abortSignal,
         ...(isCodexDiscovery ? {
@@ -238,6 +244,7 @@ async function runFeaturesPhase(
   // Detect Codex models — they require instructions via providerOptions, not system
   const featuresModelId = typeof client.model === 'string' ? client.model : client.model.modelId;
   const isCodexFeatures = featuresModelId?.includes('codex') ?? false;
+  const cacheableFeatures = !isCodexFeatures && (featuresModelId?.startsWith('claude-') ?? false);
 
   // Load the full prompt file with JSON schema; fall back to inline prompt
   const loadedFeaturesPrompt = tryLoadPrompt('roadmap_features');
@@ -279,9 +286,13 @@ The JSON must contain: vision, target_audience (object with "primary" key), phas
     try {
       const result = streamText({
         model: client.model,
-        system: isCodexFeatures ? undefined : prompt,
+        system: isCodexFeatures
+          ? undefined
+          : cacheableFeatures
+            ? buildCachedSystemMessage(featuresModelId, prompt)
+            : prompt,
         prompt: featuresUserPrompt,
-        tools: client.tools,
+        tools: cacheableFeatures ? withToolCacheBreakpoint(featuresModelId, client.tools) : client.tools,
         stopWhen: stepCountIs(client.maxSteps),
         abortSignal,
         ...(isCodexFeatures ? {

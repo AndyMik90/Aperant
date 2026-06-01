@@ -16,6 +16,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { createSimpleClient } from '../client/factory';
+import { buildCachedSystemMessage, withToolCacheBreakpoint } from '../providers/transforms';
 import { buildToolRegistry } from '../tools/build-registry';
 import type { ToolContext } from '../tools/types';
 import type { ModelShorthand, ThinkingLevel } from '../config/types';
@@ -270,13 +271,18 @@ export async function runInsightsQuery(
   // Detect Codex models — they require instructions via providerOptions, not system
   const insightsModelId = typeof client.model === 'string' ? client.model : client.model.modelId;
   const isCodexInsights = insightsModelId?.includes('codex') ?? false;
+  const cacheableAnthropic = !isCodexInsights && (insightsModelId?.startsWith('claude-') ?? false);
 
   try {
     const result = streamText({
       model: client.model,
-      system: isCodexInsights ? undefined : client.systemPrompt,
+      system: isCodexInsights
+        ? undefined
+        : cacheableAnthropic
+          ? buildCachedSystemMessage(insightsModelId, client.systemPrompt)
+          : client.systemPrompt,
       prompt: fullPrompt,
-      tools: client.tools,
+      tools: cacheableAnthropic ? withToolCacheBreakpoint(insightsModelId, client.tools) : client.tools,
       stopWhen: stepCountIs(client.maxSteps),
       abortSignal,
       ...(isCodexInsights ? {

@@ -21,6 +21,7 @@ import { createXai } from '@ai-sdk/xai';
 import type { LanguageModel } from 'ai';
 
 import { MODEL_PROVIDER_MAP } from '../config/types';
+import { createAnthropicOAuthFetch } from './anthropic-oauth-fetch';
 import { createOAuthProviderFetch } from './oauth-fetch';
 import { type ProviderConfig, SupportedProvider } from './types';
 
@@ -61,6 +62,10 @@ function createProviderInstance(config: ProviderConfig) {
             ...headers,
             'anthropic-beta': 'claude-code-20250219,oauth-2025-04-20,interleaved-thinking-2025-05-14',
           },
+          // Claude Code subscription tokens require the Claude Code identity as the
+          // first system block, or Anthropic rejects the call with a 429. This fetch
+          // wrapper guarantees it for every OAuth request (chat, insights, roadmap, agents).
+          fetch: createAnthropicOAuthFetch(),
         });
       }
       return createAnthropic({

@@ -77,7 +77,11 @@ export interface FinishStepPart {
   usage?: {
     promptTokens: number;
     completionTokens: number;
+    /** AI SDK v6: cached (prompt-cache read) input tokens, when caching hit. */
+    cachedInputTokens?: number;
   };
+  /** Provider-specific metadata (e.g. anthropic.cacheCreationInputTokens). */
+  providerMetadata?: Record<string, unknown>;
 }
 
 export interface ErrorPart {

@@ -10,6 +10,7 @@
  * See apps/desktop/src/main/ai/providers/transforms.ts for the TypeScript implementation.
  */
 
+import type { SystemModelMessage } from 'ai';
 import type { SupportedProvider } from './types';
 import type { ThinkingLevel, EffortLevel } from '../config/types';
 import {
@@ -243,6 +244,98 @@ export function getCacheBreakpoints(
   }
 
   return breakpoints;
+}
+
+// ============================================
+// Anthropic Ephemeral Cache Breakpoints (AI SDK v6)
+// ============================================
+//
+// These helpers attach `cache_control: { type: 'ephemeral' }` via the AI SDK's
+// per-block `providerOptions.anthropic.cacheControl` mechanism (see
+// @ai-sdk/anthropic dist getCacheControl). Anthropic caches the request prefix
+// up to and including each tagged block, so tagging the stable system prompt +
+// tool definitions makes every subsequent agentic step a cheap cache read
+// (~10% the cost of fresh input) instead of re-billing the full context.
+//
+// All helpers are NO-OPS for non-Anthropic models (guarded on the `claude-`
+// model-id prefix), so call sites can apply them unconditionally without
+// affecting OpenAI/Codex/Gemini/Ollama paths.
+
+/** Ephemeral cache_control value shared across all breakpoints. */
+const EPHEMERAL_CACHE = { type: 'ephemeral' as const };
+
+/** Cache TTL options supported by the Anthropic API. */
+export type CacheTtl = '5m' | '1h';
+
+/** AI SDK provider-options shape (provider → option key → JSON value). */
+type CacheProviderOptions = Record<string, Record<string, unknown>>;
+
+/**
+ * True only for Anthropic Claude models. Guards every caching helper so the
+ * `cacheControl` provider option is never emitted for other providers.
+ */
+export function isAnthropicCacheable(modelId: string | undefined): boolean {
+  return !!modelId && modelId.startsWith('claude-');
+}
+
+/**
+ * providerOptions object that creates one ephemeral cache breakpoint, suitable
+ * for a system ModelMessage or the last block of the last message. Returns an
+ * empty object for non-Anthropic models so callers can spread unconditionally.
+ */
+export function cacheBreakpointProviderOptions(
+  modelId: string | undefined,
+  ttl?: CacheTtl,
+): CacheProviderOptions {
+  if (!isAnthropicCacheable(modelId)) return {};
+  return { anthropic: { cacheControl: { ...EPHEMERAL_CACHE, ...(ttl ? { ttl } : {}) } } };
+}
+
+/**
+ * Returns a NEW tools object with a cache breakpoint on the LAST tool
+ * definition. Caches the entire (stable) tool block — the highest-value
+ * breakpoint in an agentic loop. No-op (returns the same object) for
+ * non-Anthropic models or empty tool sets.
+ */
+export function withToolCacheBreakpoint<T extends Record<string, unknown>>(
+  modelId: string | undefined,
+  tools: T,
+): T {
+  if (!isAnthropicCacheable(modelId) || !tools) return tools;
+  const keys = Object.keys(tools);
+  if (keys.length === 0) return tools;
+  const lastKey = keys[keys.length - 1];
+  const lastTool = tools[lastKey] as Record<string, unknown>;
+  return {
+    ...tools,
+    [lastKey]: {
+      ...lastTool,
+      providerOptions: {
+        ...((lastTool.providerOptions as Record<string, unknown>) ?? {}),
+        anthropic: { cacheControl: EPHEMERAL_CACHE },
+      },
+    },
+  } as T;
+}
+
+/**
+ * Builds a system ModelMessage carrying a cache breakpoint. `streamText` accepts
+ * `system: string | SystemModelMessage`, so the result can be passed directly as
+ * the `system` field (no need to inject into the messages array). For
+ * non-Anthropic models it returns the message without provider options.
+ */
+export function buildCachedSystemMessage(
+  modelId: string | undefined,
+  systemPrompt: string,
+): SystemModelMessage {
+  const providerOptions = cacheBreakpointProviderOptions(modelId);
+  return {
+    role: 'system',
+    content: systemPrompt,
+    ...(Object.keys(providerOptions).length > 0
+      ? { providerOptions: providerOptions as SystemModelMessage['providerOptions'] }
+      : {}),
+  };
 }
 
 // ============================================

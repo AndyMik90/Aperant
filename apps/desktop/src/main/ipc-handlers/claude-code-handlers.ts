@@ -1502,13 +1502,28 @@ export function registerClaudeCodeHandlers(): void {
           // Remove ELECTRON_RUN_AS_NODE if set (otherwise claude binary may not work properly)
           delete env.ELECTRON_RUN_AS_NODE;
 
-          const args = ['auth', 'login'];
-          const child = spawn(claudePath, args, {
-            env,
-            stdio: ['ignore', 'pipe', 'pipe'],
-            // On Windows, .cmd files need shell: true
-            shell: isWindows() && claudePath.endsWith('.cmd'),
-          });
+          // On Windows, .cmd/.bat files must be run via cmd.exe with the path
+          // double-quoted, otherwise a CLI path containing spaces (e.g.
+          // C:\Users\Mohmed Ahmed\...\claude.cmd) is split at the space and fails
+          // with "'C:\Users\Mohmed' is not recognized...". `shell: true` does NOT
+          // quote the path correctly. Mirror the proven pattern in validateClaudeCliAsync().
+          let child: ReturnType<typeof spawn>;
+          if (isWindows() && /\.(cmd|bat)$/i.test(claudePath)) {
+            const cmdExe = process.env.ComSpec
+              || path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'cmd.exe');
+            const cmdLine = `""${claudePath}" auth login"`;
+            child = spawn(cmdExe, ['/d', '/s', '/c', cmdLine], {
+              env,
+              stdio: ['ignore', 'pipe', 'pipe'],
+              windowsHide: true,
+              windowsVerbatimArguments: true,
+            });
+          } else {
+            child = spawn(claudePath, ['auth', 'login'], {
+              env,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            });
+          }
 
           let stdout = '';
           let stderr = '';

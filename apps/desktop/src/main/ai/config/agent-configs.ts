@@ -436,7 +436,9 @@ export const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
     tools: [...ALL_BUILTIN_TOOLS],
     mcpServers: [],
     autoClaudeTools: [],
-    thinkingDefault: 'high',
+    // Idea generation doesn't need deep reasoning; 'medium' (4096) instead of
+    // 'high' (16384) thinking tokens cuts per-call cost without hurting quality.
+    thinkingDefault: 'medium',
   },
 } as const;
 

@@ -18,12 +18,13 @@
  */
 
 import { streamText, stepCountIs, Output } from 'ai';
-import type { Tool as AITool } from 'ai';
+import type { Tool as AITool, ModelMessage } from 'ai';
 import type { WorkerObserverProxy } from '../memory/ipc/worker-observer-proxy';
 import { StepMemoryState } from '../memory/injection/step-memory-state';
 import { buildMemoryAwareStopCondition } from '../memory/injection/memory-stop-condition';
 
 import { buildThinkingProviderOptions } from '../config/types';
+import { buildCachedSystemMessage, withToolCacheBreakpoint, cacheBreakpointProviderOptions } from '../providers/transforms';
 import { createStreamHandler } from './stream-handler';
 import type { FullStreamPart } from './stream-handler';
 import { classifyError, isAuthenticationError, isRateLimitError } from './error-classifier';
@@ -328,18 +329,30 @@ async function executeStream(
 
   const streamHandler = createStreamHandler(emitEvent);
 
-  // Build messages array for AI SDK (system prompt is separate)
-  const aiMessages = config.initialMessages.map((msg) => ({
-    role: msg.role as 'user' | 'assistant',
-    content: msg.content,
-  }));
-
   // Codex models (via chatgpt.com/backend-api/codex/responses) require
   // `instructions` in the request body instead of system messages in `input`.
   // Pass system prompt via providerOptions and enable store for proper Codex API behavior.
   const modelId = typeof config.model === 'string' ? config.model : config.model.modelId;
   const isCodex = modelId?.includes('codex') ?? false;
   const isAnthropicModel = modelId?.startsWith('claude-') ?? false;
+
+  // Anthropic prompt caching: tag the stable system + tools so each agentic
+  // step is a cheap cache read instead of re-billing the full prefix. No-op for
+  // Codex/other providers (the helpers guard on the claude- model prefix).
+  const cacheableAnthropic = isAnthropicModel && !isCodex;
+
+  // Build messages array for AI SDK (system prompt is separate). Tag the LAST
+  // message with a cache breakpoint so the conversation prefix is cached and
+  // re-read on the next turn (best-effort; system + tools breakpoints are the
+  // primary, fully-stable ones).
+  const lastMessageIndex = config.initialMessages.length - 1;
+  const aiMessages: ModelMessage[] = config.initialMessages.map((msg, idx) => ({
+    role: msg.role as 'user' | 'assistant',
+    content: msg.content,
+    ...(cacheableAnthropic && idx === lastMessageIndex
+      ? { providerOptions: cacheBreakpointProviderOptions(modelId) as ModelMessage['providerOptions'] }
+      : {}),
+  }));
 
   // Compute thinking/reasoning provider options from session config
   const thinkingOptions = config.thinkingLevel
@@ -363,9 +376,13 @@ async function executeStream(
 
   const result = streamText({
     model: config.model,
-    system: isCodex ? undefined : config.systemPrompt,
+    system: isCodex
+      ? undefined
+      : cacheableAnthropic
+        ? buildCachedSystemMessage(modelId, config.systemPrompt)
+        : config.systemPrompt,
     messages: aiMessages,
-    tools: tools ?? {},
+    tools: cacheableAnthropic ? withToolCacheBreakpoint(modelId, tools ?? {}) : (tools ?? {}),
     ...(useOutputSchema ? { output: Output.object({ schema: config.outputSchema! }) } : {}),
     stopWhen: stopCondition,
     abortSignal: mergedAbortSignal,
@@ -610,12 +627,23 @@ async function executeStream(
   }
 
   // Get total usage from AI SDK result
-  // AI SDK v6 uses inputTokens/outputTokens naming
-  let totalUsage: { inputTokens?: number; outputTokens?: number } | undefined;
+  // AI SDK v6 uses inputTokens/outputTokens naming; cachedInputTokens reflects
+  // prompt-cache reads (cheap), surfaced here to verify caching is effective.
+  let totalUsage: { inputTokens?: number; outputTokens?: number; cachedInputTokens?: number } | undefined;
   try {
     totalUsage = await withTimeout(result.totalUsage, POST_STREAM_TIMEOUT_MS, 'result.totalUsage');
   } catch {
     // Fall through — use summary usage collected during stream iteration.
+  }
+
+  // Cache effectiveness telemetry (DEBUG only): cachedInputTokens > 0 means the
+  // ephemeral prompt cache was hit and the stable prefix was re-read at ~10% cost.
+  if (process.env.DEBUG === 'true' && cacheableAnthropic && totalUsage) {
+    const cachedRead = totalUsage.cachedInputTokens ?? 0;
+    const freshInput = totalUsage.inputTokens ?? 0;
+    console.warn(
+      `[Cache] ${config.agentType} (${modelId}): cachedInputTokens=${cachedRead}, inputTokens=${freshInput}, steps=${summary.stepsExecuted}`,
+    );
   }
   const usage: TokenUsage = {
     promptTokens: totalUsage?.inputTokens ?? summary.usage.promptTokens,
