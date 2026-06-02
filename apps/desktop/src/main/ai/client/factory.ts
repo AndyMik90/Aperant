@@ -54,6 +54,20 @@ const DEFAULT_SIMPLE_MAX_STEPS = 1;
 // Direct AI Connection override
 // =============================================================================
 
+/** Outcome of resolving the Direct AI Connection override. */
+type DirectResolution =
+  | { kind: 'model'; model: ReturnType<typeof createProvider>; modelId: string }
+  /** Enabled, but the selected provider has no usable credential yet. */
+  | { kind: 'needs-setup'; message: string }
+  /** Disabled — use normal resolution. */
+  | { kind: 'off' };
+
+/** User-facing guidance shown when direct mode is on but cannot serve a request. */
+export const DIRECT_NEEDS_TOKEN_MESSAGE =
+  'Direct AI Connection is enabled but no DeepSeek token is set. Add your token in ' +
+  'Settings → Direct AI Connection, or turn off Direct AI Connection to use your ' +
+  'configured provider.';
+
 /**
  * When the free Direct AI Connection (DeepSeek / ChatGPT web transports) is
  * enabled in settings, this returns a ready-to-use model + its model ID that
@@ -61,28 +75,28 @@ const DEFAULT_SIMPLE_MAX_STEPS = 1;
  * that routes EVERY AI call (planner, coder, QA, and all utility runners,
  * which all flow through the two client factories below) onto the free path.
  *
- * Safety: if the selected provider cannot actually serve a request (e.g.
- * DeepSeek is primary but no web token has been captured yet), this returns
- * `null` so resolution falls back to the configured paid/OAuth provider rather
- * than hard-failing every AI feature in the app.
+ * When enabled but not yet serviceable (DeepSeek primary with no captured
+ * token), it returns `needs-setup` so callers can fall back to the configured
+ * provider — and surface a clear setup message if that fallback also fails.
  */
-function resolveDirectModel(): { model: ReturnType<typeof createProvider>; modelId: string } | null {
+function resolveDirectModel(): DirectResolution {
   const direct = getDirectConnectionSettings();
-  if (!direct?.enabled) return null;
+  if (!direct?.enabled) return { kind: 'off' };
 
   // ChatGPT primary: tunnels through a persistent browser session, so no token
   // is supplied here (the library manages the Playwright Chrome profile).
   if (direct.primaryProvider === 'chatgpt' && direct.chatgpt?.enabled) {
     return {
+      kind: 'model',
       modelId: 'chatgpt',
       model: createProvider({ config: { provider: 'direct' }, modelId: 'chatgpt' }),
     };
   }
 
-  // DeepSeek primary (default). Requires a captured web token; absent one we
-  // fall back so the app keeps working on its existing provider.
+  // DeepSeek primary (default). Requires a captured web token.
   if (direct.deepseek?.enabled && direct.deepseek.userToken?.trim()) {
     return {
+      kind: 'model',
       modelId: 'deepseek',
       model: createProvider({
         config: { provider: 'direct', apiKey: direct.deepseek.userToken },
@@ -91,7 +105,9 @@ function resolveDirectModel(): { model: ReturnType<typeof createProvider>; model
     };
   }
 
-  return null;
+  // Enabled, but no usable credential — signal so the caller can fall back and,
+  // if that also fails, explain the missing token rather than a cryptic error.
+  return { kind: 'needs-setup', message: DIRECT_NEEDS_TOKEN_MESSAGE };
 }
 
 // =============================================================================
@@ -143,65 +159,74 @@ export async function createAgentClient(
   let queueAuth: QueueResolvedAuth | null = null;
 
   // 0. Free Direct AI Connection takes precedence when enabled + serviceable.
-  const directModel = resolveDirectModel();
+  const direct = resolveDirectModel();
 
-  if (directModel) {
-    model = directModel.model;
+  if (direct.kind === 'model') {
+    model = direct.model;
     resolvedThinkingLevel = thinkingLevel ?? getDefaultThinkingLevel(agentType);
-  } else if (queueConfig) {
-    // Queue-based resolution: use global priority queue
-    queueAuth = await resolveAuthFromQueue(
-      queueConfig.requestedModel,
-      queueConfig.queue,
-      {
-        excludeAccountIds: queueConfig.excludeAccountIds,
-        userModelOverrides: queueConfig.userModelOverrides as any,
-      }
-    );
-
-    if (!queueAuth) {
-      throw new Error('No available account in priority queue for model: ' + queueConfig.requestedModel);
-    }
-
-    // Use createProvider() with the queue-resolved provider to avoid re-detecting
-    // from model ID prefix. This is critical for providers like Ollama whose models
-    // (e.g., 'llama3.1:8b') don't follow predictable prefix conventions.
-    model = createProvider({
-      config: {
-        provider: queueAuth.resolvedProvider,
-        apiKey: queueAuth.apiKey,
-        baseURL: queueAuth.baseURL,
-        headers: queueAuth.headers,
-        oauthTokenFilePath: queueAuth.oauthTokenFilePath,
-      },
-      modelId: queueAuth.resolvedModelId,
-    });
-
-    // Derive thinking level from reasoning config
-    resolveReasoningParams(queueAuth.reasoningConfig);
-    resolvedThinkingLevel = (queueAuth.reasoningConfig.level as ThinkingLevel) ??
-      thinkingLevel ?? getDefaultThinkingLevel(agentType);
   } else {
-    // Legacy per-provider resolution
-    const modelId = resolveModelId(modelShorthand ?? phase);
-    const detectedProvider = detectProviderFromModel(modelId) ?? 'anthropic';
-    const auth = await resolveAuth({
-      provider: detectedProvider,
-      profileId,
-    });
+    try {
+      if (queueConfig) {
+        // Queue-based resolution: use global priority queue
+        queueAuth = await resolveAuthFromQueue(
+          queueConfig.requestedModel,
+          queueConfig.queue,
+          {
+            excludeAccountIds: queueConfig.excludeAccountIds,
+            userModelOverrides: queueConfig.userModelOverrides as any,
+          }
+        );
 
-    model = createProvider({
-      config: {
-        provider: detectedProvider,
-        apiKey: auth?.apiKey,
-        baseURL: auth?.baseURL,
-        headers: auth?.headers,
-        oauthTokenFilePath: auth?.oauthTokenFilePath,
-      },
-      modelId,
-    });
+        if (!queueAuth) {
+          throw new Error('No available account in priority queue for model: ' + queueConfig.requestedModel);
+        }
 
-    resolvedThinkingLevel = thinkingLevel ?? getDefaultThinkingLevel(agentType);
+        // Use createProvider() with the queue-resolved provider to avoid re-detecting
+        // from model ID prefix. This is critical for providers like Ollama whose models
+        // (e.g., 'llama3.1:8b') don't follow predictable prefix conventions.
+        model = createProvider({
+          config: {
+            provider: queueAuth.resolvedProvider,
+            apiKey: queueAuth.apiKey,
+            baseURL: queueAuth.baseURL,
+            headers: queueAuth.headers,
+            oauthTokenFilePath: queueAuth.oauthTokenFilePath,
+          },
+          modelId: queueAuth.resolvedModelId,
+        });
+
+        // Derive thinking level from reasoning config
+        resolveReasoningParams(queueAuth.reasoningConfig);
+        resolvedThinkingLevel = (queueAuth.reasoningConfig.level as ThinkingLevel) ??
+          thinkingLevel ?? getDefaultThinkingLevel(agentType);
+      } else {
+        // Legacy per-provider resolution
+        const modelId = resolveModelId(modelShorthand ?? phase);
+        const detectedProvider = detectProviderFromModel(modelId) ?? 'anthropic';
+        const auth = await resolveAuth({
+          provider: detectedProvider,
+          profileId,
+        });
+
+        model = createProvider({
+          config: {
+            provider: detectedProvider,
+            apiKey: auth?.apiKey,
+            baseURL: auth?.baseURL,
+            headers: auth?.headers,
+            oauthTokenFilePath: auth?.oauthTokenFilePath,
+          },
+          modelId,
+        });
+
+        resolvedThinkingLevel = thinkingLevel ?? getDefaultThinkingLevel(agentType);
+      }
+    } catch (err) {
+      // Direct mode is on but had no token, and the paid fallback also failed —
+      // surface the actionable setup message instead of the cryptic queue error.
+      if (direct.kind === 'needs-setup') throw new Error(direct.message);
+      throw err;
+    }
   }
 
   // 3. (Thinking level resolved above)
@@ -286,64 +311,73 @@ export async function createSimpleClient(
   let queueAuth: QueueResolvedAuth | null = null;
 
   // 0. Free Direct AI Connection takes precedence when enabled + serviceable.
-  const directModel = resolveDirectModel();
+  const direct = resolveDirectModel();
 
-  if (directModel) {
-    model = directModel.model;
-    resolvedModelId = directModel.modelId;
-  } else if (queueConfig) {
-    // Queue-based resolution: use global priority queue
-    const excludeAccountIds = (queueConfig as { excludeAccountIds?: string[] }).excludeAccountIds;
-    const userModelOverrides = (queueConfig as { userModelOverrides?: Record<string, unknown> }).userModelOverrides;
-    queueAuth = await resolveAuthFromQueue(
-      queueConfig.requestedModel,
-      queueConfig.queue,
-      {
-        excludeAccountIds,
-        userModelOverrides: userModelOverrides as any,
-      }
-    );
-
-    if (!queueAuth) {
-      throw new Error('No available account in priority queue for model: ' + queueConfig.requestedModel);
-    }
-
-    resolvedModelId = queueAuth.resolvedModelId;
-    // Use createProvider() with the queue-resolved provider to avoid re-detecting
-    // from model ID prefix. This is critical for providers like Ollama whose models
-    // (e.g., 'llama3.1:8b') don't follow predictable prefix conventions.
-    model = createProvider({
-      config: {
-        provider: queueAuth.resolvedProvider,
-        apiKey: queueAuth.apiKey,
-        baseURL: queueAuth.baseURL,
-        headers: queueAuth.headers,
-        oauthTokenFilePath: queueAuth.oauthTokenFilePath,
-      },
-      modelId: resolvedModelId,
-    });
-
-    resolveReasoningParams(queueAuth.reasoningConfig);
-    resolvedThinkingLevel = (queueAuth.reasoningConfig.level as ThinkingLevel) ?? thinkingLevel;
+  if (direct.kind === 'model') {
+    model = direct.model;
+    resolvedModelId = direct.modelId;
   } else {
-    // Legacy per-provider resolution
-    resolvedModelId = resolveModelId(modelShorthand);
-    const detectedProvider = detectProviderFromModel(resolvedModelId) ?? 'anthropic';
-    const auth = await resolveAuth({
-      provider: detectedProvider,
-      profileId,
-    });
+    try {
+      if (queueConfig) {
+        // Queue-based resolution: use global priority queue
+        const excludeAccountIds = (queueConfig as { excludeAccountIds?: string[] }).excludeAccountIds;
+        const userModelOverrides = (queueConfig as { userModelOverrides?: Record<string, unknown> }).userModelOverrides;
+        queueAuth = await resolveAuthFromQueue(
+          queueConfig.requestedModel,
+          queueConfig.queue,
+          {
+            excludeAccountIds,
+            userModelOverrides: userModelOverrides as any,
+          }
+        );
 
-    model = createProvider({
-      config: {
-        provider: detectedProvider,
-        apiKey: auth?.apiKey,
-        baseURL: auth?.baseURL,
-        headers: auth?.headers,
-        oauthTokenFilePath: auth?.oauthTokenFilePath,
-      },
-      modelId: resolvedModelId,
-    });
+        if (!queueAuth) {
+          throw new Error('No available account in priority queue for model: ' + queueConfig.requestedModel);
+        }
+
+        resolvedModelId = queueAuth.resolvedModelId;
+        // Use createProvider() with the queue-resolved provider to avoid re-detecting
+        // from model ID prefix. This is critical for providers like Ollama whose models
+        // (e.g., 'llama3.1:8b') don't follow predictable prefix conventions.
+        model = createProvider({
+          config: {
+            provider: queueAuth.resolvedProvider,
+            apiKey: queueAuth.apiKey,
+            baseURL: queueAuth.baseURL,
+            headers: queueAuth.headers,
+            oauthTokenFilePath: queueAuth.oauthTokenFilePath,
+          },
+          modelId: resolvedModelId,
+        });
+
+        resolveReasoningParams(queueAuth.reasoningConfig);
+        resolvedThinkingLevel = (queueAuth.reasoningConfig.level as ThinkingLevel) ?? thinkingLevel;
+      } else {
+        // Legacy per-provider resolution
+        resolvedModelId = resolveModelId(modelShorthand);
+        const detectedProvider = detectProviderFromModel(resolvedModelId) ?? 'anthropic';
+        const auth = await resolveAuth({
+          provider: detectedProvider,
+          profileId,
+        });
+
+        model = createProvider({
+          config: {
+            provider: detectedProvider,
+            apiKey: auth?.apiKey,
+            baseURL: auth?.baseURL,
+            headers: auth?.headers,
+            oauthTokenFilePath: auth?.oauthTokenFilePath,
+          },
+          modelId: resolvedModelId,
+        });
+      }
+    } catch (err) {
+      // Direct mode is on but had no token, and the paid fallback also failed —
+      // surface the actionable setup message instead of the cryptic queue error.
+      if (direct.kind === 'needs-setup') throw new Error(direct.message);
+      throw err;
+    }
   }
 
   return {

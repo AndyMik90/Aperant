@@ -30,6 +30,7 @@ import { resolveModelEquivalent } from '../../../shared/constants/models';
 import { scoreProviderAccount } from '../../claude-profile/profile-scorer';
 import type { ClaudeAutoSwitchSettings } from '../../../shared/types/agent';
 import type { DirectAiConnectionSettings } from '../../../shared/types/settings';
+import { DEFAULT_APP_SETTINGS } from '../../../shared/constants';
 
 // ============================================
 // Z.AI Endpoint Routing
@@ -62,22 +63,26 @@ export function registerSettingsAccessor(accessor: SettingsAccessor): void {
   _getSettingsValue = accessor;
 }
 
+/** Default Direct AI block, applied when settings omit it (e.g. a settings file
+ *  saved before the feature existed). The settings accessor reads the raw saved
+ *  file without merging defaults, so we merge here to honor the shipped default. */
+const DIRECT_DEFAULTS = DEFAULT_APP_SETTINGS.directAiConnection as DirectAiConnectionSettings;
+
 /**
  * Read the Direct AI Connection settings block (free DeepSeek / ChatGPT web
- * transports). Returns `null` if no accessor is registered, the block is
- * absent, or it cannot be parsed. The settings value may arrive as a JSON
- * string (legacy serialized settings) or an already-parsed object.
+ * transports), merged over the shipped defaults so the default applies even when
+ * the saved settings file predates the field. The settings value may arrive as a
+ * JSON string (legacy serialized settings) or an already-parsed object.
  */
 export function getDirectConnectionSettings(): DirectAiConnectionSettings | null {
-  if (!_getSettingsValue) return null;
-  const raw = _getSettingsValue('directAiConnection') as unknown;
-  if (!raw) return null;
+  const raw = _getSettingsValue?.('directAiConnection') as unknown;
+  if (!raw) return DIRECT_DEFAULTS ?? null;
   try {
-    return typeof raw === 'string'
-      ? (JSON.parse(raw) as DirectAiConnectionSettings)
-      : (raw as DirectAiConnectionSettings);
+    const parsed = (typeof raw === 'string' ? JSON.parse(raw) : raw) as DirectAiConnectionSettings;
+    // Shallow-merge so a partial saved block keeps default sibling fields.
+    return { ...DIRECT_DEFAULTS, ...parsed };
   } catch {
-    return null;
+    return DIRECT_DEFAULTS ?? null;
   }
 }
 
