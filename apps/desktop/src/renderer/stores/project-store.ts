@@ -435,20 +435,23 @@ export async function initializeProject(
     const result = await window.electronAPI.initializeProject(projectId);
     console.log('[ProjectStore] IPC result:', result);
 
-    if (result.success && result.data) {
-      console.log('[ProjectStore] IPC succeeded, result.data:', result.data);
-      // Update the project's autoBuildPath in local state
+    // Return the InitializationResult whenever it exists, even on failure, so the
+    // real error (e.g. "Not a git repository") reaches the UI instead of being lost.
+    if (result.data) {
+      console.log('[ProjectStore] IPC returned data:', result.data);
       if (result.data.success) {
         console.log('[ProjectStore] Updating project autoBuildPath to .auto-claude');
         store.updateProject(projectId, { autoBuildPath: '.auto-claude' });
       } else {
-        console.log('[ProjectStore] result.data.success is false, not updating project');
+        console.log('[ProjectStore] Initialization failed:', result.data.error);
+        store.setError(result.data.error || 'Failed to initialize project');
       }
       return result.data;
     }
-    console.log('[ProjectStore] IPC failed or no data, setting error');
-    store.setError(result.error || 'Failed to initialize project');
-    return null;
+    console.log('[ProjectStore] IPC failed with no data, setting error');
+    const errorMessage = result.error || 'Failed to initialize project';
+    store.setError(errorMessage);
+    return { success: false, error: errorMessage };
   } catch (error) {
     console.error('[ProjectStore] Exception during initializeProject:', error);
     store.setError(error instanceof Error ? error.message : 'Unknown error');
