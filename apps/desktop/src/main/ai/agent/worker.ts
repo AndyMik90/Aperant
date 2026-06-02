@@ -11,9 +11,15 @@
  * - Production: Bundled into app resources (app.isPackaged)
  */
 
+import { setDefaultResultOrder } from 'node:dns';
 import { parentPort, workerData } from 'worker_threads';
 import { readFileSync, existsSync } from 'node:fs';
 import { join, basename } from 'node:path';
+
+// Worker threads have their own DNS default — prefer IPv4 here too so the agent
+// pipeline's Direct AI (DeepSeek) calls don't hang on an unreachable IPv6 route.
+// See main/index.ts for the full rationale.
+setDefaultResultOrder('ipv4first');
 
 import { runAgentSession } from '../session/runner';
 import { runContinuableSession } from '../session/continuation';

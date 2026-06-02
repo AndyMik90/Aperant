@@ -21,6 +21,15 @@ if (process.resourcesPath) {
   }
 }
 
+// Prefer IPv4 DNS resolution. Node 18+ defaults to "verbatim" (often IPv6 first),
+// but several hosts (e.g. chat.deepseek.com, api.github.com) have AAAA records
+// whose IPv6 route can hang, making undici `fetch` hit its 10s connect timeout
+// (UND_ERR_CONNECT_TIMEOUT). IPv4-first resolution fixes Direct AI (DeepSeek)
+// connectivity AND the GitHub app-updater. Verified: default fetch timed out at
+// ~10.6s on this route; with ipv4first it connects in <200ms.
+import { setDefaultResultOrder } from 'node:dns';
+setDefaultResultOrder('ipv4first');
+
 // Load .env file FIRST before any other imports that might use process.env
 import { config } from 'dotenv';
 import { resolve, dirname } from 'path';
