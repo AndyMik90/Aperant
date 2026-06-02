@@ -29,6 +29,7 @@ import type { BuiltinProvider } from '../../../shared/types/provider-account';
 import { resolveModelEquivalent } from '../../../shared/constants/models';
 import { scoreProviderAccount } from '../../claude-profile/profile-scorer';
 import type { ClaudeAutoSwitchSettings } from '../../../shared/types/agent';
+import type { DirectAiConnectionSettings } from '../../../shared/types/settings';
 
 // ============================================
 // Z.AI Endpoint Routing
@@ -59,6 +60,25 @@ let _getSettingsValue: SettingsAccessor | null = null;
  */
 export function registerSettingsAccessor(accessor: SettingsAccessor): void {
   _getSettingsValue = accessor;
+}
+
+/**
+ * Read the Direct AI Connection settings block (free DeepSeek / ChatGPT web
+ * transports). Returns `null` if no accessor is registered, the block is
+ * absent, or it cannot be parsed. The settings value may arrive as a JSON
+ * string (legacy serialized settings) or an already-parsed object.
+ */
+export function getDirectConnectionSettings(): DirectAiConnectionSettings | null {
+  if (!_getSettingsValue) return null;
+  const raw = _getSettingsValue('directAiConnection') as unknown;
+  if (!raw) return null;
+  try {
+    return typeof raw === 'string'
+      ? (JSON.parse(raw) as DirectAiConnectionSettings)
+      : (raw as DirectAiConnectionSettings);
+  } catch {
+    return null;
+  }
 }
 
 // ============================================

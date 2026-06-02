@@ -12,6 +12,7 @@ vi.mock('../../auth/resolver', () => ({
   resolveAuth: vi.fn().mockResolvedValue({ apiKey: 'sk-default', source: 'environment' }),
   resolveAuthFromQueue: vi.fn().mockResolvedValue(null),
   buildDefaultQueueConfig: vi.fn().mockReturnValue(undefined),
+  getDirectConnectionSettings: vi.fn().mockReturnValue(null),
 }));
 
 // Mock provider factory — inline

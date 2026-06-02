@@ -80,6 +80,7 @@ export const PROVIDER_ENV_VARS: Record<SupportedProvider, string | undefined> = 
   openrouter: 'OPENROUTER_API_KEY',
   zai: 'ZHIPU_API_KEY',
   ollama: undefined,   // No auth required for local Ollama
+  direct: undefined,   // Free web transports — token captured via Direct AI settings, not an env var
 } as const;
 
 /**

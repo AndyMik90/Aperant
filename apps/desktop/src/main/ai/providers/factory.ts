@@ -22,6 +22,7 @@ import type { LanguageModel } from 'ai';
 
 import { MODEL_PROVIDER_MAP } from '../config/types';
 import { createAnthropicOAuthFetch } from './anthropic-oauth-fetch';
+import { createDirectProvider } from './direct';
 import { createOAuthProviderFetch } from './oauth-fetch';
 import { type ProviderConfig, SupportedProvider } from './types';
 
@@ -160,6 +161,11 @@ function createProviderInstance(config: ProviderConfig) {
         headers,
       });
     }
+
+    case SupportedProvider.Direct:
+      // Free web transports (DeepSeek / ChatGPT). The DeepSeek token rides on
+      // `apiKey`; ChatGPT uses a browser session and needs no key here.
+      return createDirectProvider({ apiKey });
 
     default: {
       const _exhaustive: never = provider;

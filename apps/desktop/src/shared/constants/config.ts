@@ -70,7 +70,23 @@ export const DEFAULT_APP_SETTINGS = {
   // GPU acceleration for terminal rendering
   // Default to 'off' until WebGL stability is proven across all GPU drivers.
   // Users can opt-in via Settings > Display > GPU Acceleration.
-  gpuAcceleration: 'off' as const
+  gpuAcceleration: 'off' as const,
+  // Direct AI connection method (free DeepSeek / ChatGPT web transports).
+  // Enabled by default as the preferred free path, but resolution safely falls
+  // back to the configured paid/OAuth provider when no DeepSeek token has been
+  // captured yet — so the app never hard-fails out of the box.
+  directAiConnection: {
+    enabled: true,
+    primaryProvider: 'deepseek' as const,
+    deepseek: {
+      enabled: true,
+      userToken: ''
+    },
+    chatgpt: {
+      enabled: true,
+      sessionReady: false
+    }
+  }
 };
 
 // ============================================

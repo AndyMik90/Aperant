@@ -48,6 +48,10 @@
     "terminal-fonts": {
       "title": "Polices de terminal",
       "description": "Personnaliser l'apparence des polices de terminal"
+    },
+    "directAi": {
+      "title": "Connexion IA directe",
+      "description": "Connexion web gratuite DeepSeek / ChatGPT"
     }
   },
   "apiProfiles": {
@@ -1300,6 +1304,35 @@
         "title": "Échec de l'enregistrement des paramètres du fournisseur",
         "description": "Une erreur s'est produite lors de l'enregistrement de la configuration du fournisseur."
       }
+    }
+  },
+  "directAiConnection": {
+    "title": "Connexion IA directe",
+    "description": "Utilisez les protocoles web gratuits DeepSeek et ChatGPT — sans clé API. Une fois activée avec un jeton, toutes les fonctions IA passent par cette connexion gratuite.",
+    "enable": {
+      "label": "Activer la connexion directe",
+      "description": "Acheminer les fonctions IA via la connexion web gratuite DeepSeek / ChatGPT."
+    },
+    "primaryProvider": {
+      "label": "Fournisseur principal",
+      "description": "Quel fournisseur gère le raisonnement principal. ChatGPT assiste pour la recherche web.",
+      "deepseek": "DeepSeek",
+      "chatgpt": "ChatGPT"
+    },
+    "deepseek": {
+      "label": "DeepSeek",
+      "description": "Cerveau principal via le protocole web chat.deepseek.com.",
+      "tokenLabel": "Jeton web DeepSeek",
+      "tokenPlaceholder": "Collez votre jeton utilisateur DeepSeek",
+      "tokenHelper": "Capturé depuis chat.deepseek.com. Sans lui, l’application utilise votre fournisseur configuré.",
+      "hideToken": "Masquer le jeton",
+      "showToken": "Afficher le jeton"
+    },
+    "chatgpt": {
+      "label": "ChatGPT",
+      "description": "Utilisé pour la recherche web en direct via une session de navigateur persistante.",
+      "sessionReadyLabel": "Session navigateur prête",
+      "sessionReadyHelper": "Confirmez que vous êtes connecté à chatgpt.com dans la session de navigateur intégrée."
     }
   }
 }

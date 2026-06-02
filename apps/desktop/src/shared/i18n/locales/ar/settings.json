@@ -48,6 +48,10 @@
     "terminal-fonts": {
       "title": "خطوط الطرفية",
       "description": "تخصيص مظهر خط الطرفية"
+    },
+    "directAi": {
+      "title": "اتصال الذكاء الاصطناعي المباشر",
+      "description": "اتصال ويب مجاني بـ DeepSeek / ChatGPT"
     }
   },
   "apiProfiles": {
@@ -1300,6 +1304,35 @@
         "title": "فشل حفظ إعدادات المزود",
         "description": "حدث خطأ أثناء حفظ تكوين مزودك."
       }
+    }
+  },
+  "directAiConnection": {
+    "title": "اتصال الذكاء الاصطناعي المباشر",
+    "description": "استخدم بروتوكولات الويب المجانية لـ DeepSeek و ChatGPT — دون مفتاح API. عند تفعيله مع رمز، تمر كل ميزات الذكاء الاصطناعي عبر هذا الاتصال المجاني.",
+    "enable": {
+      "label": "تفعيل الاتصال المباشر",
+      "description": "توجيه ميزات الذكاء الاصطناعي عبر اتصال الويب المجاني DeepSeek / ChatGPT."
+    },
+    "primaryProvider": {
+      "label": "المزوّد الأساسي",
+      "description": "أي مزوّد يتولى التفكير الرئيسي. يساعد ChatGPT في البحث على الويب.",
+      "deepseek": "DeepSeek",
+      "chatgpt": "ChatGPT"
+    },
+    "deepseek": {
+      "label": "DeepSeek",
+      "description": "المحرّك الأساسي عبر بروتوكول ويب chat.deepseek.com.",
+      "tokenLabel": "رمز ويب DeepSeek",
+      "tokenPlaceholder": "الصق رمز مستخدم DeepSeek الخاص بك",
+      "tokenHelper": "مُلتقط من chat.deepseek.com. بدونه يعود التطبيق إلى المزوّد المُهيّأ لديك.",
+      "hideToken": "إخفاء الرمز",
+      "showToken": "إظهار الرمز"
+    },
+    "chatgpt": {
+      "label": "ChatGPT",
+      "description": "يُستخدم للبحث المباشر على الويب عبر جلسة متصفح دائمة.",
+      "sessionReadyLabel": "جلسة المتصفح جاهزة",
+      "sessionReadyHelper": "أكّد أنك سجّلت الدخول إلى chatgpt.com في جلسة المتصفح المضمّنة."
     }
   }
 }

@@ -21,6 +21,8 @@ export const SupportedProvider = {
   OpenRouter: 'openrouter',
   ZAI: 'zai',
   Ollama: 'ollama',
+  /** Free, no-API-key web transports (DeepSeek / ChatGPT) via ai-providers-direct. */
+  Direct: 'direct',
 } as const;
 
 export type SupportedProvider = (typeof SupportedProvider)[keyof typeof SupportedProvider];

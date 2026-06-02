@@ -48,6 +48,10 @@
     "terminal-fonts": {
       "title": "Terminal Fonts",
       "description": "Customize terminal font appearance"
+    },
+    "directAi": {
+      "title": "Direct AI Connection",
+      "description": "Free DeepSeek / ChatGPT web connection"
     }
   },
   "apiProfiles": {
@@ -1300,6 +1304,35 @@
         "title": "Failed to save provider settings",
         "description": "An error occurred while saving your provider configuration."
       }
+    }
+  },
+  "directAiConnection": {
+    "title": "Direct AI Connection",
+    "description": "Use the free DeepSeek and ChatGPT web protocols — no API key required. When enabled with a token, every AI feature routes through this free connection.",
+    "enable": {
+      "label": "Enable direct connection",
+      "description": "Route AI features through the free DeepSeek / ChatGPT web connection."
+    },
+    "primaryProvider": {
+      "label": "Primary provider",
+      "description": "Which provider handles the main reasoning. ChatGPT assists with web research.",
+      "deepseek": "DeepSeek",
+      "chatgpt": "ChatGPT"
+    },
+    "deepseek": {
+      "label": "DeepSeek",
+      "description": "Primary brain via the chat.deepseek.com web protocol.",
+      "tokenLabel": "DeepSeek web token",
+      "tokenPlaceholder": "Paste your DeepSeek user token",
+      "tokenHelper": "Captured from chat.deepseek.com. Without it, the app falls back to your configured provider.",
+      "hideToken": "Hide token",
+      "showToken": "Show token"
+    },
+    "chatgpt": {
+      "label": "ChatGPT",
+      "description": "Used for live web research via a persistent browser session.",
+      "sessionReadyLabel": "Browser session ready",
+      "sessionReadyHelper": "Confirm you have signed in to chatgpt.com in the bundled browser session."
     }
   }
 }

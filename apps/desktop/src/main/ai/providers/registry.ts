@@ -21,6 +21,7 @@ import { createProviderRegistry } from 'ai';
 import type { LanguageModel } from 'ai';
 import type { ProviderV3 } from '@ai-sdk/provider';
 
+import { createDirectProvider } from './direct';
 import { type ProviderConfig, SupportedProvider } from './types';
 
 // =============================================================================
@@ -99,6 +100,14 @@ function createProviderSDKInstance(
         baseURL: ollamaBaseURL,
         headers,
       });
+    }
+
+    case SupportedProvider.Direct: {
+      // Free web transports. The registry resolves models via `.languageModel()`,
+      // so wrap the callable direct provider in that shape. The DeepSeek token
+      // rides on `apiKey`; ChatGPT uses a browser session.
+      const direct = createDirectProvider({ apiKey });
+      return { languageModel: (modelId: string) => direct(modelId) };
     }
 
     default: {

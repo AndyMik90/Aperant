@@ -147,6 +147,9 @@ export const MODEL_PROVIDER_MAP: Record<string, SupportedProvider> = {
   'llama-': 'groq',
   'grok-': 'xai',
   'glm-': 'zai',
+  // Free web transports via ai-providers-direct (no API key required).
+  deepseek: 'direct',
+  chatgpt: 'direct',
 } as const;
 
 // ============================================

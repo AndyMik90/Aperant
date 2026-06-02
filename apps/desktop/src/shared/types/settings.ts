@@ -358,9 +358,35 @@ export interface AppSettings {
   sidebarCollapsed?: boolean;
   // GPU acceleration for terminal rendering (WebGL)
   gpuAcceleration?: GpuAcceleration;
+  // Direct AI connection method (DeepSeek primary, ChatGPT research/assist)
+  directAiConnection?: DirectAiConnectionSettings;
 }
 
 // GPU acceleration mode for terminal WebGL rendering
 export type GpuAcceleration = 'auto' | 'on' | 'off';
+
+// Provider used for the direct AI connection method
+export type DirectAiProvider = 'deepseek' | 'chatgpt';
+
+// Direct AI connection configuration.
+// Configures a direct-connection method to AI providers (DeepSeek primary,
+// ChatGPT for research/assist). The free, no-API-key web transports are wired
+// through the agent pipeline via the 'direct' Vercel AI SDK provider.
+export interface DirectAiConnectionSettings {
+  // Master toggle for the direct AI connection method
+  enabled: boolean;
+  // Which provider is primary (DeepSeek by default, ChatGPT assists with research)
+  primaryProvider: DirectAiProvider;
+  deepseek: {
+    enabled: boolean;
+    // Captured web token (DEEPSEEK_USER_TOKEN) from chat.deepseek.com
+    userToken: string;
+  };
+  chatgpt: {
+    enabled: boolean;
+    // User-confirmed they've set up the chatgpt.com browser session
+    sessionReady: boolean;
+  };
+}
 
 

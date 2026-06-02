@@ -14,7 +14,12 @@
 
 import type { Tool as AITool } from 'ai';
 
-import { resolveAuth, resolveAuthFromQueue, buildDefaultQueueConfig } from '../auth/resolver';
+import {
+  resolveAuth,
+  resolveAuthFromQueue,
+  buildDefaultQueueConfig,
+  getDirectConnectionSettings,
+} from '../auth/resolver';
 import {
   getDefaultThinkingLevel,
   getRequiredMcpServers,
@@ -44,6 +49,50 @@ const DEFAULT_MAX_STEPS = 200;
 
 /** Default max steps for simple/utility clients */
 const DEFAULT_SIMPLE_MAX_STEPS = 1;
+
+// =============================================================================
+// Direct AI Connection override
+// =============================================================================
+
+/**
+ * When the free Direct AI Connection (DeepSeek / ChatGPT web transports) is
+ * enabled in settings, this returns a ready-to-use model + its model ID that
+ * supersedes the normal queue/legacy auth resolution. It is the single point
+ * that routes EVERY AI call (planner, coder, QA, and all utility runners,
+ * which all flow through the two client factories below) onto the free path.
+ *
+ * Safety: if the selected provider cannot actually serve a request (e.g.
+ * DeepSeek is primary but no web token has been captured yet), this returns
+ * `null` so resolution falls back to the configured paid/OAuth provider rather
+ * than hard-failing every AI feature in the app.
+ */
+function resolveDirectModel(): { model: ReturnType<typeof createProvider>; modelId: string } | null {
+  const direct = getDirectConnectionSettings();
+  if (!direct?.enabled) return null;
+
+  // ChatGPT primary: tunnels through a persistent browser session, so no token
+  // is supplied here (the library manages the Playwright Chrome profile).
+  if (direct.primaryProvider === 'chatgpt' && direct.chatgpt?.enabled) {
+    return {
+      modelId: 'chatgpt',
+      model: createProvider({ config: { provider: 'direct' }, modelId: 'chatgpt' }),
+    };
+  }
+
+  // DeepSeek primary (default). Requires a captured web token; absent one we
+  // fall back so the app keeps working on its existing provider.
+  if (direct.deepseek?.enabled && direct.deepseek.userToken?.trim()) {
+    return {
+      modelId: 'deepseek',
+      model: createProvider({
+        config: { provider: 'direct', apiKey: direct.deepseek.userToken },
+        modelId: 'deepseek',
+      }),
+    };
+  }
+
+  return null;
+}
 
 // =============================================================================
 // createAgentClient
@@ -93,7 +142,13 @@ export async function createAgentClient(
   let resolvedThinkingLevel: ThinkingLevel;
   let queueAuth: QueueResolvedAuth | null = null;
 
-  if (queueConfig) {
+  // 0. Free Direct AI Connection takes precedence when enabled + serviceable.
+  const directModel = resolveDirectModel();
+
+  if (directModel) {
+    model = directModel.model;
+    resolvedThinkingLevel = thinkingLevel ?? getDefaultThinkingLevel(agentType);
+  } else if (queueConfig) {
     // Queue-based resolution: use global priority queue
     queueAuth = await resolveAuthFromQueue(
       queueConfig.requestedModel,
@@ -230,7 +285,13 @@ export async function createSimpleClient(
   let resolvedThinkingLevel: ThinkingLevel = thinkingLevel;
   let queueAuth: QueueResolvedAuth | null = null;
 
-  if (queueConfig) {
+  // 0. Free Direct AI Connection takes precedence when enabled + serviceable.
+  const directModel = resolveDirectModel();
+
+  if (directModel) {
+    model = directModel.model;
+    resolvedModelId = directModel.modelId;
+  } else if (queueConfig) {
     // Queue-based resolution: use global priority queue
     const excludeAccountIds = (queueConfig as { excludeAccountIds?: string[] }).excludeAccountIds;
     const userModelOverrides = (queueConfig as { userModelOverrides?: Record<string, unknown> }).userModelOverrides;
