@@ -49,6 +49,9 @@ export interface SettingsAPI {
   codexAuthLogin: () => Promise<{ success: boolean; data?: { accessToken: string; refreshToken: string; expiresAt: number; email?: string }; error?: string }>;
   codexAuthStatus: () => Promise<{ success: boolean; data?: { isAuthenticated: boolean; expiresAt?: number }; error?: string }>;
   codexAuthLogout: () => Promise<{ success: boolean; error?: string }>;
+
+  // Direct AI Connection — capture a DeepSeek web token via the bundled extractor
+  captureDeepSeekToken: () => Promise<{ success: boolean; token?: string; verifiedAs?: string; error?: string; code?: string }>;
 }
 
 export const createSettingsAPI = (): SettingsAPI => ({
@@ -119,4 +122,8 @@ export const createSettingsAPI = (): SettingsAPI => ({
     ipcRenderer.invoke('codex-auth-status'),
   codexAuthLogout: () =>
     ipcRenderer.invoke('codex-auth-logout'),
+
+  // Direct AI Connection — capture a DeepSeek web token via the bundled extractor
+  captureDeepSeekToken: () =>
+    ipcRenderer.invoke('direct-ai-capture-token'),
 });

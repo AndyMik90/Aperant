@@ -1326,7 +1326,11 @@
       "tokenPlaceholder": "Collez votre jeton utilisateur DeepSeek",
       "tokenHelper": "Capturé depuis chat.deepseek.com. Sans lui, l’application utilise votre fournisseur configuré.",
       "hideToken": "Masquer le jeton",
-      "showToken": "Afficher le jeton"
+      "showToken": "Afficher le jeton",
+      "captureButton": "Capturer le jeton automatiquement",
+      "capturing": "Capture en cours…",
+      "captureFailed": "Échec de la capture du jeton",
+      "captureHelper": "Ouvre une fenêtre de connexion la première fois, puis remplit le jeton pour vous. Nécessite Chrome/Playwright (mode développement)."
     },
     "chatgpt": {
       "label": "ChatGPT",

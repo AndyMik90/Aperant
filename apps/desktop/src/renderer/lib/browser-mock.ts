@@ -241,6 +241,12 @@ const browserMockAPI: ElectronAPI = {
     success: true
   }),
 
+  // Direct AI Connection token capture (mock)
+  captureDeepSeekToken: async () => ({
+    success: false,
+    error: 'Token capture not available in browser mock'
+  }),
+
   // GitHub API
   github: {
     getGitHubRepositories: async () => ({ success: true, data: [] }),

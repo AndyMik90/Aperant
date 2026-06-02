@@ -1326,7 +1326,11 @@
       "tokenPlaceholder": "Paste your DeepSeek user token",
       "tokenHelper": "Captured from chat.deepseek.com. Without it, the app falls back to your configured provider.",
       "hideToken": "Hide token",
-      "showToken": "Show token"
+      "showToken": "Show token",
+      "captureButton": "Capture token automatically",
+      "capturing": "Capturing…",
+      "captureFailed": "Token capture failed",
+      "captureHelper": "Opens a sign-in window the first time, then fills the token for you. Requires Chrome/Playwright (development mode)."
     },
     "chatgpt": {
       "label": "ChatGPT",

@@ -419,6 +419,9 @@ export interface ElectronAPI {
   codexAuthStatus: () => Promise<{ success: boolean; data?: { isAuthenticated: boolean; expiresAt?: number }; error?: string }>;
   codexAuthLogout: () => Promise<{ success: boolean; error?: string }>;
 
+  // Direct AI Connection — capture a DeepSeek web token via the bundled extractor
+  captureDeepSeekToken: () => Promise<{ success: boolean; token?: string; verifiedAs?: string; error?: string; code?: string }>;
+
   // Dialog operations
   selectDirectory: () => Promise<string | null>;
   createProjectFolder: (location: string, name: string, initGit: boolean) => Promise<IPCResult<CreateProjectFolderResult>>;

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Wand2 } from 'lucide-react';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
+import { Button } from '../ui/button';
 import { Switch } from '../ui/switch';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { SettingsSection } from './SettingsSection';
@@ -29,6 +30,8 @@ const DEFAULT_DIRECT_AI = DEFAULT_APP_SETTINGS.directAiConnection as DirectAiCon
 export function DirectAiSettings({ settings, onSettingsChange }: DirectAiSettingsProps) {
   const { t } = useTranslation('settings');
   const [showToken, setShowToken] = useState(false);
+  const [capturing, setCapturing] = useState(false);
+  const [captureError, setCaptureError] = useState<string | null>(null);
 
   // Current config, falling back to defaults so sibling fields are never dropped.
   const current: DirectAiConnectionSettings = settings.directAiConnection ?? DEFAULT_DIRECT_AI;
@@ -47,6 +50,25 @@ export function DirectAiSettings({ settings, onSettingsChange }: DirectAiSetting
 
   const updateChatgpt = (change: Partial<DirectAiConnectionSettings['chatgpt']>) => {
     update({ chatgpt: { ...current.chatgpt, ...change } });
+  };
+
+  // Capture a DeepSeek token in-app via the bundled Playwright extractor.
+  // Opens a sign-in window the first time, then fills the token field on success.
+  const handleCaptureToken = async () => {
+    setCapturing(true);
+    setCaptureError(null);
+    try {
+      const result = await window.electronAPI.captureDeepSeekToken();
+      if (result.success && result.token) {
+        updateDeepseek({ userToken: result.token });
+      } else {
+        setCaptureError(result.error ?? t('directAiConnection.deepseek.captureFailed'));
+      }
+    } catch (err) {
+      setCaptureError(err instanceof Error ? err.message : t('directAiConnection.deepseek.captureFailed'));
+    } finally {
+      setCapturing(false);
+    }
   };
 
   return (
@@ -148,6 +170,31 @@ export function DirectAiSettings({ settings, onSettingsChange }: DirectAiSetting
             </div>
             <p className="text-xs text-muted-foreground">
               {t('directAiConnection.deepseek.tokenHelper')}
+            </p>
+
+            <div className="flex items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleCaptureToken}
+                disabled={capturing}
+              >
+                {capturing ? (
+                  <Loader2 className="me-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Wand2 className="me-2 h-4 w-4" />
+                )}
+                {capturing
+                  ? t('directAiConnection.deepseek.capturing')
+                  : t('directAiConnection.deepseek.captureButton')}
+              </Button>
+            </div>
+            {captureError && (
+              <p className="text-xs text-destructive">{captureError}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              {t('directAiConnection.deepseek.captureHelper')}
             </p>
           </div>
         </div>

@@ -1326,7 +1326,11 @@
       "tokenPlaceholder": "الصق رمز مستخدم DeepSeek الخاص بك",
       "tokenHelper": "مُلتقط من chat.deepseek.com. بدونه يعود التطبيق إلى المزوّد المُهيّأ لديك.",
       "hideToken": "إخفاء الرمز",
-      "showToken": "إظهار الرمز"
+      "showToken": "إظهار الرمز",
+      "captureButton": "التقاط الرمز تلقائياً",
+      "capturing": "جارٍ الالتقاط…",
+      "captureFailed": "فشل التقاط الرمز",
+      "captureHelper": "يفتح نافذة تسجيل دخول أول مرة، ثم يملأ الرمز نيابةً عنك. يتطلب Chrome/Playwright (وضع التطوير)."
     },
     "chatgpt": {
       "label": "ChatGPT",
