@@ -257,5 +257,179 @@
       "retry": "Réessayer",
       "fallbackNote": "La mémoire fonctionnera toujours avec la recherche par mots-clés même sans embeddings."
     }
+  },
+  "graphiti": {
+    "title": "Mémoire & Contexte",
+    "subtitle": "Activez Graphiti pour une mémoire persistante entre vos sessions de code",
+    "success": {
+      "title": "Graphiti configuré avec succès",
+      "description": "Les fonctionnalités de mémoire sont activées. Aperant conservera le contexte entre les sessions pour une meilleure compréhension du code.",
+      "reconfigure": "Reconfigurer les paramètres de Graphiti"
+    },
+    "kuzuNotice": {
+      "title": "La base de données sera créée automatiquement",
+      "description": "LadybugDB utilise une base de données intégrée - aucun Docker requis. La base de données sera créée lors de votre première utilisation des fonctionnalités de mémoire."
+    },
+    "info": {
+      "title": "Qu'est-ce que Graphiti ?",
+      "description": "Graphiti est une couche de mémoire intelligente qui aide Aperant à se souvenir du contexte entre les sessions. Il utilise un graphe de connaissances pour stocker les découvertes, motifs et informations sur votre codebase.",
+      "benefit1": "Mémoire persistante entre les sessions de code",
+      "benefit2": "Meilleure compréhension de votre codebase au fil du temps",
+      "benefit3": "Réduit les explications répétitives",
+      "benefit4": "Aucun Docker requis - utilise une base de données intégrée",
+      "learnMore": "En savoir plus sur Graphiti"
+    },
+    "enable": {
+      "label": "Activer la mémoire Graphiti",
+      "description": "Utilise LadybugDB (intégrée) et un fournisseur LLM/d'embeddings"
+    },
+    "database": {
+      "label": "Nom de la base de données",
+      "placeholder": "auto_claude_memory",
+      "location": "Stockée dans ~/.auto-claude/graphs/",
+      "ready": "Prêt",
+      "issue": "Problème"
+    },
+    "llmProvider": "Fournisseur LLM",
+    "embeddingProvider": "Fournisseur d'embeddings",
+    "providers": {
+      "openai": "OpenAI",
+      "openaiDesc": "Modèles GPT (recommandé)",
+      "anthropic": "Anthropic",
+      "anthropicDesc": "Modèles Claude",
+      "google": "Google AI",
+      "googleDesc": "Modèles Gemini",
+      "groq": "Groq",
+      "groqDesc": "Modèles Llama (inférence rapide)",
+      "openrouter": "OpenRouter",
+      "openrouterDesc": "Agrégateur multi-fournisseurs",
+      "azure": "Azure OpenAI",
+      "azureDesc": "Déploiement Azure entreprise",
+      "ollama": "Ollama",
+      "ollamaDesc": "Modèles locaux (gratuit)"
+    },
+    "embeddingProviders": {
+      "ollamaDesc": "Embeddings locaux (gratuit)",
+      "openaiDesc": "text-embedding-3-small (recommandé)",
+      "voyage": "Voyage AI",
+      "voyageDesc": "voyage-3 (idéal avec Anthropic)",
+      "googleDesc": "Gemini text-embedding-004",
+      "openrouterDesc": "Embeddings compatibles OpenAI",
+      "azureDesc": "Embeddings Azure entreprise"
+    },
+    "fields": {
+      "openaiApiKey": "Clé API OpenAI",
+      "anthropicApiKey": "Clé API Anthropic",
+      "voyageApiKey": "Clé API Voyage",
+      "googleApiKey": "Clé API Google",
+      "groqApiKey": "Clé API Groq",
+      "openrouterApiKey": "Clé API OpenRouter",
+      "getKeyFrom": "Obtenez votre clé sur",
+      "openaiLink": "OpenAI",
+      "anthropicLink": "Console Anthropic",
+      "voyageLink": "Voyage AI",
+      "googleLink": "Google AI Studio",
+      "groqLink": "Console Groq",
+      "openrouterLink": "Tableau de bord OpenRouter",
+      "azureSettings": "Paramètres Azure OpenAI",
+      "apiKey": "Clé API",
+      "azureKeyPlaceholder": "Clé API Azure",
+      "baseUrl": "URL de base",
+      "llmDeployment": "Nom du déploiement LLM",
+      "embeddingDeployment": "Nom du déploiement d'embedding",
+      "ollamaSettings": "Paramètres Ollama (local)",
+      "llmModel": "Modèle LLM",
+      "embeddingModel": "Modèle d'embedding",
+      "embeddingDimension": "Dimension d'embedding",
+      "ollamaRunningHint": "Assurez-vous qu'Ollama est lancé localement. Voir"
+    },
+    "test": {
+      "testing": "Test de la connexion...",
+      "button": "Tester la connexion",
+      "allValidated": "Toutes les connexions ont été validées avec succès !",
+      "openaiOnlyNote": "Remarque : la validation de clé API ne prend actuellement entièrement en charge qu'OpenAI. Votre clé sera enregistrée et utilisée à l'exécution.",
+      "ollamaNote": "Remarque : la connexion Ollama sera testée en vérifiant si le serveur est accessible.",
+      "providerConfigured": "Fournisseur d'embeddings {{provider}} configuré"
+    },
+    "buttons": {
+      "back": "Retour",
+      "skip": "Passer",
+      "saving": "Enregistrement...",
+      "saveAndContinue": "Enregistrer et continuer",
+      "continue": "Continuer"
+    },
+    "errors": {
+      "enterKeyToTest": "Veuillez saisir {{key}} pour tester la connexion",
+      "keyRequired": "{{key}} est requise",
+      "testFailed": "Échec du test de connexion",
+      "saveFailed": "Échec de l'enregistrement de la configuration de la mémoire",
+      "unknownError": "Une erreur inconnue s'est produite",
+      "databasePrefix": "Base de données : {{message}}"
+    },
+    "requiredKeys": {
+      "openai": "la clé API OpenAI",
+      "anthropic": "la clé API Anthropic",
+      "azureApiKey": "la clé API Azure OpenAI",
+      "azureBaseUrl": "l'URL de base Azure OpenAI",
+      "azureLlmDeployment": "le nom du déploiement LLM Azure OpenAI",
+      "azureEmbeddingDeployment": "le nom du déploiement d'embedding Azure OpenAI",
+      "voyage": "la clé API Voyage",
+      "google": "la clé API Google",
+      "groq": "la clé API Groq",
+      "openrouter": "la clé API OpenRouter",
+      "ollamaLlmModel": "le nom du modèle LLM Ollama",
+      "ollamaEmbeddingModel": "le nom du modèle d'embedding Ollama"
+    }
+  },
+  "authChoice": {
+    "title": "Choisissez votre méthode d'authentification",
+    "subtitle": "Sélectionnez la façon dont vous souhaitez vous authentifier avec Claude. Vous pourrez modifier ce choix plus tard dans les paramètres.",
+    "oauth": {
+      "title": "Se connecter avec Anthropic",
+      "description": "Utilisez votre compte Anthropic pour vous authentifier. Flux OAuth simple et sécurisé."
+    },
+    "apiKey": {
+      "title": "Utiliser une clé API personnalisée",
+      "description": "Utilisez votre propre clé API d'Anthropic ou d'un fournisseur d'API compatible. ⚠️ Très expérimental — peut entraîner des coûts importants."
+    },
+    "info": "Les deux options offrent un accès complet aux fonctionnalités de Claude Code. Choisissez selon votre préférence.",
+    "skip": "Passer pour le moment"
+  },
+  "firstSpec": {
+    "title": "Créez votre première tâche",
+    "subtitle": "Décrivez ce que vous voulez construire et laissez Aperant s'occuper du reste",
+    "opened": {
+      "title": "Créateur de tâches ouvert",
+      "description": "Parfait ! Vous pouvez créer votre première tâche maintenant ou continuer avec l'assistant. Vous pourrez toujours créer des tâches plus tard depuis le tableau de bord principal."
+    },
+    "tipsHeading": "Conseils pour de bonnes tâches",
+    "tips": {
+      "descriptive": {
+        "title": "Soyez descriptif",
+        "description": "Décrivez clairement ce que vous voulez construire. Incluez les exigences, contraintes et comportements attendus."
+      },
+      "startSmall": {
+        "title": "Commencez petit",
+        "description": "Commencez par une tâche ciblée comme ajouter une fonctionnalité ou corriger un bug. Les tâches plus petites sont plus faciles à vérifier."
+      },
+      "includeContext": {
+        "title": "Incluez du contexte",
+        "description": "Mentionnez les fichiers, API ou motifs pertinents. Plus vous fournissez de contexte, meilleurs sont les résultats."
+      },
+      "letAiHelp": {
+        "title": "Laissez l'IA aider",
+        "description": "L'IA peut générer des titres et classer les tâches. Concentrez-vous sur la description de ce que vous voulez, pas sur les détails."
+      }
+    },
+    "example": {
+      "label": "Exemple de description de tâche :",
+      "text": "« Ajouter un bouton de mode sombre à la page des paramètres. Il doit conserver la préférence de l'utilisateur dans localStorage et appliquer le thème immédiatement sans rechargement de page. Utiliser les variables de couleur existantes dans styles/theme.css. »"
+    },
+    "openTaskCreator": "Ouvrir le créateur de tâches",
+    "skipInfoCreated": "Vous pouvez continuer avec l'assistant maintenant ou créer d'autres tâches.",
+    "skipInfoDefault": "Vous pouvez passer cette étape et créer des tâches plus tard depuis le tableau de bord.",
+    "back": "Retour",
+    "skip": "Passer",
+    "continue": "Continuer"
   }
 }

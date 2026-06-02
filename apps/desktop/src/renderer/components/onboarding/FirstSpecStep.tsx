@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   FileText,
   Lightbulb,
@@ -49,28 +50,29 @@ function TipCard({ icon, title, description }: TipCardProps) {
  * and provides an action to open the Task Creator.
  */
 export function FirstSpecStep({ onNext, onBack, onSkip, onOpenTaskCreator }: FirstSpecStepProps) {
+  const { t } = useTranslation('onboarding');
   const [hasCreatedSpec, setHasCreatedSpec] = useState(false);
 
   const tips = [
     {
       icon: <PenLine className="h-4 w-4" />,
-      title: 'Be Descriptive',
-      description: 'Clearly describe what you want to build. Include requirements, constraints, and expected behavior.'
+      title: t('firstSpec.tips.descriptive.title'),
+      description: t('firstSpec.tips.descriptive.description')
     },
     {
       icon: <Target className="h-4 w-4" />,
-      title: 'Start Small',
-      description: 'Begin with a focused task like adding a feature or fixing a bug. Smaller tasks are easier to verify.'
+      title: t('firstSpec.tips.startSmall.title'),
+      description: t('firstSpec.tips.startSmall.description')
     },
     {
       icon: <ListChecks className="h-4 w-4" />,
-      title: 'Include Context',
-      description: 'Mention relevant files, APIs, or patterns. The more context you provide, the better the results.'
+      title: t('firstSpec.tips.includeContext.title'),
+      description: t('firstSpec.tips.includeContext.description')
     },
     {
       icon: <Sparkles className="h-4 w-4" />,
-      title: 'Let AI Help',
-      description: 'The AI can generate titles and classify tasks. Focus on describing what you want, not the details.'
+      title: t('firstSpec.tips.letAiHelp.title'),
+      description: t('firstSpec.tips.letAiHelp.description')
     }
   ];
 
@@ -94,10 +96,10 @@ export function FirstSpecStep({ onNext, onBack, onSkip, onOpenTaskCreator }: Fir
             </div>
           </div>
           <h1 className="text-2xl font-bold text-foreground tracking-tight">
-            Create Your First Task
+            {t('firstSpec.title')}
           </h1>
           <p className="mt-2 text-muted-foreground">
-            Describe what you want to build and let Aperant handle the rest
+            {t('firstSpec.subtitle')}
           </p>
         </div>
 
@@ -109,11 +111,10 @@ export function FirstSpecStep({ onNext, onBack, onSkip, onOpenTaskCreator }: Fir
                 <CheckCircle2 className="h-6 w-6 text-success shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <h3 className="text-lg font-medium text-success">
-                    Task Creator Opened
+                    {t('firstSpec.opened.title')}
                   </h3>
                   <p className="mt-1 text-sm text-success/80">
-                    Great! You can create your first task now or continue with the wizard.
-                    You can always create tasks later from the main dashboard.
+                    {t('firstSpec.opened.description')}
                   </p>
                 </div>
               </div>
@@ -125,7 +126,7 @@ export function FirstSpecStep({ onNext, onBack, onSkip, onOpenTaskCreator }: Fir
         <div className="space-y-4 mb-8">
           <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
             <Lightbulb className="h-4 w-4" />
-            Tips for Great Tasks
+            {t('firstSpec.tipsHeading')}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {tips.map((tip, index) => (
@@ -146,12 +147,10 @@ export function FirstSpecStep({ onNext, onBack, onSkip, onOpenTaskCreator }: Fir
               <FileText className="h-5 w-5 text-info shrink-0 mt-0.5" />
               <div className="flex-1 space-y-2">
                 <p className="text-sm font-medium text-foreground">
-                  Example Task Description:
+                  {t('firstSpec.example.label')}
                 </p>
                 <p className="text-sm text-muted-foreground italic">
-                  &quot;Add a dark mode toggle to the settings page. It should persist the user&apos;s
-                  preference in localStorage and apply the theme immediately without page reload.
-                  Use the existing color variables in styles/theme.css.&quot;
+                  {t('firstSpec.example.text')}
                 </p>
               </div>
             </div>
@@ -166,15 +165,15 @@ export function FirstSpecStep({ onNext, onBack, onSkip, onOpenTaskCreator }: Fir
             className="gap-2 px-8"
           >
             <ArrowRight className="h-5 w-5 rtl:-scale-x-100" />
-            Open Task Creator
+            {t('firstSpec.openTaskCreator')}
           </Button>
         </div>
 
         {/* Skip info */}
         <p className="text-center text-sm text-muted-foreground mb-2">
           {hasCreatedSpec
-            ? 'You can continue with the wizard now or create more tasks.'
-            : 'You can skip this step and create tasks later from the dashboard.'}
+            ? t('firstSpec.skipInfoCreated')
+            : t('firstSpec.skipInfoDefault')}
         </p>
 
         {/* Action Buttons */}
@@ -184,7 +183,7 @@ export function FirstSpecStep({ onNext, onBack, onSkip, onOpenTaskCreator }: Fir
             onClick={onBack}
             className="text-muted-foreground hover:text-foreground"
           >
-            Back
+            {t('firstSpec.back')}
           </Button>
           <div className="flex gap-4">
             <Button
@@ -192,10 +191,10 @@ export function FirstSpecStep({ onNext, onBack, onSkip, onOpenTaskCreator }: Fir
               onClick={onSkip}
               className="text-muted-foreground hover:text-foreground"
             >
-              Skip
+              {t('firstSpec.skip')}
             </Button>
             <Button onClick={handleContinue}>
-              Continue
+              {t('firstSpec.continue')}
             </Button>
           </div>
         </div>

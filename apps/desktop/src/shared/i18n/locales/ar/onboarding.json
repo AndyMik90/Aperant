@@ -257,5 +257,179 @@
       "retry": "إعادة المحاولة",
       "fallbackNote": "ستعمل الذاكرة مع البحث بالكلمات المفتاحية حتى بدون التضمينات."
     }
+  },
+  "graphiti": {
+    "title": "الذاكرة والسياق",
+    "subtitle": "فعّل Graphiti للحصول على ذاكرة مستمرة عبر جلسات البرمجة",
+    "success": {
+      "title": "تم تكوين Graphiti بنجاح",
+      "description": "تم تفعيل ميزات الذاكرة. سيحافظ Aperant على السياق عبر الجلسات لتحسين فهم الكود.",
+      "reconfigure": "إعادة تكوين إعدادات Graphiti"
+    },
+    "kuzuNotice": {
+      "title": "سيتم إنشاء قاعدة البيانات تلقائياً",
+      "description": "يستخدم LadybugDB قاعدة بيانات مدمجة - لا حاجة إلى Docker. سيتم إنشاء قاعدة البيانات عند استخدامك ميزات الذاكرة لأول مرة."
+    },
+    "info": {
+      "title": "ما هو Graphiti؟",
+      "description": "Graphiti هو طبقة ذاكرة ذكية تساعد Aperant على تذكر السياق عبر الجلسات. يستخدم رسماً بيانياً للمعرفة لتخزين الاكتشافات والأنماط والرؤى حول قاعدة الكود الخاصة بك.",
+      "benefit1": "ذاكرة مستمرة عبر جلسات البرمجة",
+      "benefit2": "فهم أفضل لقاعدة الكود الخاصة بك بمرور الوقت",
+      "benefit3": "تقليل التفسيرات المتكررة",
+      "benefit4": "لا حاجة إلى Docker - يستخدم قاعدة بيانات مدمجة",
+      "learnMore": "اعرف المزيد عن Graphiti"
+    },
+    "enable": {
+      "label": "تفعيل ذاكرة Graphiti",
+      "description": "يستخدم LadybugDB (مدمجة) وموفر LLM/تضمين"
+    },
+    "database": {
+      "label": "اسم قاعدة البيانات",
+      "placeholder": "auto_claude_memory",
+      "location": "مخزّنة في ~/.auto-claude/graphs/",
+      "ready": "جاهز",
+      "issue": "مشكلة"
+    },
+    "llmProvider": "موفر LLM",
+    "embeddingProvider": "موفر التضمين",
+    "providers": {
+      "openai": "OpenAI",
+      "openaiDesc": "نماذج GPT (موصى به)",
+      "anthropic": "Anthropic",
+      "anthropicDesc": "نماذج Claude",
+      "google": "Google AI",
+      "googleDesc": "نماذج Gemini",
+      "groq": "Groq",
+      "groqDesc": "نماذج Llama (استدلال سريع)",
+      "openrouter": "OpenRouter",
+      "openrouterDesc": "مُجمّع متعدد الموفرين",
+      "azure": "Azure OpenAI",
+      "azureDesc": "نشر Azure للمؤسسات",
+      "ollama": "Ollama",
+      "ollamaDesc": "نماذج محلية (مجاني)"
+    },
+    "embeddingProviders": {
+      "ollamaDesc": "تضمينات محلية (مجاني)",
+      "openaiDesc": "text-embedding-3-small (موصى به)",
+      "voyage": "Voyage AI",
+      "voyageDesc": "voyage-3 (رائع مع Anthropic)",
+      "googleDesc": "Gemini text-embedding-004",
+      "openrouterDesc": "تضمينات متوافقة مع OpenAI",
+      "azureDesc": "تضمينات Azure للمؤسسات"
+    },
+    "fields": {
+      "openaiApiKey": "مفتاح OpenAI API",
+      "anthropicApiKey": "مفتاح Anthropic API",
+      "voyageApiKey": "مفتاح Voyage API",
+      "googleApiKey": "مفتاح Google API",
+      "groqApiKey": "مفتاح Groq API",
+      "openrouterApiKey": "مفتاح OpenRouter API",
+      "getKeyFrom": "احصل على مفتاحك من",
+      "openaiLink": "OpenAI",
+      "anthropicLink": "وحدة تحكم Anthropic",
+      "voyageLink": "Voyage AI",
+      "googleLink": "Google AI Studio",
+      "groqLink": "وحدة تحكم Groq",
+      "openrouterLink": "لوحة تحكم OpenRouter",
+      "azureSettings": "إعدادات Azure OpenAI",
+      "apiKey": "مفتاح API",
+      "azureKeyPlaceholder": "مفتاح Azure API",
+      "baseUrl": "عنوان URL الأساسي",
+      "llmDeployment": "اسم نشر LLM",
+      "embeddingDeployment": "اسم نشر التضمين",
+      "ollamaSettings": "إعدادات Ollama (محلي)",
+      "llmModel": "نموذج LLM",
+      "embeddingModel": "نموذج التضمين",
+      "embeddingDimension": "أبعاد التضمين",
+      "ollamaRunningHint": "تأكد من تشغيل Ollama محلياً. انظر"
+    },
+    "test": {
+      "testing": "جارٍ اختبار الاتصال...",
+      "button": "اختبار الاتصال",
+      "allValidated": "تم التحقق من جميع الاتصالات بنجاح!",
+      "openaiOnlyNote": "ملاحظة: يدعم التحقق من مفتاح API حالياً OpenAI بالكامل فقط. سيتم حفظ مفتاحك واستخدامه أثناء التشغيل.",
+      "ollamaNote": "ملاحظة: سيتم اختبار اتصال Ollama عن طريق التحقق من إمكانية الوصول إلى الخادم.",
+      "providerConfigured": "تم تكوين موفر التضمين {{provider}}"
+    },
+    "buttons": {
+      "back": "رجوع",
+      "skip": "تخطي",
+      "saving": "جارٍ الحفظ...",
+      "saveAndContinue": "حفظ ومتابعة",
+      "continue": "متابعة"
+    },
+    "errors": {
+      "enterKeyToTest": "يرجى إدخال {{key}} لاختبار الاتصال",
+      "keyRequired": "{{key}} مطلوب",
+      "testFailed": "فشل اختبار الاتصال",
+      "saveFailed": "فشل حفظ تكوين الذاكرة",
+      "unknownError": "حدث خطأ غير معروف",
+      "databasePrefix": "قاعدة البيانات: {{message}}"
+    },
+    "requiredKeys": {
+      "openai": "مفتاح OpenAI API",
+      "anthropic": "مفتاح Anthropic API",
+      "azureApiKey": "مفتاح Azure OpenAI API",
+      "azureBaseUrl": "عنوان URL الأساسي لـ Azure OpenAI",
+      "azureLlmDeployment": "اسم نشر LLM لـ Azure OpenAI",
+      "azureEmbeddingDeployment": "اسم نشر التضمين لـ Azure OpenAI",
+      "voyage": "مفتاح Voyage API",
+      "google": "مفتاح Google API",
+      "groq": "مفتاح Groq API",
+      "openrouter": "مفتاح OpenRouter API",
+      "ollamaLlmModel": "اسم نموذج LLM لـ Ollama",
+      "ollamaEmbeddingModel": "اسم نموذج التضمين لـ Ollama"
+    }
+  },
+  "authChoice": {
+    "title": "اختر طريقة المصادقة الخاصة بك",
+    "subtitle": "اختر كيف تريد المصادقة مع Claude. يمكنك تغيير ذلك لاحقاً في الإعدادات.",
+    "oauth": {
+      "title": "تسجيل الدخول عبر Anthropic",
+      "description": "استخدم حساب Anthropic الخاص بك للمصادقة. تدفق OAuth بسيط وآمن."
+    },
+    "apiKey": {
+      "title": "استخدام مفتاح API مخصص",
+      "description": "استخدم مفتاح API الخاص بك من Anthropic أو موفر API متوافق. ⚠️ تجريبي للغاية — قد يتسبب في تكاليف كبيرة."
+    },
+    "info": "يوفر كلا الخيارين وصولاً كاملاً إلى ميزات Claude Code. اختر بناءً على تفضيلك.",
+    "skip": "تخطي الآن"
+  },
+  "firstSpec": {
+    "title": "أنشئ مهمتك الأولى",
+    "subtitle": "صف ما تريد بناءه ودع Aperant يتولى الباقي",
+    "opened": {
+      "title": "تم فتح منشئ المهام",
+      "description": "رائع! يمكنك إنشاء مهمتك الأولى الآن أو متابعة المعالج. يمكنك دائماً إنشاء المهام لاحقاً من لوحة التحكم الرئيسية."
+    },
+    "tipsHeading": "نصائح لمهام رائعة",
+    "tips": {
+      "descriptive": {
+        "title": "كن وصفياً",
+        "description": "صف بوضوح ما تريد بناءه. أدرج المتطلبات والقيود والسلوك المتوقع."
+      },
+      "startSmall": {
+        "title": "ابدأ صغيراً",
+        "description": "ابدأ بمهمة مركّزة مثل إضافة ميزة أو إصلاح خطأ. المهام الأصغر أسهل في التحقق منها."
+      },
+      "includeContext": {
+        "title": "أضف السياق",
+        "description": "اذكر الملفات أو واجهات API أو الأنماط ذات الصلة. كلما قدمت سياقاً أكثر، كانت النتائج أفضل."
+      },
+      "letAiHelp": {
+        "title": "دع الذكاء الاصطناعي يساعد",
+        "description": "يمكن للذكاء الاصطناعي إنشاء العناوين وتصنيف المهام. ركّز على وصف ما تريده، وليس التفاصيل."
+      }
+    },
+    "example": {
+      "label": "مثال على وصف مهمة:",
+      "text": "«أضف زر تبديل الوضع الداكن إلى صفحة الإعدادات. يجب أن يحفظ تفضيل المستخدم في localStorage ويطبّق السمة فوراً دون إعادة تحميل الصفحة. استخدم متغيرات الألوان الموجودة في styles/theme.css.»"
+    },
+    "openTaskCreator": "فتح منشئ المهام",
+    "skipInfoCreated": "يمكنك متابعة المعالج الآن أو إنشاء المزيد من المهام.",
+    "skipInfoDefault": "يمكنك تخطي هذه الخطوة وإنشاء المهام لاحقاً من لوحة التحكم.",
+    "back": "رجوع",
+    "skip": "تخطي",
+    "continue": "متابعة"
   }
 }

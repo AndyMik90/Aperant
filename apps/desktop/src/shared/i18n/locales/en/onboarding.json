@@ -257,5 +257,179 @@
       "retry": "Retry",
       "fallbackNote": "Memory will still work with keyword search even without embeddings."
     }
+  },
+  "graphiti": {
+    "title": "Memory & Context",
+    "subtitle": "Enable Graphiti for persistent memory across coding sessions",
+    "success": {
+      "title": "Graphiti configured successfully",
+      "description": "Memory features are enabled. Aperant will maintain context across sessions for improved code understanding.",
+      "reconfigure": "Reconfigure Graphiti settings"
+    },
+    "kuzuNotice": {
+      "title": "Database will be created automatically",
+      "description": "LadybugDB uses an embedded database - no Docker required. The database will be created when you first use memory features."
+    },
+    "info": {
+      "title": "What is Graphiti?",
+      "description": "Graphiti is an intelligent memory layer that helps Aperant remember context across sessions. It uses a knowledge graph to store discoveries, patterns, and insights about your codebase.",
+      "benefit1": "Persistent memory across coding sessions",
+      "benefit2": "Better understanding of your codebase over time",
+      "benefit3": "Reduces repetitive explanations",
+      "benefit4": "No Docker required - uses embedded database",
+      "learnMore": "Learn more about Graphiti"
+    },
+    "enable": {
+      "label": "Enable Graphiti Memory",
+      "description": "Uses LadybugDB (embedded) and an LLM/embedding provider"
+    },
+    "database": {
+      "label": "Database Name",
+      "placeholder": "auto_claude_memory",
+      "location": "Stored in ~/.auto-claude/graphs/",
+      "ready": "Ready",
+      "issue": "Issue"
+    },
+    "llmProvider": "LLM Provider",
+    "embeddingProvider": "Embedding Provider",
+    "providers": {
+      "openai": "OpenAI",
+      "openaiDesc": "GPT models (recommended)",
+      "anthropic": "Anthropic",
+      "anthropicDesc": "Claude models",
+      "google": "Google AI",
+      "googleDesc": "Gemini models",
+      "groq": "Groq",
+      "groqDesc": "Llama models (fast inference)",
+      "openrouter": "OpenRouter",
+      "openrouterDesc": "Multi-provider aggregator",
+      "azure": "Azure OpenAI",
+      "azureDesc": "Enterprise Azure deployment",
+      "ollama": "Ollama",
+      "ollamaDesc": "Local models (free)"
+    },
+    "embeddingProviders": {
+      "ollamaDesc": "Local embeddings (free)",
+      "openaiDesc": "text-embedding-3-small (recommended)",
+      "voyage": "Voyage AI",
+      "voyageDesc": "voyage-3 (great with Anthropic)",
+      "googleDesc": "Gemini text-embedding-004",
+      "openrouterDesc": "OpenAI-compatible embeddings",
+      "azureDesc": "Enterprise Azure embeddings"
+    },
+    "fields": {
+      "openaiApiKey": "OpenAI API Key",
+      "anthropicApiKey": "Anthropic API Key",
+      "voyageApiKey": "Voyage API Key",
+      "googleApiKey": "Google API Key",
+      "groqApiKey": "Groq API Key",
+      "openrouterApiKey": "OpenRouter API Key",
+      "getKeyFrom": "Get your key from",
+      "openaiLink": "OpenAI",
+      "anthropicLink": "Anthropic Console",
+      "voyageLink": "Voyage AI",
+      "googleLink": "Google AI Studio",
+      "groqLink": "Groq Console",
+      "openrouterLink": "OpenRouter Dashboard",
+      "azureSettings": "Azure OpenAI Settings",
+      "apiKey": "API Key",
+      "azureKeyPlaceholder": "Azure API key",
+      "baseUrl": "Base URL",
+      "llmDeployment": "LLM Deployment Name",
+      "embeddingDeployment": "Embedding Deployment Name",
+      "ollamaSettings": "Ollama Settings (Local)",
+      "llmModel": "LLM Model",
+      "embeddingModel": "Embedding Model",
+      "embeddingDimension": "Embedding Dimension",
+      "ollamaRunningHint": "Ensure Ollama is running locally. See"
+    },
+    "test": {
+      "testing": "Testing connection...",
+      "button": "Test Connection",
+      "allValidated": "All connections validated successfully!",
+      "openaiOnlyNote": "Note: API key validation currently only fully supports OpenAI. Your key will be saved and used at runtime.",
+      "ollamaNote": "Note: Ollama connection will be tested by checking if the server is reachable.",
+      "providerConfigured": "{{provider}} embedding provider configured"
+    },
+    "buttons": {
+      "back": "Back",
+      "skip": "Skip",
+      "saving": "Saving...",
+      "saveAndContinue": "Save & Continue",
+      "continue": "Continue"
+    },
+    "errors": {
+      "enterKeyToTest": "Please enter {{key}} to test the connection",
+      "keyRequired": "{{key}} is required",
+      "testFailed": "Failed to test connection",
+      "saveFailed": "Failed to save memory configuration",
+      "unknownError": "Unknown error occurred",
+      "databasePrefix": "Database: {{message}}"
+    },
+    "requiredKeys": {
+      "openai": "OpenAI API key",
+      "anthropic": "Anthropic API key",
+      "azureApiKey": "Azure OpenAI API key",
+      "azureBaseUrl": "Azure OpenAI Base URL",
+      "azureLlmDeployment": "Azure OpenAI LLM deployment name",
+      "azureEmbeddingDeployment": "Azure OpenAI embedding deployment name",
+      "voyage": "Voyage API key",
+      "google": "Google API key",
+      "groq": "Groq API key",
+      "openrouter": "OpenRouter API key",
+      "ollamaLlmModel": "Ollama LLM model name",
+      "ollamaEmbeddingModel": "Ollama embedding model name"
+    }
+  },
+  "authChoice": {
+    "title": "Choose Your Authentication Method",
+    "subtitle": "Select how you want to authenticate with Claude. You can change this later in Settings.",
+    "oauth": {
+      "title": "Sign in with Anthropic",
+      "description": "Use your Anthropic account to authenticate. Simple and secure OAuth flow."
+    },
+    "apiKey": {
+      "title": "Use Custom API Key",
+      "description": "Bring your own API key from Anthropic or a compatible API provider. ⚠️ Highly experimental — may incur significant costs."
+    },
+    "info": "Both options provide full access to Claude Code features. Choose based on your preference.",
+    "skip": "Skip for now"
+  },
+  "firstSpec": {
+    "title": "Create Your First Task",
+    "subtitle": "Describe what you want to build and let Aperant handle the rest",
+    "opened": {
+      "title": "Task Creator Opened",
+      "description": "Great! You can create your first task now or continue with the wizard. You can always create tasks later from the main dashboard."
+    },
+    "tipsHeading": "Tips for Great Tasks",
+    "tips": {
+      "descriptive": {
+        "title": "Be Descriptive",
+        "description": "Clearly describe what you want to build. Include requirements, constraints, and expected behavior."
+      },
+      "startSmall": {
+        "title": "Start Small",
+        "description": "Begin with a focused task like adding a feature or fixing a bug. Smaller tasks are easier to verify."
+      },
+      "includeContext": {
+        "title": "Include Context",
+        "description": "Mention relevant files, APIs, or patterns. The more context you provide, the better the results."
+      },
+      "letAiHelp": {
+        "title": "Let AI Help",
+        "description": "The AI can generate titles and classify tasks. Focus on describing what you want, not the details."
+      }
+    },
+    "example": {
+      "label": "Example Task Description:",
+      "text": "\"Add a dark mode toggle to the settings page. It should persist the user's preference in localStorage and apply the theme immediately without page reload. Use the existing color variables in styles/theme.css.\""
+    },
+    "openTaskCreator": "Open Task Creator",
+    "skipInfoCreated": "You can continue with the wizard now or create more tasks.",
+    "skipInfoDefault": "You can skip this step and create tasks later from the dashboard.",
+    "back": "Back",
+    "skip": "Skip",
+    "continue": "Continue"
   }
 }
