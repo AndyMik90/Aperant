@@ -14,6 +14,31 @@ import '@testing-library/jest-dom';
 import { AuthChoiceStep } from './AuthChoiceStep';
 import type { APIProfile } from '@shared/types/profile';
 
+// Mock react-i18next: the component now sources its copy from the `onboarding`
+// namespace, so resolve the keys it uses back to the English strings the
+// assertions below expect. (Mirrors the pattern in OnboardingWizard.test.tsx.)
+vi.mock('react-i18next', () => ({
+  useTranslation: () => ({
+    t: (key: string) => {
+      const translations: Record<string, string> = {
+        'authChoice.title': 'Choose Your Authentication Method',
+        'authChoice.subtitle':
+          'Select how you want to authenticate with Claude. You can change this later in Settings.',
+        'authChoice.oauth.title': 'Sign in with Anthropic',
+        'authChoice.oauth.description':
+          'Use your Anthropic account to authenticate. Simple and secure OAuth flow.',
+        'authChoice.apiKey.title': 'Use Custom API Key',
+        'authChoice.apiKey.description':
+          'Bring your own API key from Anthropic or a compatible API provider. ⚠️ Highly experimental — may incur significant costs.',
+        'authChoice.info':
+          'Both options provide full access to Claude Code features. Choose based on your preference.',
+        'authChoice.skip': 'Skip for now'
+      };
+      return translations[key] ?? key;
+    }
+  })
+}));
+
 // Mock the settings store
 const mockGoToNext = vi.fn();
 const mockGoToPrevious = vi.fn();
