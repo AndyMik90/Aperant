@@ -1,4 +1,5 @@
 import { Zap, Import, Radio } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { CollapsibleSection } from './CollapsibleSection';
 import { StatusBadge } from './StatusBadge';
 import { PasswordInput } from './PasswordInput';
@@ -29,13 +30,14 @@ export function LinearIntegrationSection({
   isCheckingLinear,
   onOpenImportModal,
 }: LinearIntegrationSectionProps) {
+  const { t } = useTranslation('settings');
   const badge = envConfig.linearEnabled ? (
-    <StatusBadge status="success" label="Enabled" />
+    <StatusBadge status="success" label={t('integrations.common.enabled')} />
   ) : null;
 
   return (
     <CollapsibleSection
-      title="Linear Integration"
+      title={t('integrations.linear.title')}
       icon={<Zap className="h-4 w-4" />}
       isExpanded={isExpanded}
       onToggle={onToggle}
@@ -43,9 +45,9 @@ export function LinearIntegrationSection({
     >
       <div className="flex items-center justify-between">
         <div className="space-y-0.5">
-          <Label className="font-normal text-foreground">Enable Linear Sync</Label>
+          <Label className="font-normal text-foreground">{t('integrations.linear.enableSync')}</Label>
           <p className="text-xs text-muted-foreground">
-            Create and update Linear issues automatically
+            {t('integrations.linear.enableSyncDescription')}
           </p>
         </div>
         <Switch
@@ -57,16 +59,16 @@ export function LinearIntegrationSection({
       {envConfig.linearEnabled && (
         <>
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-foreground">API Key</Label>
+            <Label className="text-sm font-medium text-foreground">{t('integrations.common.apiKey')}</Label>
             <p className="text-xs text-muted-foreground">
-              Get your API key from{' '}
+              {t('integrations.linear.apiKeyHint')}{' '}
               <a
                 href="https://linear.app/settings/api"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-info hover:underline"
               >
-                Linear Settings
+                {t('integrations.linear.linearSettings')}
               </a>
             </p>
             <PasswordInput
@@ -81,12 +83,16 @@ export function LinearIntegrationSection({
             <ConnectionStatus
               isChecking={isCheckingLinear}
               isConnected={linearConnectionStatus?.connected || false}
-              title="Connection Status"
-              successMessage={`Connected${linearConnectionStatus?.teamName ? ` to ${linearConnectionStatus.teamName}` : ''}`}
-              errorMessage={linearConnectionStatus?.error || 'Not connected'}
+              title={t('integrations.connection.status')}
+              successMessage={
+                linearConnectionStatus?.teamName
+                  ? t('integrations.linear.connectedTo', { team: linearConnectionStatus.teamName })
+                  : t('integrations.linear.connected')
+              }
+              errorMessage={linearConnectionStatus?.error || t('integrations.connection.notConnected')}
               additionalInfo={
                 linearConnectionStatus?.connected && linearConnectionStatus.issueCount !== undefined
-                  ? `${linearConnectionStatus.issueCount}+ tasks available to import`
+                  ? t('integrations.linear.tasksAvailable', { count: linearConnectionStatus.issueCount })
                   : undefined
               }
             />
@@ -98,9 +104,9 @@ export function LinearIntegrationSection({
               <div className="flex items-start gap-3">
                 <Import className="h-5 w-5 text-info mt-0.5" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">Import Existing Tasks</p>
+                  <p className="text-sm font-medium text-foreground">{t('integrations.linear.importExistingTitle')}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Select which Linear issues to import into AutoBuild as tasks.
+                    {t('integrations.linear.importExistingDescription')}
                   </p>
                   <Button
                     size="sm"
@@ -109,7 +115,7 @@ export function LinearIntegrationSection({
                     onClick={onOpenImportModal}
                   >
                     <Import className="h-4 w-4 me-2" />
-                    Import Tasks from Linear
+                    {t('integrations.linear.importButton')}
                   </Button>
                 </div>
               </div>
@@ -123,10 +129,10 @@ export function LinearIntegrationSection({
             <div className="space-y-0.5">
               <div className="flex items-center gap-2">
                 <Radio className="h-4 w-4 text-info" />
-                <Label className="font-normal text-foreground">Real-time Sync</Label>
+                <Label className="font-normal text-foreground">{t('integrations.linear.realtimeSync')}</Label>
               </div>
               <p className="text-xs text-muted-foreground ps-6">
-                Automatically import new tasks created in Linear
+                {t('integrations.linear.realtimeSyncDescription')}
               </p>
             </div>
             <Switch
@@ -138,8 +144,7 @@ export function LinearIntegrationSection({
           {envConfig.linearRealtimeSync && (
             <div className="rounded-lg border border-warning/30 bg-warning/5 p-3 ms-6">
               <p className="text-xs text-warning">
-                When enabled, new Linear issues will be automatically imported into AutoBuild.
-                Make sure to configure your team/project filters below to control which issues are imported.
+                {t('integrations.linear.realtimeSyncWarning')}
               </p>
             </div>
           )}
@@ -148,17 +153,17 @@ export function LinearIntegrationSection({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label className="text-sm font-medium text-foreground">Team ID (Optional)</Label>
+              <Label className="text-sm font-medium text-foreground">{t('integrations.linear.teamId')}</Label>
               <Input
-                placeholder="Auto-detected"
+                placeholder={t('integrations.linear.teamIdPlaceholder')}
                 value={envConfig.linearTeamId || ''}
                 onChange={(e) => onUpdateConfig({ linearTeamId: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-sm font-medium text-foreground">Project ID (Optional)</Label>
+              <Label className="text-sm font-medium text-foreground">{t('integrations.linear.projectId')}</Label>
               <Input
-                placeholder="Auto-created"
+                placeholder={t('integrations.linear.projectIdPlaceholder')}
                 value={envConfig.linearProjectId || ''}
                 onChange={(e) => onUpdateConfig({ linearProjectId: e.target.value })}
               />
