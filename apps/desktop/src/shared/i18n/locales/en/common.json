@@ -469,6 +469,7 @@
     "creating": "Creating...",
     "taskCreated": "Task Created",
     "createTask": "Create Task",
+    "createTaskFailed": "Failed to create task",
     "chatHistory": "Chat History",
     "archive": "Archive",
     "unarchive": "Unarchive",

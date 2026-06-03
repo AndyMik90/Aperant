@@ -9,7 +9,8 @@ import type {
   InsightsModelConfig,
   TaskMetadata,
   Task,
-  ImageAttachment
+  ImageAttachment,
+  IPCResult
 } from '../../shared/types';
 
 interface ToolUsage {
@@ -384,18 +385,13 @@ export async function createTaskFromSuggestion(
   title: string,
   description: string,
   metadata?: TaskMetadata
-): Promise<Task | null> {
-  const result = await window.electronAPI.createTaskFromInsights(
+): Promise<IPCResult<Task>> {
+  return window.electronAPI.createTaskFromInsights(
     projectId,
     title,
     description,
     metadata
   );
-
-  if (result.success && result.data) {
-    return result.data;
-  }
-  return null;
 }
 
 // IPC listener setup - call this once when the app initializes

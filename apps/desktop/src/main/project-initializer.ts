@@ -302,11 +302,18 @@ export function initializeProject(projectPath: string): InitializationResult {
   const dotAutoBuildPath = path.join(projectPath, '.auto-claude');
 
   if (existsSync(dotAutoBuildPath)) {
-    debug('Already initialized - .auto-claude exists');
-    return {
-      success: false,
-      error: 'Project already has auto-claude initialized (.auto-claude exists)'
-    };
+    // Idempotent: .auto-claude already exists on disk. Instead of failing,
+    // ensure the expected data directories + .gitignore entry are present and
+    // report success. This also recovers the "stuck" state where the folder
+    // exists but the project's autoBuildPath was never set (so the UI keeps
+    // prompting to initialize and task creation fails).
+    debug('Already initialized - ensuring data directories exist');
+    const ensureResult = ensureDataDirectories(projectPath);
+    if (!ensureResult.success) {
+      return ensureResult;
+    }
+    ensureGitignoreEntries(projectPath, GITIGNORE_ENTRIES);
+    return { success: true };
   }
 
   try {

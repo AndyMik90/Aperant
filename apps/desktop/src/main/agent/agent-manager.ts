@@ -17,7 +17,7 @@ import type { IdeationConfig } from '../../shared/types';
 import { resetStuckSubtasks } from '../ipc-handlers/task/plan-file-utils';
 import { AUTO_BUILD_PATHS, getSpecsDir } from '../../shared/constants';
 import { projectStore } from '../project-store';
-import { resolveAuth, resolveAuthFromQueue } from '../ai/auth/resolver';
+import { resolveAuth, resolveAuthFromQueue, getDirectConnectionSettings } from '../ai/auth/resolver';
 import { resolveModelId } from '../ai/config/phase-config';
 import { detectProviderFromModel } from '../ai/providers/factory';
 import { resolveModelEquivalent } from '../../shared/constants/models';
@@ -129,6 +129,19 @@ export class AgentManager extends EventEmitter {
   }
 
   /**
+   * Check if the free Direct AI Connection is enabled AND serviceable (has a
+   * usable credential). Used so users relying solely on the free path can start
+   * tasks without a Claude profile or provider account.
+   */
+  private hasServiceableDirectConnection(): boolean {
+    const direct = getDirectConnectionSettings();
+    if (!direct?.enabled) return false;
+    if (direct.primaryProvider === 'chatgpt' && direct.chatgpt?.enabled) return true;
+    if (direct.deepseek?.enabled && !!direct.deepseek.userToken?.trim()) return true;
+    return false;
+  }
+
+  /**
    * Resolve auth using the provider accounts priority queue.
    * Falls back to legacy Claude profile if no provider accounts exist.
    */
@@ -141,12 +154,35 @@ export class AgentManager extends EventEmitter {
     modelId: string;
     configDir?: string;
   }> {
+    // 0. Free Direct AI Connection takes precedence when enabled + serviceable.
+    // This mirrors the client factories (createAgentClient/createSimpleClient) so
+    // the task/spec/build pipeline honors the free path too. Without this, spec
+    // creation fell back to Anthropic and failed with "anthropic api key is missing"
+    // even though Insights (which uses the factories) worked on the free connection.
+    const direct = getDirectConnectionSettings();
+    if (direct?.enabled) {
+      // ChatGPT primary: tunnels through a persistent browser session, no token here.
+      if (direct.primaryProvider === 'chatgpt' && direct.chatgpt?.enabled) {
+        return { auth: { apiKey: undefined }, provider: 'direct', modelId: 'chatgpt', configDir: undefined };
+      }
+      // DeepSeek primary (default): requires a captured web token.
+      if (direct.deepseek?.enabled && direct.deepseek.userToken?.trim()) {
+        return { auth: { apiKey: direct.deepseek.userToken }, provider: 'direct', modelId: 'deepseek', configDir: undefined };
+      }
+      // Enabled but not serviceable (DeepSeek primary, no token) — fall through to
+      // the configured provider queue / legacy profile below.
+    }
+
     // Read provider accounts and priority order from settings
     const settings = readSettingsFile();
     const accounts = (settings?.providerAccounts as ProviderAccount[] | undefined) ?? [];
     const priorityOrder = (settings?.globalPriorityOrder as string[] | undefined) ?? [];
 
-    if (accounts.length > 0 && priorityOrder.length > 0) {
+    // Use the queue whenever any account exists. An empty priorityOrder is fine —
+    // orderedQueue falls back to the accounts' natural order below. (Previously this
+    // required priorityOrder.length > 0, so a configured account with no explicit
+    // ordering was skipped entirely and resolution fell through to Anthropic.)
+    if (accounts.length > 0) {
       // Sort accounts by priority order
       const orderedQueue = priorityOrder
         .map(id => accounts.find(a => a.id === id))
@@ -329,7 +365,7 @@ export class AgentManager extends EventEmitter {
       this.emit('error', taskId, 'Failed to initialize profile manager. Please check file permissions and disk space.');
       return;
     }
-    if (!profileManager.hasValidAuth() && !this.hasAnyProviderAccount()) {
+    if (!profileManager.hasValidAuth() && !this.hasAnyProviderAccount() && !this.hasServiceableDirectConnection()) {
       this.emit('error', taskId, 'Authentication required. Please add an account in Settings > Accounts before starting tasks.');
       return;
     }
@@ -449,7 +485,7 @@ export class AgentManager extends EventEmitter {
       this.emit('error', taskId, 'Failed to initialize profile manager. Please check file permissions and disk space.');
       return;
     }
-    if (!profileManager.hasValidAuth() && !this.hasAnyProviderAccount()) {
+    if (!profileManager.hasValidAuth() && !this.hasAnyProviderAccount() && !this.hasServiceableDirectConnection()) {
       this.emit('error', taskId, 'Authentication required. Please add an account in Settings > Accounts before starting tasks.');
       return;
     }
@@ -571,7 +607,7 @@ export class AgentManager extends EventEmitter {
       this.emit('error', taskId, 'Failed to initialize profile manager. Please check file permissions and disk space.');
       return;
     }
-    if (!profileManager.hasValidAuth() && !this.hasAnyProviderAccount()) {
+    if (!profileManager.hasValidAuth() && !this.hasAnyProviderAccount() && !this.hasServiceableDirectConnection()) {
       this.emit('error', taskId, 'Authentication required. Please add an account in Settings > Accounts before starting tasks.');
       return;
     }

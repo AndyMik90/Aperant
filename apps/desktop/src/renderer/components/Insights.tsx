@@ -47,6 +47,7 @@ import {
 import { useImageUpload } from './task-form/useImageUpload';
 import { createThumbnail, generateImageId } from './ImageUpload';
 import { loadTasks } from '../stores/task-store';
+import { toast } from '../hooks/use-toast';
 import { ChatHistorySidebar } from './ChatHistorySidebar';
 import { InsightsModelSelector } from './InsightsModelSelector';
 import type { InsightsChatMessage, InsightsModelConfig, TaskMetadata, ImageAttachment } from '../../shared/types';
@@ -353,18 +354,35 @@ export function Insights({ projectId }: InsightsProps) {
     const taskKey = `${messageId}-${taskIndex}`;
     setCreatingTask(prev => new Set(prev).add(taskKey));
     try {
-      const task = await createTaskFromSuggestion(
+      const result = await createTaskFromSuggestion(
         projectId,
         taskData.title,
         taskData.description,
         taskData.metadata
       );
 
-      if (task) {
+      if (result.success && result.data) {
         setTaskCreated(prev => new Set(prev).add(taskKey));
         // Reload tasks to show the new task in the kanban
         loadTasks(projectId);
+        toast({
+          title: t('insights.taskCreated'),
+          description: taskData.title
+        });
+      } else {
+        // Surface the failure instead of silently doing nothing
+        toast({
+          variant: 'destructive',
+          title: t('insights.createTaskFailed'),
+          description: result.error || t('insights.createTaskFailed')
+        });
       }
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: t('insights.createTaskFailed'),
+        description: error instanceof Error ? error.message : String(error)
+      });
     } finally {
       setCreatingTask(prev => {
         const next = new Set(prev);
