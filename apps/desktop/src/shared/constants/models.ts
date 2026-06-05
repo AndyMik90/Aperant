@@ -433,8 +433,8 @@ export const DEFAULT_MODEL_EQUIVALENCES: Record<string, Partial<Record<BuiltinPr
   },
   'minimax-m2.7': {
     minimax: { modelId: 'minimax-m2.7', reasoning: { type: 'none' } },
-    anthropic: { modelId: 'claude-opus-4-6', reasoning: { type: 'adaptive_effort', level: 'high' } },
-    openai: { modelId: 'gpt-5.3-codex', reasoning: { type: 'reasoning_effort', level: 'high' } },
+    anthropic: { modelId: 'claude-sonnet-4-6', reasoning: { type: 'thinking_tokens', level: 'medium' } },
+    openai: { modelId: 'gpt-5.2-codex', reasoning: { type: 'reasoning_effort', level: 'medium' } },
   },
   'minimax-m2.7-highspeed': {
     minimax: { modelId: 'minimax-m2.7-highspeed', reasoning: { type: 'none' } },
