@@ -62,7 +62,7 @@ export const PROVIDER_REGISTRY: ProviderInfo[] = [
     configFields: ['baseUrl'],
   },
   {
-    id: 'minimax', name: 'MiniMax', description: 'MiniMax M2.7, M2.7-highspeed and M2.5 models',
+    id: 'minimax', name: 'MiniMax', description: 'MiniMax M3, M2.7 and M2.7-highspeed models',
     category: 'popular',
     authMethods: ['api-key'], envVars: ['MINIMAX_API_KEY'],
     configFields: ['baseUrl'], website: 'https://platform.minimax.io',
