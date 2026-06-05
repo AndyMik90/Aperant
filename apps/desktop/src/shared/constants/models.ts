@@ -323,7 +323,7 @@ export const PROVIDER_PRESET_DEFINITIONS: Partial<Record<BuiltinProvider, Record
   minimax: {
     auto:     { primaryModel: 'minimax-m3', primaryThinking: 'low', phaseModels: { spec: 'minimax-m3', planning: 'minimax-m3', coding: 'minimax-m3', qa: 'minimax-m3' }, phaseThinking: { spec: 'low', planning: 'low', coding: 'low', qa: 'low' } },
     complex:  { primaryModel: 'minimax-m3', primaryThinking: 'low', phaseModels: { spec: 'minimax-m3', planning: 'minimax-m3', coding: 'minimax-m3', qa: 'minimax-m3' }, phaseThinking: { spec: 'low', planning: 'low', coding: 'low', qa: 'low' } },
-    balanced: { primaryModel: 'minimax-m3', primaryThinking: 'low', phaseModels: { spec: 'minimax-m3', planning: 'minimax-m3', coding: 'minimax-m3', qa: 'minimax-m3' }, phaseThinking: { spec: 'low', planning: 'low', coding: 'low', qa: 'low' } },
+    balanced: { primaryModel: 'minimax-m2.7', primaryThinking: 'low', phaseModels: { spec: 'minimax-m2.7', planning: 'minimax-m2.7', coding: 'minimax-m2.7', qa: 'minimax-m2.7' }, phaseThinking: { spec: 'low', planning: 'low', coding: 'low', qa: 'low' } },
     quick:    { primaryModel: 'minimax-m2.7-highspeed', primaryThinking: 'low', phaseModels: { spec: 'minimax-m2.7-highspeed', planning: 'minimax-m2.7-highspeed', coding: 'minimax-m2.7-highspeed', qa: 'minimax-m2.7-highspeed' }, phaseThinking: { spec: 'low', planning: 'low', coding: 'low', qa: 'low' } },
   },
   ollama: {
