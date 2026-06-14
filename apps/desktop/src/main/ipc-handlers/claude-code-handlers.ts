@@ -1564,7 +1564,7 @@ export function registerClaudeCodeHandlers(): void {
                 profileManager.saveProfile(profile);
                 clearKeychainCache(expandedConfigDir);
                 const usageMonitor = getUsageMonitor();
-                usageMonitor.clearProfileUsageCache(profileId);
+                usageMonitor.clearAuthFailedProfile(profileId);
                 usageMonitor.checkNow();
                 console.warn('[Claude Code] Triggered immediate usage check after re-authentication:', profileId);
 
