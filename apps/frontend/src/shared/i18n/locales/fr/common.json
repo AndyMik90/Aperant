@@ -31,6 +31,8 @@
     "deleteFeatureAriaLabel": "Supprimer la fonctionnalité",
     "archiveFeatureAriaLabel": "Archiver la fonctionnalité",
     "closeFeatureDetailsAriaLabel": "Fermer les détails de la fonctionnalité",
+    "expandFeatureDetailsAriaLabel": "Élargir le panneau de détails de la fonctionnalité",
+    "collapseFeatureDetailsAriaLabel": "Réduire le panneau de détails de la fonctionnalité",
     "regenerateRoadmapAriaLabel": "Régénérer la feuille de route",
     "repositoryOwnerAriaLabel": "Propriétaire du dépôt",
     "repositoryVisibilityAriaLabel": "Visibilité du dépôt",

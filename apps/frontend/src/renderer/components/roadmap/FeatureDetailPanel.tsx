@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
   Lightbulb,
   Users,
   CheckCircle2,
@@ -37,6 +39,7 @@ export function FeatureDetailPanel({
 }: FeatureDetailPanelProps) {
   const { t } = useTranslation('common');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const handleArchive = () => {
     onArchive?.(feature.id);
@@ -50,7 +53,11 @@ export function FeatureDetailPanel({
   };
 
   return (
-    <div className="fixed inset-y-0 right-0 w-96 bg-card border-l border-border shadow-lg flex flex-col z-50">
+    <div
+      className={`fixed inset-y-0 right-0 max-w-[90vw] bg-card border-l border-border shadow-lg flex flex-col z-50 transition-[width] duration-200 ${
+        isExpanded ? 'w-[42rem]' : 'w-96'
+      }`}
+    >
       {/* Header */}
       <div className="shrink-0 p-4 border-b border-border electron-no-drag">
         <div className="flex items-start justify-between gap-2">
@@ -73,6 +80,28 @@ export function FeatureDetailPanel({
               type="button"
               variant="ghost"
               size="icon"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsExpanded((prev) => !prev);
+              }}
+              aria-expanded={isExpanded}
+              aria-label={
+                isExpanded
+                  ? t('accessibility.collapseFeatureDetailsAriaLabel')
+                  : t('accessibility.expandFeatureDetailsAriaLabel')
+              }
+            >
+              {isExpanded ? (
+                <ChevronsRight className="h-4 w-4" />
+              ) : (
+                <ChevronsLeft className="h-4 w-4" />
+              )}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
               className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
               onClick={(e) => {
                 e.stopPropagation();
@@ -90,8 +119,10 @@ export function FeatureDetailPanel({
       </div>
 
       {/* Content */}
-      <ScrollArea className="flex-1">
-        <div className="p-4 space-y-6">
+      {/* Radix renders the viewport child as `display: table`, which lets a single long
+          token (e.g. a URL in a competitor insight) stretch every row past the panel edge. */}
+      <ScrollArea className="flex-1" viewportClassName="[&>div]:block!">
+        <div className="p-4 space-y-6 break-words">
           {/* Description */}
           <div>
             <h3 className="text-sm font-medium mb-2">Description</h3>

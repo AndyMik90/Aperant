@@ -31,6 +31,8 @@
     "deleteFeatureAriaLabel": "Delete feature",
     "archiveFeatureAriaLabel": "Archive feature",
     "closeFeatureDetailsAriaLabel": "Close feature details",
+    "expandFeatureDetailsAriaLabel": "Widen feature details panel",
+    "collapseFeatureDetailsAriaLabel": "Narrow feature details panel",
     "regenerateRoadmapAriaLabel": "Regenerate Roadmap",
     "repositoryOwnerAriaLabel": "Repository owner",
     "repositoryVisibilityAriaLabel": "Repository visibility",
