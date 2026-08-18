@@ -217,4 +217,4 @@ Commercial licensing available for closed-source use cases.
 
 [![GitHub Repo stars](https://img.shields.io/github/stars/AndyMik90/Aperant?style=social)](https://github.com/AndyMik90/Aperant/stargazers)
 
-[![Star History Chart](https://api.star-history.com/svg?repos=AndyMik90/Aperant&type=Date)](https://star-history.com/#AndyMik90/Aperant&Date)
+[![Star History Chart](https://star-history.dera.page/svg?repos=AndyMik90/Aperant&type=Date)](https://star-history.dera.page/#AndyMik90/Aperant&Date)
