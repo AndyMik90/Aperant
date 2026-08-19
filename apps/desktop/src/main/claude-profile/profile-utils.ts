@@ -7,7 +7,8 @@ import { homedir } from 'os';
 import { join } from 'path';
 import { existsSync, readFileSync, readdirSync, mkdirSync } from 'fs';
 import type { ClaudeProfile, APIProfile } from '../../shared/types';
-import { getCredentialsFromKeychain } from './credential-utils';
+import { getCredentialsFromKeychain, getFullCredentialsFromKeychain } from './credential-utils';
+import { isTokenExpiredOrNearExpiry } from './token-refresh';
 
 /**
  * Default Claude config directory
@@ -89,12 +90,19 @@ export function isProfileAuthenticated(profile: ClaudeProfile): boolean {
         const expandedConfigDir = configDir.startsWith('~')
           ? configDir.replace(/^~/, homedir())
           : configDir;
-        const platformCreds = getCredentialsFromKeychain(expandedConfigDir);
-        if (!platformCreds.token) {
+        const fullCreds = getFullCredentialsFromKeychain(expandedConfigDir);
+        if (!fullCreds.token) {
           // .claude.json exists but credential store is missing tokens - NOT authenticated
           console.warn(`[profile-utils] Profile has .claude.json but no platform credentials for: ${configDir}`);
           return false;
         }
+
+        // Check if the token is expired or near expiry (0ms threshold for strict validity)
+        if (isTokenExpiredOrNearExpiry(fullCreds.expiresAt, 0)) {
+          console.warn(`[profile-utils] Platform credential token is EXPIRED for: ${configDir}`);
+          return false;
+        }
+
         return true;
       }
     } catch (error) {

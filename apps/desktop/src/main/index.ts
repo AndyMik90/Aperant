@@ -67,6 +67,7 @@ import { initSentryMain } from './sentry';
 import { preWarmToolCache } from './cli-tool-manager';
 import { initializeClaudeProfileManager, getClaudeProfileManager } from './claude-profile-manager';
 import { isProfileAuthenticated } from './claude-profile/profile-utils';
+import { ensureValidToken } from './claude-profile/token-refresh';
 import { isMacOS, isWindows } from './platform';
 import { ptyDaemonClient } from './terminal/pty-daemon-client';
 import type { AppSettings, AuthFailureInfo } from '../shared/types';
@@ -604,6 +605,22 @@ app.whenReady().then(() => {
                 console.warn('[main] Sending auth failure for migrated active profile:', activeProfile.name);
                 mainWindow?.webContents.send(IPC_CHANNELS.CLAUDE_AUTH_FAILURE, authFailureInfo);
               }, 1000);
+            });
+          }
+        }
+
+        // Proactively refresh tokens for all profiles on app startup
+        const allProfiles = profileManager.getSettings().profiles;
+        for (const profile of allProfiles) {
+          if (profile.configDir) {
+            ensureValidToken(profile.configDir).then((res) => {
+              if (res.wasRefreshed) {
+                console.warn(`[main] Startup proactive token refresh succeeded for profile: ${profile.name}`);
+              } else if (res.error) {
+                console.warn(`[main] Startup token check note for profile ${profile.name}: ${res.error}`);
+              }
+            }).catch((err) => {
+              console.warn(`[main] Startup token refresh error for profile ${profile.name}:`, err);
             });
           }
         }

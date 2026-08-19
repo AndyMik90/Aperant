@@ -25,6 +25,7 @@ import { getIsolatedGitEnv, detectWorktreeBranch } from '../../utils/git-isolati
 import { cancelFallbackTimer } from '../agent-events-handlers';
 import { readSettingsFile } from '../../settings-utils';
 import type { ProviderAccount } from '../../../shared/types/provider-account';
+import { ensureValidToken } from '../../claude-profile/token-refresh';
 
 /**
  * Check if any provider account is configured (API key or OAuth).
@@ -191,7 +192,22 @@ export function registerTaskExecutionHandlers(
         return;
       }
 
-      // Check authentication - requires valid legacy profile OR provider account
+      // Attempt pre-flight token refresh if using Claude profile
+      const activeProfile = profileManager.getActiveProfile();
+      if (activeProfile?.configDir) {
+        const tokenResult = await ensureValidToken(activeProfile.configDir);
+        if (!tokenResult.token && !hasAnyProviderAccount()) {
+          console.warn('[TASK_START] Pre-flight token refresh failed or token missing:', tokenResult.error);
+          mainWindow.webContents.send(
+            IPC_CHANNELS.TASK_ERROR,
+            taskId,
+            `Authentication failed (${tokenResult.error || 'Token expired'}). Please re-authenticate in Settings > Accounts.`
+          );
+          return;
+        }
+      }
+
+      // Check authentication - requires valid profile OR provider account
       if (!profileManager.hasValidAuth() && !hasAnyProviderAccount()) {
         console.warn('[TASK_START] No valid authentication for active profile or provider accounts');
         mainWindow.webContents.send(
